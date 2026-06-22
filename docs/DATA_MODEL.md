@@ -11,6 +11,41 @@
 
 ## 2. Core Entities
 
+### Phase 2A Implemented Storage
+
+Phase 2A implements the first persistence slice in PostgreSQL through Alembic:
+
+- `institutions`
+- `campuses`
+- `academic_terms`
+- `academic_programs`
+- `program_versions`
+- `courses`
+- `course_equivalencies`
+- `requirement_nodes`
+- `requirement_course_options`
+- `student_profiles`
+- `student_academic_programs`
+- `student_course_attempts`
+- `transfer_credits`
+- `course_waivers`
+- `course_substitutions`
+
+Every Phase 2A academic-domain table includes `source_type`, `is_official`, source reference fields, and timestamps. The development seed uses only `source_type = MOCK` and `is_official = false`.
+
+Important Phase 2A constraints include:
+
+- `institutions.code` is globally unique.
+- `campuses.code` is unique within an institution.
+- Course identity is unique by institution, subject code, and course number.
+- `ProgramVersion` is unique by program, campus, catalog year, and effective term.
+- Requirement parents must belong to the same program version and cannot point to themselves.
+- Requirement course options cannot repeat the same course for the same node.
+- Course equivalencies and course substitutions cannot point a course at itself.
+- A student can have only one active primary major.
+- Course attempts keep separate positive attempt numbers for retakes.
+- Transfer, waiver, and substitution records store approval status but do not affect audit results in Phase 2A.
+
 ### Institution and Versioning
 
 - `institution`

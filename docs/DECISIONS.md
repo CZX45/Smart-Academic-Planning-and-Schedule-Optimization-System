@@ -105,3 +105,18 @@ Consequences:
 
 - Core algorithms can be built and tested immediately.
 - Accuracy validation remains a separate official-data onboarding task.
+
+## ADR-0009: Implement Phase 2A as relational academic-domain storage
+
+Status: Accepted
+
+Context: Degree Audit, eligibility, academic planning, and schedule optimization need shared academic identities and source metadata before evaluators are introduced.
+
+Decision: Implement Phase 2A as normalized SQLAlchemy/PostgreSQL storage for institutions, campuses, terms, academic programs, program versions, courses, course equivalencies, requirement nodes, requirement course options, student profiles, academic program declarations, course attempts, transfer credits, waivers, and substitutions. Requirement trees use relational adjacency lists rather than a single JSON blob.
+
+Consequences:
+
+- Future evaluators can share deterministic, versioned, source-tagged records.
+- Course planning remains separate from section scheduling because Phase 2A models courses only.
+- Pending or rejected exceptions can be stored without being applied before Degree Audit rules exist.
+- Mock seed data can demonstrate the shape of catalog and student records without claiming official school policy.

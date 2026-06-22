@@ -5,6 +5,350 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/institutions": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "List Institutions",
+        "operationId": "list_institutions_api_v1_institutions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InstitutionResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Institutions Api V1 Institutions Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/programs": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "List Programs",
+        "operationId": "list_programs_api_v1_programs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProgramVersionSummaryResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Programs Api V1 Programs Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/programs/{program_version_id}": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Program",
+        "operationId": "get_program_api_v1_programs__program_version_id__get",
+        "parameters": [
+          {
+            "name": "program_version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Program Version Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramVersionDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/programs/{program_version_id}/requirements": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Program Requirements",
+        "operationId": "get_program_requirements_api_v1_programs__program_version_id__requirements_get",
+        "parameters": [
+          {
+            "name": "program_version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Program Version Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequirementTreeResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "List Courses",
+        "operationId": "list_courses_api_v1_courses_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CourseResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Courses Api V1 Courses Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses/{course_id}": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Course",
+        "operationId": "get_course_api_v1_courses__course_id__get",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Course Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/students/{student_id}": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Student",
+        "operationId": "get_student_api_v1_students__student_id__get",
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentProfileResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/students/{student_id}/course-attempts": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Student Course Attempts",
+        "operationId": "get_student_course_attempts_api_v1_students__student_id__course_attempts_get",
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StudentCourseAttemptResponse"
+                  },
+                  "title": "Response Get Student Course Attempts Api V1 Students  Student Id  Course Attempts Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -60,6 +404,210 @@
   },
   "components": {
     "schemas": {
+      "AcademicProgramResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "institution_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Institution Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "program_type": {
+            "type": "string",
+            "title": "Program Type"
+          },
+          "degree_level": {
+            "type": "string",
+            "title": "Degree Level"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "institution_id",
+          "code",
+          "name",
+          "program_type",
+          "degree_level",
+          "source"
+        ],
+        "title": "AcademicProgramResponse"
+      },
+      "CampusResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "institution_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Institution Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "institution_id",
+          "code",
+          "name",
+          "source"
+        ],
+        "title": "CampusResponse"
+      },
+      "CourseResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "institution_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Institution Id"
+          },
+          "subject_code": {
+            "type": "string",
+            "title": "Subject Code"
+          },
+          "course_number": {
+            "type": "string",
+            "title": "Course Number"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "credits_min": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Credits Min"
+          },
+          "credits_max": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Credits Max"
+          },
+          "course_level": {
+            "type": "integer",
+            "title": "Course Level"
+          },
+          "repeatable": {
+            "type": "boolean",
+            "title": "Repeatable"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "institution_id",
+          "subject_code",
+          "course_number",
+          "title",
+          "credits_min",
+          "credits_max",
+          "course_level",
+          "repeatable",
+          "source"
+        ],
+        "title": "CourseResponse"
+      },
+      "ErrorDetailResponse": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorDetailResponse"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/ErrorDetailResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
       "HealthResponse": {
         "properties": {
           "status": {
@@ -85,6 +633,174 @@
           "database_configured"
         ],
         "title": "HealthResponse"
+      },
+      "InstitutionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "country": {
+            "type": "string",
+            "title": "Country"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "country",
+          "timezone",
+          "source"
+        ],
+        "title": "InstitutionResponse"
+      },
+      "ProgramVersionDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "institution_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Institution Id"
+          },
+          "catalog_year": {
+            "type": "string",
+            "title": "Catalog Year"
+          },
+          "version_label": {
+            "type": "string",
+            "title": "Version Label"
+          },
+          "total_credits_required": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Credits Required"
+          },
+          "effective_term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Effective Term Id"
+          },
+          "program": {
+            "$ref": "#/components/schemas/AcademicProgramResponse"
+          },
+          "campus": {
+            "$ref": "#/components/schemas/CampusResponse"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "institution_id",
+          "catalog_year",
+          "version_label",
+          "total_credits_required",
+          "effective_term_id",
+          "program",
+          "campus",
+          "source"
+        ],
+        "title": "ProgramVersionDetailResponse"
+      },
+      "ProgramVersionSummaryResponse": {
+        "properties": {
+          "program_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Program Version Id"
+          },
+          "program_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Program Id"
+          },
+          "program_code": {
+            "type": "string",
+            "title": "Program Code"
+          },
+          "program_name": {
+            "type": "string",
+            "title": "Program Name"
+          },
+          "program_type": {
+            "type": "string",
+            "title": "Program Type"
+          },
+          "degree_level": {
+            "type": "string",
+            "title": "Degree Level"
+          },
+          "campus_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Campus Id"
+          },
+          "campus_code": {
+            "type": "string",
+            "title": "Campus Code"
+          },
+          "campus_name": {
+            "type": "string",
+            "title": "Campus Name"
+          },
+          "catalog_year": {
+            "type": "string",
+            "title": "Catalog Year"
+          },
+          "version_label": {
+            "type": "string",
+            "title": "Version Label"
+          },
+          "total_credits_required": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Credits Required"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "program_version_id",
+          "program_id",
+          "program_code",
+          "program_name",
+          "program_type",
+          "degree_level",
+          "campus_id",
+          "campus_code",
+          "campus_name",
+          "catalog_year",
+          "version_label",
+          "total_credits_required",
+          "source"
+        ],
+        "title": "ProgramVersionSummaryResponse"
       },
       "ReadinessResponse": {
         "properties": {
@@ -112,6 +828,545 @@
           "database_ready"
         ],
         "title": "ReadinessResponse"
+      },
+      "RequirementCourseOptionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "course_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Id"
+          },
+          "subject_code": {
+            "type": "string",
+            "title": "Subject Code"
+          },
+          "course_number": {
+            "type": "string",
+            "title": "Course Number"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order"
+          },
+          "minimum_grade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Grade"
+          },
+          "credits_override": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credits Override"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "course_id",
+          "subject_code",
+          "course_number",
+          "title",
+          "display_order",
+          "source"
+        ],
+        "title": "RequirementCourseOptionResponse"
+      },
+      "RequirementNodeResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "requirement_type": {
+            "type": "string",
+            "title": "Requirement Type"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order"
+          },
+          "minimum_credits": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Credits"
+          },
+          "minimum_courses": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Courses"
+          },
+          "choose_n": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choose N"
+          },
+          "minimum_grade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Grade"
+          },
+          "minimum_course_level": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Course Level"
+          },
+          "minimum_residency_credits": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Residency Credits"
+          },
+          "allows_overlap": {
+            "type": "boolean",
+            "title": "Allows Overlap"
+          },
+          "is_required": {
+            "type": "boolean",
+            "title": "Is Required"
+          },
+          "course_options": {
+            "items": {
+              "$ref": "#/components/schemas/RequirementCourseOptionResponse"
+            },
+            "type": "array",
+            "title": "Course Options"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "requirement_type",
+          "display_order",
+          "allows_overlap",
+          "is_required",
+          "course_options",
+          "source"
+        ],
+        "title": "RequirementNodeResponse"
+      },
+      "RequirementTreeResponse": {
+        "properties": {
+          "program_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Program Version Id"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/RequirementNodeResponse"
+            },
+            "type": "array",
+            "title": "Nodes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "program_version_id",
+          "nodes"
+        ],
+        "title": "RequirementTreeResponse"
+      },
+      "SourceMetadataResponse": {
+        "properties": {
+          "source_type": {
+            "type": "string",
+            "title": "Source Type"
+          },
+          "is_official": {
+            "type": "boolean",
+            "title": "Is Official"
+          },
+          "source_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Reference"
+          },
+          "source_retrieved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Retrieved At"
+          },
+          "source_confidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_type",
+          "is_official"
+        ],
+        "title": "SourceMetadataResponse"
+      },
+      "StudentAcademicProgramResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "program_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Program Version Id"
+          },
+          "program_code": {
+            "type": "string",
+            "title": "Program Code"
+          },
+          "program_name": {
+            "type": "string",
+            "title": "Program Name"
+          },
+          "program_type": {
+            "type": "string",
+            "title": "Program Type"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "declared_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declared On"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "program_version_id",
+          "program_code",
+          "program_name",
+          "program_type",
+          "status",
+          "source"
+        ],
+        "title": "StudentAcademicProgramResponse"
+      },
+      "StudentCourseAttemptResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "course_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Id"
+          },
+          "course_code": {
+            "type": "string",
+            "title": "Course Code"
+          },
+          "course_title": {
+            "type": "string",
+            "title": "Course Title"
+          },
+          "term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Term Id"
+          },
+          "term_code": {
+            "type": "string",
+            "title": "Term Code"
+          },
+          "attempt_number": {
+            "type": "integer",
+            "title": "Attempt Number"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "credits_attempted": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Credits Attempted"
+          },
+          "credits_earned": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Credits Earned"
+          },
+          "is_repeat": {
+            "type": "boolean",
+            "title": "Is Repeat"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "student_profile_id",
+          "course_id",
+          "course_code",
+          "course_title",
+          "term_id",
+          "term_code",
+          "attempt_number",
+          "status",
+          "credits_attempted",
+          "credits_earned",
+          "is_repeat",
+          "source"
+        ],
+        "title": "StudentCourseAttemptResponse"
+      },
+      "StudentProfileResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "home_institution_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Home Institution Id"
+          },
+          "home_campus_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Home Campus Id"
+          },
+          "expected_graduation_term_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Graduation Term Id"
+          },
+          "external_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Ref"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "class_standing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Standing"
+          },
+          "programs": {
+            "items": {
+              "$ref": "#/components/schemas/StudentAcademicProgramResponse"
+            },
+            "type": "array",
+            "title": "Programs"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "home_institution_id",
+          "home_campus_id",
+          "display_name",
+          "programs",
+          "source"
+        ],
+        "title": "StudentProfileResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
       }
     }
   }

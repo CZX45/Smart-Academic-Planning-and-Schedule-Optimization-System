@@ -2,7 +2,7 @@
 
 ## Phase 0: Documentation and Architecture Foundation
 
-Status: current phase.
+Status: complete.
 
 Deliverables:
 
@@ -23,6 +23,8 @@ Exit criteria:
 
 ## Phase 1: Monorepo and Tooling Scaffold
 
+Status: complete.
+
 Deliverables:
 
 - pnpm workspace and Turborepo configuration.
@@ -40,7 +42,35 @@ Testable outcomes:
 - Database migrations run.
 - Lint/type/test commands execute.
 
-## Phase 2: Core Domain Schemas and Mock Fixtures
+## Phase 2A: Academic Domain Foundation
+
+Status: current phase.
+
+Deliverables:
+
+- SQLAlchemy and Alembic models for institutions, campuses, terms, programs, program versions, courses, course equivalencies, requirement trees, student programs, course attempts, transfer credits, waivers, and substitutions.
+- Deterministic mock seed for Mock University, Mock Main Campus, Mock BS Finance 2024, mock courses, a mock requirement tree, and a mock student record.
+- Read-only `/api/v1` endpoints for institutions, programs, program requirements, courses, students, and course attempts.
+- Constraint, seed-idempotency, and API tests.
+
+Testable outcomes:
+
+- Course and section identities remain separate; Phase 2A implements courses only.
+- Program identity and program version/catalog-year identity are separate.
+- Requirement trees are relational adjacency lists with course options.
+- Mock data is source-labeled `MOCK` and `is_official = false`.
+- Seed can run repeatedly without increasing record counts.
+
+Deferred from Phase 2A:
+
+- Degree Audit calculation.
+- Requirement completion status.
+- Minor comparison and what-if calculation.
+- Prerequisite parsing and eligibility.
+- Course sections and meeting times.
+- Academic plan optimization and semester schedule optimization.
+
+## Phase 2B: Core Domain Schemas and Mock Fixtures
 
 Deliverables:
 

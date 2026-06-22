@@ -19,6 +19,8 @@ A requirement tree is composed of nodes such as:
 - `residency_requirement`: credits that must be completed at a campus or institution.
 - `manual_review`: requirement cannot be fully automated and must be advisor-confirmed.
 
+Phase 2A stores requirement trees but does not evaluate them. The implemented storage uses relational `RequirementNode` rows with parent pointers and `RequirementCourseOption` rows for course-specific options. Stored nodes may express groups, required courses, all-of/any-of, choose-N, minimum credits/courses/grade, course level, residency, total credits, capstone, and exclusion concepts, but Phase 2A returns only the stored tree through the API.
+
 ## 3. Course Allocation
 
 A course may be eligible for multiple requirement nodes. The evaluator should:
@@ -28,6 +30,8 @@ A course may be eligible for multiple requirement nodes. The evaluator should:
 3. Include transferred and waived records according to source and policy.
 4. Optimize assignment based on requirement priority, graduation progress, overlap policies, and minimum extra credits.
 5. Return explanations for chosen and rejected allocations.
+
+Course allocation is deferred until the Degree Audit phase. Phase 2A does not mark requirements satisfied, does not apply transfer/waiver/substitution decisions, and does not choose between overlapping requirement candidates.
 
 ## 4. Prerequisite and Restriction Expression Tree
 

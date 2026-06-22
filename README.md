@@ -2,9 +2,9 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 1 implements the runnable project infrastructure only. It does **not** implement real school login, scraping, automatic registration, waitlist automation, or authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 2A adds the academic domain persistence foundation and read-only mock-data API. It does **not** implement degree audit calculation, eligibility, planning, scheduling, real school login, scraping, automatic registration, waitlist automation, or authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
-## Phase 1 Monorepo Layout
+## Monorepo Layout
 
 ```text
 apps/
@@ -133,6 +133,21 @@ pnpm openapi:check
 
 The initial shared package exposes typed health/readiness schemas and API helpers.
 
+## Phase 2A academic domain API
+
+The backend now exposes a read-only `/api/v1` academic catalog and mock student record API:
+
+- `GET /api/v1/institutions`
+- `GET /api/v1/programs`
+- `GET /api/v1/programs/{program_version_id}`
+- `GET /api/v1/programs/{program_version_id}/requirements`
+- `GET /api/v1/courses`
+- `GET /api/v1/courses/{course_id}`
+- `GET /api/v1/students/{student_id}`
+- `GET /api/v1/students/{student_id}/course-attempts`
+
+Responses include source metadata and mock/official flags. These endpoints return stored catalog and student record data only; they do not return Degree Audit, eligibility, academic plan, schedule optimizer, or registration results.
+
 ## Quality gates
 
 Run the following before opening a pull request:
@@ -157,9 +172,11 @@ pnpm exec playwright install --with-deps
 pnpm e2e
 ```
 
-## Phase 1 scope and data safety
+## Phase 2A scope and data safety
 
-Phase 1 is infrastructure only. It does not include real school login, SAML automation, portal scraping, automatic registration, add/drop/swap, waitlist automation, seat grabbing, graduation audit logic, or automatic schedule optimization.
+Phase 2A is a domain-storage foundation. It models institutions, campuses, terms, academic programs, program versions, courses, course equivalencies, requirement trees, course options, mock student profiles, academic program declarations, course attempts, transfer credits, waivers, and substitutions.
+
+Course and section remain separate concepts. Phase 2A implements `Course` only; it does not model section meetings, instructors, rooms, waitlists, registration state, or schedule optimization.
 
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 
