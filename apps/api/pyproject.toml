@@ -7,6 +7,14 @@ dependencies = ["alembic>=1.17.2", "fastapi>=0.125.0", "psycopg[binary]>=3.3.2",
 [project.optional-dependencies]
 dev = ["httpx>=0.28.1", "mypy>=1.19.1", "pytest>=9.0.2", "ruff>=0.14.8", "types-psycopg2>=2.9.21.20251118"]
 
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["alembic*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

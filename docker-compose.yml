@@ -18,17 +18,36 @@ services:
     build:
       context: ./apps/api
       dockerfile: ../../infra/docker/api.Dockerfile
-    env_file: .env.example
-    ports: ["8000:8000"]
+    command: sh -c "python -m alembic upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    environment:
+      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql+psycopg://sapsos:sapsos_dev_password@db:5432/sapsos}
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+    ports:
+      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).read()\"",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
   web:
     build:
       context: .
       dockerfile: infra/docker/web.Dockerfile
-    env_file: .env.example
-    ports: ["3000:3000"]
-    depends_on: [api]
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
 volumes:
   postgres_data:
