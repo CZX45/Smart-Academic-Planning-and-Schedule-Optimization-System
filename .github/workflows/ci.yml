@@ -1,0 +1,36 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: sapsos
+          POSTGRES_PASSWORD: sapsos_dev_password
+          POSTGRES_DB: sapsos
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U sapsos -d sapsos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.1 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pnpm install --frozen-lockfile=false
+      - run: python -m pip install -e "apps/api[dev]"
+      - run: cd apps/api && alembic upgrade head
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: cd apps/api && ruff format --check .
+      - run: git diff --check

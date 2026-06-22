@@ -1,0 +1,1 @@
+{"name":"@sapsos/config","version":"0.1.0","private":true,"type":"module","scripts":{"lint":"echo 'shared config package has no lintable sources yet'","test":"echo 'shared config package has no tests yet'","typecheck":"echo 'shared config package has no typecheck yet'"}}

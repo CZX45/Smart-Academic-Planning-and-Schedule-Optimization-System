@@ -1,0 +1,7 @@
+{
+  "seed_key": "mock-institution",
+  "label": "Mock institution placeholder",
+  "confidence_level": "mock",
+  "advisor_confirmation_required": true,
+  "note": "Development-only seed placeholder; not official school policy."
+}
