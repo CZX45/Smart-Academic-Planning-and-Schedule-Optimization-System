@@ -1,1 +1,27 @@
-{"name":"smart-academic-planning","private":true,"packageManager":"pnpm@10.28.1","scripts":{"dev":"docker compose up -d db && pnpm --parallel --filter @sapsos/api --filter @sapsos/web dev","build":"pnpm -r --if-present build","lint":"pnpm -r --if-present lint","test":"pnpm -r --if-present test","typecheck":"pnpm -r --if-present typecheck","format":"pnpm -r --if-present format","db:up":"docker compose up -d db","db:migrate":"cd apps/api && alembic upgrade head","seed:dev":"cd apps/api && python -m app.seed_dev","openapi:generate":"pnpm --filter @sapsos/api openapi && pnpm --filter @sapsos/shared generate","e2e":"playwright test"},"devDependencies":{"@playwright/test":"^1.57.0","turbo":"^2.6.3"}}
+{
+  "name": "smart-academic-planning",
+  "private": true,
+  "packageManager": "pnpm@10.28.1",
+  "scripts": {
+    "dev": "docker compose up -d db && pnpm --parallel --filter @sapsos/api --filter @sapsos/web dev",
+    "dev:docker": "docker compose up --build",
+    "build": "pnpm -r --if-present build",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "format": "pnpm -r --if-present format",
+    "db:up": "docker compose up -d db",
+    "db:migrate": "pnpm migration",
+    "migration": "cd apps/api && python -m alembic upgrade head",
+    "migration:check": "cd apps/api && python -m alembic check",
+    "seed": "cd apps/api && python -m app.seed_dev",
+    "seed:dev": "pnpm seed",
+    "openapi:generate": "pnpm --filter @sapsos/api openapi && pnpm --filter @sapsos/shared generate",
+    "openapi:check": "pnpm openapi:generate && git diff --exit-code -- apps/api/openapi.json packages/shared/src/generated/openapi.json",
+    "e2e": "node scripts/run-e2e.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "turbo": "^2.6.3"
+  }
+}

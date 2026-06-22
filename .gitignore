@@ -12,4 +12,5 @@ __pycache__/
 coverage/
 playwright-report/
 test-results/
+*.tsbuildinfo
 *.egg-info/

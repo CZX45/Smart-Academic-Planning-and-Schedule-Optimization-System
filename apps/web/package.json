@@ -1,1 +1,32 @@
-{"name":"@sapsos/web","version":"0.1.0","private":true,"type":"module","scripts":{"dev":"next dev","build":"next build","lint":"eslint .","test":"vitest run","typecheck":"tsc -p tsconfig.json --noEmit","format":"prettier --check ."},"dependencies":{"@sapsos/shared":"workspace:*","next":"^16.1.0","react":"^19.2.3","react-dom":"^19.2.3"},"devDependencies":{"@eslint/js":"^9.39.2","@types/node":"^24.10.2","@types/react":"^19.2.7","@types/react-dom":"^19.2.3","eslint":"^9.39.2","eslint-config-next":"^16.1.0","typescript":"^5.9.3","typescript-eslint":"^8.50.0","vitest":"^4.0.16","prettier":"^3.7.4"}}
+{
+  "name": "@sapsos/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "format": "prettier --check eslint.config.mjs next-env.d.ts next.config.ts package.json tsconfig.json \"src/**/*.{ts,tsx,css}\""
+  },
+  "dependencies": {
+    "@sapsos/shared": "workspace:*",
+    "next": "^16.1.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/node": "^24.10.2",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.2",
+    "eslint-config-next": "^16.1.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.50.0",
+    "vitest": "^4.0.16",
+    "prettier": "^3.7.4"
+  }
+}

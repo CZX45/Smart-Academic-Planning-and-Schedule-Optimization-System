@@ -26,11 +26,31 @@ jobs:
         with: { node-version: 24, cache: pnpm }
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
-      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm install --frozen-lockfile
       - run: python -m pip install -e "apps/api[dev]"
-      - run: cd apps/api && alembic upgrade head
+      - run: cd apps/api && python -m alembic upgrade head
+      - run: cd apps/api && python -m alembic check
+      - run: cd apps/api && python -m ruff check .
+      - run: cd apps/api && python -m ruff format --check .
+      - run: cd apps/api && python -m mypy .
+      - run: cd apps/api && python -m pytest
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
-      - run: cd apps/api && ruff format --check .
+      - run: pnpm build
+      - run: pnpm openapi:check
       - run: git diff --check
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.1 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pnpm install --frozen-lockfile
+      - run: python -m pip install -e "apps/api[dev]"
+      - run: pnpm exec playwright install --with-deps
+      - run: pnpm e2e
