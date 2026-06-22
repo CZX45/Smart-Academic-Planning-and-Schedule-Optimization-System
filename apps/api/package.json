@@ -1,0 +1,1 @@
+{"name":"@sapsos/api","version":"0.1.0","private":true,"scripts":{"dev":"uvicorn app.main:app --reload --host 0.0.0.0 --port 8000","lint":"ruff check .","test":"pytest","typecheck":"mypy .","format":"ruff format --check .","openapi":"python -m app.openapi_export","build":"python -m compileall app"}}

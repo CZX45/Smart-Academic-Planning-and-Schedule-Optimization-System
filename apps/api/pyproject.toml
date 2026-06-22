@@ -1,0 +1,24 @@
+[project]
+name = "sapsos-api"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["alembic>=1.17.2", "fastapi>=0.125.0", "psycopg[binary]>=3.3.2", "pydantic-settings>=2.12.0", "sqlalchemy>=2.0.45", "uvicorn[standard]>=0.38.0"]
+
+[project.optional-dependencies]
+dev = ["httpx>=0.28.1", "mypy>=1.19.1", "pytest>=9.0.2", "ruff>=0.14.8", "types-psycopg2>=2.9.21.20251118"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
