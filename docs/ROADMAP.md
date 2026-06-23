@@ -72,7 +72,7 @@ Deferred from Phase 2A:
 
 ## Phase 2B: Course Rules and Section Foundation
 
-Status: current phase.
+Status: complete.
 
 Deliverables:
 
@@ -103,22 +103,47 @@ Deferred from Phase 2B:
 - Browser extension work.
 - Real school scraping, school login, seat monitoring, or registration automation.
 
-## Phase 3: Degree Audit Engine
+## Phase 3A: Degree Audit Core
+
+Status: current phase.
 
 Deliverables:
 
-- Requirement tree evaluator.
-- Course status handling.
-- Candidate course-to-requirement allocation.
-- Requirement status summaries.
-- Explainability payloads.
-- Unit and golden-file tests.
+- `DegreeAuditRun`, `RequirementEvaluation`, `AuditCourseApplication`, and `DegreeAuditWarning` persistence.
+- Centralized grade and retake policy.
+- Requirement tree evaluator for stored Phase 2A node types.
+- Deterministic baseline course-to-requirement allocation.
+- Approved transfer, waiver, substitution, and direct equivalency handling.
+- Snapshot API under `/api/v1/degree-audits`.
+- Read-only mock Degree Progress UI.
+- Unit, API, seed, shared schema, and E2E coverage.
 
 Testable outcomes:
 
 - Completed, in-progress, planned, transferred, waived, and failed records are handled correctly.
 - One course can be evaluated against multiple candidate requirements.
 - Evaluator explains allocations and gaps.
+- Pending exceptions produce warnings and do not apply.
+- Mock data is clearly identified as non-official.
+
+Deferred from Phase 3A:
+
+- Minor What-if.
+- Double-major or multi-program combined audits.
+- Global allocation optimization.
+- Eligibility engine and prerequisite evaluation.
+- Academic planning.
+- Section scheduling.
+- OR-Tools.
+
+## Phase 3B: What-if and Advanced Allocation
+
+Deliverables:
+
+- What-if audit inputs for alternate program/minor scenarios.
+- More sophisticated cross-requirement allocation search.
+- Explicit overlap-policy handling beyond the Phase 3A baseline allocator.
+- Additional advisor-review workflows for ambiguous allocations.
 
 ## Phase 4: Eligibility Engine
 

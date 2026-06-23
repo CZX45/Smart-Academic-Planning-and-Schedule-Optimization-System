@@ -135,3 +135,19 @@ Consequences:
 - Section scheduling can use concrete section and meeting records without polluting course-level planning.
 - Offering patterns remain advisory metadata and must not be presented as official school commitments.
 - Phase 2B still does not evaluate student eligibility, run Degree Audit, optimize schedules, monitor seats, or automate registration.
+
+## ADR-0011: Implement Phase 3A degree audit as persisted snapshots
+
+Status: Accepted
+
+Context: Degree progress results must be explainable, testable, and stable for advisor review. The same source data may later be audited under different assumptions, so the system needs traceable outputs rather than transient UI-only calculations.
+
+Decision: Implement Degree Audit Core as a synchronous backend application service that evaluates one `StudentProfile` against one `ProgramVersion` and persists a `DegreeAuditRun` snapshot. Store one `RequirementEvaluation` per requirement node, explicit `AuditCourseApplication` rows for attempts/transfers/waivers/substitutions, and `DegreeAuditWarning` rows for advisor confirmation and data-quality issues.
+
+Consequences:
+
+- API responses can return stable snapshot IDs and explainable structured results.
+- The frontend can render degree progress without reimplementing academic rules.
+- `CURRENT` and `PROJECTED` modes can show completed, in-progress, and planned layers without confusing them.
+- Phase 3A intentionally uses a deterministic baseline allocator rather than a global optimization solver.
+- Phase 3B should address what-if scenarios and advanced allocation before eligibility or section scheduling work begins.

@@ -4,6 +4,9 @@ import {
   ApiResponseSchemaError,
   HealthResponseSchema,
   ReadinessResponseSchema,
+  DegreeAuditRunSchema,
+  RequirementEvaluationSchema,
+  DegreeAuditWarningSchema,
   fetchHealth,
 } from "./index.js";
 
@@ -71,5 +74,90 @@ describe("fetchHealth", () => {
     await expect(fetchHealth("http://api.test", { fetchFn })).rejects.toThrow(
       ApiResponseSchemaError,
     );
+  });
+});
+
+describe("degree audit schemas", () => {
+  it("validates audit run summaries", () => {
+    expect(
+      DegreeAuditRunSchema.parse({
+        id: "00000000-0000-4000-8000-000000000001",
+        student_profile_id: "00000000-0000-4000-8000-000000000002",
+        program_version_id: "00000000-0000-4000-8000-000000000003",
+        status: "COMPLETED_WITH_WARNINGS",
+        engine_version: "phase-3a-degree-audit-v1",
+        calculation_mode: "PROJECTED",
+        started_at: "2026-06-23T00:00:00Z",
+        completed_at: "2026-06-23T00:00:01Z",
+        total_required_credits: "120.0",
+        completed_credits: "18.0",
+        in_progress_credits: "3.0",
+        planned_credits: "3.0",
+        remaining_credits: "102.0",
+        completion_percentage: "15.00",
+        source_snapshot_hash: "hash",
+        created_at: "2026-06-23T00:00:00Z",
+        updated_at: "2026-06-23T00:00:01Z",
+      }),
+    ).toMatchObject({
+      status: "COMPLETED_WITH_WARNINGS",
+      calculation_mode: "PROJECTED",
+    });
+  });
+
+  it("validates requirement evaluations with applications and warnings", () => {
+    expect(
+      RequirementEvaluationSchema.parse({
+        id: "00000000-0000-4000-8000-000000000011",
+        degree_audit_run_id: "00000000-0000-4000-8000-000000000001",
+        requirement_node_id: "00000000-0000-4000-8000-000000000012",
+        requirement_code: "BUS-REQ-A",
+        requirement_name: "Required Course A",
+        requirement_type: "REQUIRED_COURSE",
+        status: "SATISFIED",
+        required_credits: "3.0",
+        satisfied_credits: "3.0",
+        remaining_credits: "0.0",
+        required_courses: 1,
+        satisfied_courses: 1,
+        remaining_courses: 0,
+        minimum_grade: "C",
+        explanation: "Completed by Mock BUS 101.",
+        display_order: 10,
+        applications: [
+          {
+            id: "00000000-0000-4000-8000-000000000013",
+            course_id: "00000000-0000-4000-8000-000000000014",
+            course_code: "BUS 101",
+            course_title: "Mock Business Foundations",
+            application_type: "COURSE_ATTEMPT",
+            credit_amount: "3.0",
+            grade: "B",
+            is_completed: true,
+            is_in_progress: false,
+            is_planned: false,
+            is_shared: false,
+            explanation: "Applied completed attempt.",
+          },
+        ],
+        warnings: [],
+      }),
+    ).toMatchObject({
+      requirement_code: "BUS-REQ-A",
+      status: "SATISFIED",
+    });
+
+    expect(
+      DegreeAuditWarningSchema.parse({
+        id: "00000000-0000-4000-8000-000000000015",
+        degree_audit_run_id: "00000000-0000-4000-8000-000000000001",
+        requirement_evaluation_id: "00000000-0000-4000-8000-000000000011",
+        warning_code: "PENDING_TRANSFER",
+        severity: "WARNING",
+        message: "Pending transfer credit is not applied.",
+        requires_advisor_confirmation: true,
+        created_at: "2026-06-23T00:00:00Z",
+      }),
+    ).toMatchObject({ warning_code: "PENDING_TRANSFER" });
   });
 });

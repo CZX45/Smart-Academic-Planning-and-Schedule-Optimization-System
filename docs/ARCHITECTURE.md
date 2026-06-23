@@ -50,7 +50,8 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Validates all input through Pydantic.
 - Persists normalized data through SQLAlchemy to PostgreSQL.
 - Phase 2A exposes read-only academic-domain storage endpoints under `/api/v1`.
-- Phase 2B adds read-only section, meeting, offering-pattern, course-rule, and rule-expression endpoints. It stores prerequisite, corequisite, restriction, and permission trees but does not evaluate degree progress, eligibility, plans, schedules, or registration actions.
+- Phase 2B adds read-only section, meeting, offering-pattern, course-rule, and rule-expression endpoints. It stores prerequisite, corequisite, restriction, and permission trees but does not evaluate eligibility, plans, schedules, or registration actions.
+- Phase 3A adds a synchronous Degree Audit application service under `/api/v1`. The API layer validates request/response schemas and delegates audit creation to the application service, which calls the domain engine and persists a snapshot.
 
 ### Browser Extension
 - Later-phase optional data capture tool.
@@ -92,7 +93,16 @@ Owns student profile, academic standing, declared programs, course attempts, tra
 Phase 2A stores attempts without overwriting prior attempts. Transfer credits, waivers, and substitutions are state records only; pending and rejected records are not applied to any audit because no audit engine exists yet.
 
 ### Degree Audit Boundary
-Evaluates requirements against student records, performs course allocation, and produces requirement statuses and explanations.
+Evaluates requirements against student records, performs baseline deterministic course allocation, and produces requirement statuses, applications, warnings, and explanations.
+
+Phase 3A implements this boundary for one `StudentProfile` plus one `ProgramVersion` at a time. It uses:
+
+- `DegreeAuditRun` as the snapshot root.
+- `RequirementEvaluation` for one result per requirement node.
+- `AuditCourseApplication` to record which attempt, transfer, waiver, or substitution was applied.
+- `DegreeAuditWarning` for advisor-confirmation and data-quality warnings.
+
+The baseline allocator is intentionally not a global optimizer. It reserves source records for non-overlap leaf requirements in deterministic requirement order and records `is_shared` only when overlap is allowed. Ambiguous or unsupported rule scope returns `MANUAL_REVIEW_REQUIRED` or a warning rather than a false satisfied result.
 
 ### Eligibility Boundary
 Evaluates prerequisites, corequisites, grade minimums, restrictions, and registration eligibility.
@@ -112,11 +122,11 @@ Produces risk flags, advisor review items, confidence levels, and high-risk reco
 2. Student imports or enters academic record data.
 3. Phase 2A read-only APIs expose the stored mock catalog and mock student record with source metadata.
 4. Phase 2B read-only APIs expose stored mock sections, meetings, offering patterns, and course-rule expression trees with source metadata.
-5. Degree Audit evaluates progress and candidate allocations in a later phase.
+5. Phase 3A Degree Audit creates explicit snapshots for stored mock student/program data.
 6. Academic Plan Optimizer proposes future terms in a later phase.
 7. Schedule Optimizer ranks concrete section schedules for a selected term in a later phase.
 8. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
-9. UI presents explanations and lets users adjust assumptions once the evaluator and optimizer phases exist.
+9. UI presents explanations and warnings and will let users adjust assumptions once the what-if and optimizer phases exist.
 
 ## 6. API Design Principles
 

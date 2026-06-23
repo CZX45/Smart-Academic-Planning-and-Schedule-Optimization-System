@@ -9,6 +9,7 @@ from app.db.base import Base, DevSeedRecord
 from app.models.academic import (
     AcademicProgram,
     AcademicTerm,
+    AuditCourseApplication,
     Campus,
     Course,
     CourseEquivalency,
@@ -19,9 +20,12 @@ from app.models.academic import (
     CourseRuleType,
     CourseSubstitution,
     CourseWaiver,
+    DegreeAuditRun,
+    DegreeAuditWarning,
     Institution,
     ProgramVersion,
     RequirementCourseOption,
+    RequirementEvaluation,
     RequirementNode,
     Section,
     SectionMeeting,
@@ -57,6 +61,13 @@ SEEDED_MODELS = [
     CourseSubstitution,
 ]
 
+AUDIT_SNAPSHOT_MODELS = [
+    DegreeAuditRun,
+    RequirementEvaluation,
+    AuditCourseApplication,
+    DegreeAuditWarning,
+]
+
 
 @pytest.fixture()
 def session() -> Generator[Session, None, None]:
@@ -78,6 +89,8 @@ def table_counts(session: Session) -> dict[str, int]:
     counts: dict[str, int] = {}
     for model in SEEDED_MODELS:
         counts[model.__tablename__] = session.scalar(select(func.count()).select_from(model)) or 0
+    for model in AUDIT_SNAPSHOT_MODELS:
+        counts[model.__tablename__] = session.scalar(select(func.count()).select_from(model)) or 0
     return counts
 
 
@@ -93,6 +106,7 @@ def test_mock_seed_is_idempotent(session: Session) -> None:
     assert first_counts["student_course_attempts"] >= 2
     assert first_counts["sections"] >= 3
     assert first_counts["course_rules"] >= 4
+    assert first_counts["degree_audit_runs"] == 0
 
 
 def test_seeded_academic_data_is_mock_and_not_official(session: Session) -> None:
@@ -123,12 +137,18 @@ def test_mock_finance_requirement_tree_shape(session: Session) -> None:
         "Mock BS Finance",
         "Total Credits",
         "General Education",
+        "Transferred General Education Course",
+        "Approved Waiver Demonstration",
         "Business Core",
         "Required Course A",
         "Required Course B",
         "Finance Major",
         "Required Finance Course",
         "Choose 2 from 3 Finance Electives",
+        "Approved Substitution Demonstration",
+        "Upper-Level Finance Credits",
+        "Mock Residency Credits",
+        "Manual Review Configuration Example",
         "Free Electives",
     }.issubset(names)
 
@@ -142,6 +162,28 @@ def test_mock_finance_requirement_tree_shape(session: Session) -> None:
         .where(RequirementCourseOption.requirement_node_id == finance_electives.id)
     )
     assert option_count == 3
+
+
+def test_mock_phase_3a_audit_seed_covers_student_record_edge_cases(session: Session) -> None:
+    seed_mock_data(session)
+
+    attempts = session.scalars(select(StudentCourseAttempt)).all()
+    assert {attempt.status.value for attempt in attempts}.issuperset(
+        {"COMPLETED", "IN_PROGRESS", "PLANNED"}
+    )
+    assert any(attempt.is_repeat for attempt in attempts)
+    assert any(attempt.grade == "D" for attempt in attempts)
+
+    transfers = session.scalars(select(TransferCredit)).all()
+    assert {transfer.status.value for transfer in transfers}.issuperset({"APPROVED", "PENDING"})
+
+    waivers = session.scalars(select(CourseWaiver)).all()
+    assert {waiver.status.value for waiver in waivers}.issuperset({"APPROVED", "PENDING"})
+
+    substitutions = session.scalars(select(CourseSubstitution)).all()
+    assert {substitution.status.value for substitution in substitutions}.issuperset(
+        {"APPROVED", "REJECTED"}
+    )
 
 
 def test_mock_phase_2b_sections_rules_and_offering_patterns(session: Session) -> None:

@@ -872,6 +872,344 @@
         }
       }
     },
+    "/api/v1/degree-audits": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Create Degree Audit",
+        "operationId": "create_degree_audit_api_v1_degree_audits_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DegreeAuditCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DegreeAuditRunResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/degree-audits/{audit_id}": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Degree Audit",
+        "operationId": "get_degree_audit_api_v1_degree_audits__audit_id__get",
+        "parameters": [
+          {
+            "name": "audit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Audit Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DegreeAuditRunResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/degree-audits/{audit_id}/requirements": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Degree Audit Requirements",
+        "operationId": "get_degree_audit_requirements_api_v1_degree_audits__audit_id__requirements_get",
+        "parameters": [
+          {
+            "name": "audit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Audit Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RequirementEvaluationResponse"
+                  },
+                  "title": "Response Get Degree Audit Requirements Api V1 Degree Audits  Audit Id  Requirements Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/degree-audits/{audit_id}/warnings": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Degree Audit Warnings",
+        "operationId": "get_degree_audit_warnings_api_v1_degree_audits__audit_id__warnings_get",
+        "parameters": [
+          {
+            "name": "audit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Audit Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DegreeAuditWarningResponse"
+                  },
+                  "title": "Response Get Degree Audit Warnings Api V1 Degree Audits  Audit Id  Warnings Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/students/{student_id}/degree-audits": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "List Student Degree Audits",
+        "operationId": "list_student_degree_audits_api_v1_students__student_id__degree_audits_get",
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DegreeAuditRunResponse"
+                  },
+                  "title": "Response List Student Degree Audits Api V1 Students  Student Id  Degree Audits Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/students/{student_id}/degree-audits/latest": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Latest Student Degree Audit",
+        "operationId": "get_latest_student_degree_audit_api_v1_students__student_id__degree_audits_latest_get",
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DegreeAuditRunResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/students/{student_id}": {
       "get": {
         "tags": [
@@ -1080,6 +1418,156 @@
           "source"
         ],
         "title": "AcademicProgramResponse"
+      },
+      "AuditCourseApplicationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "course_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Id"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "course_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Title"
+          },
+          "student_course_attempt_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Course Attempt Id"
+          },
+          "transfer_credit_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transfer Credit Id"
+          },
+          "course_waiver_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Waiver Id"
+          },
+          "course_substitution_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Substitution Id"
+          },
+          "application_type": {
+            "type": "string",
+            "enum": [
+              "COURSE_ATTEMPT",
+              "TRANSFER_CREDIT",
+              "WAIVER",
+              "SUBSTITUTION",
+              "EQUIVALENCY"
+            ],
+            "title": "Application Type"
+          },
+          "credit_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Credit Amount"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "is_completed": {
+            "type": "boolean",
+            "title": "Is Completed"
+          },
+          "is_in_progress": {
+            "type": "boolean",
+            "title": "Is In Progress"
+          },
+          "is_planned": {
+            "type": "boolean",
+            "title": "Is Planned"
+          },
+          "is_shared": {
+            "type": "boolean",
+            "title": "Is Shared"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "application_type",
+          "credit_amount",
+          "is_completed",
+          "is_in_progress",
+          "is_planned",
+          "is_shared",
+          "explanation"
+        ],
+        "title": "AuditCourseApplicationResponse"
       },
       "CampusResponse": {
         "properties": {
@@ -1528,6 +2016,227 @@
         ],
         "title": "CourseRuleResponse"
       },
+      "DegreeAuditCreateRequest": {
+        "properties": {
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "program_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Program Version Id"
+          },
+          "calculation_mode": {
+            "type": "string",
+            "enum": [
+              "CURRENT",
+              "PROJECTED"
+            ],
+            "title": "Calculation Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "student_profile_id",
+          "program_version_id",
+          "calculation_mode"
+        ],
+        "title": "DegreeAuditCreateRequest"
+      },
+      "DegreeAuditRunResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "program_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Program Version Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "COMPLETED",
+              "FAILED",
+              "COMPLETED_WITH_WARNINGS"
+            ],
+            "title": "Status"
+          },
+          "engine_version": {
+            "type": "string",
+            "title": "Engine Version"
+          },
+          "calculation_mode": {
+            "type": "string",
+            "enum": [
+              "CURRENT",
+              "PROJECTED"
+            ],
+            "title": "Calculation Mode"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "total_required_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Required Credits"
+          },
+          "completed_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Completed Credits"
+          },
+          "in_progress_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "In Progress Credits"
+          },
+          "planned_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Planned Credits"
+          },
+          "remaining_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Remaining Credits"
+          },
+          "completion_percentage": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Completion Percentage"
+          },
+          "source_snapshot_hash": {
+            "type": "string",
+            "title": "Source Snapshot Hash"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "student_profile_id",
+          "program_version_id",
+          "status",
+          "engine_version",
+          "calculation_mode",
+          "total_required_credits",
+          "completed_credits",
+          "in_progress_credits",
+          "planned_credits",
+          "remaining_credits",
+          "completion_percentage",
+          "source_snapshot_hash",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DegreeAuditRunResponse"
+      },
+      "DegreeAuditWarningResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "degree_audit_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Degree Audit Run Id"
+          },
+          "requirement_evaluation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Evaluation Id"
+          },
+          "warning_code": {
+            "type": "string",
+            "title": "Warning Code"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "INFO",
+              "WARNING",
+              "ERROR"
+            ],
+            "title": "Severity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "requires_advisor_confirmation": {
+            "type": "boolean",
+            "title": "Requires Advisor Confirmation"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "degree_audit_run_id",
+          "warning_code",
+          "severity",
+          "message",
+          "requires_advisor_confirmation",
+          "created_at"
+        ],
+        "title": "DegreeAuditWarningResponse"
+      },
       "ErrorDetailResponse": {
         "properties": {
           "code": {
@@ -1858,6 +2567,144 @@
           "source"
         ],
         "title": "RequirementCourseOptionResponse"
+      },
+      "RequirementEvaluationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "degree_audit_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Degree Audit Run Id"
+          },
+          "requirement_node_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Requirement Node Id"
+          },
+          "requirement_code": {
+            "type": "string",
+            "title": "Requirement Code"
+          },
+          "requirement_name": {
+            "type": "string",
+            "title": "Requirement Name"
+          },
+          "requirement_type": {
+            "type": "string",
+            "title": "Requirement Type"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SATISFIED",
+              "IN_PROGRESS",
+              "PLANNED",
+              "PARTIALLY_SATISFIED",
+              "NOT_SATISFIED",
+              "WAIVED",
+              "MANUAL_REVIEW_REQUIRED",
+              "NOT_APPLICABLE"
+            ],
+            "title": "Status"
+          },
+          "required_credits": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Credits"
+          },
+          "satisfied_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Satisfied Credits"
+          },
+          "remaining_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Remaining Credits"
+          },
+          "required_courses": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Courses"
+          },
+          "satisfied_courses": {
+            "type": "integer",
+            "title": "Satisfied Courses"
+          },
+          "remaining_courses": {
+            "type": "integer",
+            "title": "Remaining Courses"
+          },
+          "minimum_grade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Grade"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order"
+          },
+          "applications": {
+            "items": {
+              "$ref": "#/components/schemas/AuditCourseApplicationResponse"
+            },
+            "type": "array",
+            "title": "Applications"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/DegreeAuditWarningResponse"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "degree_audit_run_id",
+          "requirement_node_id",
+          "requirement_code",
+          "requirement_name",
+          "requirement_type",
+          "status",
+          "satisfied_credits",
+          "remaining_credits",
+          "satisfied_courses",
+          "remaining_courses",
+          "explanation",
+          "display_order",
+          "applications",
+          "warnings"
+        ],
+        "title": "RequirementEvaluationResponse"
       },
       "RequirementNodeResponse": {
         "properties": {

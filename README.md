@@ -2,7 +2,7 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 2B adds course offering patterns, course rules, rule expression trees, sections, and section meetings on top of the Phase 2A academic domain foundation. It does **not** implement degree audit calculation, student eligibility decisions, planning, scheduling, real school login, scraping, automatic registration, waitlist automation, or authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 3A adds a deterministic Degree Audit Core on top of the Phase 2A/2B academic data foundation. It creates auditable snapshots for one mock student and one program version, evaluates stored requirement trees, applies completed/in-progress/planned attempts plus approved transfer, waiver, and substitution records, and returns structured explanations and advisor warnings. It does **not** implement eligibility decisions, minor/major what-if, planning, scheduling, real school login, scraping, automatic registration, waitlist automation, or authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
@@ -166,6 +166,23 @@ New read-only endpoints include:
 
 Offering patterns are historical or predicted planning metadata, not a school promise that a course will be offered. Mock sections, meetings, offering patterns, and rules are explicitly tagged as `MOCK` and `is_official = false`.
 
+## Phase 3A degree audit API
+
+Phase 3A creates immutable-style audit snapshots under `/api/v1`. A snapshot records `engine_version`, `calculation_mode`, credit totals, per-requirement evaluations, applied course/exception records, and structured warnings.
+
+New endpoints include:
+
+- `POST /api/v1/degree-audits`
+- `GET /api/v1/degree-audits/{audit_id}`
+- `GET /api/v1/degree-audits/{audit_id}/requirements`
+- `GET /api/v1/degree-audits/{audit_id}/warnings`
+- `GET /api/v1/students/{student_id}/degree-audits`
+- `GET /api/v1/students/{student_id}/degree-audits/latest`
+
+`CURRENT` shows final completed and approved records as completed while still reporting in-progress/planned layers separately. `PROJECTED` can show in-progress and planned potential contributions without relabeling them as completed. GET endpoints never create snapshots.
+
+The web app now opens to a read-only mock Degree Progress view with summary credits, warnings, and expandable requirement rows. It uses shared Zod schemas and does not reimplement audit rules in the frontend.
+
 ## Quality gates
 
 Run the following before opening a pull request:
@@ -190,15 +207,17 @@ pnpm exec playwright install --with-deps
 pnpm e2e
 ```
 
-## Phase 2A and 2B scope and data safety
+## Phase 2A, 2B, and 3A scope and data safety
 
 Phase 2A is a domain-storage foundation. It models institutions, campuses, terms, academic programs, program versions, courses, course equivalencies, requirement trees, course options, mock student profiles, academic program declarations, course attempts, transfer credits, waivers, and substitutions.
 
 Phase 2B adds `Section`, `SectionMeeting`, `CourseOfferingPattern`, `CourseRule`, and `CourseRuleExpression`. It models section snapshots and rule storage only; it does not monitor seats, store registration rosters, evaluate eligibility, or optimize schedules.
 
+Phase 3A adds `DegreeAuditRun`, `RequirementEvaluation`, `AuditCourseApplication`, and `DegreeAuditWarning`. It evaluates a single `StudentProfile` against a single `ProgramVersion` and stores a snapshot. The baseline allocator is deterministic and explainable but intentionally not a global course-allocation optimizer.
+
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 
-The next planned implementation phase is the Degree Audit Engine. It should not jump directly to automatic scheduling or registration behavior.
+The next planned implementation phase is Phase 3B What-if and advanced allocation. The project should not jump directly to eligibility, scheduling, OR-Tools, browser extension work, or registration behavior.
 
 ## Documentation Index
 
