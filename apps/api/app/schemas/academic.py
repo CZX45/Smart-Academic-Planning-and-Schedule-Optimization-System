@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SourceMetadataResponse(BaseModel):
@@ -157,6 +157,95 @@ class StudentCourseAttemptResponse(BaseModel):
     credits_earned: Decimal
     is_repeat: bool
     source: SourceMetadataResponse
+
+
+class CourseOfferingPatternResponse(BaseModel):
+    id: UUID
+    institution_id: UUID
+    course_id: UUID
+    campus_id: UUID
+    term_type: str
+    frequency_type: str
+    effective_term_id: UUID
+    expiration_term_id: UUID | None = None
+    confidence_level: Decimal
+    notes: str | None = None
+    source: SourceMetadataResponse
+
+
+class SectionResponse(BaseModel):
+    id: UUID
+    institution_id: UUID
+    course_id: UUID
+    term_id: UUID
+    campus_id: UUID
+    section_code: str
+    external_reference: str | None = None
+    title_override: str | None = None
+    credits: Decimal | None = None
+    status: str
+    modality: str
+    capacity: int | None = None
+    available_seats: int | None = None
+    waitlist_capacity: int | None = None
+    waitlist_available: int | None = None
+    instructor_display: str | None = None
+    last_synced_at: datetime | None = None
+    source: SourceMetadataResponse
+
+
+class SectionMeetingResponse(BaseModel):
+    id: UUID
+    section_id: UUID
+    meeting_type: str
+    day_of_week: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    building: str | None = None
+    room: str | None = None
+    timezone: str
+    is_arranged: bool
+    is_online: bool
+    display_order: int
+    source: SourceMetadataResponse
+
+
+class CourseRuleResponse(BaseModel):
+    id: UUID
+    institution_id: UUID
+    course_id: UUID
+    section_id: UUID | None = None
+    rule_type: str
+    name: str
+    description: str | None = None
+    effective_term_id: UUID
+    expiration_term_id: UUID | None = None
+    requires_manual_confirmation: bool
+    source: SourceMetadataResponse
+
+
+class CourseRuleExpressionNodeResponse(BaseModel):
+    id: UUID
+    parent_id: UUID | None = None
+    node_type: str
+    display_order: int
+    referenced_course_id: UUID | None = None
+    minimum_grade: str | None = None
+    minimum_completed_credits: Decimal | None = None
+    class_standing: str | None = None
+    referenced_program_id: UUID | None = None
+    referenced_campus_id: UUID | None = None
+    permission_type: str | None = None
+    text_value: str | None = None
+    children: list["CourseRuleExpressionNodeResponse"] = Field(default_factory=list)
+    source: SourceMetadataResponse
+
+
+class CourseRuleExpressionTreeResponse(BaseModel):
+    course_rule_id: UUID
+    root: CourseRuleExpressionNodeResponse | None = None
 
 
 class ErrorDetailResponse(BaseModel):

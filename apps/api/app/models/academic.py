@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID, uuid4
@@ -16,6 +16,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    Time,
     UniqueConstraint,
     Uuid,
     func,
@@ -92,6 +93,83 @@ class ApprovalStatus(StrEnum):
     REJECTED = "REJECTED"
 
 
+class TermType(StrEnum):
+    FALL = "FALL"
+    SPRING = "SPRING"
+    SUMMER = "SUMMER"
+    WINTER = "WINTER"
+    OTHER = "OTHER"
+
+
+class FrequencyType(StrEnum):
+    EVERY_TERM = "EVERY_TERM"
+    ANNUAL = "ANNUAL"
+    ALTERNATING_YEARS = "ALTERNATING_YEARS"
+    IRREGULAR = "IRREGULAR"
+    UNKNOWN = "UNKNOWN"
+
+
+class CourseRuleType(StrEnum):
+    PREREQUISITE = "PREREQUISITE"
+    COREQUISITE = "COREQUISITE"
+    REGISTRATION_RESTRICTION = "REGISTRATION_RESTRICTION"
+    REPEAT_RESTRICTION = "REPEAT_RESTRICTION"
+    PERMISSION = "PERMISSION"
+
+
+class CourseRuleExpressionNodeType(StrEnum):
+    AND = "AND"
+    OR = "OR"
+    NOT = "NOT"
+    COMPLETED_COURSE = "COMPLETED_COURSE"
+    MINIMUM_GRADE = "MINIMUM_GRADE"
+    MINIMUM_COMPLETED_CREDITS = "MINIMUM_COMPLETED_CREDITS"
+    CLASS_STANDING = "CLASS_STANDING"
+    MAJOR_RESTRICTION = "MAJOR_RESTRICTION"
+    MINOR_RESTRICTION = "MINOR_RESTRICTION"
+    PROGRAM_RESTRICTION = "PROGRAM_RESTRICTION"
+    CAMPUS_RESTRICTION = "CAMPUS_RESTRICTION"
+    PERMISSION_REQUIRED = "PERMISSION_REQUIRED"
+
+
+class SectionStatus(StrEnum):
+    PLANNED = "PLANNED"
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+    WAITLIST = "WAITLIST"
+    CANCELLED = "CANCELLED"
+    COMPLETED = "COMPLETED"
+    UNKNOWN = "UNKNOWN"
+
+
+class SectionModality(StrEnum):
+    IN_PERSON = "IN_PERSON"
+    ONLINE_SYNCHRONOUS = "ONLINE_SYNCHRONOUS"
+    ONLINE_ASYNCHRONOUS = "ONLINE_ASYNCHRONOUS"
+    HYBRID = "HYBRID"
+    ARRANGED = "ARRANGED"
+    UNKNOWN = "UNKNOWN"
+
+
+class MeetingType(StrEnum):
+    LECTURE = "LECTURE"
+    LAB = "LAB"
+    RECITATION = "RECITATION"
+    SEMINAR = "SEMINAR"
+    EXAM = "EXAM"
+    OTHER = "OTHER"
+
+
+class DayOfWeek(StrEnum):
+    MONDAY = "MONDAY"
+    TUESDAY = "TUESDAY"
+    WEDNESDAY = "WEDNESDAY"
+    THURSDAY = "THURSDAY"
+    FRIDAY = "FRIDAY"
+    SATURDAY = "SATURDAY"
+    SUNDAY = "SUNDAY"
+
+
 source_type_enum = Enum(
     SourceType,
     name="source_type",
@@ -144,6 +222,62 @@ course_attempt_status_enum = Enum(
 approval_status_enum = Enum(
     ApprovalStatus,
     name="approval_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+term_type_enum = Enum(
+    TermType,
+    name="term_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+frequency_type_enum = Enum(
+    FrequencyType,
+    name="frequency_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+course_rule_type_enum = Enum(
+    CourseRuleType,
+    name="course_rule_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+course_rule_expression_node_type_enum = Enum(
+    CourseRuleExpressionNodeType,
+    name="course_rule_expression_node_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+section_status_enum = Enum(
+    SectionStatus,
+    name="section_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+section_modality_enum = Enum(
+    SectionModality,
+    name="section_modality",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+meeting_type_enum = Enum(
+    MeetingType,
+    name="meeting_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+day_of_week_enum = Enum(
+    DayOfWeek,
+    name="day_of_week",
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
@@ -366,6 +500,441 @@ class Course(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixin, Base):
     credits_max: Mapped[Decimal] = mapped_column(Numeric(4, 1), nullable=False)
     course_level: Mapped[int] = mapped_column(nullable=False)
     repeatable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class CourseOfferingPattern(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixin, Base):
+    __tablename__ = "course_offering_patterns"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["institution_id"],
+            ["institutions.id"],
+            name="fk_course_offering_patterns_institution",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["course_id", "institution_id"],
+            ["courses.id", "courses.institution_id"],
+            name="fk_course_offering_patterns_course_institution",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["campus_id", "institution_id"],
+            ["campuses.id", "campuses.institution_id"],
+            name="fk_course_offering_patterns_campus_institution",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["effective_term_id", "institution_id"],
+            ["academic_terms.id", "academic_terms.institution_id"],
+            name="fk_course_offering_patterns_effective_term_institution",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["expiration_term_id", "institution_id"],
+            ["academic_terms.id", "academic_terms.institution_id"],
+            name="fk_course_offering_patterns_expiration_term_institution",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "confidence_level >= 0 AND confidence_level <= 1",
+            name="ck_course_offering_patterns_confidence_range",
+        ),
+        CheckConstraint(
+            "expiration_term_id IS NULL OR expiration_term_id != effective_term_id",
+            name="ck_course_offering_patterns_effective_expiration_distinct",
+        ),
+        CheckConstraint(
+            "is_official = false OR source_type != 'MOCK'",
+            name="ck_course_offering_patterns_mock_not_official",
+        ),
+        Index(
+            "uq_course_offering_patterns_open_range",
+            "course_id",
+            "campus_id",
+            "term_type",
+            "effective_term_id",
+            unique=True,
+            sqlite_where=text("expiration_term_id IS NULL"),
+            postgresql_where=text("expiration_term_id IS NULL"),
+        ),
+        Index(
+            "uq_course_offering_patterns_closed_range",
+            "course_id",
+            "campus_id",
+            "term_type",
+            "effective_term_id",
+            "expiration_term_id",
+            unique=True,
+            sqlite_where=text("expiration_term_id IS NOT NULL"),
+            postgresql_where=text("expiration_term_id IS NOT NULL"),
+        ),
+    )
+
+    institution_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    course_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    campus_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    term_type: Mapped[TermType] = mapped_column(term_type_enum, nullable=False)
+    frequency_type: Mapped[FrequencyType] = mapped_column(frequency_type_enum, nullable=False)
+    effective_term_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    expiration_term_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    confidence_level: Mapped[Decimal] = mapped_column(Numeric(4, 2), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class Section(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixin, Base):
+    __tablename__ = "sections"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["institution_id"],
+            ["institutions.id"],
+            name="fk_sections_institution",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["course_id", "institution_id"],
+            ["courses.id", "courses.institution_id"],
+            name="fk_sections_course_institution",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["term_id", "institution_id"],
+            ["academic_terms.id", "academic_terms.institution_id"],
+            name="fk_sections_term_institution",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["campus_id", "institution_id"],
+            ["campuses.id", "campuses.institution_id"],
+            name="fk_sections_campus_institution",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("length(section_code) > 0", name="ck_sections_code_not_empty"),
+        CheckConstraint("credits IS NULL OR credits >= 0", name="ck_sections_credits_non_negative"),
+        CheckConstraint(
+            "capacity IS NULL OR capacity >= 0", name="ck_sections_capacity_non_negative"
+        ),
+        CheckConstraint(
+            "available_seats IS NULL OR available_seats >= 0",
+            name="ck_sections_available_seats_non_negative",
+        ),
+        CheckConstraint(
+            "waitlist_capacity IS NULL OR waitlist_capacity >= 0",
+            name="ck_sections_waitlist_capacity_non_negative",
+        ),
+        CheckConstraint(
+            "waitlist_available IS NULL OR waitlist_available >= 0",
+            name="ck_sections_waitlist_available_non_negative",
+        ),
+        CheckConstraint(
+            "capacity IS NULL OR available_seats IS NULL OR available_seats <= capacity",
+            name="ck_sections_available_not_above_capacity",
+        ),
+        CheckConstraint(
+            "waitlist_capacity IS NULL OR waitlist_available IS NULL "
+            "OR waitlist_available <= waitlist_capacity",
+            name="ck_sections_waitlist_available_not_above_capacity",
+        ),
+        CheckConstraint(
+            "is_official = false OR source_type != 'MOCK'",
+            name="ck_sections_mock_not_official",
+        ),
+        UniqueConstraint(
+            "id",
+            "course_id",
+            "institution_id",
+            name="uq_sections_id_course_institution",
+        ),
+        Index(
+            "uq_sections_institution_term_course_code",
+            "institution_id",
+            "term_id",
+            "course_id",
+            "section_code",
+            unique=True,
+        ),
+        Index("ix_sections_term_status_modality", "term_id", "status", "modality"),
+        Index("ix_sections_course_term", "course_id", "term_id"),
+    )
+
+    institution_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    course_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    term_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    campus_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    section_code: Mapped[str] = mapped_column(String(40), nullable=False)
+    external_reference: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    title_override: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    credits: Mapped[Decimal | None] = mapped_column(Numeric(4, 1), nullable=True)
+    status: Mapped[SectionStatus] = mapped_column(section_status_enum, nullable=False)
+    modality: Mapped[SectionModality] = mapped_column(section_modality_enum, nullable=False)
+    capacity: Mapped[int | None] = mapped_column(nullable=True)
+    available_seats: Mapped[int | None] = mapped_column(nullable=True)
+    waitlist_capacity: Mapped[int | None] = mapped_column(nullable=True)
+    waitlist_available: Mapped[int | None] = mapped_column(nullable=True)
+    instructor_display: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SectionMeeting(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixin, Base):
+    __tablename__ = "section_meetings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["section_id"],
+            ["sections.id"],
+            name="fk_section_meetings_section",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint(
+            "display_order >= 0", name="ck_section_meetings_display_order_non_negative"
+        ),
+        CheckConstraint(
+            "is_arranged = true OR is_online = true OR "
+            "(day_of_week IS NOT NULL AND start_time IS NOT NULL AND end_time IS NOT NULL)",
+            name="ck_section_meetings_fixed_meeting_has_time",
+        ),
+        CheckConstraint(
+            "start_time IS NULL OR end_time IS NULL OR end_time > start_time",
+            name="ck_section_meetings_time_range",
+        ),
+        CheckConstraint(
+            "start_date IS NULL OR end_date IS NULL OR end_date >= start_date",
+            name="ck_section_meetings_date_range",
+        ),
+        CheckConstraint("length(timezone) > 0", name="ck_section_meetings_timezone_not_empty"),
+        CheckConstraint(
+            "is_official = false OR source_type != 'MOCK'",
+            name="ck_section_meetings_mock_not_official",
+        ),
+        Index("ix_section_meetings_section_order", "section_id", "display_order"),
+    )
+
+    section_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    meeting_type: Mapped[MeetingType] = mapped_column(meeting_type_enum, nullable=False)
+    day_of_week: Mapped[DayOfWeek | None] = mapped_column(day_of_week_enum, nullable=True)
+    start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    building: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    room: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    timezone: Mapped[str] = mapped_column(String(80), nullable=False)
+    is_arranged: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_online: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    display_order: Mapped[int] = mapped_column(nullable=False, default=0)
+
+
+class CourseRule(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixin, Base):
+    __tablename__ = "course_rules"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["institution_id"],
+            ["institutions.id"],
+            name="fk_course_rules_institution",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["course_id", "institution_id"],
+            ["courses.id", "courses.institution_id"],
+            name="fk_course_rules_course_institution",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["section_id", "course_id", "institution_id"],
+            ["sections.id", "sections.course_id", "sections.institution_id"],
+            name="fk_course_rules_section_course_institution",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["effective_term_id", "institution_id"],
+            ["academic_terms.id", "academic_terms.institution_id"],
+            name="fk_course_rules_effective_term_institution",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["expiration_term_id", "institution_id"],
+            ["academic_terms.id", "academic_terms.institution_id"],
+            name="fk_course_rules_expiration_term_institution",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("course_id IS NOT NULL", name="ck_course_rules_has_course_scope"),
+        CheckConstraint("length(name) > 0", name="ck_course_rules_name_not_empty"),
+        CheckConstraint(
+            "expiration_term_id IS NULL OR expiration_term_id != effective_term_id",
+            name="ck_course_rules_effective_expiration_distinct",
+        ),
+        CheckConstraint(
+            "is_official = false OR source_type != 'MOCK'",
+            name="ck_course_rules_mock_not_official",
+        ),
+        UniqueConstraint("id", "institution_id", name="uq_course_rules_id_institution"),
+        Index(
+            "uq_course_rules_course_scope",
+            "institution_id",
+            "course_id",
+            "rule_type",
+            "name",
+            "effective_term_id",
+            unique=True,
+            sqlite_where=text("section_id IS NULL"),
+            postgresql_where=text("section_id IS NULL"),
+        ),
+        Index(
+            "uq_course_rules_section_scope",
+            "section_id",
+            "rule_type",
+            "name",
+            "effective_term_id",
+            unique=True,
+            sqlite_where=text("section_id IS NOT NULL"),
+            postgresql_where=text("section_id IS NOT NULL"),
+        ),
+    )
+
+    institution_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    course_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    section_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    rule_type: Mapped[CourseRuleType] = mapped_column(course_rule_type_enum, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    effective_term_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    expiration_term_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    requires_manual_confirmation: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+
+
+class CourseRuleExpression(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixin, Base):
+    __tablename__ = "course_rule_expressions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["course_rule_id", "institution_id"],
+            ["course_rules.id", "course_rules.institution_id"],
+            name="fk_course_rule_expressions_rule_institution",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["parent_id", "course_rule_id", "institution_id"],
+            [
+                "course_rule_expressions.id",
+                "course_rule_expressions.course_rule_id",
+                "course_rule_expressions.institution_id",
+            ],
+            name="fk_course_rule_expressions_parent_same_rule",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["referenced_course_id", "institution_id"],
+            ["courses.id", "courses.institution_id"],
+            name="fk_course_rule_expressions_referenced_course_institution",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["referenced_program_id", "institution_id"],
+            ["academic_programs.id", "academic_programs.institution_id"],
+            name="fk_course_rule_expressions_referenced_program_institution",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["referenced_campus_id", "institution_id"],
+            ["campuses.id", "campuses.institution_id"],
+            name="fk_course_rule_expressions_referenced_campus_institution",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "parent_id IS NULL OR parent_id != id",
+            name="ck_course_rule_expressions_not_self_parent",
+        ),
+        CheckConstraint(
+            "display_order >= 0",
+            name="ck_course_rule_expressions_display_order_non_negative",
+        ),
+        CheckConstraint(
+            "minimum_completed_credits IS NULL OR minimum_completed_credits >= 0",
+            name="ck_course_rule_expressions_minimum_completed_credits_non_negative",
+        ),
+        CheckConstraint(
+            "node_type NOT IN ('AND', 'OR', 'NOT') OR "
+            "(referenced_course_id IS NULL AND minimum_grade IS NULL "
+            "AND minimum_completed_credits IS NULL AND class_standing IS NULL "
+            "AND referenced_program_id IS NULL AND referenced_campus_id IS NULL "
+            "AND permission_type IS NULL)",
+            name="ck_course_rule_expressions_operator_has_no_operand",
+        ),
+        CheckConstraint(
+            "node_type != 'COMPLETED_COURSE' OR referenced_course_id IS NOT NULL",
+            name="ck_course_rule_expressions_completed_course_operand",
+        ),
+        CheckConstraint(
+            "node_type != 'MINIMUM_GRADE' OR "
+            "(referenced_course_id IS NOT NULL AND minimum_grade IS NOT NULL)",
+            name="ck_course_rule_expressions_minimum_grade_operand",
+        ),
+        CheckConstraint(
+            "node_type != 'MINIMUM_COMPLETED_CREDITS' OR minimum_completed_credits IS NOT NULL",
+            name="ck_course_rule_expressions_minimum_credits_operand",
+        ),
+        CheckConstraint(
+            "node_type != 'CLASS_STANDING' OR class_standing IS NOT NULL",
+            name="ck_course_rule_expressions_class_standing_operand",
+        ),
+        CheckConstraint(
+            "node_type NOT IN ('MAJOR_RESTRICTION', 'MINOR_RESTRICTION', "
+            "'PROGRAM_RESTRICTION') OR referenced_program_id IS NOT NULL",
+            name="ck_course_rule_expressions_program_operand",
+        ),
+        CheckConstraint(
+            "node_type != 'CAMPUS_RESTRICTION' OR referenced_campus_id IS NOT NULL",
+            name="ck_course_rule_expressions_campus_operand",
+        ),
+        CheckConstraint(
+            "node_type != 'PERMISSION_REQUIRED' OR permission_type IS NOT NULL",
+            name="ck_course_rule_expressions_permission_operand",
+        ),
+        CheckConstraint(
+            "is_official = false OR source_type != 'MOCK'",
+            name="ck_course_rule_expressions_mock_not_official",
+        ),
+        UniqueConstraint(
+            "id",
+            "course_rule_id",
+            "institution_id",
+            name="uq_course_rule_expressions_id_rule_institution",
+        ),
+        Index(
+            "uq_course_rule_expressions_single_root",
+            "course_rule_id",
+            unique=True,
+            sqlite_where=text("parent_id IS NULL"),
+            postgresql_where=text("parent_id IS NULL"),
+        ),
+        Index(
+            "ix_course_rule_expressions_rule_parent_order",
+            "course_rule_id",
+            "parent_id",
+            "display_order",
+        ),
+    )
+
+    institution_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    course_rule_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    parent_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    node_type: Mapped[CourseRuleExpressionNodeType] = mapped_column(
+        course_rule_expression_node_type_enum,
+        nullable=False,
+    )
+    display_order: Mapped[int] = mapped_column(nullable=False, default=0)
+    referenced_course_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    minimum_grade: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    minimum_completed_credits: Mapped[Decimal | None] = mapped_column(
+        Numeric(5, 1),
+        nullable=True,
+    )
+    class_standing: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    referenced_program_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    referenced_campus_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    permission_type: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    text_value: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class CourseEquivalency(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixin, Base):

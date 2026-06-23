@@ -2,7 +2,7 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 2A adds the academic domain persistence foundation and read-only mock-data API. It does **not** implement degree audit calculation, eligibility, planning, scheduling, real school login, scraping, automatic registration, waitlist automation, or authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 2B adds course offering patterns, course rules, rule expression trees, sections, and section meetings on top of the Phase 2A academic domain foundation. It does **not** implement degree audit calculation, student eligibility decisions, planning, scheduling, real school login, scraping, automatic registration, waitlist automation, or authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
@@ -148,6 +148,24 @@ The backend now exposes a read-only `/api/v1` academic catalog and mock student 
 
 Responses include source metadata and mock/official flags. These endpoints return stored catalog and student record data only; they do not return Degree Audit, eligibility, academic plan, schedule optimizer, or registration results.
 
+## Phase 2B course rules and sections API
+
+Phase 2B keeps `Course` and `Section` separate. A course can have historical or expected offering patterns, course-level rules, and concrete term sections. A section can have multiple meetings such as lecture and lab records. Course prerequisites, corequisites, restrictions, and permissions share a relational expression tree model, but Phase 2B stores and returns those trees only; it does not evaluate whether a student is eligible.
+
+New read-only endpoints include:
+
+- `GET /api/v1/terms/{term_id}/sections`
+- `GET /api/v1/courses/{course_id}/sections`
+- `GET /api/v1/sections/{section_id}`
+- `GET /api/v1/sections/{section_id}/meetings`
+- `GET /api/v1/courses/{course_id}/rules`
+- `GET /api/v1/sections/{section_id}/rules`
+- `GET /api/v1/rules/{rule_id}`
+- `GET /api/v1/rules/{rule_id}/expression`
+- `GET /api/v1/courses/{course_id}/offering-patterns`
+
+Offering patterns are historical or predicted planning metadata, not a school promise that a course will be offered. Mock sections, meetings, offering patterns, and rules are explicitly tagged as `MOCK` and `is_official = false`.
+
 ## Quality gates
 
 Run the following before opening a pull request:
@@ -172,13 +190,15 @@ pnpm exec playwright install --with-deps
 pnpm e2e
 ```
 
-## Phase 2A scope and data safety
+## Phase 2A and 2B scope and data safety
 
 Phase 2A is a domain-storage foundation. It models institutions, campuses, terms, academic programs, program versions, courses, course equivalencies, requirement trees, course options, mock student profiles, academic program declarations, course attempts, transfer credits, waivers, and substitutions.
 
-Course and section remain separate concepts. Phase 2A implements `Course` only; it does not model section meetings, instructors, rooms, waitlists, registration state, or schedule optimization.
+Phase 2B adds `Section`, `SectionMeeting`, `CourseOfferingPattern`, `CourseRule`, and `CourseRuleExpression`. It models section snapshots and rule storage only; it does not monitor seats, store registration rosters, evaluate eligibility, or optimize schedules.
 
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
+
+The next planned implementation phase is the Degree Audit Engine. It should not jump directly to automatic scheduling or registration behavior.
 
 ## Documentation Index
 

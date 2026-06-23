@@ -107,6 +107,84 @@ def test_read_only_academic_api_returns_mock_catalog_and_student(client: TestCli
     assert any(attempt["is_repeat"] for attempt in attempts)
 
 
+def test_phase_2b_section_rule_and_offering_api(client: TestClient) -> None:
+    fall_term_id = str(seed_uuid("term:2024-fall"))
+    spring_term_id = str(seed_uuid("term:2025-spring"))
+    fin_300_id = str(seed_uuid("course:FIN-300"))
+    fin_400_id = str(seed_uuid("course:FIN-400"))
+    fin_300_section_id = str(seed_uuid("section:2024-fall-fin-300-001"))
+    fin_400_section_id = str(seed_uuid("section:2025-spring-fin-400-hyb"))
+
+    fall_sections_response = client.get(
+        f"/api/v1/terms/{fall_term_id}/sections",
+        params={"status": "OPEN"},
+    )
+    assert fall_sections_response.status_code == 200
+    fall_sections = fall_sections_response.json()
+    assert any(section["id"] == fin_300_section_id for section in fall_sections)
+    assert all(section["term_id"] == fall_term_id for section in fall_sections)
+    assert all(section["source"]["source_type"] == "MOCK" for section in fall_sections)
+
+    online_sections_response = client.get(
+        f"/api/v1/terms/{fall_term_id}/sections",
+        params={"modality": "ONLINE_ASYNCHRONOUS"},
+    )
+    assert online_sections_response.status_code == 200
+    assert all(
+        section["modality"] == "ONLINE_ASYNCHRONOUS" for section in online_sections_response.json()
+    )
+
+    course_sections_response = client.get(
+        f"/api/v1/courses/{fin_400_id}/sections",
+        params={"term_id": spring_term_id, "modality": "HYBRID"},
+    )
+    assert course_sections_response.status_code == 200
+    course_sections = course_sections_response.json()
+    assert [section["id"] for section in course_sections] == [fin_400_section_id]
+
+    section_response = client.get(f"/api/v1/sections/{fin_300_section_id}")
+    assert section_response.status_code == 200
+    section_payload = section_response.json()
+    assert section_payload["course_id"] == fin_300_id
+    assert section_payload["section_code"] == "001"
+    assert "eligible" not in section_payload
+
+    meetings_response = client.get(f"/api/v1/sections/{fin_300_section_id}/meetings")
+    assert meetings_response.status_code == 200
+    meetings = meetings_response.json()
+    assert [meeting["meeting_type"] for meeting in meetings] == ["LECTURE", "LAB"]
+
+    course_rules_response = client.get(f"/api/v1/courses/{fin_300_id}/rules")
+    assert course_rules_response.status_code == 200
+    course_rules = course_rules_response.json()
+    prerequisite = next(rule for rule in course_rules if rule["rule_type"] == "PREREQUISITE")
+    assert prerequisite["source"]["is_official"] is False
+    assert "eligibility" not in prerequisite
+
+    rule_response = client.get(f"/api/v1/rules/{prerequisite['id']}")
+    assert rule_response.status_code == 200
+    assert rule_response.json()["id"] == prerequisite["id"]
+
+    expression_response = client.get(f"/api/v1/rules/{prerequisite['id']}/expression")
+    assert expression_response.status_code == 200
+    expression = expression_response.json()
+    assert expression["root"]["node_type"] == "AND"
+    assert [child["node_type"] for child in expression["root"]["children"]] == [
+        "COMPLETED_COURSE",
+        "MINIMUM_GRADE",
+    ]
+
+    section_rules_response = client.get(f"/api/v1/sections/{fin_400_section_id}/rules")
+    assert section_rules_response.status_code == 200
+    assert any(rule["rule_type"] == "PERMISSION" for rule in section_rules_response.json())
+
+    patterns_response = client.get(f"/api/v1/courses/{fin_300_id}/offering-patterns")
+    assert patterns_response.status_code == 200
+    patterns = patterns_response.json()
+    assert patterns[0]["term_type"] in {"FALL", "SPRING"}
+    assert patterns[0]["source"]["source_type"] == "MOCK"
+
+
 def test_read_only_academic_api_returns_consistent_404(client: TestClient) -> None:
     for path in [
         f"/api/v1/programs/{MISSING_ID}",
@@ -114,7 +192,28 @@ def test_read_only_academic_api_returns_consistent_404(client: TestClient) -> No
         f"/api/v1/courses/{MISSING_ID}",
         f"/api/v1/students/{MISSING_ID}",
         f"/api/v1/students/{MISSING_ID}/course-attempts",
+        f"/api/v1/terms/{MISSING_ID}/sections",
+        f"/api/v1/courses/{MISSING_ID}/sections",
+        f"/api/v1/sections/{MISSING_ID}",
+        f"/api/v1/sections/{MISSING_ID}/meetings",
+        f"/api/v1/courses/{MISSING_ID}/rules",
+        f"/api/v1/sections/{MISSING_ID}/rules",
+        f"/api/v1/rules/{MISSING_ID}",
+        f"/api/v1/rules/{MISSING_ID}/expression",
+        f"/api/v1/courses/{MISSING_ID}/offering-patterns",
     ]:
         response = client.get(path)
         assert response.status_code == 404
         assert response.json()["detail"]["code"] == "not_found"
+
+
+def test_phase_2b_section_filter_validation_error(client: TestClient) -> None:
+    fall_term_id = str(seed_uuid("term:2024-fall"))
+
+    response = client.get(
+        f"/api/v1/terms/{fall_term_id}/sections",
+        params={"status": "NOT_A_STATUS"},
+    )
+
+    assert response.status_code == 422
+    assert "detail" in response.json()

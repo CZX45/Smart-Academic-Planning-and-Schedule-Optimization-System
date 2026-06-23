@@ -60,6 +60,12 @@ The evaluator must distinguish:
 - Unknown due to missing data.
 - Requires manual permission or advisor confirmation.
 
+Phase 2B stores these prerequisite, corequisite, restriction, repeat-restriction, and permission concepts as `CourseRule` records with relational `CourseRuleExpression` trees. A course-level rule has `course_id` and no `section_id`; a section-level rule also has `section_id` and must match the same course and institution. Prerequisites and corequisites share the same expression-tree shape so later evaluators can reason over both consistently.
+
+Phase 2B does not answer whether a student is eligible for a course or section. It only returns stored rule metadata, source metadata, manual-confirmation flags, and expression-tree nodes. Any high-impact interpretation still requires official school or advisor confirmation when data is mock, inferred, student-provided, or ambiguous.
+
+Course offering patterns are historical or expected availability signals. They must not be presented as school commitments that a course will be offered in a future term.
+
 ## 5. Academic Plan Optimizer Rules
 
 The Academic Plan Optimizer works at course level, not section level. It should consider:
@@ -93,6 +99,8 @@ The Semester Schedule Optimizer works at section level. It should consider:
 - Online/hybrid/in-person modality preferences.
 - Instructor preferences.
 - Backup sections and backup schedules.
+
+Phase 2B provides section and meeting storage for this future optimizer. A `Section` is a term-specific snapshot for a `Course`; a `SectionMeeting` stores one meeting component such as lecture, lab, seminar, exam, arranged, or online asynchronous work. Phase 2B does not detect time conflicts or generate schedules.
 
 ## 7. Infeasibility Explanations
 

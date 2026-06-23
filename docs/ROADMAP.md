@@ -44,7 +44,7 @@ Testable outcomes:
 
 ## Phase 2A: Academic Domain Foundation
 
-Status: current phase.
+Status: complete.
 
 Deliverables:
 
@@ -70,20 +70,38 @@ Deferred from Phase 2A:
 - Course sections and meeting times.
 - Academic plan optimization and semester schedule optimization.
 
-## Phase 2B: Core Domain Schemas and Mock Fixtures
+## Phase 2B: Course Rules and Section Foundation
+
+Status: current phase.
 
 Deliverables:
 
-- Pydantic and SQLAlchemy models for institutions, courses, sections, programs, requirements, expression trees, and student records.
-- Mock Kean/WKU-like fixture dataset clearly labeled as mock.
-- Fixture loader and validation tests.
-- API endpoints for reading catalog, program, and student fixture data.
+- SQLAlchemy and Alembic models for course offering patterns, course rules, course-rule expression trees, sections, and section meetings.
+- Mock sections for fall and spring terms, including in-person, online asynchronous, and hybrid sections.
+- Mock lecture and lab meeting records.
+- Mock prerequisite, corequisite, major restriction, permission-required, and offering-pattern data clearly labeled as mock.
+- Read-only API endpoints for sections, meetings, rules, expression trees, and offering patterns.
+- Constraint, seed-idempotency, and API tests.
 
 Testable outcomes:
 
-- Fixtures validate against schemas.
-- Mock degree program is source-labeled as mock.
 - Course and section identities remain separate.
+- A section can have multiple meeting records.
+- Prerequisites and corequisites share the same relational expression model.
+- Section-level rules are constrained to the same course and institution as the section.
+- Offering patterns are advisory metadata, not official commitments.
+- Mock seed data remains source-labeled `MOCK` and `is_official = false`.
+- Seed can run repeatedly without increasing record counts.
+
+Deferred from Phase 2B:
+
+- Degree Audit calculation.
+- Student eligibility decisions.
+- Long-term planning.
+- Semester schedule optimization.
+- OR-Tools.
+- Browser extension work.
+- Real school scraping, school login, seat monitoring, or registration automation.
 
 ## Phase 3: Degree Audit Engine
 
