@@ -11,14 +11,19 @@ from app.db.session import get_db
 from app.models.academic import (
     AcademicProgram,
     AcademicTerm,
+    AuditCourseApplication,
+    AuditMode,
     Campus,
     Course,
     CourseOfferingPattern,
     CourseRule,
     CourseRuleExpression,
+    DegreeAuditRun,
+    DegreeAuditWarning,
     Institution,
     ProgramVersion,
     RequirementCourseOption,
+    RequirementEvaluation,
     RequirementNode,
     Section,
     SectionMeeting,
@@ -31,17 +36,22 @@ from app.models.academic import (
 )
 from app.schemas.academic import (
     AcademicProgramResponse,
+    AuditCourseApplicationResponse,
     CampusResponse,
     CourseOfferingPatternResponse,
     CourseResponse,
     CourseRuleExpressionNodeResponse,
     CourseRuleExpressionTreeResponse,
     CourseRuleResponse,
+    DegreeAuditCreateRequest,
+    DegreeAuditRunResponse,
+    DegreeAuditWarningResponse,
     ErrorResponse,
     InstitutionResponse,
     ProgramVersionDetailResponse,
     ProgramVersionSummaryResponse,
     RequirementCourseOptionResponse,
+    RequirementEvaluationResponse,
     RequirementNodeResponse,
     RequirementTreeResponse,
     SectionMeetingResponse,
@@ -51,6 +61,8 @@ from app.schemas.academic import (
     StudentCourseAttemptResponse,
     StudentProfileResponse,
 )
+from app.services.degree_audit.exceptions import DegreeAuditValidationError
+from app.services.degree_audit.persistence import DegreeAuditApplicationService
 
 router = APIRouter(prefix="/api/v1", tags=["academic"])
 not_found_response = {"model": ErrorResponse}
@@ -233,6 +245,93 @@ def expression_node_response(
         text_value=node.text_value,
         children=[expression_node_response(child, children_by_parent) for child in children],
         source=source_response(node),
+    )
+
+
+def degree_audit_run_response(run: DegreeAuditRun) -> DegreeAuditRunResponse:
+    return DegreeAuditRunResponse(
+        id=run.id,
+        student_profile_id=run.student_profile_id,
+        program_version_id=run.program_version_id,
+        status=run.status.value,
+        engine_version=run.engine_version,
+        calculation_mode=run.calculation_mode.value,
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+        total_required_credits=run.total_required_credits,
+        completed_credits=run.completed_credits,
+        in_progress_credits=run.in_progress_credits,
+        planned_credits=run.planned_credits,
+        remaining_credits=run.remaining_credits,
+        completion_percentage=run.completion_percentage,
+        source_snapshot_hash=run.source_snapshot_hash,
+        created_at=run.created_at,
+        updated_at=run.updated_at,
+    )
+
+
+def degree_audit_warning_response(warning: DegreeAuditWarning) -> DegreeAuditWarningResponse:
+    return DegreeAuditWarningResponse(
+        id=warning.id,
+        degree_audit_run_id=warning.degree_audit_run_id,
+        requirement_evaluation_id=warning.requirement_evaluation_id,
+        warning_code=warning.warning_code,
+        severity=warning.severity.value,
+        message=warning.message,
+        requires_advisor_confirmation=warning.requires_advisor_confirmation,
+        created_at=warning.created_at,
+    )
+
+
+def audit_course_application_response(
+    application: AuditCourseApplication,
+    course: Course | None,
+) -> AuditCourseApplicationResponse:
+    return AuditCourseApplicationResponse(
+        id=application.id,
+        course_id=application.course_id,
+        course_code=f"{course.subject_code} {course.course_number}" if course else None,
+        course_title=course.title if course else None,
+        student_course_attempt_id=application.student_course_attempt_id,
+        transfer_credit_id=application.transfer_credit_id,
+        course_waiver_id=application.course_waiver_id,
+        course_substitution_id=application.course_substitution_id,
+        application_type=application.application_type.value,
+        credit_amount=application.credit_amount,
+        grade=application.grade,
+        is_completed=application.is_completed,
+        is_in_progress=application.is_in_progress,
+        is_planned=application.is_planned,
+        is_shared=application.is_shared,
+        explanation=application.explanation,
+    )
+
+
+def requirement_evaluation_response(
+    evaluation: RequirementEvaluation,
+    requirement: RequirementNode,
+    applications: list[AuditCourseApplicationResponse],
+    warnings: list[DegreeAuditWarningResponse],
+) -> RequirementEvaluationResponse:
+    return RequirementEvaluationResponse(
+        id=evaluation.id,
+        degree_audit_run_id=evaluation.degree_audit_run_id,
+        requirement_node_id=evaluation.requirement_node_id,
+        requirement_code=requirement.code,
+        requirement_name=requirement.name,
+        requirement_type=requirement.requirement_type.value,
+        status=evaluation.status.value,
+        required_credits=evaluation.required_credits,
+        satisfied_credits=evaluation.satisfied_credits,
+        remaining_credits=evaluation.remaining_credits,
+        required_courses=evaluation.required_courses,
+        satisfied_courses=evaluation.satisfied_courses,
+        remaining_courses=evaluation.remaining_courses,
+        minimum_grade=evaluation.minimum_grade,
+        explanation=evaluation.explanation,
+        display_order=evaluation.display_order,
+        applications=applications,
+        warnings=warnings,
     )
 
 
@@ -604,6 +703,159 @@ def get_course_offering_patterns(
         )
     ).all()
     return [offering_pattern_response(pattern) for pattern in patterns]
+
+
+@router.post(
+    "/degree-audits",
+    response_model=DegreeAuditRunResponse,
+    status_code=201,
+    responses={404: not_found_response, 400: not_found_response},
+)
+def create_degree_audit(
+    request: DegreeAuditCreateRequest,
+    db: DatabaseSession,
+) -> DegreeAuditRunResponse:
+    try:
+        run = DegreeAuditApplicationService(db).create_audit(
+            request.student_profile_id,
+            request.program_version_id,
+            AuditMode(request.calculation_mode),
+        )
+    except DegreeAuditValidationError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return degree_audit_run_response(run)
+
+
+@router.get(
+    "/degree-audits/{audit_id}",
+    response_model=DegreeAuditRunResponse,
+    responses={404: not_found_response},
+)
+def get_degree_audit(audit_id: UUID, db: DatabaseSession) -> DegreeAuditRunResponse:
+    run = db.get(DegreeAuditRun, audit_id)
+    if run is None:
+        raise not_found("DegreeAuditRun", audit_id)
+    return degree_audit_run_response(run)
+
+
+@router.get(
+    "/degree-audits/{audit_id}/requirements",
+    response_model=list[RequirementEvaluationResponse],
+    responses={404: not_found_response},
+)
+def get_degree_audit_requirements(
+    audit_id: UUID,
+    db: DatabaseSession,
+) -> list[RequirementEvaluationResponse]:
+    if db.get(DegreeAuditRun, audit_id) is None:
+        raise not_found("DegreeAuditRun", audit_id)
+
+    rows = db.execute(
+        select(RequirementEvaluation, RequirementNode)
+        .join(RequirementNode, RequirementEvaluation.requirement_node_id == RequirementNode.id)
+        .where(RequirementEvaluation.degree_audit_run_id == audit_id)
+        .order_by(RequirementEvaluation.display_order, RequirementNode.code)
+    ).all()
+    evaluation_ids = [evaluation.id for evaluation, _ in rows]
+    applications_by_evaluation: dict[UUID, list[AuditCourseApplicationResponse]] = defaultdict(list)
+    if evaluation_ids:
+        application_rows = db.execute(
+            select(AuditCourseApplication, Course)
+            .outerjoin(Course, AuditCourseApplication.course_id == Course.id)
+            .where(AuditCourseApplication.requirement_evaluation_id.in_(evaluation_ids))
+            .order_by(AuditCourseApplication.created_at, AuditCourseApplication.id)
+        ).all()
+        for application, course in application_rows:
+            applications_by_evaluation[application.requirement_evaluation_id].append(
+                audit_course_application_response(application, course)
+            )
+
+    warnings_by_evaluation: dict[UUID, list[DegreeAuditWarningResponse]] = defaultdict(list)
+    if evaluation_ids:
+        warning_rows = db.scalars(
+            select(DegreeAuditWarning)
+            .where(DegreeAuditWarning.requirement_evaluation_id.in_(evaluation_ids))
+            .order_by(DegreeAuditWarning.created_at, DegreeAuditWarning.id)
+        ).all()
+        for warning in warning_rows:
+            if warning.requirement_evaluation_id is not None:
+                warnings_by_evaluation[warning.requirement_evaluation_id].append(
+                    degree_audit_warning_response(warning)
+                )
+
+    return [
+        requirement_evaluation_response(
+            evaluation,
+            requirement,
+            applications_by_evaluation[evaluation.id],
+            warnings_by_evaluation[evaluation.id],
+        )
+        for evaluation, requirement in rows
+    ]
+
+
+@router.get(
+    "/degree-audits/{audit_id}/warnings",
+    response_model=list[DegreeAuditWarningResponse],
+    responses={404: not_found_response},
+)
+def get_degree_audit_warnings(
+    audit_id: UUID,
+    db: DatabaseSession,
+) -> list[DegreeAuditWarningResponse]:
+    if db.get(DegreeAuditRun, audit_id) is None:
+        raise not_found("DegreeAuditRun", audit_id)
+    warnings = db.scalars(
+        select(DegreeAuditWarning)
+        .where(DegreeAuditWarning.degree_audit_run_id == audit_id)
+        .order_by(DegreeAuditWarning.severity, DegreeAuditWarning.created_at, DegreeAuditWarning.id)
+    ).all()
+    return [degree_audit_warning_response(warning) for warning in warnings]
+
+
+@router.get(
+    "/students/{student_id}/degree-audits",
+    response_model=list[DegreeAuditRunResponse],
+    responses={404: not_found_response},
+)
+def list_student_degree_audits(
+    student_id: UUID,
+    db: DatabaseSession,
+) -> list[DegreeAuditRunResponse]:
+    if db.get(StudentProfile, student_id) is None:
+        raise not_found("StudentProfile", student_id)
+    runs = db.scalars(
+        select(DegreeAuditRun)
+        .where(DegreeAuditRun.student_profile_id == student_id)
+        .order_by(DegreeAuditRun.created_at.desc(), DegreeAuditRun.id.desc())
+    ).all()
+    return [degree_audit_run_response(run) for run in runs]
+
+
+@router.get(
+    "/students/{student_id}/degree-audits/latest",
+    response_model=DegreeAuditRunResponse,
+    responses={404: not_found_response},
+)
+def get_latest_student_degree_audit(
+    student_id: UUID,
+    db: DatabaseSession,
+) -> DegreeAuditRunResponse:
+    if db.get(StudentProfile, student_id) is None:
+        raise not_found("StudentProfile", student_id)
+    run = db.scalar(
+        select(DegreeAuditRun)
+        .where(DegreeAuditRun.student_profile_id == student_id)
+        .order_by(DegreeAuditRun.created_at.desc(), DegreeAuditRun.id.desc())
+        .limit(1)
+    )
+    if run is None:
+        raise not_found("DegreeAuditRun", student_id)
+    return degree_audit_run_response(run)
 
 
 def student_programs_response(

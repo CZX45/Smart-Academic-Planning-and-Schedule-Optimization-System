@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -246,6 +247,111 @@ class CourseRuleExpressionNodeResponse(BaseModel):
 class CourseRuleExpressionTreeResponse(BaseModel):
     course_rule_id: UUID
     root: CourseRuleExpressionNodeResponse | None = None
+
+
+AuditModeValue = Literal["CURRENT", "PROJECTED"]
+AuditRunStatusValue = Literal[
+    "PENDING",
+    "RUNNING",
+    "COMPLETED",
+    "FAILED",
+    "COMPLETED_WITH_WARNINGS",
+]
+RequirementEvaluationStatusValue = Literal[
+    "SATISFIED",
+    "IN_PROGRESS",
+    "PLANNED",
+    "PARTIALLY_SATISFIED",
+    "NOT_SATISFIED",
+    "WAIVED",
+    "MANUAL_REVIEW_REQUIRED",
+    "NOT_APPLICABLE",
+]
+AuditApplicationTypeValue = Literal[
+    "COURSE_ATTEMPT",
+    "TRANSFER_CREDIT",
+    "WAIVER",
+    "SUBSTITUTION",
+    "EQUIVALENCY",
+]
+AuditWarningSeverityValue = Literal["INFO", "WARNING", "ERROR"]
+
+
+class DegreeAuditCreateRequest(BaseModel):
+    student_profile_id: UUID
+    program_version_id: UUID
+    calculation_mode: AuditModeValue
+
+
+class DegreeAuditRunResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    program_version_id: UUID
+    status: AuditRunStatusValue
+    engine_version: str
+    calculation_mode: AuditModeValue
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    total_required_credits: Decimal
+    completed_credits: Decimal
+    in_progress_credits: Decimal
+    planned_credits: Decimal
+    remaining_credits: Decimal
+    completion_percentage: Decimal
+    source_snapshot_hash: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class DegreeAuditWarningResponse(BaseModel):
+    id: UUID
+    degree_audit_run_id: UUID
+    requirement_evaluation_id: UUID | None = None
+    warning_code: str
+    severity: AuditWarningSeverityValue
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class AuditCourseApplicationResponse(BaseModel):
+    id: UUID
+    course_id: UUID | None = None
+    course_code: str | None = None
+    course_title: str | None = None
+    student_course_attempt_id: UUID | None = None
+    transfer_credit_id: UUID | None = None
+    course_waiver_id: UUID | None = None
+    course_substitution_id: UUID | None = None
+    application_type: AuditApplicationTypeValue
+    credit_amount: Decimal
+    grade: str | None = None
+    is_completed: bool
+    is_in_progress: bool
+    is_planned: bool
+    is_shared: bool
+    explanation: str
+
+
+class RequirementEvaluationResponse(BaseModel):
+    id: UUID
+    degree_audit_run_id: UUID
+    requirement_node_id: UUID
+    requirement_code: str
+    requirement_name: str
+    requirement_type: str
+    status: RequirementEvaluationStatusValue
+    required_credits: Decimal | None = None
+    satisfied_credits: Decimal
+    remaining_credits: Decimal
+    required_courses: int | None = None
+    satisfied_courses: int
+    remaining_courses: int
+    minimum_grade: str | None = None
+    explanation: str
+    display_order: int
+    applications: list[AuditCourseApplicationResponse]
+    warnings: list[DegreeAuditWarningResponse]
 
 
 class ErrorDetailResponse(BaseModel):

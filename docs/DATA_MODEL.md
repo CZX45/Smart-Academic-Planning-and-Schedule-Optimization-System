@@ -39,9 +39,18 @@ Phase 2B adds the course-rule and section foundation:
 - `course_rules`
 - `course_rule_expressions`
 
+Phase 3A adds the degree audit snapshot foundation:
+
+- `degree_audit_runs`
+- `requirement_evaluations`
+- `audit_course_applications`
+- `degree_audit_warnings`
+
 Every Phase 2A academic-domain table includes `source_type`, `is_official`, source reference fields, and timestamps. The development seed uses only `source_type = MOCK` and `is_official = false`.
 
 Phase 2B also source-tags offering patterns, sections, meetings, rules, and rule expressions. Mock data remains non-official and cannot be used as authoritative school policy.
+
+Phase 3A audit rows are generated snapshots, not source records. They do not store school credentials or portal secrets. Each run stores `engine_version`, `calculation_mode`, source snapshot hash, credit totals, completion percentage as fixed-precision numeric data, and zero-or-more warnings.
 
 Important Phase 2A constraints include:
 
@@ -55,11 +64,14 @@ Important Phase 2A constraints include:
 - A student can have only one active primary major.
 - Course attempts keep separate positive attempt numbers for retakes.
 - Transfer, waiver, and substitution records store approval status but do not affect audit results in Phase 2A.
+- Phase 3A applies only approved transfers, waivers, and substitutions. Pending records generate warnings, and rejected records do not apply.
 - Course offering patterns are advisory historical or predicted metadata, not school commitments.
 - Sections are unique by institution, term, course, and section code.
 - Section meetings are separate records so a section can include a lecture plus lab or other meeting components.
 - Course rules are either course scoped or section scoped. Section-scoped rules are constrained to the same course and institution as the section.
 - Course rule expressions are relational adjacency-list trees with one root per rule. Parent and child nodes must belong to the same rule.
+- A degree audit run has one evaluation per requirement node.
+- An audit course application must reference a clear source record: an attempt, transfer credit, waiver, or substitution. Approved substitutions may also reference the completed substitute attempt used to support the approval.
 
 ### Institution and Versioning
 
@@ -138,11 +150,15 @@ Expression examples:
 ### Evaluation and Planning
 
 - `degree_audit_run`
-  - `id`, `student_id`, `program_version_id`, `created_at`, `input_hash`, `status`, `summary`
-- `requirement_evaluation_result`
-  - `id`, `audit_run_id`, `requirement_node_id`, `status`, `credits_applied`, `courses_applied`, `explanation`, `confidence_level`
+  - `id`, `student_profile_id`, `program_version_id`, `status`, `engine_version`, `calculation_mode`, `started_at`, `completed_at`, `total_required_credits`, `completed_credits`, `in_progress_credits`, `planned_credits`, `remaining_credits`, `completion_percentage`, `source_snapshot_hash`, `created_at`, `updated_at`
+- `requirement_evaluation`
+  - `id`, `degree_audit_run_id`, `requirement_node_id`, `status`, `required_credits`, `satisfied_credits`, `remaining_credits`, `required_courses`, `satisfied_courses`, `remaining_courses`, `minimum_grade`, `explanation`, `display_order`, `created_at`
+- `audit_course_application`
+  - `id`, `degree_audit_run_id`, `requirement_evaluation_id`, `course_id`, `student_course_attempt_id`, `transfer_credit_id`, `course_waiver_id`, `course_substitution_id`, `application_type`, `credit_amount`, `grade`, `is_completed`, `is_in_progress`, `is_planned`, `is_shared`, `explanation`, `created_at`
+- `degree_audit_warning`
+  - `id`, `degree_audit_run_id`, `requirement_evaluation_id`, `warning_code`, `severity`, `message`, `requires_advisor_confirmation`, `created_at`
 - `course_requirement_assignment`
-  - `id`, `audit_run_id`, `student_course_record_id`, `requirement_node_id`, `assignment_type`, `score`, `explanation`
+  - Deferred until advanced allocation. Phase 3A uses stored audit applications instead of a global assignment optimizer.
 - `planning_session`
   - `id`, `student_id`, `name`, `created_at`, `assumptions`, `status`
 - `planned_course`
@@ -166,16 +182,47 @@ Use relational tables for identities, relationships, student records, courses, s
 - `in_progress`
 - `planned`
 - `failed_or_insufficient_grade`
+- `incomplete`
 - `transferred`
 - `waived`
 
 ### Requirement Status
 
-- `satisfied`
-- `partially_satisfied`
-- `in_progress`
-- `planned`
-- `unsatisfied`
+- `SATISFIED`
+- `IN_PROGRESS`
+- `PLANNED`
+- `PARTIALLY_SATISFIED`
+- `NOT_SATISFIED`
+- `WAIVED`
+- `MANUAL_REVIEW_REQUIRED`
+- `NOT_APPLICABLE`
+
+### Degree Audit Run Status
+
+- `PENDING`
+- `RUNNING`
+- `COMPLETED`
+- `FAILED`
+- `COMPLETED_WITH_WARNINGS`
+
+### Degree Audit Calculation Mode
+
+- `CURRENT`: final completed and approved records can satisfy requirements; in-progress and planned records remain separate.
+- `PROJECTED`: in-progress and planned records can be displayed as potential contributions but are not relabeled as completed.
+
+### Audit Application Type
+
+- `COURSE_ATTEMPT`
+- `TRANSFER_CREDIT`
+- `WAIVER`
+- `SUBSTITUTION`
+- `EQUIVALENCY`
+
+### Audit Warning Severity
+
+- `INFO`
+- `WARNING`
+- `ERROR`
 
 ### Section Status
 

@@ -34,6 +34,15 @@ Phase 2A adds SQLite-backed constraint tests for the SQLAlchemy metadata, determ
 
 Phase 2B extends those tests to course offering patterns, course rules, rule expression trees, sections, and section meetings. SQLite-backed tests cover model constraints and tree-shape validation; CI remains responsible for PostgreSQL Alembic execution, Docker Compose startup, and double-run seed idempotency against PostgreSQL.
 
+Phase 3A adds deterministic Degree Audit coverage:
+
+- Pure policy tests for grade ordering, pass/fail handling, unknown grades, and incomplete attempts.
+- SQLite-backed model tests for audit snapshot constraints, one evaluation per requirement node, application source constraints, and nonnegative credit summaries.
+- Seed tests for completed, in-progress, planned, low-grade, approved/pending transfer, approved/pending waiver, approved/rejected substitution, retake, upper-level, residency, total-credit, and manual-review fixtures.
+- FastAPI tests for audit creation, retrieval, requirements, warnings, latest audit, invalid modes, 404s, and response schema shape.
+- Shared TypeScript schema tests for audit run, requirement, application, and warning responses.
+- Playwright tests for the Degree Progress UI shell, mock-policy warning, API failure, empty/error states, and schema-error handling.
+
 ### End-to-End Tests
 
 Playwright tests for:
@@ -94,6 +103,17 @@ Phase 2B covers additional storage and API safety:
 - Section meeting time/date validity and multiple meetings per section.
 - Seed idempotency for Phase 2A and Phase 2B data together.
 - Read-only API coverage for section filters, section detail, meetings, rules, expression trees, offering patterns, 404, invalid filters, and OpenAPI generation.
+
+Phase 3A covers audit behavior:
+
+- `CURRENT` and `PROJECTED` modes keep completed, in-progress, and planned contributions separate.
+- Grade policy is centralized and warns on pass/fail or unknown cases.
+- Retakes preserve all attempts and use the best valid completed attempt.
+- Approved transfer applies and pending transfer warns.
+- Approved waiver satisfies without adding credits.
+- Approved substitution applies only to the target requirement.
+- Baseline allocation avoids unapproved double counting.
+- Manual-review requirements are not treated as satisfied.
 
 ## 5. Property and Constraint Tests
 

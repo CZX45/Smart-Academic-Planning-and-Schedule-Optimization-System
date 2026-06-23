@@ -18,6 +18,11 @@ from app.models.academic import (
     AcademicProgram,
     AcademicTerm,
     ApprovalStatus,
+    AuditApplicationType,
+    AuditCourseApplication,
+    AuditMode,
+    AuditRunStatus,
+    AuditWarningSeverity,
     Campus,
     Course,
     CourseEquivalency,
@@ -28,6 +33,8 @@ from app.models.academic import (
     CourseRuleType,
     CourseSubstitution,
     DayOfWeek,
+    DegreeAuditRun,
+    DegreeAuditWarning,
     DegreeLevel,
     FrequencyType,
     Institution,
@@ -35,6 +42,8 @@ from app.models.academic import (
     ProgramType,
     ProgramVersion,
     RequirementCourseOption,
+    RequirementEvaluation,
+    RequirementEvaluationStatus,
     RequirementNode,
     RequirementType,
     Section,
@@ -1123,5 +1132,174 @@ def test_course_substitution_cannot_use_same_course(session: Session) -> None:
     session.commit()
     session.add(substitution)
 
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_degree_audit_snapshot_models_enforce_sources_and_unique_evaluations(
+    session: Session,
+) -> None:
+    inst, campus_record, term_record, program_record, version = seed_catalog(session)
+    student = StudentProfile(
+        id=uid("student-audit"),
+        home_institution_id=inst.id,
+        home_campus_id=campus_record.id,
+        source_type=SourceType.MOCK,
+        is_official=False,
+    )
+    student_program = StudentAcademicProgram(
+        id=uid("student-audit-program"),
+        student_profile_id=student.id,
+        program_version_id=version.id,
+        program_type=StudentProgramType.PRIMARY_MAJOR,
+        status=StudentAcademicProgramStatus.ACTIVE,
+        source_type=SourceType.MOCK,
+        is_official=False,
+    )
+    fin_301 = course(inst, "FIN", "301")
+    attempt = StudentCourseAttempt(
+        id=uid("audit-attempt"),
+        student_profile_id=student.id,
+        course_id=fin_301.id,
+        term_id=term_record.id,
+        attempt_number=1,
+        status=StudentCourseAttemptStatus.COMPLETED,
+        grade="B",
+        credits_attempted=Decimal("3.0"),
+        credits_earned=Decimal("3.0"),
+        source_type=SourceType.MOCK,
+        is_official=False,
+    )
+    requirement = RequirementNode(
+        id=uid("audit-requirement"),
+        institution_id=inst.id,
+        program_version_id=version.id,
+        code="AUDIT-REQ",
+        name="Audit Requirement",
+        requirement_type=RequirementType.REQUIRED_COURSE,
+        source_type=SourceType.MOCK,
+        is_official=False,
+    )
+    session.add_all([student, fin_301, requirement])
+    session.commit()
+    session.add(student_program)
+    session.commit()
+    session.add(attempt)
+    session.commit()
+
+    run = DegreeAuditRun(
+        id=uid("audit-run"),
+        student_profile_id=student.id,
+        program_version_id=version.id,
+        status=AuditRunStatus.COMPLETED,
+        engine_version="phase-3a-test",
+        calculation_mode=AuditMode.CURRENT,
+        total_required_credits=Decimal("120.0"),
+        completed_credits=Decimal("3.0"),
+        in_progress_credits=Decimal("0.0"),
+        planned_credits=Decimal("0.0"),
+        remaining_credits=Decimal("117.0"),
+        completion_percentage=Decimal("2.50"),
+        source_snapshot_hash="test-hash",
+    )
+    evaluation = RequirementEvaluation(
+        id=uid("audit-evaluation"),
+        degree_audit_run_id=run.id,
+        requirement_node_id=requirement.id,
+        status=RequirementEvaluationStatus.SATISFIED,
+        required_credits=Decimal("3.0"),
+        satisfied_credits=Decimal("3.0"),
+        remaining_credits=Decimal("0.0"),
+        required_courses=1,
+        satisfied_courses=1,
+        remaining_courses=0,
+        minimum_grade="C",
+        explanation="Completed by Mock FIN 301.",
+        display_order=10,
+    )
+    application = AuditCourseApplication(
+        id=uid("audit-application"),
+        degree_audit_run_id=run.id,
+        requirement_evaluation_id=evaluation.id,
+        course_id=fin_301.id,
+        student_course_attempt_id=attempt.id,
+        application_type=AuditApplicationType.COURSE_ATTEMPT,
+        credit_amount=Decimal("3.0"),
+        grade="B",
+        is_completed=True,
+        is_in_progress=False,
+        is_planned=False,
+        is_shared=False,
+        explanation="Applied completed Mock FIN 301 attempt.",
+    )
+    warning = DegreeAuditWarning(
+        id=uid("audit-warning"),
+        degree_audit_run_id=run.id,
+        requirement_evaluation_id=evaluation.id,
+        warning_code="MOCK_WARNING",
+        severity=AuditWarningSeverity.WARNING,
+        message="Mock advisor warning.",
+        requires_advisor_confirmation=True,
+    )
+    session.add(run)
+    session.commit()
+    session.add(evaluation)
+    session.commit()
+    session.add_all([application, warning])
+    session.commit()
+
+    duplicate_evaluation = RequirementEvaluation(
+        id=uid("audit-evaluation-duplicate"),
+        degree_audit_run_id=run.id,
+        requirement_node_id=requirement.id,
+        status=RequirementEvaluationStatus.SATISFIED,
+        required_credits=Decimal("3.0"),
+        satisfied_credits=Decimal("3.0"),
+        remaining_credits=Decimal("0.0"),
+        required_courses=1,
+        satisfied_courses=1,
+        remaining_courses=0,
+        explanation="Duplicate.",
+        display_order=20,
+    )
+    session.add(duplicate_evaluation)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    no_source_application = AuditCourseApplication(
+        id=uid("audit-application-no-source"),
+        degree_audit_run_id=run.id,
+        requirement_evaluation_id=evaluation.id,
+        course_id=fin_301.id,
+        application_type=AuditApplicationType.COURSE_ATTEMPT,
+        credit_amount=Decimal("3.0"),
+        is_completed=True,
+        is_in_progress=False,
+        is_planned=False,
+        is_shared=False,
+        explanation="Missing source.",
+    )
+    session.add(no_source_application)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    bad_remaining = DegreeAuditRun(
+        id=uid("audit-run-negative-remaining"),
+        student_profile_id=student.id,
+        program_version_id=version.id,
+        status=AuditRunStatus.COMPLETED,
+        engine_version="phase-3a-test",
+        calculation_mode=AuditMode.CURRENT,
+        total_required_credits=Decimal("120.0"),
+        completed_credits=Decimal("130.0"),
+        in_progress_credits=Decimal("0.0"),
+        planned_credits=Decimal("0.0"),
+        remaining_credits=Decimal("-10.0"),
+        completion_percentage=Decimal("100.00"),
+        source_snapshot_hash="bad-hash",
+    )
+    session.add(bad_remaining)
     with pytest.raises(IntegrityError):
         session.commit()

@@ -84,6 +84,7 @@ class StudentCourseAttemptStatus(StrEnum):
     PLANNED = "PLANNED"
     FAILED = "FAILED"
     WITHDRAWN = "WITHDRAWN"
+    INCOMPLETE = "INCOMPLETE"
     TRANSFERRED = "TRANSFERRED"
 
 
@@ -91,6 +92,44 @@ class ApprovalStatus(StrEnum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+
+
+class AuditRunStatus(StrEnum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    COMPLETED_WITH_WARNINGS = "COMPLETED_WITH_WARNINGS"
+
+
+class AuditMode(StrEnum):
+    CURRENT = "CURRENT"
+    PROJECTED = "PROJECTED"
+
+
+class RequirementEvaluationStatus(StrEnum):
+    SATISFIED = "SATISFIED"
+    IN_PROGRESS = "IN_PROGRESS"
+    PLANNED = "PLANNED"
+    PARTIALLY_SATISFIED = "PARTIALLY_SATISFIED"
+    NOT_SATISFIED = "NOT_SATISFIED"
+    WAIVED = "WAIVED"
+    MANUAL_REVIEW_REQUIRED = "MANUAL_REVIEW_REQUIRED"
+    NOT_APPLICABLE = "NOT_APPLICABLE"
+
+
+class AuditApplicationType(StrEnum):
+    COURSE_ATTEMPT = "COURSE_ATTEMPT"
+    TRANSFER_CREDIT = "TRANSFER_CREDIT"
+    WAIVER = "WAIVER"
+    SUBSTITUTION = "SUBSTITUTION"
+    EQUIVALENCY = "EQUIVALENCY"
+
+
+class AuditWarningSeverity(StrEnum):
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
 
 
 class TermType(StrEnum):
@@ -222,6 +261,41 @@ course_attempt_status_enum = Enum(
 approval_status_enum = Enum(
     ApprovalStatus,
     name="approval_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+audit_run_status_enum = Enum(
+    AuditRunStatus,
+    name="audit_run_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+audit_mode_enum = Enum(
+    AuditMode,
+    name="audit_mode",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+requirement_evaluation_status_enum = Enum(
+    RequirementEvaluationStatus,
+    name="requirement_evaluation_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+audit_application_type_enum = Enum(
+    AuditApplicationType,
+    name="audit_application_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+audit_warning_severity_enum = Enum(
+    AuditWarningSeverity,
+    name="audit_warning_severity",
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
@@ -1379,3 +1453,272 @@ class CourseSubstitution(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixi
     substitute_course_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     status: Mapped[ApprovalStatus] = mapped_column(approval_status_enum, nullable=False)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class DegreeAuditRun(UuidPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "degree_audit_runs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["student_profile_id"],
+            ["student_profiles.id"],
+            name="fk_degree_audit_runs_student",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["program_version_id"],
+            ["program_versions.id"],
+            name="fk_degree_audit_runs_program_version",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "total_required_credits >= 0",
+            name="ck_degree_audit_runs_total_required_non_negative",
+        ),
+        CheckConstraint(
+            "completed_credits >= 0", name="ck_degree_audit_runs_completed_non_negative"
+        ),
+        CheckConstraint(
+            "in_progress_credits >= 0",
+            name="ck_degree_audit_runs_in_progress_non_negative",
+        ),
+        CheckConstraint("planned_credits >= 0", name="ck_degree_audit_runs_planned_non_negative"),
+        CheckConstraint(
+            "remaining_credits >= 0", name="ck_degree_audit_runs_remaining_non_negative"
+        ),
+        CheckConstraint(
+            "completion_percentage >= 0 AND completion_percentage <= 100",
+            name="ck_degree_audit_runs_completion_percentage_range",
+        ),
+        CheckConstraint("length(engine_version) > 0", name="ck_degree_audit_runs_engine_version"),
+        CheckConstraint(
+            "length(source_snapshot_hash) > 0",
+            name="ck_degree_audit_runs_source_hash",
+        ),
+        Index(
+            "ix_degree_audit_runs_student_created",
+            "student_profile_id",
+            "created_at",
+        ),
+    )
+
+    student_profile_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    program_version_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    status: Mapped[AuditRunStatus] = mapped_column(audit_run_status_enum, nullable=False)
+    engine_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    calculation_mode: Mapped[AuditMode] = mapped_column(audit_mode_enum, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    total_required_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
+    completed_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
+    in_progress_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
+    planned_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
+    remaining_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
+    completion_percentage: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    source_snapshot_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+
+
+class RequirementEvaluation(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "requirement_evaluations"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["degree_audit_run_id"],
+            ["degree_audit_runs.id"],
+            name="fk_requirement_evaluations_audit_run",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["requirement_node_id"],
+            ["requirement_nodes.id"],
+            name="fk_requirement_evaluations_requirement_node",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "required_credits IS NULL OR required_credits >= 0",
+            name="ck_requirement_evaluations_required_credits_non_negative",
+        ),
+        CheckConstraint(
+            "satisfied_credits >= 0",
+            name="ck_requirement_evaluations_satisfied_credits_non_negative",
+        ),
+        CheckConstraint(
+            "remaining_credits >= 0",
+            name="ck_requirement_evaluations_remaining_credits_non_negative",
+        ),
+        CheckConstraint(
+            "required_courses IS NULL OR required_courses >= 0",
+            name="ck_requirement_evaluations_required_courses_non_negative",
+        ),
+        CheckConstraint(
+            "satisfied_courses >= 0",
+            name="ck_requirement_evaluations_satisfied_courses_non_negative",
+        ),
+        CheckConstraint(
+            "remaining_courses >= 0",
+            name="ck_requirement_evaluations_remaining_courses_non_negative",
+        ),
+        CheckConstraint(
+            "display_order >= 0",
+            name="ck_requirement_evaluations_display_order_non_negative",
+        ),
+        CheckConstraint("length(explanation) > 0", name="ck_requirement_evaluations_explained"),
+        UniqueConstraint(
+            "degree_audit_run_id",
+            "requirement_node_id",
+            name="uq_requirement_evaluations_run_node",
+        ),
+        Index(
+            "ix_requirement_evaluations_run_order",
+            "degree_audit_run_id",
+            "display_order",
+        ),
+    )
+
+    degree_audit_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    requirement_node_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    status: Mapped[RequirementEvaluationStatus] = mapped_column(
+        requirement_evaluation_status_enum, nullable=False
+    )
+    required_credits: Mapped[Decimal | None] = mapped_column(Numeric(6, 1), nullable=True)
+    satisfied_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
+    remaining_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
+    required_courses: Mapped[int | None] = mapped_column(nullable=True)
+    satisfied_courses: Mapped[int] = mapped_column(nullable=False)
+    remaining_courses: Mapped[int] = mapped_column(nullable=False)
+    minimum_grade: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    display_order: Mapped[int] = mapped_column(nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class AuditCourseApplication(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "audit_course_applications"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["degree_audit_run_id"],
+            ["degree_audit_runs.id"],
+            name="fk_audit_course_applications_audit_run",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["requirement_evaluation_id"],
+            ["requirement_evaluations.id"],
+            name="fk_audit_course_applications_evaluation",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["course_id"],
+            ["courses.id"],
+            name="fk_audit_course_applications_course",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["student_course_attempt_id"],
+            ["student_course_attempts.id"],
+            name="fk_audit_course_applications_attempt",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["transfer_credit_id"],
+            ["transfer_credits.id"],
+            name="fk_audit_course_applications_transfer",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["course_waiver_id"],
+            ["course_waivers.id"],
+            name="fk_audit_course_applications_waiver",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["course_substitution_id"],
+            ["course_substitutions.id"],
+            name="fk_audit_course_applications_substitution",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("credit_amount >= 0", name="ck_audit_course_applications_credit_non_neg"),
+        CheckConstraint("length(explanation) > 0", name="ck_audit_course_applications_explained"),
+        CheckConstraint(
+            "(CASE WHEN student_course_attempt_id IS NOT NULL THEN 1 ELSE 0 END + "
+            "CASE WHEN transfer_credit_id IS NOT NULL THEN 1 ELSE 0 END + "
+            "CASE WHEN course_waiver_id IS NOT NULL THEN 1 ELSE 0 END + "
+            "CASE WHEN course_substitution_id IS NOT NULL THEN 1 ELSE 0 END) = 1 "
+            "OR (student_course_attempt_id IS NOT NULL AND course_substitution_id IS NOT NULL "
+            "AND transfer_credit_id IS NULL AND course_waiver_id IS NULL)",
+            name="ck_audit_course_applications_source_shape",
+        ),
+        Index(
+            "ix_audit_course_applications_run_eval",
+            "degree_audit_run_id",
+            "requirement_evaluation_id",
+        ),
+    )
+
+    degree_audit_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    requirement_evaluation_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    course_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    student_course_attempt_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), nullable=True
+    )
+    transfer_credit_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    course_waiver_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    course_substitution_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    application_type: Mapped[AuditApplicationType] = mapped_column(
+        audit_application_type_enum, nullable=False
+    )
+    credit_amount: Mapped[Decimal] = mapped_column(Numeric(5, 1), nullable=False)
+    grade: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    is_completed: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    is_in_progress: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    is_planned: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    is_shared: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class DegreeAuditWarning(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "degree_audit_warnings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["degree_audit_run_id"],
+            ["degree_audit_runs.id"],
+            name="fk_degree_audit_warnings_audit_run",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["requirement_evaluation_id"],
+            ["requirement_evaluations.id"],
+            name="fk_degree_audit_warnings_evaluation",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("length(warning_code) > 0", name="ck_degree_audit_warnings_code"),
+        CheckConstraint("length(message) > 0", name="ck_degree_audit_warnings_message"),
+        Index(
+            "ix_degree_audit_warnings_run_severity",
+            "degree_audit_run_id",
+            "severity",
+        ),
+    )
+
+    degree_audit_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    requirement_evaluation_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), nullable=True
+    )
+    warning_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    severity: Mapped[AuditWarningSeverity] = mapped_column(
+        audit_warning_severity_enum, nullable=False
+    )
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    requires_advisor_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )

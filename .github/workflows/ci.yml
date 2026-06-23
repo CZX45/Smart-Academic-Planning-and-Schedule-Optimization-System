@@ -44,6 +44,19 @@ jobs:
       - run: git diff --check
   e2e:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: sapsos
+          POSTGRES_PASSWORD: sapsos_dev_password
+          POSTGRES_DB: sapsos
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U sapsos -d sapsos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -55,6 +68,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: python -m pip install -e "apps/api[dev]"
       - run: pnpm exec playwright install --with-deps
+      - run: cd apps/api && python -m alembic upgrade head
+      - run: pnpm seed
       - run: pnpm e2e
   docker-compose:
     runs-on: ubuntu-latest

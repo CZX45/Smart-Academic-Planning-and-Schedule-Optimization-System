@@ -217,3 +217,94 @@ def test_phase_2b_section_filter_validation_error(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert "detail" in response.json()
+
+
+def test_degree_audit_api_creates_snapshot_and_returns_requirements(
+    client: TestClient,
+) -> None:
+    student_id = str(seed_uuid("student-profile:mock-student"))
+    program_version_id = str(seed_uuid("program-version:bs-finance-2024"))
+
+    create_response = client.post(
+        "/api/v1/degree-audits",
+        json={
+            "student_profile_id": student_id,
+            "program_version_id": program_version_id,
+            "calculation_mode": "PROJECTED",
+        },
+    )
+
+    assert create_response.status_code == 201
+    audit = create_response.json()
+    audit_id = audit["id"]
+    UUID(audit_id)
+    assert audit["student_profile_id"] == student_id
+    assert audit["program_version_id"] == program_version_id
+    assert audit["calculation_mode"] == "PROJECTED"
+    assert audit["status"] in {"COMPLETED", "COMPLETED_WITH_WARNINGS"}
+    assert audit["engine_version"] == "phase-3a-degree-audit-v1"
+    assert audit["completed_credits"] != "0.0"
+    assert audit["remaining_credits"] >= "0.0"
+    assert "eligibility" not in audit
+
+    get_response = client.get(f"/api/v1/degree-audits/{audit_id}")
+    assert get_response.status_code == 200
+    assert get_response.json()["id"] == audit_id
+
+    requirements_response = client.get(f"/api/v1/degree-audits/{audit_id}/requirements")
+    assert requirements_response.status_code == 200
+    requirements = requirements_response.json()
+    assert len(requirements) >= 10
+    business_a = next(item for item in requirements if item["requirement_code"] == "BUS-REQ-A")
+    assert business_a["status"] == "SATISFIED"
+    assert business_a["applications"][0]["application_type"] == "COURSE_ATTEMPT"
+    assert business_a["applications"][0]["course_code"] == "BUS 101"
+
+    transfer_requirement = next(
+        item for item in requirements if item["requirement_code"] == "GEN-REQ"
+    )
+    assert transfer_requirement["status"] == "SATISFIED"
+    assert transfer_requirement["applications"][0]["application_type"] == "TRANSFER_CREDIT"
+
+    warnings_response = client.get(f"/api/v1/degree-audits/{audit_id}/warnings")
+    assert warnings_response.status_code == 200
+    warnings = warnings_response.json()
+    assert any(warning["warning_code"] == "PENDING_TRANSFER" for warning in warnings)
+    assert any(warning["requires_advisor_confirmation"] for warning in warnings)
+
+    list_response = client.get(f"/api/v1/students/{student_id}/degree-audits")
+    assert list_response.status_code == 200
+    assert [item["id"] for item in list_response.json()] == [audit_id]
+
+    latest_response = client.get(f"/api/v1/students/{student_id}/degree-audits/latest")
+    assert latest_response.status_code == 200
+    assert latest_response.json()["id"] == audit_id
+
+
+def test_degree_audit_api_validates_scope_and_mode(client: TestClient) -> None:
+    student_id = str(seed_uuid("student-profile:mock-student"))
+    program_version_id = str(seed_uuid("program-version:bs-finance-2024"))
+
+    invalid_mode = client.post(
+        "/api/v1/degree-audits",
+        json={
+            "student_profile_id": student_id,
+            "program_version_id": program_version_id,
+            "calculation_mode": "ELIGIBILITY",
+        },
+    )
+    assert invalid_mode.status_code == 422
+
+    missing_student = client.post(
+        "/api/v1/degree-audits",
+        json={
+            "student_profile_id": MISSING_ID,
+            "program_version_id": program_version_id,
+            "calculation_mode": "CURRENT",
+        },
+    )
+    assert missing_student.status_code == 404
+    assert missing_student.json()["detail"]["code"] == "not_found"
+
+    missing_latest = client.get(f"/api/v1/students/{MISSING_ID}/degree-audits/latest")
+    assert missing_latest.status_code == 404
