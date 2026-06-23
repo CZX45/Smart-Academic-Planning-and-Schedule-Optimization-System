@@ -417,7 +417,7 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint(
             "minimum_completed_credits IS NULL OR minimum_completed_credits >= 0",
-            name="ck_course_rule_expressions_minimum_completed_credits_non_negative",
+            name="ck_course_rule_expr_min_completed_credits_non_negative",
         ),
         sa.CheckConstraint(
             "node_type NOT IN ('AND', 'OR', 'NOT') OR "
