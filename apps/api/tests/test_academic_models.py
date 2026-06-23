@@ -1,11 +1,11 @@
 from collections.abc import Generator
 from datetime import date
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 import pytest
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import Table, UniqueConstraint, create_engine, event, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -256,6 +256,19 @@ def test_requirement_parent_must_belong_to_same_program_version(session: Session
 
     with pytest.raises(IntegrityError):
         session.commit()
+
+
+def test_requirement_parent_target_has_table_unique_constraint() -> None:
+    table = cast(Table, RequirementNode.__table__)
+    unique_constraints = [
+        constraint for constraint in table.constraints if isinstance(constraint, UniqueConstraint)
+    ]
+
+    assert any(
+        {column.name for column in constraint.columns}
+        == {"id", "program_version_id", "institution_id"}
+        for constraint in unique_constraints
+    )
 
 
 def test_requirement_cannot_be_its_own_parent(session: Session) -> None:

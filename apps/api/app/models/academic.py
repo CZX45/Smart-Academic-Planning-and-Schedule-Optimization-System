@@ -16,6 +16,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
     func,
     text,
@@ -458,12 +459,11 @@ class RequirementNode(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixin, 
             "is_official = false OR source_type != 'MOCK'",
             name="ck_requirement_nodes_mock_not_official",
         ),
-        Index(
-            "uq_requirement_nodes_id_program_institution",
+        UniqueConstraint(
             "id",
             "program_version_id",
             "institution_id",
-            unique=True,
+            name="uq_requirement_nodes_id_program_institution",
         ),
         Index("uq_requirement_nodes_program_code", "program_version_id", "code", unique=True),
     )

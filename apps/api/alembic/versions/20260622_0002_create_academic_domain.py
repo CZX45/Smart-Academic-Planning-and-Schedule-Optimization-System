@@ -411,13 +411,13 @@ def upgrade() -> None:
             name="fk_requirement_nodes_parent_same_program_version",
             ondelete="CASCADE",
         ),
+        sa.UniqueConstraint(
+            "id",
+            "program_version_id",
+            "institution_id",
+            name="uq_requirement_nodes_id_program_institution",
+        ),
         sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(
-        "uq_requirement_nodes_id_program_institution",
-        "requirement_nodes",
-        ["id", "program_version_id", "institution_id"],
-        unique=True,
     )
     op.create_index(
         "uq_requirement_nodes_program_code",
@@ -770,10 +770,6 @@ def downgrade() -> None:
     )
     op.drop_table("requirement_course_options")
     op.drop_index("uq_requirement_nodes_program_code", table_name="requirement_nodes")
-    op.drop_index(
-        "uq_requirement_nodes_id_program_institution",
-        table_name="requirement_nodes",
-    )
     op.drop_table("requirement_nodes")
     op.drop_index(
         "uq_course_equivalencies_source_equivalent",
