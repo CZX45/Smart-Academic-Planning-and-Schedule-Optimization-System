@@ -49,6 +49,7 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Exposes OpenAPI endpoints.
 - Validates all input through Pydantic.
 - Persists normalized data through SQLAlchemy to PostgreSQL.
+- Phase 2A exposes only read-only academic-domain storage endpoints under `/api/v1`; it does not evaluate degree progress, eligibility, plans, schedules, or registration actions.
 
 ### Browser Extension
 - Later-phase optional data capture tool.
@@ -78,8 +79,12 @@ Owns institutions, campuses, terms, subjects, courses, sections, instructors, ro
 ### Program Requirements Boundary
 Owns degree programs, minors, certificates, concentrations, catalog-year versions, requirement trees, overlap policies, residency rules, GPA rules, and upper-level requirements.
 
+Phase 2A stores program identity as `AcademicProgram` and catalog/campus/effective-term identity as `ProgramVersion`. Requirement trees are stored as relational adjacency-list `RequirementNode` rows with `RequirementCourseOption` rows for course-specific options.
+
 ### Student Academic Record Boundary
 Owns student profile, academic standing, declared programs, course attempts, transfer credits, waivers, substitutions, in-progress courses, and planned courses.
+
+Phase 2A stores attempts without overwriting prior attempts. Transfer credits, waivers, and substitutions are state records only; pending and rejected records are not applied to any audit because no audit engine exists yet.
 
 ### Degree Audit Boundary
 Evaluates requirements against student records, performs course allocation, and produces requirement statuses and explanations.
@@ -100,11 +105,12 @@ Produces risk flags, advisor review items, confidence levels, and high-risk reco
 
 1. Data maintainer imports or enters versioned institution and program data.
 2. Student imports or enters academic record data.
-3. Degree Audit evaluates progress and candidate allocations.
-4. Academic Plan Optimizer proposes future terms.
-5. Schedule Optimizer ranks concrete section schedules for a selected term.
-6. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings.
-7. UI presents explanations and lets users adjust assumptions.
+3. Phase 2A read-only APIs expose the stored mock catalog and mock student record with source metadata.
+4. Degree Audit evaluates progress and candidate allocations in a later phase.
+5. Academic Plan Optimizer proposes future terms in a later phase.
+6. Schedule Optimizer ranks concrete section schedules for a selected term in a later phase.
+7. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
+8. UI presents explanations and lets users adjust assumptions once the evaluator and optimizer phases exist.
 
 ## 6. API Design Principles
 

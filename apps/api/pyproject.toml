@@ -29,4 +29,6 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
+sqlite_cache = false
+cache_dir = "../../.cache/mypy-api"
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]

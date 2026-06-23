@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.api.v1.academic import router as academic_router
 from app.config import settings
 from app.db.session import engine
 from app.schemas.health import HealthResponse, ReadinessResponse
@@ -17,6 +18,8 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+
+app.include_router(academic_router)
 
 
 def check_database_ready() -> bool:

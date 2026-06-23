@@ -30,6 +30,8 @@ TypeScript `Vitest` tests for:
 - Fixture loading and migration tests.
 - OpenAPI contract tests between backend and generated frontend client.
 
+Phase 2A adds SQLite-backed constraint tests for the SQLAlchemy metadata, deterministic mock seed idempotency tests, and FastAPI read-only `/api/v1` endpoint tests. PostgreSQL migration execution and Docker-based seed double-run remain part of CI when local Docker is unavailable.
+
 ### End-to-End Tests
 
 Playwright tests for:
@@ -66,6 +68,18 @@ Fixtures must clearly indicate `confidence_level: mock` unless based on official
 | Planner | impossible target term, prerequisite chain, credit overload |
 | Scheduler | time conflict, no-Friday, latest end, unavailable block, online preference |
 | Risk | missing source data, offering frequency uncertainty, advisor confirmation |
+
+Phase 2A covers storage-level safety before evaluator behavior exists:
+
+- Institution, campus, course, and program-version uniqueness.
+- Requirement parent/version integrity and no self-parenting.
+- Requirement course option uniqueness.
+- Course equivalency and substitution no-self constraints.
+- Active primary-major uniqueness.
+- Course attempt retake preservation and positive attempt numbers.
+- Transfer/waiver/substitution approval status storage.
+- Mock seed idempotency and non-official source metadata.
+- Basic API success and 404 responses.
 
 ## 5. Property and Constraint Tests
 
