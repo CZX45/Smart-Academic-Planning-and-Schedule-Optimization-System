@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date
+from datetime import date, time
 from decimal import Decimal
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -16,15 +16,27 @@ from app.models.academic import (
     Campus,
     Course,
     CourseEquivalency,
+    CourseOfferingPattern,
+    CourseRule,
+    CourseRuleExpression,
+    CourseRuleExpressionNodeType,
+    CourseRuleType,
     CourseSubstitution,
     CourseWaiver,
+    DayOfWeek,
     DegreeLevel,
+    FrequencyType,
     Institution,
+    MeetingType,
     ProgramType,
     ProgramVersion,
     RequirementCourseOption,
     RequirementNode,
     RequirementType,
+    Section,
+    SectionMeeting,
+    SectionModality,
+    SectionStatus,
     SourceType,
     StudentAcademicProgram,
     StudentAcademicProgramStatus,
@@ -32,6 +44,7 @@ from app.models.academic import (
     StudentCourseAttemptStatus,
     StudentProfile,
     StudentProgramType,
+    TermType,
     TransferCredit,
 )
 
@@ -136,6 +149,171 @@ def requirement_option(
     )
 
 
+def section(
+    seed_name: str,
+    course_key: str,
+    term_key: str,
+    section_code: str,
+    *,
+    status: SectionStatus,
+    modality: SectionModality,
+    capacity: int | None = 30,
+    available_seats: int | None = 8,
+    waitlist_capacity: int | None = 10,
+    waitlist_available: int | None = 10,
+    title_override: str | None = None,
+    instructor_display: str | None = "Mock Instructor",
+) -> Section:
+    return Section(
+        id=seed_uuid(f"section:{seed_name}"),
+        institution_id=seed_uuid("institution:mock-university"),
+        course_id=seed_uuid(f"course:{course_key}"),
+        term_id=seed_uuid(f"term:{term_key}"),
+        campus_id=seed_uuid("campus:mock-main"),
+        section_code=section_code,
+        external_reference=f"MOCK-{seed_name.upper()}",
+        title_override=title_override,
+        credits=Decimal("3.0"),
+        status=status,
+        modality=modality,
+        capacity=capacity,
+        available_seats=available_seats,
+        waitlist_capacity=waitlist_capacity,
+        waitlist_available=waitlist_available,
+        instructor_display=instructor_display,
+        **mock_source(),
+    )
+
+
+def section_meeting(
+    seed_name: str,
+    section_seed_name: str,
+    meeting_type: MeetingType,
+    *,
+    day_of_week: DayOfWeek | None = None,
+    start_time: time | None = None,
+    end_time: time | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    building: str | None = None,
+    room: str | None = None,
+    is_arranged: bool = False,
+    is_online: bool = False,
+    display_order: int = 0,
+) -> SectionMeeting:
+    return SectionMeeting(
+        id=seed_uuid(f"section-meeting:{seed_name}"),
+        section_id=seed_uuid(f"section:{section_seed_name}"),
+        meeting_type=meeting_type,
+        day_of_week=day_of_week,
+        start_time=start_time,
+        end_time=end_time,
+        start_date=start_date,
+        end_date=end_date,
+        building=building,
+        room=room,
+        timezone="America/New_York",
+        is_arranged=is_arranged,
+        is_online=is_online,
+        display_order=display_order,
+        **mock_source(),
+    )
+
+
+def offering_pattern(
+    course_key: str,
+    term_type: TermType,
+    frequency_type: FrequencyType,
+    *,
+    effective_term_key: str,
+    expiration_term_key: str | None,
+    confidence_level: str,
+    notes: str,
+) -> CourseOfferingPattern:
+    return CourseOfferingPattern(
+        id=seed_uuid(f"course-offering-pattern:{course_key}:{term_type.value}"),
+        institution_id=seed_uuid("institution:mock-university"),
+        course_id=seed_uuid(f"course:{course_key}"),
+        campus_id=seed_uuid("campus:mock-main"),
+        term_type=term_type,
+        frequency_type=frequency_type,
+        effective_term_id=seed_uuid(f"term:{effective_term_key}"),
+        expiration_term_id=seed_uuid(f"term:{expiration_term_key}")
+        if expiration_term_key
+        else None,
+        confidence_level=Decimal(confidence_level),
+        notes=notes,
+        **mock_source(),
+    )
+
+
+def course_rule(
+    seed_name: str,
+    course_key: str,
+    rule_type: CourseRuleType,
+    name: str,
+    *,
+    section_seed_name: str | None = None,
+    description: str | None = None,
+    requires_manual_confirmation: bool = False,
+) -> CourseRule:
+    return CourseRule(
+        id=seed_uuid(f"course-rule:{seed_name}"),
+        institution_id=seed_uuid("institution:mock-university"),
+        course_id=seed_uuid(f"course:{course_key}"),
+        section_id=seed_uuid(f"section:{section_seed_name}") if section_seed_name else None,
+        rule_type=rule_type,
+        name=name,
+        description=description,
+        effective_term_id=seed_uuid("term:2024-fall"),
+        requires_manual_confirmation=requires_manual_confirmation,
+        **mock_source(),
+    )
+
+
+def expression_node(
+    seed_name: str,
+    rule_seed_name: str,
+    node_type: CourseRuleExpressionNodeType,
+    *,
+    parent_seed_name: str | None = None,
+    display_order: int = 0,
+    referenced_course_key: str | None = None,
+    minimum_grade: str | None = None,
+    minimum_completed_credits: Decimal | None = None,
+    class_standing: str | None = None,
+    referenced_program_key: str | None = None,
+    referenced_campus_key: str | None = None,
+    permission_type: str | None = None,
+    text_value: str | None = None,
+) -> CourseRuleExpression:
+    return CourseRuleExpression(
+        id=seed_uuid(f"course-rule-expression:{seed_name}"),
+        institution_id=seed_uuid("institution:mock-university"),
+        course_rule_id=seed_uuid(f"course-rule:{rule_seed_name}"),
+        parent_id=(
+            seed_uuid(f"course-rule-expression:{parent_seed_name}") if parent_seed_name else None
+        ),
+        node_type=node_type,
+        display_order=display_order,
+        referenced_course_id=seed_uuid(f"course:{referenced_course_key}")
+        if referenced_course_key
+        else None,
+        minimum_grade=minimum_grade,
+        minimum_completed_credits=minimum_completed_credits,
+        class_standing=class_standing,
+        referenced_program_id=seed_uuid(f"program:{referenced_program_key}")
+        if referenced_program_key
+        else None,
+        referenced_campus_id=seed_uuid(f"campus:{referenced_campus_key}")
+        if referenced_campus_key
+        else None,
+        permission_type=permission_type,
+        text_value=text_value,
+        **mock_source(),
+    )
+
+
 def seed_mock_data(session: Session) -> None:
     institution = Institution(
         id=seed_uuid("institution:mock-university"),
@@ -212,14 +390,250 @@ def seed_mock_data(session: Session) -> None:
         course("GEN", "101", "Mock General Education Seminar", level=100),
         course("BUS", "101", "Mock Business Foundations", level=100),
         course("ACC", "101", "Mock Accounting Foundations", level=100),
+        course("FIN", "200", "Mock Finance Foundations", level=200),
         course("FIN", "201", "Mock Finance Transfer Equivalent", level=200),
+        course("FIN", "300", "Mock Managerial Finance", level=300),
         course("FIN", "301", "Mock Corporate Finance", level=300),
+        course("FIN", "400", "Mock Advanced Finance", level=400),
         course("FIN", "401", "Mock Investments", level=400),
+        course("FIN", "401L", "Mock FIN 401 Lab", level=400),
         course("FIN", "402", "Mock Risk Management", level=400),
         course("FIN", "403", "Mock International Finance", level=400),
         course("ELEC", "100", "Mock Free Elective", level=100),
     ]
     merge_all(session, courses)
+    session.flush()
+
+    sections = [
+        section(
+            "2024-fall-fin-300-001",
+            "FIN-300",
+            "2024-fall",
+            "001",
+            status=SectionStatus.OPEN,
+            modality=SectionModality.IN_PERSON,
+        ),
+        section(
+            "2024-fall-fin-300-web",
+            "FIN-300",
+            "2024-fall",
+            "WEB",
+            status=SectionStatus.OPEN,
+            modality=SectionModality.ONLINE_ASYNCHRONOUS,
+            capacity=None,
+            available_seats=None,
+            waitlist_capacity=None,
+            waitlist_available=None,
+            instructor_display="Mock Online Instructor",
+        ),
+        section(
+            "2025-spring-fin-400-hyb",
+            "FIN-400",
+            "2025-spring",
+            "HYB",
+            status=SectionStatus.WAITLIST,
+            modality=SectionModality.HYBRID,
+            available_seats=0,
+            waitlist_available=4,
+        ),
+        section(
+            "2025-spring-fin-401l-lab",
+            "FIN-401L",
+            "2025-spring",
+            "LAB",
+            status=SectionStatus.OPEN,
+            modality=SectionModality.IN_PERSON,
+            title_override="Mock Finance Lab",
+        ),
+    ]
+    merge_all(session, sections)
+    session.flush()
+
+    meetings = [
+        section_meeting(
+            "2024-fall-fin-300-001-lecture",
+            "2024-fall-fin-300-001",
+            MeetingType.LECTURE,
+            day_of_week=DayOfWeek.MONDAY,
+            start_time=time(9, 0),
+            end_time=time(10, 15),
+            start_date=fall_2024.starts_on,
+            end_date=fall_2024.ends_on,
+            building="Mock Academic Building",
+            room="101",
+            display_order=10,
+        ),
+        section_meeting(
+            "2024-fall-fin-300-001-lab",
+            "2024-fall-fin-300-001",
+            MeetingType.LAB,
+            day_of_week=DayOfWeek.WEDNESDAY,
+            start_time=time(14, 0),
+            end_time=time(15, 50),
+            start_date=fall_2024.starts_on,
+            end_date=fall_2024.ends_on,
+            building="Mock Finance Lab",
+            room="201",
+            display_order=20,
+        ),
+        section_meeting(
+            "2024-fall-fin-300-web-async",
+            "2024-fall-fin-300-web",
+            MeetingType.OTHER,
+            is_online=True,
+            display_order=10,
+        ),
+        section_meeting(
+            "2025-spring-fin-400-hyb-seminar",
+            "2025-spring-fin-400-hyb",
+            MeetingType.SEMINAR,
+            day_of_week=DayOfWeek.THURSDAY,
+            start_time=time(18, 0),
+            end_time=time(20, 30),
+            start_date=spring_2025.starts_on,
+            end_date=spring_2025.ends_on,
+            building="Mock Evening Center",
+            room="310",
+            display_order=10,
+        ),
+        section_meeting(
+            "2025-spring-fin-401l-lab",
+            "2025-spring-fin-401l-lab",
+            MeetingType.LAB,
+            day_of_week=DayOfWeek.FRIDAY,
+            start_time=time(10, 0),
+            end_time=time(11, 50),
+            start_date=spring_2025.starts_on,
+            end_date=spring_2025.ends_on,
+            building="Mock Finance Lab",
+            room="202",
+            display_order=10,
+        ),
+    ]
+    merge_all(session, meetings)
+    session.flush()
+
+    offering_patterns = [
+        offering_pattern(
+            "FIN-300",
+            TermType.FALL,
+            FrequencyType.ANNUAL,
+            effective_term_key="2024-fall",
+            expiration_term_key="2025-spring",
+            confidence_level="0.70",
+            notes="Mock historical pattern only; not a school commitment.",
+        ),
+        offering_pattern(
+            "FIN-400",
+            TermType.SPRING,
+            FrequencyType.ANNUAL,
+            effective_term_key="2024-fall",
+            expiration_term_key="2025-spring",
+            confidence_level="0.65",
+            notes="Mock expected pattern only; students must confirm official offerings.",
+        ),
+        offering_pattern(
+            "FIN-401L",
+            TermType.SPRING,
+            FrequencyType.IRREGULAR,
+            effective_term_key="2024-fall",
+            expiration_term_key="2025-spring",
+            confidence_level="0.50",
+            notes="Mock lab pattern for storage tests only.",
+        ),
+    ]
+    merge_all(session, offering_patterns)
+    session.flush()
+
+    course_rules = [
+        course_rule(
+            "fin-300-prerequisite",
+            "FIN-300",
+            CourseRuleType.PREREQUISITE,
+            "Mock FIN 300 prerequisite",
+            description="Mock rule: complete Mock FIN 200 with a minimum grade of C.",
+        ),
+        course_rule(
+            "fin-400-corequisite",
+            "FIN-400",
+            CourseRuleType.COREQUISITE,
+            "Mock FIN 400 corequisite",
+            description="Mock rule: take Mock FIN 401 Lab as a corequisite.",
+        ),
+        course_rule(
+            "fin-400-major-restriction",
+            "FIN-400",
+            CourseRuleType.REGISTRATION_RESTRICTION,
+            "Mock finance major restriction",
+            description="Mock rule: finance major restriction for storage only.",
+            requires_manual_confirmation=True,
+        ),
+        course_rule(
+            "fin-400-section-permission",
+            "FIN-400",
+            CourseRuleType.PERMISSION,
+            "Mock hybrid section permission",
+            section_seed_name="2025-spring-fin-400-hyb",
+            description="Mock section-level permission requirement.",
+            requires_manual_confirmation=True,
+        ),
+    ]
+    merge_all(session, course_rules)
+    session.flush()
+
+    expressions = [
+        expression_node(
+            "fin-300-prerequisite-root",
+            "fin-300-prerequisite",
+            CourseRuleExpressionNodeType.AND,
+            display_order=0,
+            text_value="Mock FIN 300 requires Mock FIN 200 with minimum grade C.",
+        ),
+        expression_node(
+            "fin-300-prerequisite-completed-fin-200",
+            "fin-300-prerequisite",
+            CourseRuleExpressionNodeType.COMPLETED_COURSE,
+            parent_seed_name="fin-300-prerequisite-root",
+            display_order=10,
+            referenced_course_key="FIN-200",
+            text_value="Completed Mock FIN 200.",
+        ),
+        expression_node(
+            "fin-300-prerequisite-min-grade-c",
+            "fin-300-prerequisite",
+            CourseRuleExpressionNodeType.MINIMUM_GRADE,
+            parent_seed_name="fin-300-prerequisite-root",
+            display_order=20,
+            referenced_course_key="FIN-200",
+            minimum_grade="C",
+            text_value="Minimum grade C in Mock FIN 200.",
+        ),
+        expression_node(
+            "fin-400-corequisite-root",
+            "fin-400-corequisite",
+            CourseRuleExpressionNodeType.COMPLETED_COURSE,
+            display_order=0,
+            referenced_course_key="FIN-401L",
+            text_value="Mock FIN 401 Lab corequisite placeholder.",
+        ),
+        expression_node(
+            "fin-400-major-restriction-root",
+            "fin-400-major-restriction",
+            CourseRuleExpressionNodeType.MAJOR_RESTRICTION,
+            display_order=0,
+            referenced_program_key="bs-finance",
+            text_value="Mock finance major restriction.",
+        ),
+        expression_node(
+            "fin-400-section-permission-root",
+            "fin-400-section-permission",
+            CourseRuleExpressionNodeType.PERMISSION_REQUIRED,
+            display_order=0,
+            permission_type="DEPARTMENT_APPROVAL",
+            text_value="Mock department approval required.",
+        ),
+    ]
+    merge_all(session, expressions)
     session.flush()
 
     equivalency = CourseEquivalency(
@@ -464,6 +878,22 @@ def seed_mock_data(session: Session) -> None:
                     "is_official": False,
                     "program": "Mock BS Finance",
                     "student": "Mock Student",
+                },
+            ),
+            DevSeedRecord(
+                id=seed_uuid("dev-seed-record:mock-course-rules-sections"),
+                seed_key="mock-course-rules-sections",
+                label="Phase 2B mock course rules and sections seed marker",
+                payload={
+                    "source_type": SourceType.MOCK.value,
+                    "is_official": False,
+                    "sections": ["Mock Fall Term Sections", "Mock Spring Term Sections"],
+                    "rules": [
+                        "Mock Prerequisite Rule",
+                        "Mock Corequisite Rule",
+                        "Mock Major Restriction",
+                        "Mock Permission Required Rule",
+                    ],
                 },
             ),
         ],

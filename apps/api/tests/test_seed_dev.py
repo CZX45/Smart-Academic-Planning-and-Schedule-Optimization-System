@@ -12,12 +12,19 @@ from app.models.academic import (
     Campus,
     Course,
     CourseEquivalency,
+    CourseOfferingPattern,
+    CourseRule,
+    CourseRuleExpression,
+    CourseRuleExpressionNodeType,
+    CourseRuleType,
     CourseSubstitution,
     CourseWaiver,
     Institution,
     ProgramVersion,
     RequirementCourseOption,
     RequirementNode,
+    Section,
+    SectionMeeting,
     SourceType,
     StudentAcademicProgram,
     StudentCourseAttempt,
@@ -35,6 +42,11 @@ SEEDED_MODELS = [
     ProgramVersion,
     Course,
     CourseEquivalency,
+    CourseOfferingPattern,
+    Section,
+    SectionMeeting,
+    CourseRule,
+    CourseRuleExpression,
     RequirementNode,
     RequirementCourseOption,
     StudentProfile,
@@ -79,6 +91,8 @@ def test_mock_seed_is_idempotent(session: Session) -> None:
     assert first_counts == second_counts
     assert first_counts["institutions"] == 1
     assert first_counts["student_course_attempts"] >= 2
+    assert first_counts["sections"] >= 3
+    assert first_counts["course_rules"] >= 4
 
 
 def test_seeded_academic_data_is_mock_and_not_official(session: Session) -> None:
@@ -128,3 +142,55 @@ def test_mock_finance_requirement_tree_shape(session: Session) -> None:
         .where(RequirementCourseOption.requirement_node_id == finance_electives.id)
     )
     assert option_count == 3
+
+
+def test_mock_phase_2b_sections_rules_and_offering_patterns(session: Session) -> None:
+    seed_mock_data(session)
+
+    sections = session.scalars(select(Section)).all()
+    assert sections
+    assert all(section.source_type is SourceType.MOCK for section in sections)
+    assert all(section.is_official is False for section in sections)
+    assert {section.modality.value for section in sections}.issuperset(
+        {"IN_PERSON", "ONLINE_ASYNCHRONOUS", "HYBRID"}
+    )
+
+    meetings = session.scalars(select(SectionMeeting)).all()
+    assert {meeting.meeting_type.value for meeting in meetings}.issuperset({"LECTURE", "LAB"})
+
+    patterns = session.scalars(select(CourseOfferingPattern)).all()
+    assert patterns
+    assert all(pattern.source_type is SourceType.MOCK for pattern in patterns)
+    assert all(pattern.is_official is False for pattern in patterns)
+
+    fin_300 = session.scalar(
+        select(Course).where(Course.subject_code == "FIN", Course.course_number == "300")
+    )
+    assert fin_300 is not None
+    prerequisite = session.scalar(
+        select(CourseRule).where(
+            CourseRule.course_id == fin_300.id,
+            CourseRule.rule_type == CourseRuleType.PREREQUISITE,
+        )
+    )
+    assert prerequisite is not None
+    prereq_nodes = session.scalars(
+        select(CourseRuleExpression).where(CourseRuleExpression.course_rule_id == prerequisite.id)
+    ).all()
+    assert {node.node_type for node in prereq_nodes} == {
+        CourseRuleExpressionNodeType.AND,
+        CourseRuleExpressionNodeType.COMPLETED_COURSE,
+        CourseRuleExpressionNodeType.MINIMUM_GRADE,
+    }
+
+    fin_400 = session.scalar(
+        select(Course).where(Course.subject_code == "FIN", Course.course_number == "400")
+    )
+    assert fin_400 is not None
+    corequisite = session.scalar(
+        select(CourseRule).where(
+            CourseRule.course_id == fin_400.id,
+            CourseRule.rule_type == CourseRuleType.COREQUISITE,
+        )
+    )
+    assert corequisite is not None

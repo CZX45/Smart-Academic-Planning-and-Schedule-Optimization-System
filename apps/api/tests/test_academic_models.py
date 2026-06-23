@@ -1,5 +1,5 @@
 from collections.abc import Generator
-from datetime import date
+from datetime import date, time
 from decimal import Decimal
 from typing import Any, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
@@ -10,6 +10,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.base import Base
+from app.domain.course_rules import (
+    CourseRuleExpressionValidationError,
+    validate_course_rule_expression_tree,
+)
 from app.models.academic import (
     AcademicProgram,
     AcademicTerm,
@@ -17,14 +21,26 @@ from app.models.academic import (
     Campus,
     Course,
     CourseEquivalency,
+    CourseOfferingPattern,
+    CourseRule,
+    CourseRuleExpression,
+    CourseRuleExpressionNodeType,
+    CourseRuleType,
     CourseSubstitution,
+    DayOfWeek,
     DegreeLevel,
+    FrequencyType,
     Institution,
+    MeetingType,
     ProgramType,
     ProgramVersion,
     RequirementCourseOption,
     RequirementNode,
     RequirementType,
+    Section,
+    SectionMeeting,
+    SectionModality,
+    SectionStatus,
     SourceType,
     StudentAcademicProgram,
     StudentAcademicProgramStatus,
@@ -32,6 +48,7 @@ from app.models.academic import (
     StudentCourseAttemptStatus,
     StudentProfile,
     StudentProgramType,
+    TermType,
     TransferCredit,
 )
 
@@ -163,6 +180,125 @@ def seed_catalog(
     return inst, campus_record, term_record, program_record, version
 
 
+def section(
+    inst: Institution,
+    campus_record: Campus,
+    term_record: AcademicTerm,
+    course_record: Course,
+    code: str = "001",
+    *,
+    status: SectionStatus = SectionStatus.OPEN,
+    modality: SectionModality = SectionModality.IN_PERSON,
+) -> Section:
+    return Section(
+        id=uid(
+            f"section-{inst.code}-{term_record.term_code}-{course_record.subject_code}-{course_record.course_number}-{code}"
+        ),
+        institution_id=inst.id,
+        course_id=course_record.id,
+        term_id=term_record.id,
+        campus_id=campus_record.id,
+        section_code=code,
+        external_reference=f"MOCK-{code}",
+        credits=course_record.credits_min,
+        status=status,
+        modality=modality,
+        capacity=30,
+        available_seats=5,
+        waitlist_capacity=10,
+        waitlist_available=10,
+        instructor_display="Mock Instructor",
+        source_type=SourceType.MOCK,
+        is_official=False,
+    )
+
+
+def offering_pattern(
+    inst: Institution,
+    campus_record: Campus,
+    course_record: Course,
+    effective_term: AcademicTerm,
+    expiration_term: AcademicTerm,
+    *,
+    term_type: TermType = TermType.FALL,
+) -> CourseOfferingPattern:
+    return CourseOfferingPattern(
+        id=uid(
+            f"offering-pattern-{course_record.subject_code}-{course_record.course_number}-{term_type.value}"
+        ),
+        institution_id=inst.id,
+        course_id=course_record.id,
+        campus_id=campus_record.id,
+        term_type=term_type,
+        frequency_type=FrequencyType.ANNUAL,
+        effective_term_id=effective_term.id,
+        expiration_term_id=expiration_term.id,
+        confidence_level=Decimal("0.75"),
+        source_type=SourceType.MOCK,
+        is_official=False,
+    )
+
+
+def course_rule(
+    inst: Institution,
+    course_record: Course,
+    effective_term: AcademicTerm,
+    *,
+    section_record: Section | None = None,
+    rule_type: CourseRuleType = CourseRuleType.PREREQUISITE,
+    name: str = "Mock prerequisite",
+) -> CourseRule:
+    return CourseRule(
+        id=uid(f"course-rule-{name}-{course_record.subject_code}-{course_record.course_number}"),
+        institution_id=inst.id,
+        course_id=course_record.id,
+        section_id=section_record.id if section_record else None,
+        rule_type=rule_type,
+        name=name,
+        description=f"{name} stored as a mock rule.",
+        effective_term_id=effective_term.id,
+        source_type=SourceType.MOCK,
+        is_official=False,
+        requires_manual_confirmation=False,
+    )
+
+
+def expression_node(
+    rule_record: CourseRule,
+    name: str,
+    node_type: CourseRuleExpressionNodeType,
+    *,
+    parent_id: UUID | None = None,
+    display_order: int = 0,
+    referenced_course_id: UUID | None = None,
+    minimum_grade: str | None = None,
+    minimum_completed_credits: Decimal | None = None,
+    class_standing: str | None = None,
+    referenced_program_id: UUID | None = None,
+    referenced_campus_id: UUID | None = None,
+    permission_type: str | None = None,
+    text_value: str | None = None,
+) -> CourseRuleExpression:
+    return CourseRuleExpression(
+        id=uid(f"course-rule-expression-{name}"),
+        institution_id=rule_record.institution_id,
+        course_rule_id=rule_record.id,
+        parent_id=parent_id,
+        node_type=node_type,
+        display_order=display_order,
+        referenced_course_id=referenced_course_id,
+        minimum_grade=minimum_grade,
+        minimum_completed_credits=minimum_completed_credits,
+        class_standing=class_standing,
+        referenced_program_id=referenced_program_id,
+        referenced_campus_id=referenced_campus_id,
+        permission_type=permission_type,
+        text_value=text_value,
+        source_type=SourceType.MOCK,
+        is_official=False,
+    )
+
+
 def test_institution_code_is_unique(session: Session) -> None:
     session.add_all([institution("one"), institution("two")])
     session.flush()
@@ -207,6 +343,40 @@ def test_course_credit_range_is_valid(session: Session) -> None:
         session.commit()
 
 
+def test_course_offering_pattern_rejects_duplicate_range_and_mock_official(
+    session: Session,
+) -> None:
+    inst, campus_record, fall_term, _, _ = seed_catalog(session)
+    spring_term = term(inst, campus_record, "2025SP")
+    fin_300 = course(inst, "FIN", "300")
+    session.add_all([spring_term, fin_300])
+    session.commit()
+
+    first = offering_pattern(inst, campus_record, fin_300, fall_term, spring_term)
+    duplicate = offering_pattern(inst, campus_record, fin_300, fall_term, spring_term)
+    duplicate.id = uid("offering-pattern-duplicate")
+    session.add_all([first, duplicate])
+
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    official_mock = offering_pattern(
+        inst,
+        campus_record,
+        fin_300,
+        fall_term,
+        spring_term,
+        term_type=TermType.SPRING,
+    )
+    official_mock.id = uid("offering-pattern-official-mock")
+    official_mock.is_official = True
+    session.add(official_mock)
+
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
 def test_program_version_combination_is_unique(session: Session) -> None:
     inst, campus_record, term_record, program_record, version = seed_catalog(session)
     version_id = version.id
@@ -219,6 +389,170 @@ def test_program_version_combination_is_unique(session: Session) -> None:
 
     session.rollback()
     assert session.get(ProgramVersion, version_id) is not None
+
+
+def test_section_constraints_and_modalities(session: Session) -> None:
+    inst, campus_record, term_record, _, _ = seed_catalog(session)
+    fin_300 = course(inst, "FIN", "300")
+    session.add(fin_300)
+    session.commit()
+
+    in_person = section(inst, campus_record, term_record, fin_300, "001")
+    online = section(
+        inst,
+        campus_record,
+        term_record,
+        fin_300,
+        "WEB",
+        modality=SectionModality.ONLINE_ASYNCHRONOUS,
+        status=SectionStatus.PLANNED,
+    )
+    cancelled = section(
+        inst,
+        campus_record,
+        term_record,
+        fin_300,
+        "099",
+        status=SectionStatus.CANCELLED,
+    )
+    session.add_all([in_person, online, cancelled])
+    session.commit()
+
+    assert {record.modality for record in session.scalars(select(Section)).all()} == {
+        SectionModality.IN_PERSON,
+        SectionModality.ONLINE_ASYNCHRONOUS,
+    }
+    assert session.get(Section, cancelled.id) is not None
+
+    duplicate = section(inst, campus_record, term_record, fin_300, "001")
+    duplicate.id = uid("section-duplicate")
+    session.add(duplicate)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    invalid_capacity = section(inst, campus_record, term_record, fin_300, "002")
+    invalid_capacity.capacity = -1
+    session.add(invalid_capacity)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    invalid_seats = section(inst, campus_record, term_record, fin_300, "003")
+    invalid_seats.capacity = 5
+    invalid_seats.available_seats = 6
+    session.add(invalid_seats)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    other_inst = institution("other")
+    other_campus = campus(other_inst, "main")
+    cross_campus = section(inst, other_campus, term_record, fin_300, "004")
+    session.add(other_inst)
+    session.commit()
+    session.add(other_campus)
+    session.commit()
+    session.add(cross_campus)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_section_meeting_time_date_and_multiple_meetings(session: Session) -> None:
+    inst, campus_record, term_record, _, _ = seed_catalog(session)
+    fin_300 = course(inst, "FIN", "300")
+    fin_section = section(inst, campus_record, term_record, fin_300)
+    session.add(fin_300)
+    session.commit()
+    session.add(fin_section)
+    session.commit()
+
+    lecture = SectionMeeting(
+        id=uid("meeting-lecture"),
+        section_id=fin_section.id,
+        meeting_type=MeetingType.LECTURE,
+        day_of_week=DayOfWeek.MONDAY,
+        start_time=time(9, 0),
+        end_time=time(10, 15),
+        start_date=term_record.starts_on,
+        end_date=term_record.ends_on,
+        building="Mock Building",
+        room="101",
+        timezone="America/New_York",
+        display_order=10,
+        source_type=SourceType.MOCK,
+        is_official=False,
+    )
+    lab = SectionMeeting(
+        id=uid("meeting-lab"),
+        section_id=fin_section.id,
+        meeting_type=MeetingType.LAB,
+        day_of_week=DayOfWeek.WEDNESDAY,
+        start_time=time(14, 0),
+        end_time=time(15, 50),
+        start_date=term_record.starts_on,
+        end_date=term_record.ends_on,
+        building="Mock Lab Building",
+        room="201",
+        timezone="America/New_York",
+        display_order=20,
+        source_type=SourceType.MOCK,
+        is_official=False,
+    )
+    async_meeting = SectionMeeting(
+        id=uid("meeting-online-async"),
+        section_id=fin_section.id,
+        meeting_type=MeetingType.OTHER,
+        timezone="America/New_York",
+        is_online=True,
+        display_order=30,
+        source_type=SourceType.MOCK,
+        is_official=False,
+    )
+    session.add_all([lecture, lab, async_meeting])
+    session.commit()
+
+    meetings = session.scalars(
+        select(SectionMeeting).where(SectionMeeting.section_id == fin_section.id)
+    ).all()
+    assert [meeting.meeting_type for meeting in meetings] == [
+        MeetingType.LECTURE,
+        MeetingType.LAB,
+        MeetingType.OTHER,
+    ]
+
+    invalid_time = SectionMeeting(
+        id=uid("meeting-invalid-time"),
+        section_id=fin_section.id,
+        meeting_type=MeetingType.LECTURE,
+        day_of_week=DayOfWeek.TUESDAY,
+        start_time=time(11, 0),
+        end_time=time(10, 0),
+        timezone="America/New_York",
+        source_type=SourceType.MOCK,
+        is_official=False,
+    )
+    session.add(invalid_time)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    invalid_date = SectionMeeting(
+        id=uid("meeting-invalid-date"),
+        section_id=fin_section.id,
+        meeting_type=MeetingType.EXAM,
+        day_of_week=DayOfWeek.FRIDAY,
+        start_time=time(8, 0),
+        end_time=time(9, 0),
+        start_date=term_record.ends_on,
+        end_date=term_record.starts_on,
+        timezone="America/New_York",
+        source_type=SourceType.MOCK,
+        is_official=False,
+    )
+    session.add(invalid_date)
+    with pytest.raises(IntegrityError):
+        session.commit()
 
 
 def test_requirement_parent_must_belong_to_same_program_version(session: Session) -> None:
@@ -349,6 +683,252 @@ def test_requirement_course_option_cannot_repeat_or_cross_institution(session: S
 
     with pytest.raises(IntegrityError):
         session.commit()
+
+
+def test_course_rule_course_and_section_scopes(session: Session) -> None:
+    inst, campus_record, term_record, _, _ = seed_catalog(session)
+    fin_300 = course(inst, "FIN", "300")
+    fin_400 = course(inst, "FIN", "400")
+    fin_section = section(inst, campus_record, term_record, fin_300)
+    session.add_all([fin_300, fin_400])
+    session.commit()
+    session.add(fin_section)
+    session.commit()
+
+    course_level_rule = course_rule(inst, fin_300, term_record)
+    section_level_rule = course_rule(
+        inst,
+        fin_300,
+        term_record,
+        section_record=fin_section,
+        rule_type=CourseRuleType.PERMISSION,
+        name="Mock section permission",
+    )
+    session.add_all([course_level_rule, section_level_rule])
+    session.commit()
+
+    assert course_level_rule.rule_type is CourseRuleType.PREREQUISITE
+    assert section_level_rule.section_id == fin_section.id
+
+    no_scope = CourseRule(
+        id=uid("course-rule-no-scope"),
+        institution_id=inst.id,
+        course_id=None,
+        section_id=None,
+        rule_type=CourseRuleType.PERMISSION,
+        name="No scope",
+        effective_term_id=term_record.id,
+        source_type=SourceType.MOCK,
+        is_official=False,
+        requires_manual_confirmation=True,
+    )
+    session.add(no_scope)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    cross_course = course_rule(
+        inst,
+        fin_400,
+        term_record,
+        section_record=fin_section,
+        rule_type=CourseRuleType.PERMISSION,
+        name="Wrong section course",
+    )
+    session.add(cross_course)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_course_rule_expression_database_constraints(session: Session) -> None:
+    inst, campus_record, term_record, program_record, _ = seed_catalog(session)
+    fin_200 = course(inst, "FIN", "200")
+    fin_300 = course(inst, "FIN", "300")
+    rule = course_rule(inst, fin_300, term_record)
+    session.add_all([fin_200, fin_300])
+    session.commit()
+    session.add(rule)
+    session.commit()
+
+    root = expression_node(rule, "root", CourseRuleExpressionNodeType.AND)
+    session.add(root)
+    session.commit()
+
+    duplicate_root = expression_node(rule, "duplicate-root", CourseRuleExpressionNodeType.OR)
+    session.add(duplicate_root)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    bad_completed_leaf = expression_node(
+        rule,
+        "completed-without-course",
+        CourseRuleExpressionNodeType.COMPLETED_COURSE,
+        parent_id=root.id,
+    )
+    session.add(bad_completed_leaf)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    bad_grade_leaf = expression_node(
+        rule,
+        "minimum-grade-without-grade",
+        CourseRuleExpressionNodeType.MINIMUM_GRADE,
+        parent_id=root.id,
+        referenced_course_id=fin_200.id,
+    )
+    session.add(bad_grade_leaf)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    bad_credits_leaf = expression_node(
+        rule,
+        "negative-credits",
+        CourseRuleExpressionNodeType.MINIMUM_COMPLETED_CREDITS,
+        parent_id=root.id,
+        minimum_completed_credits=Decimal("-1.0"),
+    )
+    session.add(bad_credits_leaf)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    bad_self_parent = expression_node(
+        rule,
+        "self-parent",
+        CourseRuleExpressionNodeType.CLASS_STANDING,
+        class_standing="JUNIOR",
+    )
+    bad_self_parent.parent_id = bad_self_parent.id
+    session.add(bad_self_parent)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    other_rule = course_rule(
+        inst,
+        fin_300,
+        term_record,
+        rule_type=CourseRuleType.PERMISSION,
+        name="Other rule",
+    )
+    session.add(other_rule)
+    session.commit()
+    wrong_rule_parent = expression_node(
+        other_rule,
+        "wrong-rule-parent",
+        CourseRuleExpressionNodeType.PERMISSION_REQUIRED,
+        parent_id=root.id,
+        permission_type="DEPARTMENT_APPROVAL",
+    )
+    session.add(wrong_rule_parent)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    other_inst = institution("other")
+    other_program = program(other_inst, "OTHER")
+    cross_program = expression_node(
+        rule,
+        "cross-program",
+        CourseRuleExpressionNodeType.MAJOR_RESTRICTION,
+        parent_id=root.id,
+        referenced_program_id=other_program.id,
+    )
+    session.add(other_inst)
+    session.commit()
+    session.add(other_program)
+    session.commit()
+    session.add(cross_program)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
+    assert program_record.id is not None
+
+
+def test_course_rule_expression_tree_validator() -> None:
+    rule_id = uid("validator-rule")
+    root_id = uid("validator-root")
+    first_child_id = uid("validator-child-one")
+    second_child_id = uid("validator-child-two")
+    root = CourseRuleExpression(
+        id=root_id,
+        institution_id=uid("validator-inst"),
+        course_rule_id=rule_id,
+        node_type=CourseRuleExpressionNodeType.AND,
+        display_order=0,
+    )
+    first_child = CourseRuleExpression(
+        id=first_child_id,
+        institution_id=root.institution_id,
+        course_rule_id=rule_id,
+        parent_id=root_id,
+        node_type=CourseRuleExpressionNodeType.COMPLETED_COURSE,
+        display_order=10,
+        referenced_course_id=uid("validator-course-one"),
+    )
+    second_child = CourseRuleExpression(
+        id=second_child_id,
+        institution_id=root.institution_id,
+        course_rule_id=rule_id,
+        parent_id=root_id,
+        node_type=CourseRuleExpressionNodeType.MINIMUM_GRADE,
+        display_order=20,
+        referenced_course_id=uid("validator-course-two"),
+        minimum_grade="C",
+    )
+
+    validate_course_rule_expression_tree([root, second_child, first_child])
+
+    not_root = CourseRuleExpression(
+        id=uid("validator-not-root"),
+        institution_id=root.institution_id,
+        course_rule_id=rule_id,
+        node_type=CourseRuleExpressionNodeType.NOT,
+        display_order=0,
+    )
+    not_child_one = CourseRuleExpression(
+        id=uid("validator-not-child-one"),
+        institution_id=root.institution_id,
+        course_rule_id=rule_id,
+        parent_id=not_root.id,
+        node_type=CourseRuleExpressionNodeType.CAMPUS_RESTRICTION,
+        display_order=10,
+        referenced_campus_id=uid("validator-campus-one"),
+    )
+    not_child_two = CourseRuleExpression(
+        id=uid("validator-not-child-two"),
+        institution_id=root.institution_id,
+        course_rule_id=rule_id,
+        parent_id=not_root.id,
+        node_type=CourseRuleExpressionNodeType.CAMPUS_RESTRICTION,
+        display_order=20,
+        referenced_campus_id=uid("validator-campus-two"),
+    )
+
+    with pytest.raises(CourseRuleExpressionValidationError):
+        validate_course_rule_expression_tree([not_root, not_child_one, not_child_two])
+
+    leaf_with_child = CourseRuleExpression(
+        id=uid("validator-leaf-root"),
+        institution_id=root.institution_id,
+        course_rule_id=rule_id,
+        node_type=CourseRuleExpressionNodeType.CLASS_STANDING,
+        class_standing="JUNIOR",
+    )
+    invalid_child = CourseRuleExpression(
+        id=uid("validator-leaf-child"),
+        institution_id=root.institution_id,
+        course_rule_id=rule_id,
+        parent_id=leaf_with_child.id,
+        node_type=CourseRuleExpressionNodeType.PERMISSION_REQUIRED,
+        permission_type="DEPARTMENT_APPROVAL",
+    )
+    with pytest.raises(CourseRuleExpressionValidationError):
+        validate_course_rule_expression_tree([leaf_with_child, invalid_child])
 
 
 def test_course_equivalency_cannot_equate_course_to_itself(session: Session) -> None:

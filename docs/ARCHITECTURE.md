@@ -49,7 +49,8 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Exposes OpenAPI endpoints.
 - Validates all input through Pydantic.
 - Persists normalized data through SQLAlchemy to PostgreSQL.
-- Phase 2A exposes only read-only academic-domain storage endpoints under `/api/v1`; it does not evaluate degree progress, eligibility, plans, schedules, or registration actions.
+- Phase 2A exposes read-only academic-domain storage endpoints under `/api/v1`.
+- Phase 2B adds read-only section, meeting, offering-pattern, course-rule, and rule-expression endpoints. It stores prerequisite, corequisite, restriction, and permission trees but does not evaluate degree progress, eligibility, plans, schedules, or registration actions.
 
 ### Browser Extension
 - Later-phase optional data capture tool.
@@ -76,10 +77,14 @@ These optimizers may initially live in the FastAPI codebase as Python modules an
 ### Institution Catalog Boundary
 Owns institutions, campuses, terms, subjects, courses, sections, instructors, rooms, modalities, and source metadata.
 
+Phase 2B stores section snapshots as `Section` rows and one-to-many `SectionMeeting` rows. Sections belong to a course, term, campus, and institution; meetings can represent lectures, labs, recitations, seminars, exams, arranged meetings, or online asynchronous records. Instructor data is limited to non-sensitive display text.
+
 ### Program Requirements Boundary
 Owns degree programs, minors, certificates, concentrations, catalog-year versions, requirement trees, overlap policies, residency rules, GPA rules, and upper-level requirements.
 
 Phase 2A stores program identity as `AcademicProgram` and catalog/campus/effective-term identity as `ProgramVersion`. Requirement trees are stored as relational adjacency-list `RequirementNode` rows with `RequirementCourseOption` rows for course-specific options.
+
+Phase 2B does not add degree requirement evaluation. It adds `CourseRule` and `CourseRuleExpression` storage for prerequisites, corequisites, restrictions, repeat restrictions, and permission requirements. Course-level rules are scoped by `course_id`; section-level rules also carry `section_id` and are constrained to the same course and institution.
 
 ### Student Academic Record Boundary
 Owns student profile, academic standing, declared programs, course attempts, transfer credits, waivers, substitutions, in-progress courses, and planned courses.
@@ -106,11 +111,12 @@ Produces risk flags, advisor review items, confidence levels, and high-risk reco
 1. Data maintainer imports or enters versioned institution and program data.
 2. Student imports or enters academic record data.
 3. Phase 2A read-only APIs expose the stored mock catalog and mock student record with source metadata.
-4. Degree Audit evaluates progress and candidate allocations in a later phase.
-5. Academic Plan Optimizer proposes future terms in a later phase.
-6. Schedule Optimizer ranks concrete section schedules for a selected term in a later phase.
-7. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
-8. UI presents explanations and lets users adjust assumptions once the evaluator and optimizer phases exist.
+4. Phase 2B read-only APIs expose stored mock sections, meetings, offering patterns, and course-rule expression trees with source metadata.
+5. Degree Audit evaluates progress and candidate allocations in a later phase.
+6. Academic Plan Optimizer proposes future terms in a later phase.
+7. Schedule Optimizer ranks concrete section schedules for a selected term in a later phase.
+8. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
+9. UI presents explanations and lets users adjust assumptions once the evaluator and optimizer phases exist.
 
 ## 6. API Design Principles
 

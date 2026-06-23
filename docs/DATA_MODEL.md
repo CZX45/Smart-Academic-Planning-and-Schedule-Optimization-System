@@ -31,7 +31,17 @@ Phase 2A implements the first persistence slice in PostgreSQL through Alembic:
 - `course_waivers`
 - `course_substitutions`
 
+Phase 2B adds the course-rule and section foundation:
+
+- `course_offering_patterns`
+- `sections`
+- `section_meetings`
+- `course_rules`
+- `course_rule_expressions`
+
 Every Phase 2A academic-domain table includes `source_type`, `is_official`, source reference fields, and timestamps. The development seed uses only `source_type = MOCK` and `is_official = false`.
+
+Phase 2B also source-tags offering patterns, sections, meetings, rules, and rule expressions. Mock data remains non-official and cannot be used as authoritative school policy.
 
 Important Phase 2A constraints include:
 
@@ -45,6 +55,11 @@ Important Phase 2A constraints include:
 - A student can have only one active primary major.
 - Course attempts keep separate positive attempt numbers for retakes.
 - Transfer, waiver, and substitution records store approval status but do not affect audit results in Phase 2A.
+- Course offering patterns are advisory historical or predicted metadata, not school commitments.
+- Sections are unique by institution, term, course, and section code.
+- Section meetings are separate records so a section can include a lecture plus lab or other meeting components.
+- Course rules are either course scoped or section scoped. Section-scoped rules are constrained to the same course and institution as the section.
+- Course rule expressions are relational adjacency-list trees with one root per rule. Parent and child nodes must belong to the same rule.
 
 ### Institution and Versioning
 
@@ -68,9 +83,9 @@ Important Phase 2A constraints include:
 - `course_version`
   - `id`, `course_id`, `catalog_version_id`, `title`, `credits_min`, `credits_max`, `attributes`, `prerequisite_expr_id`, `corequisite_expr_id`, `restriction_expr_id`
 - `section`
-  - `id`, `course_id`, `term_id`, `section_code`, `crn`, `campus_id`, `modality`, `capacity`, `enrolled`, `waitlist_capacity`, `status`, `instructor_id`
+  - `id`, `institution_id`, `course_id`, `term_id`, `campus_id`, `section_code`, `external_reference`, `title_override`, `credits`, `status`, `modality`, `capacity`, `available_seats`, `waitlist_capacity`, `waitlist_available`, `instructor_display`, `source_type`, `is_official`, `last_synced_at`
 - `section_meeting`
-  - `id`, `section_id`, `day_of_week`, `start_time`, `end_time`, `timezone`, `location_id`, `meeting_type`
+  - `id`, `section_id`, `meeting_type`, `day_of_week`, `start_time`, `end_time`, `start_date`, `end_date`, `building`, `room`, `timezone`, `is_arranged`, `is_online`, `display_order`, `source_type`, `is_official`
 - `instructor`
   - `id`, `institution_id`, `display_name`
 - `location`
@@ -91,6 +106,15 @@ Important Phase 2A constraints include:
 
 - `expression_node`
   - `id`, `expression_type`, `operator`, `left_id`, `right_id`, `literal`, `course_filter`, `grade_threshold`, `metadata`
+
+Phase 2B implements course eligibility-rule storage as `CourseRule` plus `CourseRuleExpression`:
+
+- `course_rule`
+  - `id`, `institution_id`, `course_id`, `section_id`, `rule_type`, `name`, `description`, `effective_term_id`, `expiration_term_id`, `source_type`, `is_official`, `requires_manual_confirmation`
+- `course_rule_expression`
+  - `id`, `institution_id`, `course_rule_id`, `parent_id`, `node_type`, `display_order`, `referenced_course_id`, `minimum_grade`, `minimum_completed_credits`, `class_standing`, `referenced_program_id`, `referenced_campus_id`, `permission_type`, `text_value`, `source_type`, `is_official`
+
+Prerequisites and corequisites use the same expression model. Restriction and permission rules also use the same tree shape. Phase 2B stores and returns these trees but does not evaluate them against a student record.
 
 Expression examples:
 
@@ -155,13 +179,45 @@ Use relational tables for identities, relationships, student records, courses, s
 
 ### Section Status
 
-- `open`
-- `closed`
-- `waitlist`
-- `full`
-- `cancelled`
-- `tentative`
-- `unknown`
+- `PLANNED`
+- `OPEN`
+- `CLOSED`
+- `WAITLIST`
+- `CANCELLED`
+- `COMPLETED`
+- `UNKNOWN`
+
+### Section Modality
+
+- `IN_PERSON`
+- `ONLINE_SYNCHRONOUS`
+- `ONLINE_ASYNCHRONOUS`
+- `HYBRID`
+- `ARRANGED`
+- `UNKNOWN`
+
+### Course Rule Type
+
+- `PREREQUISITE`
+- `COREQUISITE`
+- `REGISTRATION_RESTRICTION`
+- `REPEAT_RESTRICTION`
+- `PERMISSION`
+
+### Course Rule Expression Node Type
+
+- `AND`
+- `OR`
+- `NOT`
+- `COMPLETED_COURSE`
+- `MINIMUM_GRADE`
+- `MINIMUM_COMPLETED_CREDITS`
+- `CLASS_STANDING`
+- `MAJOR_RESTRICTION`
+- `MINOR_RESTRICTION`
+- `PROGRAM_RESTRICTION`
+- `CAMPUS_RESTRICTION`
+- `PERMISSION_REQUIRED`
 
 ## 5. Data Accuracy Metadata
 

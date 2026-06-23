@@ -32,6 +32,8 @@ TypeScript `Vitest` tests for:
 
 Phase 2A adds SQLite-backed constraint tests for the SQLAlchemy metadata, deterministic mock seed idempotency tests, and FastAPI read-only `/api/v1` endpoint tests. PostgreSQL migration execution and Docker-based seed double-run remain part of CI when local Docker is unavailable.
 
+Phase 2B extends those tests to course offering patterns, course rules, rule expression trees, sections, and section meetings. SQLite-backed tests cover model constraints and tree-shape validation; CI remains responsible for PostgreSQL Alembic execution, Docker Compose startup, and double-run seed idempotency against PostgreSQL.
+
 ### End-to-End Tests
 
 Playwright tests for:
@@ -80,6 +82,18 @@ Phase 2A covers storage-level safety before evaluator behavior exists:
 - Transfer/waiver/substitution approval status storage.
 - Mock seed idempotency and non-official source metadata.
 - Basic API success and 404 responses.
+
+Phase 2B covers additional storage and API safety:
+
+- Course offering pattern uniqueness and mock/non-official metadata.
+- Course-level and section-level rule scope constraints.
+- Section rule course/institution consistency.
+- Rule expression single-root, parent-same-rule, no-self-parent, leaf-operand, and tree-shape validation.
+- Section uniqueness by institution, term, course, and section code.
+- Section capacity, available-seat, modality, and cancelled-record storage.
+- Section meeting time/date validity and multiple meetings per section.
+- Seed idempotency for Phase 2A and Phase 2B data together.
+- Read-only API coverage for section filters, section detail, meetings, rules, expression trees, offering patterns, 404, invalid filters, and OpenAPI generation.
 
 ## 5. Property and Constraint Tests
 

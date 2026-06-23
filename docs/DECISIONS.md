@@ -120,3 +120,18 @@ Consequences:
 - Course planning remains separate from section scheduling because Phase 2A models courses only.
 - Pending or rejected exceptions can be stored without being applied before Degree Audit rules exist.
 - Mock seed data can demonstrate the shape of catalog and student records without claiming official school policy.
+
+## ADR-0010: Implement Phase 2B course rules and sections as relational storage
+
+Status: Accepted
+
+Context: Course Eligibility, Degree Audit, Academic Planning, and Semester Scheduling need shared storage for prerequisites, corequisites, restrictions, offering assumptions, concrete sections, and meeting times before those later engines evaluate anything.
+
+Decision: Add relational tables for `CourseOfferingPattern`, `Section`, `SectionMeeting`, `CourseRule`, and `CourseRuleExpression`. Keep `Course` and `Section` separate. Store prerequisites, corequisites, restrictions, and permissions as expression trees rather than unqueryable text or a single JSON blob. Course-level rules are scoped to a course; section-level rules are constrained to the same course and institution as their section.
+
+Consequences:
+
+- Later eligibility and planning engines can query structured rule operands and source metadata.
+- Section scheduling can use concrete section and meeting records without polluting course-level planning.
+- Offering patterns remain advisory metadata and must not be presented as official school commitments.
+- Phase 2B still does not evaluate student eligibility, run Degree Audit, optimize schedules, monitor seats, or automate registration.
