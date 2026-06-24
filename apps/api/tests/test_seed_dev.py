@@ -23,6 +23,8 @@ from app.models.academic import (
     DegreeAuditRun,
     DegreeAuditWarning,
     Institution,
+    ProgramCombinationRule,
+    ProgramType,
     ProgramVersion,
     RequirementCourseOption,
     RequirementEvaluation,
@@ -59,6 +61,7 @@ SEEDED_MODELS = [
     TransferCredit,
     CourseWaiver,
     CourseSubstitution,
+    ProgramCombinationRule,
 ]
 
 AUDIT_SNAPSHOT_MODELS = [
@@ -183,6 +186,43 @@ def test_mock_phase_3a_audit_seed_covers_student_record_edge_cases(session: Sess
     substitutions = session.scalars(select(CourseSubstitution)).all()
     assert {substitution.status.value for substitution in substitutions}.issuperset(
         {"APPROVED", "REJECTED"}
+    )
+
+
+def test_mock_phase_3b_programs_and_combination_rules_are_seeded(session: Session) -> None:
+    seed_mock_data(session)
+
+    program_rows = session.execute(
+        select(AcademicProgram, ProgramVersion).join(ProgramVersion)
+    ).all()
+    programs_by_code = {program.code: (program, version) for program, version in program_rows}
+    assert {
+        "BSFIN",
+        "MINACCT",
+        "MINECON",
+        "BSZACT",
+        "CERTDATA",
+        "BSMGMT",
+    }.issubset(programs_by_code)
+    assert programs_by_code["MINACCT"][0].program_type is ProgramType.MINOR
+    assert programs_by_code["CERTDATA"][0].program_type is ProgramType.CERTIFICATE
+
+    rules = session.scalars(select(ProgramCombinationRule)).all()
+    assert rules
+    assert all(rule.source_type is SourceType.MOCK for rule in rules)
+    assert all(rule.is_official is False for rule in rules)
+    assert any(
+        rule.primary_program_version_id == programs_by_code["BSFIN"][1].id
+        and rule.secondary_program_version_id == programs_by_code["MINACCT"][1].id
+        and rule.maximum_shared_credits == 3
+        and rule.minimum_unique_secondary_credits == 6
+        and rule.allows_double_counting
+        for rule in rules
+    )
+    assert not any(
+        rule.primary_program_version_id == programs_by_code["BSFIN"][1].id
+        and rule.secondary_program_version_id == programs_by_code["BSZACT"][1].id
+        for rule in rules
     )
 
 

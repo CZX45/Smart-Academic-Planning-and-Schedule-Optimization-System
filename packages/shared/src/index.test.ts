@@ -4,6 +4,11 @@ import {
   ApiResponseSchemaError,
   HealthResponseSchema,
   ReadinessResponseSchema,
+  AcademicScenarioSchema,
+  ScenarioComparisonSnapshotSchema,
+  ScenarioCourseAllocationSchema,
+  ScenarioProgramSchema,
+  ScenarioWarningSchema,
   DegreeAuditRunSchema,
   RequirementEvaluationSchema,
   DegreeAuditWarningSchema,
@@ -159,5 +164,93 @@ describe("degree audit schemas", () => {
         created_at: "2026-06-23T00:00:00Z",
       }),
     ).toMatchObject({ warning_code: "PENDING_TRANSFER" });
+  });
+});
+
+describe("academic scenario schemas", () => {
+  it("validates scenario snapshots, allocations, warnings, and comparison summaries", () => {
+    const scenario = AcademicScenarioSchema.parse({
+      id: "00000000-0000-4000-8000-000000000101",
+      student_profile_id: "00000000-0000-4000-8000-000000000102",
+      name: "Add Accounting Minor",
+      scenario_type: "ADD_MINOR",
+      status: "COMPLETED_WITH_WARNINGS",
+      base_program_version_id: "00000000-0000-4000-8000-000000000103",
+      engine_version: "phase-3b-academic-scenario-v1",
+      created_at: "2026-06-23T00:00:00Z",
+      updated_at: "2026-06-23T00:00:01Z",
+      completed_at: "2026-06-23T00:00:01Z",
+    });
+    expect(scenario.scenario_type).toBe("ADD_MINOR");
+
+    expect(
+      ScenarioProgramSchema.parse({
+        id: "00000000-0000-4000-8000-000000000104",
+        academic_plan_scenario_id: scenario.id,
+        program_version_id: scenario.base_program_version_id,
+        relationship_type: "PRIMARY_MAJOR",
+        is_existing_program: true,
+        is_hypothetical: false,
+        priority: 0,
+        program_code: "BSFIN",
+        program_name: "Mock BS Finance",
+        source: { source_type: "MOCK", is_official: false },
+        created_at: "2026-06-23T00:00:00Z",
+      }),
+    ).toMatchObject({ relationship_type: "PRIMARY_MAJOR" });
+
+    expect(
+      ScenarioCourseAllocationSchema.parse({
+        id: "00000000-0000-4000-8000-000000000105",
+        academic_plan_scenario_id: scenario.id,
+        student_course_attempt_id: "00000000-0000-4000-8000-000000000106",
+        transfer_credit_id: null,
+        course_id: "00000000-0000-4000-8000-000000000107",
+        course_code: "ACCT 300",
+        course_title: "Mock Accounting Analytics",
+        program_version_id: scenario.base_program_version_id,
+        requirement_node_id: "00000000-0000-4000-8000-000000000108",
+        requirement_code: "ACCT-MINOR-CORE",
+        allocation_type: "SHARED",
+        credit_amount: "3.0",
+        is_shared: true,
+        is_unique_to_program: false,
+        allocation_rank: 1,
+        reason_code: "SHARED_BY_RULE",
+        explanation: "Shared by mock rule.",
+        created_at: "2026-06-23T00:00:00Z",
+      }),
+    ).toMatchObject({ allocation_type: "SHARED", credit_amount: "3.0" });
+
+    expect(
+      ScenarioWarningSchema.parse({
+        id: "00000000-0000-4000-8000-000000000109",
+        academic_plan_scenario_id: scenario.id,
+        scenario_program_id: null,
+        warning_code: "MISSING_PROGRAM_COMBINATION_RULE",
+        severity: "WARNING",
+        message: "Advisor review is required.",
+        requires_advisor_confirmation: true,
+        created_at: "2026-06-23T00:00:00Z",
+      }),
+    ).toMatchObject({ requires_advisor_confirmation: true });
+
+    expect(
+      ScenarioComparisonSnapshotSchema.parse({
+        academic_plan_scenario_id: scenario.id,
+        completed_credits: "18.0",
+        in_progress_credits: "3.0",
+        planned_credits: "3.0",
+        remaining_requirement_credits: "12.0",
+        shared_credits: "3.0",
+        unique_secondary_credits: "6.0",
+        estimated_additional_credits: "9.0",
+        unresolved_requirements: 4,
+        manual_review_count: 1,
+        completion_percentage: "82.50",
+        is_estimate: true,
+        created_at: "2026-06-23T00:00:00Z",
+      }),
+    ).toMatchObject({ is_estimate: true });
   });
 });

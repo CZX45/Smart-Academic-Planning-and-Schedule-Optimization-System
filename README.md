@@ -2,7 +2,7 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 3A adds a deterministic Degree Audit Core on top of the Phase 2A/2B academic data foundation. It creates auditable snapshots for one mock student and one program version, evaluates stored requirement trees, applies completed/in-progress/planned attempts plus approved transfer, waiver, and substitution records, and returns structured explanations and advisor warnings. It does **not** implement eligibility decisions, minor/major what-if, planning, scheduling, real school login, scraping, automatic registration, waitlist automation, or authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 3B adds persisted What-if Scenarios and Multi-Program Allocation on top of the Phase 3A Degree Audit Core. It can simulate mock minors, second majors, certificates, concentrations, and primary-major changes without modifying official `StudentAcademicProgram` records. It reuses the Phase 3A audit engine for each scenario program, then performs a deterministic bounded global allocation across stored audit applications. It does **not** implement eligibility decisions, prerequisite/corequisite evaluation, graduation timing prediction, planning, scheduling, real school login, scraping, automatic registration, waitlist automation, or authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
@@ -183,6 +183,26 @@ New endpoints include:
 
 The web app now opens to a read-only mock Degree Progress view with summary credits, warnings, and expandable requirement rows. It uses shared Zod schemas and does not reimplement audit rules in the frontend.
 
+## Phase 3B what-if scenario API
+
+Phase 3B creates scenario snapshots under `/api/v1/academic-scenarios`. Scenarios store hypothetical program combinations, per-program Phase 3A audit runs, global course allocations, warnings, and comparison summaries. Scenario creation never changes declared academic programs.
+
+New endpoints include:
+
+- `POST /api/v1/academic-scenarios`
+- `GET /api/v1/academic-scenarios/{scenario_id}`
+- `GET /api/v1/academic-scenarios/{scenario_id}/programs`
+- `GET /api/v1/academic-scenarios/{scenario_id}/audits`
+- `GET /api/v1/academic-scenarios/{scenario_id}/allocations`
+- `GET /api/v1/academic-scenarios/{scenario_id}/warnings`
+- `GET /api/v1/academic-scenarios/{scenario_id}/comparison`
+- `GET /api/v1/students/{student_id}/academic-scenarios`
+- `POST /api/v1/academic-scenarios/compare`
+
+Program combination rules are directional. Shared credits require both requirement-level overlap permission and a matching directional combination rule. Shared credits can satisfy more than one requirement, but total earned credits are counted once. Estimated additional credits are labeled as estimates and do not predict graduation timing.
+
+The web app includes an Explore Programs / What-if Analysis panel for mock candidate programs, scenario summaries, allocation rows, warnings, and saved-scenario comparison.
+
 ## Quality gates
 
 Run the following before opening a pull request:
@@ -207,7 +227,7 @@ pnpm exec playwright install --with-deps
 pnpm e2e
 ```
 
-## Phase 2A, 2B, and 3A scope and data safety
+## Phase 2A, 2B, 3A, and 3B scope and data safety
 
 Phase 2A is a domain-storage foundation. It models institutions, campuses, terms, academic programs, program versions, courses, course equivalencies, requirement trees, course options, mock student profiles, academic program declarations, course attempts, transfer credits, waivers, and substitutions.
 
@@ -215,9 +235,11 @@ Phase 2B adds `Section`, `SectionMeeting`, `CourseOfferingPattern`, `CourseRule`
 
 Phase 3A adds `DegreeAuditRun`, `RequirementEvaluation`, `AuditCourseApplication`, and `DegreeAuditWarning`. It evaluates a single `StudentProfile` against a single `ProgramVersion` and stores a snapshot. The baseline allocator is deterministic and explainable but intentionally not a global course-allocation optimizer.
 
+Phase 3B adds `AcademicPlanScenario`, `ScenarioProgram`, `ProgramCombinationRule`, `ScenarioProgramAudit`, `ScenarioCourseAllocation`, `ScenarioComparisonSnapshot`, and `ScenarioWarning`. It compares hypothetical program combinations without changing official student declarations.
+
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 
-The next planned implementation phase is Phase 3B What-if and advanced allocation. The project should not jump directly to eligibility, scheduling, OR-Tools, browser extension work, or registration behavior.
+The next planned implementation phase is Phase 4 Course Eligibility Engine. The project should not jump directly to planning, scheduling, OR-Tools, browser extension work, or registration behavior.
 
 ## Documentation Index
 

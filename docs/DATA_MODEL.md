@@ -46,11 +46,23 @@ Phase 3A adds the degree audit snapshot foundation:
 - `audit_course_applications`
 - `degree_audit_warnings`
 
+Phase 3B adds what-if scenario and multi-program allocation storage:
+
+- `academic_plan_scenarios`
+- `scenario_programs`
+- `program_combination_rules`
+- `scenario_program_audits`
+- `scenario_course_allocations`
+- `scenario_comparison_snapshots`
+- `scenario_warnings`
+
 Every Phase 2A academic-domain table includes `source_type`, `is_official`, source reference fields, and timestamps. The development seed uses only `source_type = MOCK` and `is_official = false`.
 
 Phase 2B also source-tags offering patterns, sections, meetings, rules, and rule expressions. Mock data remains non-official and cannot be used as authoritative school policy.
 
 Phase 3A audit rows are generated snapshots, not source records. They do not store school credentials or portal secrets. Each run stores `engine_version`, `calculation_mode`, source snapshot hash, credit totals, completion percentage as fixed-precision numeric data, and zero-or-more warnings.
+
+Phase 3B scenario rows are generated snapshots. They do not modify `student_academic_programs`; each scenario stores its own membership, audit links, allocations, warnings, and comparison summary. `program_combination_rules` are source-tagged because they represent policy data. Mock rules must remain `source_type = MOCK` and `is_official = false`.
 
 Important Phase 2A constraints include:
 
@@ -72,6 +84,11 @@ Important Phase 2A constraints include:
 - Course rule expressions are relational adjacency-list trees with one root per rule. Parent and child nodes must belong to the same rule.
 - A degree audit run has one evaluation per requirement node.
 - An audit course application must reference a clear source record: an attempt, transfer credit, waiver, or substitution. Approved substitutions may also reference the completed substitute attempt used to support the approval.
+- A scenario can contain only one primary major and cannot repeat the same program version.
+- Program combination rules are directional; primary-to-secondary policy does not imply secondary-to-primary policy.
+- Program combination credit/course limits cannot be negative, and a rule cannot point a program version at itself.
+- Scenario course allocations must reference a clear source record and include structured allocation type, reason code, and explanation.
+- Scenario comparison values are nonnegative and must trace back to program audit and allocation rows.
 
 ### Institution and Versioning
 
@@ -157,8 +174,20 @@ Expression examples:
   - `id`, `degree_audit_run_id`, `requirement_evaluation_id`, `course_id`, `student_course_attempt_id`, `transfer_credit_id`, `course_waiver_id`, `course_substitution_id`, `application_type`, `credit_amount`, `grade`, `is_completed`, `is_in_progress`, `is_planned`, `is_shared`, `explanation`, `created_at`
 - `degree_audit_warning`
   - `id`, `degree_audit_run_id`, `requirement_evaluation_id`, `warning_code`, `severity`, `message`, `requires_advisor_confirmation`, `created_at`
-- `course_requirement_assignment`
-  - Deferred until advanced allocation. Phase 3A uses stored audit applications instead of a global assignment optimizer.
+- `academic_plan_scenario`
+  - `id`, `student_profile_id`, `name`, `scenario_type`, `status`, `base_program_version_id`, `engine_version`, `created_at`, `updated_at`, `completed_at`
+- `scenario_program`
+  - `id`, `academic_plan_scenario_id`, `program_version_id`, `relationship_type`, `is_existing_program`, `is_hypothetical`, `priority`, `created_at`
+- `program_combination_rule`
+  - `id`, `primary_program_version_id`, `secondary_program_version_id`, `combination_type`, `maximum_shared_credits`, `minimum_unique_secondary_credits`, `minimum_unique_courses`, `allows_double_counting`, `requires_manual_confirmation`, `source_type`, `is_official`, `notes`, `effective_term_id`, `expiration_term_id`, `created_at`, `updated_at`
+- `scenario_program_audit`
+  - `id`, `academic_plan_scenario_id`, `scenario_program_id`, `degree_audit_run_id`, `created_at`
+- `scenario_course_allocation`
+  - `id`, `academic_plan_scenario_id`, `student_course_attempt_id`, `transfer_credit_id`, `course_waiver_id`, `course_substitution_id`, `course_id`, `program_version_id`, `requirement_node_id`, `allocation_type`, `credit_amount`, `is_shared`, `is_unique_to_program`, `allocation_rank`, `reason_code`, `explanation`, `created_at`
+- `scenario_comparison_snapshot`
+  - `academic_plan_scenario_id`, `completed_credits`, `in_progress_credits`, `planned_credits`, `remaining_requirement_credits`, `shared_credits`, `unique_secondary_credits`, `estimated_additional_credits`, `unresolved_requirements`, `manual_review_count`, `completion_percentage`, `is_estimate`, `created_at`
+- `scenario_warning`
+  - `id`, `academic_plan_scenario_id`, `scenario_program_id`, `warning_code`, `severity`, `message`, `requires_advisor_confirmation`, `created_at`
 - `planning_session`
   - `id`, `student_id`, `name`, `created_at`, `assumptions`, `status`
 - `planned_course`
@@ -223,6 +252,40 @@ Use relational tables for identities, relationships, student records, courses, s
 - `INFO`
 - `WARNING`
 - `ERROR`
+
+### Academic Scenario Type
+
+- `ADD_MINOR`
+- `ADD_SECOND_MAJOR`
+- `ADD_CERTIFICATE`
+- `ADD_CONCENTRATION`
+- `CHANGE_PRIMARY_MAJOR`
+- `CUSTOM_COMBINATION`
+
+### Academic Scenario Status
+
+- `DRAFT`
+- `RUNNING`
+- `COMPLETED`
+- `COMPLETED_WITH_WARNINGS`
+- `FAILED`
+- `ARCHIVED`
+
+### Scenario Relationship Type
+
+- `PRIMARY_MAJOR`
+- `MINOR`
+- `SECOND_MAJOR`
+- `CERTIFICATE`
+- `CONCENTRATION`
+
+### Scenario Allocation Type
+
+- `PRIMARY`
+- `SHARED`
+- `UNIQUE_SECONDARY`
+- `TOTAL_CREDIT_ONLY`
+- `UNALLOCATED`
 
 ### Section Status
 

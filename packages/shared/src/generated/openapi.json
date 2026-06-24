@@ -1210,6 +1210,513 @@
         }
       }
     },
+    "/api/v1/academic-scenarios": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Create Academic Scenario",
+        "operationId": "create_academic_scenario_api_v1_academic_scenarios_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcademicScenarioCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcademicScenarioResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/academic-scenarios/compare": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Compare Academic Scenarios",
+        "operationId": "compare_academic_scenarios_api_v1_academic_scenarios_compare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcademicScenarioCompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScenarioComparisonSnapshotResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Compare Academic Scenarios Api V1 Academic Scenarios Compare Post"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/academic-scenarios/{scenario_id}": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Academic Scenario",
+        "operationId": "get_academic_scenario_api_v1_academic_scenarios__scenario_id__get",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcademicScenarioResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/academic-scenarios/{scenario_id}/programs": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Academic Scenario Programs",
+        "operationId": "get_academic_scenario_programs_api_v1_academic_scenarios__scenario_id__programs_get",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScenarioProgramResponse"
+                  },
+                  "title": "Response Get Academic Scenario Programs Api V1 Academic Scenarios  Scenario Id  Programs Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/academic-scenarios/{scenario_id}/audits": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Academic Scenario Audits",
+        "operationId": "get_academic_scenario_audits_api_v1_academic_scenarios__scenario_id__audits_get",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScenarioProgramAuditResponse"
+                  },
+                  "title": "Response Get Academic Scenario Audits Api V1 Academic Scenarios  Scenario Id  Audits Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/academic-scenarios/{scenario_id}/allocations": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Academic Scenario Allocations",
+        "operationId": "get_academic_scenario_allocations_api_v1_academic_scenarios__scenario_id__allocations_get",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScenarioCourseAllocationResponse"
+                  },
+                  "title": "Response Get Academic Scenario Allocations Api V1 Academic Scenarios  Scenario Id  Allocations Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/academic-scenarios/{scenario_id}/warnings": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Academic Scenario Warnings",
+        "operationId": "get_academic_scenario_warnings_api_v1_academic_scenarios__scenario_id__warnings_get",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScenarioWarningResponse"
+                  },
+                  "title": "Response Get Academic Scenario Warnings Api V1 Academic Scenarios  Scenario Id  Warnings Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/academic-scenarios/{scenario_id}/comparison": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Academic Scenario Comparison",
+        "operationId": "get_academic_scenario_comparison_api_v1_academic_scenarios__scenario_id__comparison_get",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioComparisonSnapshotResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/students/{student_id}/academic-scenarios": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "List Student Academic Scenarios",
+        "operationId": "list_student_academic_scenarios_api_v1_students__student_id__academic_scenarios_get",
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AcademicScenarioResponse"
+                  },
+                  "title": "Response List Student Academic Scenarios Api V1 Students  Student Id  Academic Scenarios Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/students/{student_id}": {
       "get": {
         "tags": [
@@ -1418,6 +1925,161 @@
           "source"
         ],
         "title": "AcademicProgramResponse"
+      },
+      "AcademicScenarioCompareRequest": {
+        "properties": {
+          "scenario_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "minItems": 2,
+            "title": "Scenario Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scenario_ids"
+        ],
+        "title": "AcademicScenarioCompareRequest"
+      },
+      "AcademicScenarioCreateRequest": {
+        "properties": {
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "scenario_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Scenario Name"
+          },
+          "scenario_type": {
+            "type": "string",
+            "enum": [
+              "ADD_MINOR",
+              "ADD_SECOND_MAJOR",
+              "ADD_CERTIFICATE",
+              "ADD_CONCENTRATION",
+              "CHANGE_PRIMARY_MAJOR",
+              "CUSTOM_COMBINATION"
+            ],
+            "title": "Scenario Type"
+          },
+          "calculation_mode": {
+            "type": "string",
+            "enum": [
+              "CURRENT",
+              "PROJECTED"
+            ],
+            "title": "Calculation Mode"
+          },
+          "programs": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioProgramInputRequest"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Programs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "student_profile_id",
+          "scenario_name",
+          "scenario_type",
+          "calculation_mode",
+          "programs"
+        ],
+        "title": "AcademicScenarioCreateRequest"
+      },
+      "AcademicScenarioResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "scenario_type": {
+            "type": "string",
+            "enum": [
+              "ADD_MINOR",
+              "ADD_SECOND_MAJOR",
+              "ADD_CERTIFICATE",
+              "ADD_CONCENTRATION",
+              "CHANGE_PRIMARY_MAJOR",
+              "CUSTOM_COMBINATION"
+            ],
+            "title": "Scenario Type"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "RUNNING",
+              "COMPLETED",
+              "COMPLETED_WITH_WARNINGS",
+              "FAILED",
+              "ARCHIVED"
+            ],
+            "title": "Status"
+          },
+          "base_program_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Base Program Version Id"
+          },
+          "engine_version": {
+            "type": "string",
+            "title": "Engine Version"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "student_profile_id",
+          "name",
+          "scenario_type",
+          "status",
+          "base_program_version_id",
+          "engine_version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AcademicScenarioResponse"
       },
       "AuditCourseApplicationResponse": {
         "properties": {
@@ -2863,6 +3525,459 @@
           "nodes"
         ],
         "title": "RequirementTreeResponse"
+      },
+      "ScenarioComparisonSnapshotResponse": {
+        "properties": {
+          "academic_plan_scenario_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Academic Plan Scenario Id"
+          },
+          "completed_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Completed Credits"
+          },
+          "in_progress_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "In Progress Credits"
+          },
+          "planned_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Planned Credits"
+          },
+          "remaining_requirement_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Remaining Requirement Credits"
+          },
+          "shared_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Shared Credits"
+          },
+          "unique_secondary_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Unique Secondary Credits"
+          },
+          "estimated_additional_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Estimated Additional Credits"
+          },
+          "unresolved_requirements": {
+            "type": "integer",
+            "title": "Unresolved Requirements"
+          },
+          "manual_review_count": {
+            "type": "integer",
+            "title": "Manual Review Count"
+          },
+          "completion_percentage": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Completion Percentage"
+          },
+          "is_estimate": {
+            "type": "boolean",
+            "title": "Is Estimate"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "academic_plan_scenario_id",
+          "completed_credits",
+          "in_progress_credits",
+          "planned_credits",
+          "remaining_requirement_credits",
+          "shared_credits",
+          "unique_secondary_credits",
+          "estimated_additional_credits",
+          "unresolved_requirements",
+          "manual_review_count",
+          "completion_percentage",
+          "is_estimate",
+          "created_at"
+        ],
+        "title": "ScenarioComparisonSnapshotResponse"
+      },
+      "ScenarioCourseAllocationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "academic_plan_scenario_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Academic Plan Scenario Id"
+          },
+          "student_course_attempt_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Course Attempt Id"
+          },
+          "transfer_credit_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transfer Credit Id"
+          },
+          "course_waiver_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Waiver Id"
+          },
+          "course_substitution_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Substitution Id"
+          },
+          "course_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Id"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "course_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Title"
+          },
+          "program_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Program Version Id"
+          },
+          "requirement_node_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Node Id"
+          },
+          "requirement_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Code"
+          },
+          "allocation_type": {
+            "type": "string",
+            "enum": [
+              "PRIMARY",
+              "SHARED",
+              "UNIQUE_SECONDARY",
+              "TOTAL_CREDIT_ONLY",
+              "UNALLOCATED"
+            ],
+            "title": "Allocation Type"
+          },
+          "credit_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Credit Amount"
+          },
+          "is_shared": {
+            "type": "boolean",
+            "title": "Is Shared"
+          },
+          "is_unique_to_program": {
+            "type": "boolean",
+            "title": "Is Unique To Program"
+          },
+          "allocation_rank": {
+            "type": "integer",
+            "title": "Allocation Rank"
+          },
+          "reason_code": {
+            "type": "string",
+            "title": "Reason Code"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "academic_plan_scenario_id",
+          "allocation_type",
+          "credit_amount",
+          "is_shared",
+          "is_unique_to_program",
+          "allocation_rank",
+          "reason_code",
+          "explanation",
+          "created_at"
+        ],
+        "title": "ScenarioCourseAllocationResponse"
+      },
+      "ScenarioProgramAuditResponse": {
+        "properties": {
+          "scenario_program": {
+            "$ref": "#/components/schemas/ScenarioProgramResponse"
+          },
+          "degree_audit_run": {
+            "$ref": "#/components/schemas/DegreeAuditRunResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scenario_program",
+          "degree_audit_run"
+        ],
+        "title": "ScenarioProgramAuditResponse"
+      },
+      "ScenarioProgramInputRequest": {
+        "properties": {
+          "program_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Program Version Id"
+          },
+          "relationship_type": {
+            "type": "string",
+            "enum": [
+              "PRIMARY_MAJOR",
+              "MINOR",
+              "SECOND_MAJOR",
+              "CERTIFICATE",
+              "CONCENTRATION"
+            ],
+            "title": "Relationship Type"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Priority"
+          }
+        },
+        "type": "object",
+        "required": [
+          "program_version_id",
+          "relationship_type",
+          "priority"
+        ],
+        "title": "ScenarioProgramInputRequest"
+      },
+      "ScenarioProgramResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "academic_plan_scenario_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Academic Plan Scenario Id"
+          },
+          "program_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Program Version Id"
+          },
+          "relationship_type": {
+            "type": "string",
+            "enum": [
+              "PRIMARY_MAJOR",
+              "MINOR",
+              "SECOND_MAJOR",
+              "CERTIFICATE",
+              "CONCENTRATION"
+            ],
+            "title": "Relationship Type"
+          },
+          "is_existing_program": {
+            "type": "boolean",
+            "title": "Is Existing Program"
+          },
+          "is_hypothetical": {
+            "type": "boolean",
+            "title": "Is Hypothetical"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority"
+          },
+          "program_code": {
+            "type": "string",
+            "title": "Program Code"
+          },
+          "program_name": {
+            "type": "string",
+            "title": "Program Name"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "academic_plan_scenario_id",
+          "program_version_id",
+          "relationship_type",
+          "is_existing_program",
+          "is_hypothetical",
+          "priority",
+          "program_code",
+          "program_name",
+          "source",
+          "created_at"
+        ],
+        "title": "ScenarioProgramResponse"
+      },
+      "ScenarioWarningResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "academic_plan_scenario_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Academic Plan Scenario Id"
+          },
+          "scenario_program_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario Program Id"
+          },
+          "warning_code": {
+            "type": "string",
+            "title": "Warning Code"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "INFO",
+              "WARNING",
+              "ERROR"
+            ],
+            "title": "Severity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "requires_advisor_confirmation": {
+            "type": "boolean",
+            "title": "Requires Advisor Confirmation"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "academic_plan_scenario_id",
+          "warning_code",
+          "severity",
+          "message",
+          "requires_advisor_confirmation",
+          "created_at"
+        ],
+        "title": "ScenarioWarningResponse"
       },
       "SectionMeetingResponse": {
         "properties": {

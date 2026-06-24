@@ -151,3 +151,19 @@ Consequences:
 - `CURRENT` and `PROJECTED` modes can show completed, in-progress, and planned layers without confusing them.
 - Phase 3A intentionally uses a deterministic baseline allocator rather than a global optimization solver.
 - Phase 3B should address what-if scenarios and advanced allocation before eligibility or section scheduling work begins.
+
+## ADR-0012: Implement Phase 3B scenarios as snapshot wrappers around Degree Audit
+
+Status: Accepted
+
+Context: What-if analysis must compare minors, second majors, certificates, concentrations, and change-major candidates without changing official student declarations or duplicating Degree Audit behavior.
+
+Decision: Persist `AcademicPlanScenario` snapshots with `ScenarioProgram` rows and call the Phase 3A `DegreeAuditEngine` once per scenario program. Store each program result as a normal `DegreeAuditRun`, then run a separate deterministic bounded global allocator over the persisted audit applications. Store directional `ProgramCombinationRule` records for overlap policy; missing rules create advisor-review warnings rather than inferred policy.
+
+Consequences:
+
+- Scenario runs are traceable to the same audit snapshot structure as official program audits.
+- What-if scenarios cannot silently mutate `StudentAcademicProgram`.
+- Shared credit, unique secondary credit, and total earned credit remain separate concepts.
+- The allocator can be replaced later without rewriting Degree Audit.
+- Phase 3B estimates additional credits but does not predict graduation timing or evaluate eligibility.

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.academic import (
+    AcademicPlanScenario,
     AcademicProgram,
     AcademicTerm,
     AuditCourseApplication,
@@ -25,6 +26,13 @@ from app.models.academic import (
     RequirementCourseOption,
     RequirementEvaluation,
     RequirementNode,
+    ScenarioComparisonSnapshot,
+    ScenarioCourseAllocation,
+    ScenarioProgram,
+    ScenarioProgramAudit,
+    ScenarioRelationshipType,
+    ScenarioType,
+    ScenarioWarning,
     Section,
     SectionMeeting,
     SectionModality,
@@ -36,6 +44,9 @@ from app.models.academic import (
 )
 from app.schemas.academic import (
     AcademicProgramResponse,
+    AcademicScenarioCompareRequest,
+    AcademicScenarioCreateRequest,
+    AcademicScenarioResponse,
     AuditCourseApplicationResponse,
     CampusResponse,
     CourseOfferingPatternResponse,
@@ -54,6 +65,11 @@ from app.schemas.academic import (
     RequirementEvaluationResponse,
     RequirementNodeResponse,
     RequirementTreeResponse,
+    ScenarioComparisonSnapshotResponse,
+    ScenarioCourseAllocationResponse,
+    ScenarioProgramAuditResponse,
+    ScenarioProgramResponse,
+    ScenarioWarningResponse,
     SectionMeetingResponse,
     SectionResponse,
     SourceMetadataResponse,
@@ -61,6 +77,9 @@ from app.schemas.academic import (
     StudentCourseAttemptResponse,
     StudentProfileResponse,
 )
+from app.services.academic_scenarios.engine import AcademicScenarioApplicationService
+from app.services.academic_scenarios.exceptions import AcademicScenarioValidationError
+from app.services.academic_scenarios.result import ScenarioProgramInput
 from app.services.degree_audit.exceptions import DegreeAuditValidationError
 from app.services.degree_audit.persistence import DegreeAuditApplicationService
 
@@ -332,6 +351,103 @@ def requirement_evaluation_response(
         display_order=evaluation.display_order,
         applications=applications,
         warnings=warnings,
+    )
+
+
+def academic_scenario_response(scenario: AcademicPlanScenario) -> AcademicScenarioResponse:
+    return AcademicScenarioResponse(
+        id=scenario.id,
+        student_profile_id=scenario.student_profile_id,
+        name=scenario.name,
+        scenario_type=scenario.scenario_type.value,
+        status=scenario.status.value,
+        base_program_version_id=scenario.base_program_version_id,
+        engine_version=scenario.engine_version,
+        created_at=scenario.created_at,
+        updated_at=scenario.updated_at,
+        completed_at=scenario.completed_at,
+    )
+
+
+def scenario_program_response(
+    scenario_program: ScenarioProgram,
+    version: ProgramVersion,
+    program: AcademicProgram,
+) -> ScenarioProgramResponse:
+    return ScenarioProgramResponse(
+        id=scenario_program.id,
+        academic_plan_scenario_id=scenario_program.academic_plan_scenario_id,
+        program_version_id=scenario_program.program_version_id,
+        relationship_type=scenario_program.relationship_type.value,
+        is_existing_program=scenario_program.is_existing_program,
+        is_hypothetical=scenario_program.is_hypothetical,
+        priority=scenario_program.priority,
+        program_code=program.code,
+        program_name=program.name,
+        source=source_response(version),
+        created_at=scenario_program.created_at,
+    )
+
+
+def scenario_course_allocation_response(
+    allocation: ScenarioCourseAllocation,
+    course: Course | None,
+    requirement: RequirementNode | None,
+) -> ScenarioCourseAllocationResponse:
+    return ScenarioCourseAllocationResponse(
+        id=allocation.id,
+        academic_plan_scenario_id=allocation.academic_plan_scenario_id,
+        student_course_attempt_id=allocation.student_course_attempt_id,
+        transfer_credit_id=allocation.transfer_credit_id,
+        course_waiver_id=allocation.course_waiver_id,
+        course_substitution_id=allocation.course_substitution_id,
+        course_id=allocation.course_id,
+        course_code=f"{course.subject_code} {course.course_number}" if course else None,
+        course_title=course.title if course else None,
+        program_version_id=allocation.program_version_id,
+        requirement_node_id=allocation.requirement_node_id,
+        requirement_code=requirement.code if requirement else None,
+        allocation_type=allocation.allocation_type.value,
+        credit_amount=allocation.credit_amount,
+        is_shared=allocation.is_shared,
+        is_unique_to_program=allocation.is_unique_to_program,
+        allocation_rank=allocation.allocation_rank,
+        reason_code=allocation.reason_code,
+        explanation=allocation.explanation,
+        created_at=allocation.created_at,
+    )
+
+
+def scenario_warning_response(warning: ScenarioWarning) -> ScenarioWarningResponse:
+    return ScenarioWarningResponse(
+        id=warning.id,
+        academic_plan_scenario_id=warning.academic_plan_scenario_id,
+        scenario_program_id=warning.scenario_program_id,
+        warning_code=warning.warning_code,
+        severity=warning.severity.value,
+        message=warning.message,
+        requires_advisor_confirmation=warning.requires_advisor_confirmation,
+        created_at=warning.created_at,
+    )
+
+
+def scenario_comparison_response(
+    snapshot: ScenarioComparisonSnapshot,
+) -> ScenarioComparisonSnapshotResponse:
+    return ScenarioComparisonSnapshotResponse(
+        academic_plan_scenario_id=snapshot.academic_plan_scenario_id,
+        completed_credits=snapshot.completed_credits,
+        in_progress_credits=snapshot.in_progress_credits,
+        planned_credits=snapshot.planned_credits,
+        remaining_requirement_credits=snapshot.remaining_requirement_credits,
+        shared_credits=snapshot.shared_credits,
+        unique_secondary_credits=snapshot.unique_secondary_credits,
+        estimated_additional_credits=snapshot.estimated_additional_credits,
+        unresolved_requirements=snapshot.unresolved_requirements,
+        manual_review_count=snapshot.manual_review_count,
+        completion_percentage=snapshot.completion_percentage,
+        is_estimate=snapshot.is_estimate,
+        created_at=snapshot.created_at,
     )
 
 
@@ -856,6 +972,212 @@ def get_latest_student_degree_audit(
     if run is None:
         raise not_found("DegreeAuditRun", student_id)
     return degree_audit_run_response(run)
+
+
+@router.post(
+    "/academic-scenarios",
+    response_model=AcademicScenarioResponse,
+    status_code=201,
+    responses={404: not_found_response, 400: not_found_response},
+)
+def create_academic_scenario(
+    request: AcademicScenarioCreateRequest,
+    db: DatabaseSession,
+) -> AcademicScenarioResponse:
+    try:
+        scenario = AcademicScenarioApplicationService(db).create_scenario(
+            student_profile_id=request.student_profile_id,
+            scenario_name=request.scenario_name,
+            scenario_type=ScenarioType(request.scenario_type),
+            calculation_mode=AuditMode(request.calculation_mode),
+            programs=[
+                ScenarioProgramInput(
+                    program_version_id=program.program_version_id,
+                    relationship_type=ScenarioRelationshipType(program.relationship_type),
+                    priority=program.priority,
+                )
+                for program in request.programs
+            ],
+        )
+    except AcademicScenarioValidationError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return academic_scenario_response(scenario)
+
+
+@router.post(
+    "/academic-scenarios/compare",
+    response_model=list[ScenarioComparisonSnapshotResponse],
+    responses={404: not_found_response},
+)
+def compare_academic_scenarios(
+    request: AcademicScenarioCompareRequest,
+    db: DatabaseSession,
+) -> list[ScenarioComparisonSnapshotResponse]:
+    snapshots = {
+        snapshot.academic_plan_scenario_id: snapshot
+        for snapshot in db.scalars(
+            select(ScenarioComparisonSnapshot).where(
+                ScenarioComparisonSnapshot.academic_plan_scenario_id.in_(request.scenario_ids)
+            )
+        ).all()
+    }
+    missing = [scenario_id for scenario_id in request.scenario_ids if scenario_id not in snapshots]
+    if missing:
+        raise not_found("AcademicPlanScenario", missing[0])
+    return [
+        scenario_comparison_response(snapshots[scenario_id]) for scenario_id in request.scenario_ids
+    ]
+
+
+@router.get(
+    "/academic-scenarios/{scenario_id}",
+    response_model=AcademicScenarioResponse,
+    responses={404: not_found_response},
+)
+def get_academic_scenario(
+    scenario_id: UUID,
+    db: DatabaseSession,
+) -> AcademicScenarioResponse:
+    scenario = db.get(AcademicPlanScenario, scenario_id)
+    if scenario is None:
+        raise not_found("AcademicPlanScenario", scenario_id)
+    return academic_scenario_response(scenario)
+
+
+@router.get(
+    "/academic-scenarios/{scenario_id}/programs",
+    response_model=list[ScenarioProgramResponse],
+    responses={404: not_found_response},
+)
+def get_academic_scenario_programs(
+    scenario_id: UUID,
+    db: DatabaseSession,
+) -> list[ScenarioProgramResponse]:
+    if db.get(AcademicPlanScenario, scenario_id) is None:
+        raise not_found("AcademicPlanScenario", scenario_id)
+    rows = db.execute(
+        select(ScenarioProgram, ProgramVersion, AcademicProgram)
+        .join(ProgramVersion, ScenarioProgram.program_version_id == ProgramVersion.id)
+        .join(AcademicProgram, ProgramVersion.program_id == AcademicProgram.id)
+        .where(ScenarioProgram.academic_plan_scenario_id == scenario_id)
+        .order_by(ScenarioProgram.priority, AcademicProgram.code)
+    ).all()
+    return [
+        scenario_program_response(scenario_program, version, program)
+        for scenario_program, version, program in rows
+    ]
+
+
+@router.get(
+    "/academic-scenarios/{scenario_id}/audits",
+    response_model=list[ScenarioProgramAuditResponse],
+    responses={404: not_found_response},
+)
+def get_academic_scenario_audits(
+    scenario_id: UUID,
+    db: DatabaseSession,
+) -> list[ScenarioProgramAuditResponse]:
+    if db.get(AcademicPlanScenario, scenario_id) is None:
+        raise not_found("AcademicPlanScenario", scenario_id)
+    rows = db.execute(
+        select(ScenarioProgram, ProgramVersion, AcademicProgram, DegreeAuditRun)
+        .join(ScenarioProgramAudit, ScenarioProgramAudit.scenario_program_id == ScenarioProgram.id)
+        .join(DegreeAuditRun, ScenarioProgramAudit.degree_audit_run_id == DegreeAuditRun.id)
+        .join(ProgramVersion, ScenarioProgram.program_version_id == ProgramVersion.id)
+        .join(AcademicProgram, ProgramVersion.program_id == AcademicProgram.id)
+        .where(ScenarioProgram.academic_plan_scenario_id == scenario_id)
+        .order_by(ScenarioProgram.priority, AcademicProgram.code)
+    ).all()
+    return [
+        ScenarioProgramAuditResponse(
+            scenario_program=scenario_program_response(scenario_program, version, program),
+            degree_audit_run=degree_audit_run_response(run),
+        )
+        for scenario_program, version, program, run in rows
+    ]
+
+
+@router.get(
+    "/academic-scenarios/{scenario_id}/allocations",
+    response_model=list[ScenarioCourseAllocationResponse],
+    responses={404: not_found_response},
+)
+def get_academic_scenario_allocations(
+    scenario_id: UUID,
+    db: DatabaseSession,
+) -> list[ScenarioCourseAllocationResponse]:
+    if db.get(AcademicPlanScenario, scenario_id) is None:
+        raise not_found("AcademicPlanScenario", scenario_id)
+    rows = db.execute(
+        select(ScenarioCourseAllocation, Course, RequirementNode)
+        .outerjoin(Course, ScenarioCourseAllocation.course_id == Course.id)
+        .outerjoin(
+            RequirementNode, ScenarioCourseAllocation.requirement_node_id == RequirementNode.id
+        )
+        .where(ScenarioCourseAllocation.academic_plan_scenario_id == scenario_id)
+        .order_by(ScenarioCourseAllocation.allocation_rank, ScenarioCourseAllocation.id)
+    ).all()
+    return [
+        scenario_course_allocation_response(allocation, course, requirement)
+        for allocation, course, requirement in rows
+    ]
+
+
+@router.get(
+    "/academic-scenarios/{scenario_id}/warnings",
+    response_model=list[ScenarioWarningResponse],
+    responses={404: not_found_response},
+)
+def get_academic_scenario_warnings(
+    scenario_id: UUID,
+    db: DatabaseSession,
+) -> list[ScenarioWarningResponse]:
+    if db.get(AcademicPlanScenario, scenario_id) is None:
+        raise not_found("AcademicPlanScenario", scenario_id)
+    warnings = db.scalars(
+        select(ScenarioWarning)
+        .where(ScenarioWarning.academic_plan_scenario_id == scenario_id)
+        .order_by(ScenarioWarning.severity, ScenarioWarning.created_at, ScenarioWarning.id)
+    ).all()
+    return [scenario_warning_response(warning) for warning in warnings]
+
+
+@router.get(
+    "/academic-scenarios/{scenario_id}/comparison",
+    response_model=ScenarioComparisonSnapshotResponse,
+    responses={404: not_found_response},
+)
+def get_academic_scenario_comparison(
+    scenario_id: UUID,
+    db: DatabaseSession,
+) -> ScenarioComparisonSnapshotResponse:
+    snapshot = db.get(ScenarioComparisonSnapshot, scenario_id)
+    if snapshot is None:
+        raise not_found("ScenarioComparisonSnapshot", scenario_id)
+    return scenario_comparison_response(snapshot)
+
+
+@router.get(
+    "/students/{student_id}/academic-scenarios",
+    response_model=list[AcademicScenarioResponse],
+    responses={404: not_found_response},
+)
+def list_student_academic_scenarios(
+    student_id: UUID,
+    db: DatabaseSession,
+) -> list[AcademicScenarioResponse]:
+    if db.get(StudentProfile, student_id) is None:
+        raise not_found("StudentProfile", student_id)
+    scenarios = db.scalars(
+        select(AcademicPlanScenario)
+        .where(AcademicPlanScenario.student_profile_id == student_id)
+        .order_by(AcademicPlanScenario.created_at.desc(), AcademicPlanScenario.id.desc())
+    ).all()
+    return [academic_scenario_response(scenario) for scenario in scenarios]
 
 
 def student_programs_response(
