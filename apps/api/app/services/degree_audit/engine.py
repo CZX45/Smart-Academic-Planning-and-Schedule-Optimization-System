@@ -622,6 +622,7 @@ class DegreeAuditEngine:
             if context.total_required_credits > ZERO
             else ZERO
         )
+        percentage = min(percentage, ONE_HUNDRED)
         warnings = context.warnings + [
             warning for requirement in requirements for warning in requirement.warnings
         ]

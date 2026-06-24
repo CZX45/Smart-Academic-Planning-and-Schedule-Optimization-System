@@ -37,6 +37,17 @@ Course allocation is deferred until the Degree Audit phase. Phase 2A does not ma
 
 Phase 3A implements a deterministic baseline allocator, not a global optimizer. It evaluates stricter course-bearing requirements before broad credit pools, reserves a source record for one non-overlap requirement, and records `is_shared` when overlap is allowed. Total earned-credit summary is calculated separately from requirement applications so a shared course does not increase total credits twice. If local greedy allocation is ambiguous, Phase 3A emits advisor warnings and leaves advanced allocation to Phase 3B.
 
+Phase 3B adds a deterministic bounded global allocator for what-if scenarios. It derives candidates from persisted Phase 3A audit applications, not from a second audit implementation. The allocator uses a lexicographic objective:
+
+1. Maximize selected required requirement applications.
+2. Prefer unique secondary credits when the requirement count is tied.
+3. Maximize selected required credits.
+4. Respect maximum shared-credit limits.
+5. Minimize manual-review allocations.
+6. Apply a stable tie-breaker using program priority, requirement order/code, course code, attempt number, and stable IDs.
+
+If the search reaches its configured bound, the scenario records `ALLOCATION_SEARCH_LIMIT_REACHED` and reports the best found result instead of silently truncating.
+
 Default retake policy:
 
 - Preserve all attempts.
@@ -62,6 +73,33 @@ Transfer, waiver, and substitution rules:
 - Approved substitutions apply only to their target program version and requirement, using the completed substitute course attempt.
 - Rejected substitutions do not apply.
 - Direct course equivalencies are used without computing an unlimited transitive closure.
+
+What-if overlap rules:
+
+- Requirement application means a course can satisfy a requirement in a specific program audit.
+- Shared credit means one earned course source is used by requirements in more than one program.
+- Total earned credit means the student earned the course credits once; shared application does not double total credits.
+- Shared credit requires both `RequirementNode.allows_overlap = true` and a directional `ProgramCombinationRule` that allows double counting.
+- `maximum_shared_credits` and `minimum_unique_secondary_credits` are evaluated from scenario allocations.
+- Missing program-combination policy creates a manual-review warning; the system must not infer school policy.
+- Waivers may satisfy requirements but do not add earned or shared credits.
+- Approved transfers use the approved equivalent course; pending or rejected records do not participate.
+- Approved substitutions apply only to their approved program requirement.
+
+Estimated additional credits:
+
+- `estimated_additional_credits` is a scenario summary estimate, not official policy.
+- It is based on unresolved requirement credits and selected shared-credit effects from current completed/in-progress/planned records.
+- It is never negative.
+- It does not account for future section availability, prerequisite chains, course offering probability, tuition, GPA prediction, or graduation timing.
+- Ambiguity produces warnings and advisor-confirmation flags.
+
+Change-major scenarios:
+
+- The current primary major remains the baseline.
+- The candidate primary is hypothetical and does not update `StudentAcademicProgram`.
+- Existing courses can be reusable for new program requirements, usable only as elective/total credits, or not directly applicable to the new major requirement tree.
+- “Not used by the new major requirement” must not be presented as “wasted credits.”
 
 ## 4. Prerequisite and Restriction Expression Tree
 
@@ -164,6 +202,8 @@ The system must recommend advisor confirmation for:
 - Any high-impact recommendation that may delay graduation or increase tuition.
 
 Phase 3A specifically emits advisor-confirmation warnings for pending transfers, pending waivers, pending substitutions, repeated-course ambiguity, unsupported requirement scopes, missing requirement configuration, unknown/incomplete grades, and mock data that is not official policy.
+
+Phase 3B additionally emits advisor-confirmation warnings for missing directional program-combination rules, unclear overlap policy, unmet unique-secondary-credit expectations, allocation search limits, and estimated additional credits.
 
 ## 9. Phase 3A Requirement Status Semantics
 

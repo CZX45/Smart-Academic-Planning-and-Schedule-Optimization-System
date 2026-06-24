@@ -116,79 +116,85 @@ class DegreeAuditApplicationService:
         return student, program_version
 
     def _persist_success(self, run: DegreeAuditRun, result: DegreeAuditResult) -> None:
-        run.status = result.status
-        run.engine_version = result.engine_version
-        run.calculation_mode = result.calculation_mode
-        run.completed_at = utc_now()
-        run.total_required_credits = result.total_required_credits
-        run.completed_credits = result.completed_credits
-        run.in_progress_credits = result.in_progress_credits
-        run.planned_credits = result.planned_credits
-        run.remaining_credits = result.remaining_credits
-        run.completion_percentage = result.completion_percentage
-        run.source_snapshot_hash = result.source_snapshot_hash
+        persist_degree_audit_success(self._db, run, result)
 
-        evaluation_ids: dict[UUID, UUID] = {}
-        for requirement in result.requirements:
-            evaluation_id = uuid4()
-            evaluation_ids[requirement.requirement_node_id] = evaluation_id
-            self._db.add(
-                RequirementEvaluation(
-                    id=evaluation_id,
-                    degree_audit_run_id=run.id,
-                    requirement_node_id=requirement.requirement_node_id,
-                    status=requirement.status,
-                    required_credits=requirement.required_credits,
-                    satisfied_credits=requirement.satisfied_credits,
-                    remaining_credits=requirement.remaining_credits,
-                    required_courses=requirement.required_courses,
-                    satisfied_courses=requirement.satisfied_courses,
-                    remaining_courses=requirement.remaining_courses,
-                    minimum_grade=requirement.minimum_grade,
-                    explanation=requirement.explanation,
-                    display_order=requirement.display_order,
-                )
+
+def persist_degree_audit_success(
+    db: Session, run: DegreeAuditRun, result: DegreeAuditResult
+) -> None:
+    run.status = result.status
+    run.engine_version = result.engine_version
+    run.calculation_mode = result.calculation_mode
+    run.completed_at = utc_now()
+    run.total_required_credits = result.total_required_credits
+    run.completed_credits = result.completed_credits
+    run.in_progress_credits = result.in_progress_credits
+    run.planned_credits = result.planned_credits
+    run.remaining_credits = result.remaining_credits
+    run.completion_percentage = result.completion_percentage
+    run.source_snapshot_hash = result.source_snapshot_hash
+
+    evaluation_ids: dict[UUID, UUID] = {}
+    for requirement in result.requirements:
+        evaluation_id = uuid4()
+        evaluation_ids[requirement.requirement_node_id] = evaluation_id
+        db.add(
+            RequirementEvaluation(
+                id=evaluation_id,
+                degree_audit_run_id=run.id,
+                requirement_node_id=requirement.requirement_node_id,
+                status=requirement.status,
+                required_credits=requirement.required_credits,
+                satisfied_credits=requirement.satisfied_credits,
+                remaining_credits=requirement.remaining_credits,
+                required_courses=requirement.required_courses,
+                satisfied_courses=requirement.satisfied_courses,
+                remaining_courses=requirement.remaining_courses,
+                minimum_grade=requirement.minimum_grade,
+                explanation=requirement.explanation,
+                display_order=requirement.display_order,
             )
+        )
 
-        self._db.flush()
+    db.flush()
 
-        for requirement in result.requirements:
-            evaluation_id = evaluation_ids[requirement.requirement_node_id]
-            for application in requirement.applications:
-                self._db.add(
-                    AuditCourseApplication(
-                        id=uuid4(),
-                        degree_audit_run_id=run.id,
-                        requirement_evaluation_id=evaluation_id,
-                        course_id=application.course_id,
-                        student_course_attempt_id=application.student_course_attempt_id,
-                        transfer_credit_id=application.transfer_credit_id,
-                        course_waiver_id=application.course_waiver_id,
-                        course_substitution_id=application.course_substitution_id,
-                        application_type=application.application_type,
-                        credit_amount=application.credit_amount,
-                        grade=application.grade,
-                        is_completed=application.is_completed,
-                        is_in_progress=application.is_in_progress,
-                        is_planned=application.is_planned,
-                        is_shared=application.is_shared,
-                        explanation=application.explanation,
-                    )
-                )
-
-        for warning in result.warnings:
-            self._db.add(
-                DegreeAuditWarning(
+    for requirement in result.requirements:
+        evaluation_id = evaluation_ids[requirement.requirement_node_id]
+        for application in requirement.applications:
+            db.add(
+                AuditCourseApplication(
                     id=uuid4(),
                     degree_audit_run_id=run.id,
-                    requirement_evaluation_id=(
-                        evaluation_ids.get(warning.requirement_node_id)
-                        if warning.requirement_node_id
-                        else None
-                    ),
-                    warning_code=warning.warning_code,
-                    severity=warning.severity,
-                    message=warning.message,
-                    requires_advisor_confirmation=warning.requires_advisor_confirmation,
+                    requirement_evaluation_id=evaluation_id,
+                    course_id=application.course_id,
+                    student_course_attempt_id=application.student_course_attempt_id,
+                    transfer_credit_id=application.transfer_credit_id,
+                    course_waiver_id=application.course_waiver_id,
+                    course_substitution_id=application.course_substitution_id,
+                    application_type=application.application_type,
+                    credit_amount=application.credit_amount,
+                    grade=application.grade,
+                    is_completed=application.is_completed,
+                    is_in_progress=application.is_in_progress,
+                    is_planned=application.is_planned,
+                    is_shared=application.is_shared,
+                    explanation=application.explanation,
                 )
             )
+
+    for warning in result.warnings:
+        db.add(
+            DegreeAuditWarning(
+                id=uuid4(),
+                degree_audit_run_id=run.id,
+                requirement_evaluation_id=(
+                    evaluation_ids.get(warning.requirement_node_id)
+                    if warning.requirement_node_id
+                    else None
+                ),
+                warning_code=warning.warning_code,
+                severity=warning.severity,
+                message=warning.message,
+                requires_advisor_confirmation=warning.requires_advisor_confirmation,
+            )
+        )

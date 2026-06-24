@@ -275,6 +275,36 @@ AuditApplicationTypeValue = Literal[
     "EQUIVALENCY",
 ]
 AuditWarningSeverityValue = Literal["INFO", "WARNING", "ERROR"]
+ScenarioTypeValue = Literal[
+    "ADD_MINOR",
+    "ADD_SECOND_MAJOR",
+    "ADD_CERTIFICATE",
+    "ADD_CONCENTRATION",
+    "CHANGE_PRIMARY_MAJOR",
+    "CUSTOM_COMBINATION",
+]
+AcademicPlanScenarioStatusValue = Literal[
+    "DRAFT",
+    "RUNNING",
+    "COMPLETED",
+    "COMPLETED_WITH_WARNINGS",
+    "FAILED",
+    "ARCHIVED",
+]
+ScenarioRelationshipTypeValue = Literal[
+    "PRIMARY_MAJOR",
+    "MINOR",
+    "SECOND_MAJOR",
+    "CERTIFICATE",
+    "CONCENTRATION",
+]
+ScenarioAllocationTypeValue = Literal[
+    "PRIMARY",
+    "SHARED",
+    "UNIQUE_SECONDARY",
+    "TOTAL_CREDIT_ONLY",
+    "UNALLOCATED",
+]
 
 
 class DegreeAuditCreateRequest(BaseModel):
@@ -352,6 +382,106 @@ class RequirementEvaluationResponse(BaseModel):
     display_order: int
     applications: list[AuditCourseApplicationResponse]
     warnings: list[DegreeAuditWarningResponse]
+
+
+class ScenarioProgramInputRequest(BaseModel):
+    program_version_id: UUID
+    relationship_type: ScenarioRelationshipTypeValue
+    priority: int = Field(ge=0)
+
+
+class AcademicScenarioCreateRequest(BaseModel):
+    student_profile_id: UUID
+    scenario_name: str = Field(min_length=1)
+    scenario_type: ScenarioTypeValue
+    calculation_mode: AuditModeValue
+    programs: list[ScenarioProgramInputRequest] = Field(min_length=1)
+
+
+class AcademicScenarioCompareRequest(BaseModel):
+    scenario_ids: list[UUID] = Field(min_length=2)
+
+
+class AcademicScenarioResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    name: str
+    scenario_type: ScenarioTypeValue
+    status: AcademicPlanScenarioStatusValue
+    base_program_version_id: UUID
+    engine_version: str
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None = None
+
+
+class ScenarioProgramResponse(BaseModel):
+    id: UUID
+    academic_plan_scenario_id: UUID
+    program_version_id: UUID
+    relationship_type: ScenarioRelationshipTypeValue
+    is_existing_program: bool
+    is_hypothetical: bool
+    priority: int
+    program_code: str
+    program_name: str
+    source: SourceMetadataResponse
+    created_at: datetime
+
+
+class ScenarioProgramAuditResponse(BaseModel):
+    scenario_program: ScenarioProgramResponse
+    degree_audit_run: DegreeAuditRunResponse
+
+
+class ScenarioCourseAllocationResponse(BaseModel):
+    id: UUID
+    academic_plan_scenario_id: UUID
+    student_course_attempt_id: UUID | None = None
+    transfer_credit_id: UUID | None = None
+    course_waiver_id: UUID | None = None
+    course_substitution_id: UUID | None = None
+    course_id: UUID | None = None
+    course_code: str | None = None
+    course_title: str | None = None
+    program_version_id: UUID | None = None
+    requirement_node_id: UUID | None = None
+    requirement_code: str | None = None
+    allocation_type: ScenarioAllocationTypeValue
+    credit_amount: Decimal
+    is_shared: bool
+    is_unique_to_program: bool
+    allocation_rank: int
+    reason_code: str
+    explanation: str
+    created_at: datetime
+
+
+class ScenarioWarningResponse(BaseModel):
+    id: UUID
+    academic_plan_scenario_id: UUID
+    scenario_program_id: UUID | None = None
+    warning_code: str
+    severity: AuditWarningSeverityValue
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class ScenarioComparisonSnapshotResponse(BaseModel):
+    academic_plan_scenario_id: UUID
+    completed_credits: Decimal
+    in_progress_credits: Decimal
+    planned_credits: Decimal
+    remaining_requirement_credits: Decimal
+    shared_credits: Decimal
+    unique_secondary_credits: Decimal
+    estimated_additional_credits: Decimal
+    unresolved_requirements: int
+    manual_review_count: int
+    completion_percentage: Decimal
+    is_estimate: bool
+    created_at: datetime
 
 
 class ErrorDetailResponse(BaseModel):

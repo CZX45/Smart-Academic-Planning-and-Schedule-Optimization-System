@@ -20,6 +20,16 @@ const UuidSchema = z.string().uuid();
 const DecimalValueSchema = z.union([z.string(), z.number()]).transform(String);
 const DateTimeSchema = z.string();
 
+export const SourceMetadataSchema = z.object({
+  source_type: z.string(),
+  is_official: z.boolean(),
+  source_reference: z.string().nullable().optional(),
+  source_retrieved_at: DateTimeSchema.nullable().optional(),
+  source_confidence: z.string().nullable().optional(),
+});
+
+export type SourceMetadata = z.infer<typeof SourceMetadataSchema>;
+
 export const DegreeAuditRunSchema = z.object({
   id: UuidSchema,
   student_profile_id: UuidSchema,
@@ -124,6 +134,130 @@ export type RequirementEvaluation = z.infer<
   typeof RequirementEvaluationSchema
 >;
 
+export const AcademicScenarioSchema = z.object({
+  id: UuidSchema,
+  student_profile_id: UuidSchema,
+  name: z.string(),
+  scenario_type: z.enum([
+    "ADD_MINOR",
+    "ADD_SECOND_MAJOR",
+    "ADD_CERTIFICATE",
+    "ADD_CONCENTRATION",
+    "CHANGE_PRIMARY_MAJOR",
+    "CUSTOM_COMBINATION",
+  ]),
+  status: z.enum([
+    "DRAFT",
+    "RUNNING",
+    "COMPLETED",
+    "COMPLETED_WITH_WARNINGS",
+    "FAILED",
+    "ARCHIVED",
+  ]),
+  base_program_version_id: UuidSchema,
+  engine_version: z.string(),
+  created_at: DateTimeSchema,
+  updated_at: DateTimeSchema,
+  completed_at: DateTimeSchema.nullable(),
+});
+
+export type AcademicScenario = z.infer<typeof AcademicScenarioSchema>;
+
+export const ScenarioProgramSchema = z.object({
+  id: UuidSchema,
+  academic_plan_scenario_id: UuidSchema,
+  program_version_id: UuidSchema,
+  relationship_type: z.enum([
+    "PRIMARY_MAJOR",
+    "MINOR",
+    "SECOND_MAJOR",
+    "CERTIFICATE",
+    "CONCENTRATION",
+  ]),
+  is_existing_program: z.boolean(),
+  is_hypothetical: z.boolean(),
+  priority: z.number(),
+  program_code: z.string(),
+  program_name: z.string(),
+  source: SourceMetadataSchema,
+  created_at: DateTimeSchema,
+});
+
+export type ScenarioProgram = z.infer<typeof ScenarioProgramSchema>;
+
+export const ScenarioProgramAuditSchema = z.object({
+  scenario_program: ScenarioProgramSchema,
+  degree_audit_run: DegreeAuditRunSchema,
+});
+
+export type ScenarioProgramAudit = z.infer<typeof ScenarioProgramAuditSchema>;
+
+export const ScenarioCourseAllocationSchema = z.object({
+  id: UuidSchema,
+  academic_plan_scenario_id: UuidSchema,
+  student_course_attempt_id: UuidSchema.nullable().optional(),
+  transfer_credit_id: UuidSchema.nullable().optional(),
+  course_waiver_id: UuidSchema.nullable().optional(),
+  course_substitution_id: UuidSchema.nullable().optional(),
+  course_id: UuidSchema.nullable(),
+  course_code: z.string().nullable(),
+  course_title: z.string().nullable(),
+  program_version_id: UuidSchema.nullable(),
+  requirement_node_id: UuidSchema.nullable(),
+  requirement_code: z.string().nullable(),
+  allocation_type: z.enum([
+    "PRIMARY",
+    "SHARED",
+    "UNIQUE_SECONDARY",
+    "TOTAL_CREDIT_ONLY",
+    "UNALLOCATED",
+  ]),
+  credit_amount: DecimalValueSchema,
+  is_shared: z.boolean(),
+  is_unique_to_program: z.boolean(),
+  allocation_rank: z.number(),
+  reason_code: z.string(),
+  explanation: z.string(),
+  created_at: DateTimeSchema,
+});
+
+export type ScenarioCourseAllocation = z.infer<
+  typeof ScenarioCourseAllocationSchema
+>;
+
+export const ScenarioWarningSchema = z.object({
+  id: UuidSchema,
+  academic_plan_scenario_id: UuidSchema,
+  scenario_program_id: UuidSchema.nullable(),
+  warning_code: z.string(),
+  severity: z.enum(["INFO", "WARNING", "ERROR"]),
+  message: z.string(),
+  requires_advisor_confirmation: z.boolean(),
+  created_at: DateTimeSchema,
+});
+
+export type ScenarioWarning = z.infer<typeof ScenarioWarningSchema>;
+
+export const ScenarioComparisonSnapshotSchema = z.object({
+  academic_plan_scenario_id: UuidSchema,
+  completed_credits: DecimalValueSchema,
+  in_progress_credits: DecimalValueSchema,
+  planned_credits: DecimalValueSchema,
+  remaining_requirement_credits: DecimalValueSchema,
+  shared_credits: DecimalValueSchema,
+  unique_secondary_credits: DecimalValueSchema,
+  estimated_additional_credits: DecimalValueSchema,
+  unresolved_requirements: z.number(),
+  manual_review_count: z.number(),
+  completion_percentage: DecimalValueSchema,
+  is_estimate: z.boolean(),
+  created_at: DateTimeSchema,
+});
+
+export type ScenarioComparisonSnapshot = z.infer<
+  typeof ScenarioComparisonSnapshotSchema
+>;
+
 export class ApiRequestError extends Error {
   constructor(message: string) {
     super(message);
@@ -147,6 +281,29 @@ export type CreateDegreeAuditRequest = {
   student_profile_id: string;
   program_version_id: string;
   calculation_mode: "CURRENT" | "PROJECTED";
+};
+
+export type CreateAcademicScenarioRequest = {
+  student_profile_id: string;
+  scenario_name: string;
+  scenario_type:
+    | "ADD_MINOR"
+    | "ADD_SECOND_MAJOR"
+    | "ADD_CERTIFICATE"
+    | "ADD_CONCENTRATION"
+    | "CHANGE_PRIMARY_MAJOR"
+    | "CUSTOM_COMBINATION";
+  calculation_mode: "CURRENT" | "PROJECTED";
+  programs: Array<{
+    program_version_id: string;
+    relationship_type:
+      | "PRIMARY_MAJOR"
+      | "MINOR"
+      | "SECOND_MAJOR"
+      | "CERTIFICATE"
+      | "CONCENTRATION";
+    priority: number;
+  }>;
 };
 
 const DEFAULT_TIMEOUT_MS = 5_000;
@@ -322,6 +479,144 @@ export async function fetchDegreeAuditRequirements(
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Degree audit requirements response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function createAcademicScenario(
+  apiBaseUrl: string,
+  request: CreateAcademicScenarioRequest,
+  options: FetchHealthOptions = {},
+): Promise<AcademicScenario> {
+  const parsed = AcademicScenarioSchema.safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/academic-scenarios", {
+      ...options,
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(request),
+    }),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Created academic scenario response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchAcademicScenarioPrograms(
+  apiBaseUrl: string,
+  scenarioId: string,
+  options: FetchHealthOptions = {},
+): Promise<ScenarioProgram[]> {
+  const parsed = z.array(ScenarioProgramSchema).safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/academic-scenarios/${scenarioId}/programs`, options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Academic scenario programs response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchAcademicScenarioAudits(
+  apiBaseUrl: string,
+  scenarioId: string,
+  options: FetchHealthOptions = {},
+): Promise<ScenarioProgramAudit[]> {
+  const parsed = z.array(ScenarioProgramAuditSchema).safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/academic-scenarios/${scenarioId}/audits`, options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Academic scenario audits response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchAcademicScenarioAllocations(
+  apiBaseUrl: string,
+  scenarioId: string,
+  options: FetchHealthOptions = {},
+): Promise<ScenarioCourseAllocation[]> {
+  const parsed = z.array(ScenarioCourseAllocationSchema).safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/academic-scenarios/${scenarioId}/allocations`, options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Academic scenario allocations response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchAcademicScenarioWarnings(
+  apiBaseUrl: string,
+  scenarioId: string,
+  options: FetchHealthOptions = {},
+): Promise<ScenarioWarning[]> {
+  const parsed = z.array(ScenarioWarningSchema).safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/academic-scenarios/${scenarioId}/warnings`, options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Academic scenario warnings response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchAcademicScenarioComparison(
+  apiBaseUrl: string,
+  scenarioId: string,
+  options: FetchHealthOptions = {},
+): Promise<ScenarioComparisonSnapshot> {
+  const parsed = ScenarioComparisonSnapshotSchema.safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/academic-scenarios/${scenarioId}/comparison`, options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Academic scenario comparison response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchStudentAcademicScenarios(
+  apiBaseUrl: string,
+  studentId: string,
+  options: FetchHealthOptions = {},
+): Promise<AcademicScenario[]> {
+  const parsed = z.array(AcademicScenarioSchema).safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/students/${studentId}/academic-scenarios`, options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Student academic scenarios response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function compareAcademicScenarios(
+  apiBaseUrl: string,
+  scenarioIds: string[],
+  options: FetchHealthOptions = {},
+): Promise<ScenarioComparisonSnapshot[]> {
+  const parsed = z.array(ScenarioComparisonSnapshotSchema).safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/academic-scenarios/compare", {
+      ...options,
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ scenario_ids: scenarioIds }),
+    }),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Academic scenario comparison list response did not match the expected schema",
     );
   }
   return parsed.data;

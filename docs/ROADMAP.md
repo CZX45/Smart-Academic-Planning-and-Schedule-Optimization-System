@@ -105,7 +105,7 @@ Deferred from Phase 2B:
 
 ## Phase 3A: Degree Audit Core
 
-Status: current phase.
+Status: complete.
 
 Deliverables:
 
@@ -138,12 +138,31 @@ Deferred from Phase 3A:
 
 ## Phase 3B: What-if and Advanced Allocation
 
+Status: current phase.
+
 Deliverables:
 
-- What-if audit inputs for alternate program/minor scenarios.
-- More sophisticated cross-requirement allocation search.
-- Explicit overlap-policy handling beyond the Phase 3A baseline allocator.
-- Additional advisor-review workflows for ambiguous allocations.
+- Persisted `AcademicPlanScenario` snapshots that do not modify `StudentAcademicProgram`.
+- Scenario program membership for mock minors, second majors, certificates, concentrations, and change-major candidates.
+- Directional `ProgramCombinationRule` storage with max shared credits, minimum unique secondary credits, source metadata, and manual-review behavior.
+- Per-scenario, per-program Phase 3A audit runs.
+- Deterministic bounded global allocation over Phase 3A audit applications.
+- Comparison summaries for shared credits, unique secondary credits, remaining requirement credits, estimated additional credits, unresolved requirements, and manual-review counts.
+- Explore Programs / What-if Analysis UI and saved-scenario comparison.
+
+Testable outcomes:
+
+- Scenario creation leaves declared student programs unchanged.
+- Missing directional combination rules produce advisor-review warnings instead of guessed policy.
+- Shared credits require both requirement `allows_overlap` and a directional combination rule.
+- Total earned credits are not duplicated by shared allocations.
+- Estimated additional credits are labeled as estimates and never presented as graduation timing.
+
+Deferred from Phase 3B:
+
+- Course Eligibility Engine and prerequisite/corequisite evaluation.
+- Multi-term academic planning and earliest-graduation calculation.
+- Semester schedule optimization, OR-Tools, time conflicts, seat monitoring, waitlists, browser extension import, real school scraping, and registration automation.
 
 ## Phase 4: Eligibility Engine
 

@@ -28,11 +28,13 @@ from app.models.academic import (
     FrequencyType,
     Institution,
     MeetingType,
+    ProgramCombinationRule,
     ProgramType,
     ProgramVersion,
     RequirementCourseOption,
     RequirementNode,
     RequirementType,
+    ScenarioRelationshipType,
     Section,
     SectionMeeting,
     SectionModality,
@@ -107,12 +109,23 @@ def requirement_node(
     minimum_residency_credits: Decimal | None = None,
     allows_overlap: bool = False,
     is_required: bool = True,
+    program_version_key: str = "bs-finance-2024",
 ) -> RequirementNode:
+    node_seed = (
+        f"requirement-node:{code}"
+        if program_version_key == "bs-finance-2024"
+        else f"requirement-node:{program_version_key}:{code}"
+    )
+    parent_seed = (
+        f"requirement-node:{parent_code}"
+        if program_version_key == "bs-finance-2024"
+        else f"requirement-node:{program_version_key}:{parent_code}"
+    )
     return RequirementNode(
-        id=seed_uuid(f"requirement-node:{code}"),
+        id=seed_uuid(node_seed),
         institution_id=seed_uuid("institution:mock-university"),
-        program_version_id=seed_uuid("program-version:bs-finance-2024"),
-        parent_id=seed_uuid(f"requirement-node:{parent_code}") if parent_code else None,
+        program_version_id=seed_uuid(f"program-version:{program_version_key}"),
+        parent_id=seed_uuid(parent_seed) if parent_code else None,
         code=code,
         name=name,
         requirement_type=requirement_type,
@@ -136,12 +149,23 @@ def requirement_option(
     *,
     display_order: int,
     minimum_grade: str | None = None,
+    program_version_key: str = "bs-finance-2024",
 ) -> RequirementCourseOption:
+    option_seed = (
+        f"requirement-option:{node_code}:{subject_code}-{course_number}"
+        if program_version_key == "bs-finance-2024"
+        else f"requirement-option:{program_version_key}:{node_code}:{subject_code}-{course_number}"
+    )
+    node_seed = (
+        f"requirement-node:{node_code}"
+        if program_version_key == "bs-finance-2024"
+        else f"requirement-node:{program_version_key}:{node_code}"
+    )
     return RequirementCourseOption(
-        id=seed_uuid(f"requirement-option:{node_code}:{subject_code}-{course_number}"),
+        id=seed_uuid(option_seed),
         institution_id=seed_uuid("institution:mock-university"),
-        program_version_id=seed_uuid("program-version:bs-finance-2024"),
-        requirement_node_id=seed_uuid(f"requirement-node:{node_code}"),
+        program_version_id=seed_uuid(f"program-version:{program_version_key}"),
+        requirement_node_id=seed_uuid(node_seed),
         course_id=seed_uuid(f"course:{subject_code}-{course_number}"),
         display_order=display_order,
         minimum_grade=minimum_grade,
@@ -369,7 +393,72 @@ def seed_mock_data(session: Session) -> None:
         degree_level=DegreeLevel.BACHELORS,
         **mock_source(),
     )
-    merge_all(session, [finance_program])
+    accounting_minor_program = AcademicProgram(
+        id=seed_uuid("program:accounting-minor"),
+        institution_id=institution.id,
+        code="MINACCT",
+        name="Mock Accounting Minor",
+        program_type=ProgramType.MINOR,
+        degree_level=DegreeLevel.BACHELORS,
+        **mock_source(),
+    )
+    economics_minor_program = AcademicProgram(
+        id=seed_uuid("program:economics-minor"),
+        institution_id=institution.id,
+        code="MINECON",
+        name="Mock Economics Minor",
+        program_type=ProgramType.MINOR,
+        degree_level=DegreeLevel.BACHELORS,
+        **mock_source(),
+    )
+    second_major_program = AcademicProgram(
+        id=seed_uuid("program:second-major"),
+        institution_id=institution.id,
+        code="BSZACT",
+        name="Mock BS Actuarial Analytics",
+        program_type=ProgramType.MAJOR,
+        degree_level=DegreeLevel.BACHELORS,
+        **mock_source(),
+    )
+    certificate_program = AcademicProgram(
+        id=seed_uuid("program:certificate-data"),
+        institution_id=institution.id,
+        code="CERTDATA",
+        name="Mock Data Literacy Certificate",
+        program_type=ProgramType.CERTIFICATE,
+        degree_level=DegreeLevel.CERTIFICATE,
+        **mock_source(),
+    )
+    management_program = AcademicProgram(
+        id=seed_uuid("program:bs-management"),
+        institution_id=institution.id,
+        code="BSMGMT",
+        name="Mock BS Management",
+        program_type=ProgramType.MAJOR,
+        degree_level=DegreeLevel.BACHELORS,
+        **mock_source(),
+    )
+    concentration_program = AcademicProgram(
+        id=seed_uuid("program:finance-analytics-concentration"),
+        institution_id=institution.id,
+        code="CONCFINA",
+        name="Mock Finance Analytics Concentration",
+        program_type=ProgramType.CONCENTRATION,
+        degree_level=DegreeLevel.BACHELORS,
+        **mock_source(),
+    )
+    merge_all(
+        session,
+        [
+            finance_program,
+            accounting_minor_program,
+            economics_minor_program,
+            second_major_program,
+            certificate_program,
+            management_program,
+            concentration_program,
+        ],
+    )
     session.flush()
 
     finance_version = ProgramVersion(
@@ -383,7 +472,84 @@ def seed_mock_data(session: Session) -> None:
         total_credits_required=Decimal("120.0"),
         **mock_source(),
     )
-    merge_all(session, [finance_version])
+    accounting_minor_version = ProgramVersion(
+        id=seed_uuid("program-version:accounting-minor-2024"),
+        institution_id=institution.id,
+        program_id=accounting_minor_program.id,
+        campus_id=main_campus.id,
+        effective_term_id=fall_2024.id,
+        catalog_year="2024",
+        version_label="Mock Accounting Minor 2024 Catalog",
+        total_credits_required=Decimal("18.0"),
+        **mock_source(),
+    )
+    economics_minor_version = ProgramVersion(
+        id=seed_uuid("program-version:economics-minor-2024"),
+        institution_id=institution.id,
+        program_id=economics_minor_program.id,
+        campus_id=main_campus.id,
+        effective_term_id=fall_2024.id,
+        catalog_year="2024",
+        version_label="Mock Economics Minor 2024 Catalog",
+        total_credits_required=Decimal("18.0"),
+        **mock_source(),
+    )
+    second_major_version = ProgramVersion(
+        id=seed_uuid("program-version:second-major-2024"),
+        institution_id=institution.id,
+        program_id=second_major_program.id,
+        campus_id=main_campus.id,
+        effective_term_id=fall_2024.id,
+        catalog_year="2024",
+        version_label="Mock Actuarial Analytics 2024 Catalog",
+        total_credits_required=Decimal("120.0"),
+        **mock_source(),
+    )
+    certificate_version = ProgramVersion(
+        id=seed_uuid("program-version:certificate-data-2024"),
+        institution_id=institution.id,
+        program_id=certificate_program.id,
+        campus_id=main_campus.id,
+        effective_term_id=fall_2024.id,
+        catalog_year="2024",
+        version_label="Mock Data Certificate 2024 Catalog",
+        total_credits_required=Decimal("12.0"),
+        **mock_source(),
+    )
+    management_version = ProgramVersion(
+        id=seed_uuid("program-version:bs-management-2024"),
+        institution_id=institution.id,
+        program_id=management_program.id,
+        campus_id=main_campus.id,
+        effective_term_id=fall_2024.id,
+        catalog_year="2024",
+        version_label="Mock BS Management 2024 Catalog",
+        total_credits_required=Decimal("120.0"),
+        **mock_source(),
+    )
+    concentration_version = ProgramVersion(
+        id=seed_uuid("program-version:finance-analytics-concentration-2024"),
+        institution_id=institution.id,
+        program_id=concentration_program.id,
+        campus_id=main_campus.id,
+        effective_term_id=fall_2024.id,
+        catalog_year="2024",
+        version_label="Mock Finance Analytics Concentration 2024 Catalog",
+        total_credits_required=Decimal("9.0"),
+        **mock_source(),
+    )
+    merge_all(
+        session,
+        [
+            finance_version,
+            accounting_minor_version,
+            economics_minor_version,
+            second_major_version,
+            certificate_version,
+            management_version,
+            concentration_version,
+        ],
+    )
     session.flush()
 
     courses = [
@@ -400,6 +566,13 @@ def seed_mock_data(session: Session) -> None:
         course("FIN", "402", "Mock Risk Management", level=400),
         course("FIN", "403", "Mock International Finance", level=400),
         course("ELEC", "100", "Mock Free Elective", level=100),
+        course("ACCT", "300", "Mock Accounting Analytics", level=300),
+        course("ACCT", "310", "Mock Advanced Accounting", level=300),
+        course("ECON", "250", "Mock Managerial Economics", level=200),
+        course("ECON", "260", "Mock Applied Microeconomics", level=200),
+        course("DATA", "200", "Mock Data Literacy", level=200),
+        course("MGMT", "200", "Mock Management Foundations", level=200),
+        course("ACTL", "300", "Mock Actuarial Modeling", level=300),
     ]
     merge_all(session, courses)
     session.flush()
@@ -729,6 +902,7 @@ def seed_mock_data(session: Session) -> None:
             parent_code="BUSINESS-CORE",
             display_order=20,
             minimum_grade="C",
+            allows_overlap=True,
         ),
         requirement_node(
             "FIN-REQ",
@@ -817,6 +991,294 @@ def seed_mock_data(session: Session) -> None:
         requirement_option("SUBSTITUTION-DEMO", "FIN", "403", display_order=10, minimum_grade="C"),
     ]
     merge_all(session, requirement_options)
+    session.flush()
+
+    secondary_requirement_nodes = [
+        requirement_node(
+            "ROOT",
+            "Mock Accounting Minor",
+            RequirementType.ALL_OF,
+            display_order=0,
+            program_version_key="accounting-minor-2024",
+        ),
+        requirement_node(
+            "ACCT-MINOR-TOTAL",
+            "Accounting Minor Total Credits",
+            RequirementType.TOTAL_CREDITS,
+            parent_code="ROOT",
+            display_order=10,
+            minimum_credits=Decimal("18.0"),
+            program_version_key="accounting-minor-2024",
+        ),
+        requirement_node(
+            "ACCT-MINOR-SHARED",
+            "Accounting Foundations",
+            RequirementType.REQUIRED_COURSE,
+            parent_code="ROOT",
+            display_order=20,
+            minimum_grade="C",
+            allows_overlap=True,
+            program_version_key="accounting-minor-2024",
+        ),
+        requirement_node(
+            "ACCT-MINOR-UNIQUE",
+            "Accounting Analytics",
+            RequirementType.REQUIRED_COURSE,
+            parent_code="ROOT",
+            display_order=30,
+            minimum_grade="C",
+            program_version_key="accounting-minor-2024",
+        ),
+        requirement_node(
+            "ACCT-MINOR-ADV",
+            "Advanced Accounting",
+            RequirementType.REQUIRED_COURSE,
+            parent_code="ROOT",
+            display_order=40,
+            minimum_grade="C",
+            program_version_key="accounting-minor-2024",
+        ),
+        requirement_node(
+            "ROOT",
+            "Mock Economics Minor",
+            RequirementType.ALL_OF,
+            display_order=0,
+            program_version_key="economics-minor-2024",
+        ),
+        requirement_node(
+            "ECON-MINOR-TOTAL",
+            "Economics Minor Total Credits",
+            RequirementType.TOTAL_CREDITS,
+            parent_code="ROOT",
+            display_order=10,
+            minimum_credits=Decimal("18.0"),
+            program_version_key="economics-minor-2024",
+        ),
+        requirement_node(
+            "ECON-MINOR-CORE",
+            "Managerial Economics",
+            RequirementType.REQUIRED_COURSE,
+            parent_code="ROOT",
+            display_order=20,
+            minimum_grade="C",
+            program_version_key="economics-minor-2024",
+        ),
+        requirement_node(
+            "ECON-MINOR-APPLIED",
+            "Applied Microeconomics",
+            RequirementType.REQUIRED_COURSE,
+            parent_code="ROOT",
+            display_order=30,
+            minimum_grade="C",
+            program_version_key="economics-minor-2024",
+        ),
+        requirement_node(
+            "ROOT",
+            "Mock BS Actuarial Analytics",
+            RequirementType.ALL_OF,
+            display_order=0,
+            program_version_key="second-major-2024",
+        ),
+        requirement_node(
+            "ACTL-TOTAL",
+            "Actuarial Analytics Total Credits",
+            RequirementType.TOTAL_CREDITS,
+            parent_code="ROOT",
+            display_order=10,
+            minimum_credits=Decimal("120.0"),
+            program_version_key="second-major-2024",
+        ),
+        requirement_node(
+            "ACTL-FIN-FOUNDATION",
+            "Finance Foundation Reuse Candidate",
+            RequirementType.REQUIRED_COURSE,
+            parent_code="ROOT",
+            display_order=20,
+            minimum_grade="C",
+            allows_overlap=True,
+            program_version_key="second-major-2024",
+        ),
+        requirement_node(
+            "ACTL-MODELING",
+            "Actuarial Modeling",
+            RequirementType.REQUIRED_COURSE,
+            parent_code="ROOT",
+            display_order=30,
+            minimum_grade="C",
+            program_version_key="second-major-2024",
+        ),
+        requirement_node(
+            "ROOT",
+            "Mock Data Literacy Certificate",
+            RequirementType.ALL_OF,
+            display_order=0,
+            program_version_key="certificate-data-2024",
+        ),
+        requirement_node(
+            "DATA-CERT-CORE",
+            "Data Literacy Core",
+            RequirementType.REQUIRED_COURSE,
+            parent_code="ROOT",
+            display_order=10,
+            minimum_grade="C",
+            program_version_key="certificate-data-2024",
+        ),
+        requirement_node(
+            "ROOT",
+            "Mock BS Management",
+            RequirementType.ALL_OF,
+            display_order=0,
+            program_version_key="bs-management-2024",
+        ),
+        requirement_node(
+            "MGMT-TOTAL",
+            "Management Total Credits",
+            RequirementType.TOTAL_CREDITS,
+            parent_code="ROOT",
+            display_order=10,
+            minimum_credits=Decimal("120.0"),
+            program_version_key="bs-management-2024",
+        ),
+        requirement_node(
+            "MGMT-BUS-FOUNDATION",
+            "Reusable Business Foundation",
+            RequirementType.REQUIRED_COURSE,
+            parent_code="ROOT",
+            display_order=20,
+            minimum_grade="C",
+            program_version_key="bs-management-2024",
+        ),
+        requirement_node(
+            "MGMT-CORE",
+            "Management Foundations",
+            RequirementType.REQUIRED_COURSE,
+            parent_code="ROOT",
+            display_order=30,
+            minimum_grade="C",
+            program_version_key="bs-management-2024",
+        ),
+        requirement_node(
+            "MGMT-FREE",
+            "Management Free Elective Space",
+            RequirementType.MINIMUM_CREDITS,
+            parent_code="ROOT",
+            display_order=40,
+            minimum_credits=Decimal("12.0"),
+            is_required=False,
+            program_version_key="bs-management-2024",
+        ),
+        requirement_node(
+            "ROOT",
+            "Mock Finance Analytics Concentration",
+            RequirementType.ALL_OF,
+            display_order=0,
+            program_version_key="finance-analytics-concentration-2024",
+        ),
+        requirement_node(
+            "CONC-FIN-ANALYTICS",
+            "Finance Analytics Course",
+            RequirementType.REQUIRED_COURSE,
+            parent_code="ROOT",
+            display_order=10,
+            minimum_grade="C",
+            allows_overlap=True,
+            program_version_key="finance-analytics-concentration-2024",
+        ),
+    ]
+    merge_all(session, secondary_requirement_nodes)
+    session.flush()
+
+    secondary_requirement_options = [
+        requirement_option(
+            "ACCT-MINOR-SHARED",
+            "ACC",
+            "101",
+            display_order=10,
+            minimum_grade="C",
+            program_version_key="accounting-minor-2024",
+        ),
+        requirement_option(
+            "ACCT-MINOR-UNIQUE",
+            "ACCT",
+            "300",
+            display_order=10,
+            minimum_grade="C",
+            program_version_key="accounting-minor-2024",
+        ),
+        requirement_option(
+            "ACCT-MINOR-ADV",
+            "ACCT",
+            "310",
+            display_order=10,
+            minimum_grade="C",
+            program_version_key="accounting-minor-2024",
+        ),
+        requirement_option(
+            "ECON-MINOR-CORE",
+            "ECON",
+            "250",
+            display_order=10,
+            minimum_grade="C",
+            program_version_key="economics-minor-2024",
+        ),
+        requirement_option(
+            "ECON-MINOR-APPLIED",
+            "ECON",
+            "260",
+            display_order=10,
+            minimum_grade="C",
+            program_version_key="economics-minor-2024",
+        ),
+        requirement_option(
+            "ACTL-FIN-FOUNDATION",
+            "FIN",
+            "301",
+            display_order=10,
+            minimum_grade="C",
+            program_version_key="second-major-2024",
+        ),
+        requirement_option(
+            "ACTL-MODELING",
+            "ACTL",
+            "300",
+            display_order=10,
+            minimum_grade="C",
+            program_version_key="second-major-2024",
+        ),
+        requirement_option(
+            "DATA-CERT-CORE",
+            "DATA",
+            "200",
+            display_order=10,
+            minimum_grade="C",
+            program_version_key="certificate-data-2024",
+        ),
+        requirement_option(
+            "MGMT-BUS-FOUNDATION",
+            "BUS",
+            "101",
+            display_order=10,
+            minimum_grade="C",
+            program_version_key="bs-management-2024",
+        ),
+        requirement_option(
+            "MGMT-CORE",
+            "MGMT",
+            "200",
+            display_order=10,
+            minimum_grade="C",
+            program_version_key="bs-management-2024",
+        ),
+        requirement_option(
+            "CONC-FIN-ANALYTICS",
+            "FIN",
+            "401",
+            display_order=10,
+            minimum_grade="C",
+            program_version_key="finance-analytics-concentration-2024",
+        ),
+    ]
+    merge_all(session, secondary_requirement_options)
     session.flush()
 
     student = StudentProfile(
@@ -962,6 +1424,45 @@ def seed_mock_data(session: Session) -> None:
             is_repeat=False,
             **mock_source(),
         ),
+        StudentCourseAttempt(
+            id=seed_uuid("attempt:mock-student-acct-300-1"),
+            student_profile_id=student.id,
+            course_id=seed_uuid("course:ACCT-300"),
+            term_id=fall_2024.id,
+            attempt_number=1,
+            status=StudentCourseAttemptStatus.COMPLETED,
+            grade="B",
+            credits_attempted=Decimal("3.0"),
+            credits_earned=Decimal("3.0"),
+            is_repeat=False,
+            **mock_source(),
+        ),
+        StudentCourseAttempt(
+            id=seed_uuid("attempt:mock-student-econ-250-1"),
+            student_profile_id=student.id,
+            course_id=seed_uuid("course:ECON-250"),
+            term_id=fall_2024.id,
+            attempt_number=1,
+            status=StudentCourseAttemptStatus.COMPLETED,
+            grade="A-",
+            credits_attempted=Decimal("3.0"),
+            credits_earned=Decimal("3.0"),
+            is_repeat=False,
+            **mock_source(),
+        ),
+        StudentCourseAttempt(
+            id=seed_uuid("attempt:mock-student-data-200-planned"),
+            student_profile_id=student.id,
+            course_id=seed_uuid("course:DATA-200"),
+            term_id=spring_2025.id,
+            attempt_number=1,
+            status=StudentCourseAttemptStatus.PLANNED,
+            grade=None,
+            credits_attempted=Decimal("3.0"),
+            credits_earned=Decimal("0.0"),
+            is_repeat=False,
+            **mock_source(),
+        ),
     ]
     merge_all(session, attempts)
     session.flush()
@@ -1041,6 +1542,84 @@ def seed_mock_data(session: Session) -> None:
     merge_all(session, [*transfer_credits, *course_waivers, *substitutions])
     session.flush()
 
+    combination_rules = [
+        ProgramCombinationRule(
+            id=seed_uuid("program-combination-rule:finance-accounting-minor-2024"),
+            primary_program_version_id=finance_version.id,
+            secondary_program_version_id=accounting_minor_version.id,
+            combination_type=ScenarioRelationshipType.MINOR,
+            maximum_shared_credits=Decimal("3.0"),
+            minimum_unique_secondary_credits=Decimal("6.0"),
+            minimum_unique_courses=2,
+            allows_double_counting=True,
+            requires_manual_confirmation=False,
+            notes=(
+                "Mock rule: finance major and accounting minor may share one "
+                "3-credit requirement, with at least 6 unique minor credits."
+            ),
+            effective_term_id=fall_2024.id,
+            **mock_source(),
+        ),
+        ProgramCombinationRule(
+            id=seed_uuid("program-combination-rule:finance-economics-minor-2024"),
+            primary_program_version_id=finance_version.id,
+            secondary_program_version_id=economics_minor_version.id,
+            combination_type=ScenarioRelationshipType.MINOR,
+            maximum_shared_credits=Decimal("0.0"),
+            minimum_unique_secondary_credits=Decimal("9.0"),
+            minimum_unique_courses=3,
+            allows_double_counting=False,
+            requires_manual_confirmation=True,
+            notes="Mock rule: economics minor credits are modeled as unique-only.",
+            effective_term_id=fall_2024.id,
+            **mock_source(),
+        ),
+        ProgramCombinationRule(
+            id=seed_uuid("program-combination-rule:finance-data-certificate-2024"),
+            primary_program_version_id=finance_version.id,
+            secondary_program_version_id=certificate_version.id,
+            combination_type=ScenarioRelationshipType.CERTIFICATE,
+            maximum_shared_credits=Decimal("0.0"),
+            minimum_unique_secondary_credits=Decimal("12.0"),
+            minimum_unique_courses=4,
+            allows_double_counting=False,
+            requires_manual_confirmation=True,
+            notes="Mock rule: certificate requirements need advisor confirmation.",
+            effective_term_id=fall_2024.id,
+            **mock_source(),
+        ),
+        ProgramCombinationRule(
+            id=seed_uuid("program-combination-rule:finance-concentration-2024"),
+            primary_program_version_id=finance_version.id,
+            secondary_program_version_id=concentration_version.id,
+            combination_type=ScenarioRelationshipType.CONCENTRATION,
+            maximum_shared_credits=Decimal("6.0"),
+            minimum_unique_secondary_credits=Decimal("0.0"),
+            minimum_unique_courses=0,
+            allows_double_counting=True,
+            requires_manual_confirmation=False,
+            notes="Mock rule: concentration may overlap with finance major electives.",
+            effective_term_id=fall_2024.id,
+            **mock_source(),
+        ),
+        ProgramCombinationRule(
+            id=seed_uuid("program-combination-rule:management-accounting-minor-2024"),
+            primary_program_version_id=management_version.id,
+            secondary_program_version_id=accounting_minor_version.id,
+            combination_type=ScenarioRelationshipType.MINOR,
+            maximum_shared_credits=Decimal("0.0"),
+            minimum_unique_secondary_credits=Decimal("9.0"),
+            minimum_unique_courses=3,
+            allows_double_counting=False,
+            requires_manual_confirmation=True,
+            notes="Mock directional rule differs from finance-to-accounting.",
+            effective_term_id=fall_2024.id,
+            **mock_source(),
+        ),
+    ]
+    merge_all(session, combination_rules)
+    session.flush()
+
     merge_all(
         session,
         [
@@ -1097,6 +1676,29 @@ def seed_mock_data(session: Session) -> None:
                         "approved_waiver",
                         "approved_substitution",
                         "manual_review",
+                    ],
+                },
+            ),
+            DevSeedRecord(
+                id=seed_uuid("dev-seed-record:mock-academic-scenarios"),
+                seed_key="mock-academic-scenarios",
+                label="Phase 3B mock what-if scenarios source-data seed marker",
+                payload={
+                    "source_type": SourceType.MOCK.value,
+                    "is_official": False,
+                    "programs": [
+                        "Mock Accounting Minor",
+                        "Mock Economics Minor",
+                        "Mock BS Actuarial Analytics",
+                        "Mock Data Literacy Certificate",
+                        "Mock BS Management",
+                        "Mock Finance Analytics Concentration",
+                    ],
+                    "combination_rules": [
+                        "directional",
+                        "maximum_shared_credits",
+                        "minimum_unique_secondary_credits",
+                        "missing_second_major_rule",
                     ],
                 },
             ),

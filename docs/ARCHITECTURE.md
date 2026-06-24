@@ -52,6 +52,7 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Phase 2A exposes read-only academic-domain storage endpoints under `/api/v1`.
 - Phase 2B adds read-only section, meeting, offering-pattern, course-rule, and rule-expression endpoints. It stores prerequisite, corequisite, restriction, and permission trees but does not evaluate eligibility, plans, schedules, or registration actions.
 - Phase 3A adds a synchronous Degree Audit application service under `/api/v1`. The API layer validates request/response schemas and delegates audit creation to the application service, which calls the domain engine and persists a snapshot.
+- Phase 3B adds synchronous academic scenario endpoints under `/api/v1/academic-scenarios`. The scenario service validates hypothetical program combinations, reuses Phase 3A Degree Audit per program, runs deterministic multi-program allocation, and persists comparison summaries and warnings.
 
 ### Browser Extension
 - Later-phase optional data capture tool.
@@ -104,6 +105,20 @@ Phase 3A implements this boundary for one `StudentProfile` plus one `ProgramVers
 
 The baseline allocator is intentionally not a global optimizer. It reserves source records for non-overlap leaf requirements in deterministic requirement order and records `is_shared` only when overlap is allowed. Ambiguous or unsupported rule scope returns `MANUAL_REVIEW_REQUIRED` or a warning rather than a false satisfied result.
 
+### What-if Scenario Boundary
+Simulates academic program combinations without mutating official student declarations.
+
+Phase 3B implements this boundary with:
+
+- `AcademicPlanScenario` as the scenario snapshot root.
+- `ScenarioProgram` for existing and hypothetical program versions in the scenario.
+- `ProgramCombinationRule` for directional overlap policy between a primary and secondary program.
+- `ScenarioProgramAudit` linking each scenario program to an independent Phase 3A `DegreeAuditRun`.
+- `ScenarioCourseAllocation` for global allocation decisions.
+- `ScenarioComparisonSnapshot` and `ScenarioWarning` for summary and advisor-review output.
+
+The scenario service deliberately does not evaluate prerequisites, registration eligibility, future course offering probability, multi-term plans, or section schedules. Shared credit is allowed only when both the requirement application allows overlap and a directional combination rule allows double counting. Total earned credits are counted once even when a requirement application is shared.
+
 ### Eligibility Boundary
 Evaluates prerequisites, corequisites, grade minimums, restrictions, and registration eligibility.
 
@@ -123,10 +138,11 @@ Produces risk flags, advisor review items, confidence levels, and high-risk reco
 3. Phase 2A read-only APIs expose the stored mock catalog and mock student record with source metadata.
 4. Phase 2B read-only APIs expose stored mock sections, meetings, offering patterns, and course-rule expression trees with source metadata.
 5. Phase 3A Degree Audit creates explicit snapshots for stored mock student/program data.
-6. Academic Plan Optimizer proposes future terms in a later phase.
-7. Schedule Optimizer ranks concrete section schedules for a selected term in a later phase.
-8. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
-9. UI presents explanations and warnings and will let users adjust assumptions once the what-if and optimizer phases exist.
+6. Phase 3B What-if Scenarios create mock program-combination snapshots, per-program audit runs, allocations, warnings, and comparison summaries.
+7. Academic Plan Optimizer proposes future terms in a later phase.
+8. Schedule Optimizer ranks concrete section schedules for a selected term in a later phase.
+9. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
+10. UI presents explanations and warnings and will let users adjust assumptions once the optimizer phases exist.
 
 ## 6. API Design Principles
 

@@ -43,6 +43,16 @@ Phase 3A adds deterministic Degree Audit coverage:
 - Shared TypeScript schema tests for audit run, requirement, application, and warning responses.
 - Playwright tests for the Degree Progress UI shell, mock-policy warning, API failure, empty/error states, and schema-error handling.
 
+Phase 3B adds deterministic what-if scenario coverage:
+
+- Scenario lifecycle tests for creation, multiple scenarios per student, failure safety, and no mutation of `StudentAcademicProgram`.
+- Program-combination tests for exactly one primary major, duplicate program rejection, institution scope, change-major candidates, and missing directional policy warnings.
+- Combination-rule tests for maximum shared credits, minimum unique credits, directional policy, nonnegative values, same-program rejection, and mock/non-official metadata.
+- Allocation tests proving global search can beat a local greedy choice, overlap requires both requirement and combination policy, shared credits do not double earned credits, unique secondary credits are tracked, deterministic tie-breakers are stable, and search limits warn.
+- API tests for scenario creation, retrieval, programs, audits, allocations, warnings, comparison, student scenario list, compare endpoint, 404, invalid combinations, and schema validation.
+- Shared TypeScript schema tests for scenario, scenario program, allocation, warning, and comparison responses.
+- Playwright tests for selecting a mock candidate program, creating a scenario, displaying shared/unique/additional credits, warnings, mock-policy disclaimers, comparing saved scenarios, API failure, and schema-error handling.
+
 ### End-to-End Tests
 
 Playwright tests for:
@@ -114,6 +124,15 @@ Phase 3A covers audit behavior:
 - Approved substitution applies only to the target requirement.
 - Baseline allocation avoids unapproved double counting.
 - Manual-review requirements are not treated as satisfied.
+
+Phase 3B covers scenario behavior:
+
+- Scenario snapshots do not edit official declarations.
+- Per-program audits reuse Phase 3A snapshots.
+- Directional combination rules are required for shared credit.
+- Missing overlap policy is a warning, not a guessed rule.
+- Requirement application, shared credit, and total earned credit remain separate.
+- Estimated additional credits are estimates and never graduation-timing predictions.
 
 ## 5. Property and Constraint Tests
 

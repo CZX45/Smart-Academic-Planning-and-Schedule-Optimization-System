@@ -132,6 +132,40 @@ class AuditWarningSeverity(StrEnum):
     ERROR = "ERROR"
 
 
+class ScenarioType(StrEnum):
+    ADD_MINOR = "ADD_MINOR"
+    ADD_SECOND_MAJOR = "ADD_SECOND_MAJOR"
+    ADD_CERTIFICATE = "ADD_CERTIFICATE"
+    ADD_CONCENTRATION = "ADD_CONCENTRATION"
+    CHANGE_PRIMARY_MAJOR = "CHANGE_PRIMARY_MAJOR"
+    CUSTOM_COMBINATION = "CUSTOM_COMBINATION"
+
+
+class AcademicPlanScenarioStatus(StrEnum):
+    DRAFT = "DRAFT"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    COMPLETED_WITH_WARNINGS = "COMPLETED_WITH_WARNINGS"
+    FAILED = "FAILED"
+    ARCHIVED = "ARCHIVED"
+
+
+class ScenarioRelationshipType(StrEnum):
+    PRIMARY_MAJOR = "PRIMARY_MAJOR"
+    MINOR = "MINOR"
+    SECOND_MAJOR = "SECOND_MAJOR"
+    CERTIFICATE = "CERTIFICATE"
+    CONCENTRATION = "CONCENTRATION"
+
+
+class ScenarioAllocationType(StrEnum):
+    PRIMARY = "PRIMARY"
+    SHARED = "SHARED"
+    UNIQUE_SECONDARY = "UNIQUE_SECONDARY"
+    TOTAL_CREDIT_ONLY = "TOTAL_CREDIT_ONLY"
+    UNALLOCATED = "UNALLOCATED"
+
+
 class TermType(StrEnum):
     FALL = "FALL"
     SPRING = "SPRING"
@@ -296,6 +330,34 @@ audit_application_type_enum = Enum(
 audit_warning_severity_enum = Enum(
     AuditWarningSeverity,
     name="audit_warning_severity",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+scenario_type_enum = Enum(
+    ScenarioType,
+    name="scenario_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+academic_plan_scenario_status_enum = Enum(
+    AcademicPlanScenarioStatus,
+    name="academic_plan_scenario_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+scenario_relationship_type_enum = Enum(
+    ScenarioRelationshipType,
+    name="scenario_relationship_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+scenario_allocation_type_enum = Enum(
+    ScenarioAllocationType,
+    name="scenario_allocation_type",
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
@@ -1714,6 +1776,423 @@ class DegreeAuditWarning(UuidPrimaryKeyMixin, Base):
     warning_code: Mapped[str] = mapped_column(String(80), nullable=False)
     severity: Mapped[AuditWarningSeverity] = mapped_column(
         audit_warning_severity_enum, nullable=False
+    )
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    requires_advisor_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class AcademicPlanScenario(UuidPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "academic_plan_scenarios"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["student_profile_id"],
+            ["student_profiles.id"],
+            name="fk_acad_plan_scenarios_student",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["base_program_version_id"],
+            ["program_versions.id"],
+            name="fk_acad_plan_scenarios_base_program",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("length(name) > 0", name="ck_acad_plan_scenarios_name"),
+        CheckConstraint(
+            "length(engine_version) > 0",
+            name="ck_acad_plan_scenarios_engine",
+        ),
+        Index(
+            "ix_acad_plan_scenarios_student_created",
+            "student_profile_id",
+            "created_at",
+        ),
+    )
+
+    student_profile_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    scenario_type: Mapped[ScenarioType] = mapped_column(scenario_type_enum, nullable=False)
+    status: Mapped[AcademicPlanScenarioStatus] = mapped_column(
+        academic_plan_scenario_status_enum,
+        nullable=False,
+    )
+    base_program_version_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    engine_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ScenarioProgram(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "scenario_programs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["academic_plan_scenario_id"],
+            ["academic_plan_scenarios.id"],
+            name="fk_scenario_programs_scenario",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["program_version_id"],
+            ["program_versions.id"],
+            name="fk_scenario_programs_program",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("priority >= 0", name="ck_scenario_programs_priority_non_neg"),
+        CheckConstraint(
+            "is_existing_program != is_hypothetical",
+            name="ck_scenario_programs_snapshot_role",
+        ),
+        Index(
+            "uq_scenario_programs_scenario_program",
+            "academic_plan_scenario_id",
+            "program_version_id",
+            unique=True,
+        ),
+        Index(
+            "uq_scenario_programs_one_primary",
+            "academic_plan_scenario_id",
+            unique=True,
+            sqlite_where=text("relationship_type = 'PRIMARY_MAJOR'"),
+            postgresql_where=text("relationship_type = 'PRIMARY_MAJOR'"),
+        ),
+        Index(
+            "ix_scenario_programs_scenario_priority",
+            "academic_plan_scenario_id",
+            "priority",
+        ),
+    )
+
+    academic_plan_scenario_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    program_version_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    relationship_type: Mapped[ScenarioRelationshipType] = mapped_column(
+        scenario_relationship_type_enum,
+        nullable=False,
+    )
+    is_existing_program: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_hypothetical: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    priority: Mapped[int] = mapped_column(nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ProgramCombinationRule(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixin, Base):
+    __tablename__ = "program_combination_rules"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["primary_program_version_id"],
+            ["program_versions.id"],
+            name="fk_program_combo_rules_primary",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["secondary_program_version_id"],
+            ["program_versions.id"],
+            name="fk_program_combo_rules_secondary",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["effective_term_id"],
+            ["academic_terms.id"],
+            name="fk_program_combo_rules_eff_term",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["expiration_term_id"],
+            ["academic_terms.id"],
+            name="fk_program_combo_rules_exp_term",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "primary_program_version_id != secondary_program_version_id",
+            name="ck_program_combo_rules_distinct",
+        ),
+        CheckConstraint(
+            "maximum_shared_credits >= 0",
+            name="ck_program_combo_rules_max_shared_non_neg",
+        ),
+        CheckConstraint(
+            "minimum_unique_secondary_credits >= 0",
+            name="ck_program_combo_rules_unique_credits_non_neg",
+        ),
+        CheckConstraint(
+            "minimum_unique_courses >= 0",
+            name="ck_program_combo_rules_unique_courses_non_neg",
+        ),
+        CheckConstraint(
+            "expiration_term_id IS NULL OR expiration_term_id != effective_term_id",
+            name="ck_program_combo_rules_terms_distinct",
+        ),
+        CheckConstraint(
+            "is_official = false OR source_type != 'MOCK'",
+            name="ck_program_combo_rules_mock_not_official",
+        ),
+        Index(
+            "uq_program_combo_rules_direction",
+            "primary_program_version_id",
+            "secondary_program_version_id",
+            "combination_type",
+            "effective_term_id",
+            unique=True,
+        ),
+    )
+
+    primary_program_version_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    secondary_program_version_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    combination_type: Mapped[ScenarioRelationshipType] = mapped_column(
+        scenario_relationship_type_enum,
+        nullable=False,
+    )
+    maximum_shared_credits: Mapped[Decimal] = mapped_column(Numeric(5, 1), nullable=False)
+    minimum_unique_secondary_credits: Mapped[Decimal] = mapped_column(
+        Numeric(5, 1),
+        nullable=False,
+    )
+    minimum_unique_courses: Mapped[int] = mapped_column(nullable=False, default=0)
+    allows_double_counting: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    requires_manual_confirmation: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    effective_term_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    expiration_term_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+
+
+class ScenarioProgramAudit(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "scenario_program_audits"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["academic_plan_scenario_id"],
+            ["academic_plan_scenarios.id"],
+            name="fk_scenario_program_audits_scenario",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["scenario_program_id"],
+            ["scenario_programs.id"],
+            name="fk_scenario_program_audits_program",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["degree_audit_run_id"],
+            ["degree_audit_runs.id"],
+            name="fk_scenario_program_audits_run",
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "academic_plan_scenario_id",
+            "scenario_program_id",
+            name="uq_scenario_program_audits_program",
+        ),
+        UniqueConstraint(
+            "degree_audit_run_id",
+            name="uq_scenario_program_audits_run",
+        ),
+    )
+
+    academic_plan_scenario_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    scenario_program_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    degree_audit_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ScenarioCourseAllocation(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "scenario_course_allocations"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["academic_plan_scenario_id"],
+            ["academic_plan_scenarios.id"],
+            name="fk_scenario_course_allocs_scenario",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["student_course_attempt_id"],
+            ["student_course_attempts.id"],
+            name="fk_scenario_course_allocs_attempt",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["transfer_credit_id"],
+            ["transfer_credits.id"],
+            name="fk_scenario_course_allocs_transfer",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["course_waiver_id"],
+            ["course_waivers.id"],
+            name="fk_scenario_course_allocs_waiver",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["course_substitution_id"],
+            ["course_substitutions.id"],
+            name="fk_scenario_course_allocs_substitution",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["course_id"],
+            ["courses.id"],
+            name="fk_scenario_course_allocs_course",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["program_version_id"],
+            ["program_versions.id"],
+            name="fk_scenario_course_allocs_program",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["requirement_node_id"],
+            ["requirement_nodes.id"],
+            name="fk_scenario_course_allocs_requirement",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("credit_amount >= 0", name="ck_scenario_course_allocs_credit_non_neg"),
+        CheckConstraint("allocation_rank >= 0", name="ck_scenario_course_allocs_rank_non_neg"),
+        CheckConstraint("length(reason_code) > 0", name="ck_scenario_course_allocs_reason"),
+        CheckConstraint("length(explanation) > 0", name="ck_scenario_course_allocs_explained"),
+        CheckConstraint(
+            "(CASE WHEN student_course_attempt_id IS NOT NULL THEN 1 ELSE 0 END + "
+            "CASE WHEN transfer_credit_id IS NOT NULL THEN 1 ELSE 0 END + "
+            "CASE WHEN course_waiver_id IS NOT NULL THEN 1 ELSE 0 END + "
+            "CASE WHEN course_substitution_id IS NOT NULL THEN 1 ELSE 0 END) >= 1",
+            name="ck_scenario_course_allocs_source",
+        ),
+        Index(
+            "ix_scenario_course_allocs_scenario_rank",
+            "academic_plan_scenario_id",
+            "allocation_rank",
+        ),
+    )
+
+    academic_plan_scenario_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    student_course_attempt_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=True,
+    )
+    transfer_credit_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    course_waiver_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    course_substitution_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=True,
+    )
+    course_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    program_version_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    requirement_node_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    allocation_type: Mapped[ScenarioAllocationType] = mapped_column(
+        scenario_allocation_type_enum,
+        nullable=False,
+    )
+    credit_amount: Mapped[Decimal] = mapped_column(Numeric(5, 1), nullable=False)
+    is_shared: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_unique_to_program: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    allocation_rank: Mapped[int] = mapped_column(nullable=False, default=0)
+    reason_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ScenarioComparisonSnapshot(Base):
+    __tablename__ = "scenario_comparison_snapshots"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["academic_plan_scenario_id"],
+            ["academic_plan_scenarios.id"],
+            name="fk_scenario_comparison_scenario",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("completed_credits >= 0", name="ck_scenario_comparison_completed"),
+        CheckConstraint("in_progress_credits >= 0", name="ck_scenario_comparison_in_progress"),
+        CheckConstraint("planned_credits >= 0", name="ck_scenario_comparison_planned"),
+        CheckConstraint(
+            "remaining_requirement_credits >= 0",
+            name="ck_scenario_comparison_remaining",
+        ),
+        CheckConstraint("shared_credits >= 0", name="ck_scenario_comparison_shared"),
+        CheckConstraint(
+            "unique_secondary_credits >= 0",
+            name="ck_scenario_comparison_unique",
+        ),
+        CheckConstraint(
+            "estimated_additional_credits >= 0",
+            name="ck_scenario_comparison_additional",
+        ),
+        CheckConstraint(
+            "unresolved_requirements >= 0",
+            name="ck_scenario_comparison_unresolved",
+        ),
+        CheckConstraint("manual_review_count >= 0", name="ck_scenario_comparison_manual"),
+        CheckConstraint(
+            "completion_percentage >= 0 AND completion_percentage <= 100",
+            name="ck_scenario_comparison_completion",
+        ),
+    )
+
+    academic_plan_scenario_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+    )
+    completed_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
+    in_progress_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
+    planned_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
+    remaining_requirement_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
+    shared_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
+    unique_secondary_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
+    estimated_additional_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
+    unresolved_requirements: Mapped[int] = mapped_column(nullable=False)
+    manual_review_count: Mapped[int] = mapped_column(nullable=False)
+    completion_percentage: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    is_estimate: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ScenarioWarning(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "scenario_warnings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["academic_plan_scenario_id"],
+            ["academic_plan_scenarios.id"],
+            name="fk_scenario_warnings_scenario",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["scenario_program_id"],
+            ["scenario_programs.id"],
+            name="fk_scenario_warnings_program",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("length(warning_code) > 0", name="ck_scenario_warnings_code"),
+        CheckConstraint("length(message) > 0", name="ck_scenario_warnings_message"),
+        Index(
+            "ix_scenario_warnings_scenario_severity",
+            "academic_plan_scenario_id",
+            "severity",
+        ),
+    )
+
+    academic_plan_scenario_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    scenario_program_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    warning_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    severity: Mapped[AuditWarningSeverity] = mapped_column(
+        audit_warning_severity_enum,
+        nullable=False,
     )
     message: Mapped[str] = mapped_column(Text, nullable=False)
     requires_advisor_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False)

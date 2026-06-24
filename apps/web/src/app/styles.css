@@ -145,6 +145,99 @@ h2 {
   gap: 10px;
 }
 
+.what-if-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.section-heading {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.scenario-controls {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.scenario-controls label {
+  color: #344054;
+  display: grid;
+  font-size: 0.84rem;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.scenario-controls select,
+.scenario-controls button {
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  font: inherit;
+  min-height: 40px;
+}
+
+.scenario-controls select {
+  background: white;
+  min-width: 250px;
+  padding: 0 12px;
+}
+
+.scenario-controls button {
+  background: #1f2937;
+  color: white;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0 14px;
+}
+
+.scenario-controls button + button {
+  background: #0f766e;
+}
+
+.scenario-result {
+  display: grid;
+  gap: 16px;
+}
+
+.scenario-columns {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.scenario-columns > div,
+.comparison-table {
+  background: white;
+  border: 1px solid #d7dde7;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.compact-list,
+.comparison-rows {
+  display: grid;
+  gap: 9px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.compact-list li,
+.comparison-row {
+  display: grid;
+  gap: 3px;
+}
+
+.compact-list span,
+.comparison-row span {
+  color: #4b5563;
+}
+
 .requirement-row {
   overflow: hidden;
 }
