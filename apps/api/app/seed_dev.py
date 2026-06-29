@@ -1792,6 +1792,28 @@ def seed_mock_data(session: Session) -> None:
                     "student_data": "mock-only, non-official",
                 },
             ),
+            DevSeedRecord(
+                id=seed_uuid("dev-seed-record:mock-academic-planner"),
+                seed_key="mock-academic-planner",
+                label="Phase 5A mock academic planner source-data seed marker",
+                payload={
+                    "source_type": SourceType.MOCK.value,
+                    "is_official": False,
+                    "planner_cases": [
+                        "remaining required course candidates",
+                        "remaining elective pool",
+                        "prerequisite chain",
+                        "corequisite pair",
+                        "fall and spring offering patterns",
+                        "unknown offering pattern",
+                        "closed section warning",
+                        "manual review blocked requirement",
+                        "partial plan from credit limits",
+                        "what-if scenario using mock minor",
+                    ],
+                    "planner_snapshots": "not pre-seeded; created through /api/v1/academic-plans",
+                },
+            ),
         ],
     )
     session.commit()

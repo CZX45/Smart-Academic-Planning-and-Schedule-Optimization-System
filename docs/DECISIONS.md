@@ -183,3 +183,19 @@ Consequences:
 - `CURRENT`, `PROJECTED`, and `REGISTRATION` modes keep completed, in-progress, planned, and concurrent corequisite evidence distinct.
 - Phase 4 can explain permissions, hard failures, conditional outcomes, and manual-review outcomes without building long-term plans or schedules.
 - Phase 4 does not predict graduation timing, optimize schedules, call OR-Tools, monitor seats, or automate registration.
+
+## ADR-0014: Implement Phase 5A academic planner as persisted course-level snapshots
+
+Status: Accepted
+
+Context: The system needs a long-term planner that can turn Degree Audit gaps and Course Eligibility evidence into explainable future course plans, but section scheduling, OR-Tools optimization, seat monitoring, and registration automation remain separate later boundaries.
+
+Decision: Implement Phase 5A as a synchronous backend application service that creates one `AcademicPlanRun` snapshot with child term, planned-course, requirement-coverage, and warning rows. Reuse Degree Audit to identify remaining requirements and Course Eligibility to reason about prerequisite/corequisite status. Support `CURRENT_PROGRAM` and `WHAT_IF_SCENARIO` modes. Store structured source, status, reason code, and explanation fields for each course placement. Treat offering patterns and section snapshots as assumptions that can warn, not as official commitments.
+
+Consequences:
+
+- Plan results are repeatable, auditable snapshots rather than mutable student records.
+- What-if plans can reference scenario snapshots without changing official declarations.
+- The frontend can render term-by-term plans without reimplementing planner logic.
+- Planner warnings preserve uncertainty for mock data, broad requirements, credit limits, horizon limits, and offering assumptions.
+- Phase 5A remains course-level and deliberately does not select sections, check weekly meeting conflicts, monitor seats, or perform registration actions.

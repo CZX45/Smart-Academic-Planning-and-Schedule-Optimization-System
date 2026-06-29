@@ -31,6 +31,7 @@ from app.models.academic import (
     RequirementNode,
     Section,
     SectionMeeting,
+    SectionStatus,
     SourceType,
     StudentAcademicProgram,
     StudentCourseAttempt,
@@ -276,3 +277,69 @@ def test_mock_phase_2b_sections_rules_and_offering_patterns(session: Session) ->
         )
     )
     assert corequisite is not None
+
+
+def test_mock_phase_5a_planner_seed_cases_are_available(session: Session) -> None:
+    seed_mock_data(session)
+
+    seed_marker = session.scalar(
+        select(DevSeedRecord).where(DevSeedRecord.seed_key == "mock-academic-planner")
+    )
+    assert seed_marker is not None
+    assert seed_marker.payload["source_type"] == "MOCK"
+    assert seed_marker.payload["is_official"] is False
+
+    fin_400 = session.scalar(
+        select(Course).where(Course.subject_code == "FIN", Course.course_number == "400")
+    )
+    fin_403 = session.scalar(
+        select(Course).where(Course.subject_code == "FIN", Course.course_number == "403")
+    )
+    fin_450 = session.scalar(
+        select(Course).where(Course.subject_code == "FIN", Course.course_number == "450")
+    )
+    assert fin_400 is not None
+    assert fin_403 is not None
+    assert fin_450 is not None
+
+    assert session.scalar(
+        select(CourseOfferingPattern).where(CourseOfferingPattern.course_id == fin_400.id)
+    )
+    assert (
+        session.scalar(
+            select(CourseOfferingPattern).where(CourseOfferingPattern.course_id == fin_403.id)
+        )
+        is None
+    )
+
+    closed_section = session.scalar(
+        select(Section).where(
+            Section.course_id
+            == session.scalar(
+                select(Course.id).where(
+                    Course.subject_code == "FREE",
+                    Course.course_number == "100",
+                )
+            ),
+            Section.status == SectionStatus.CLOSED,
+        )
+    )
+    assert closed_section is not None
+
+    blocked_rule = session.scalar(
+        select(CourseRule).where(
+            CourseRule.course_id == fin_450.id,
+            CourseRule.rule_type == CourseRuleType.PREREQUISITE,
+        )
+    )
+    assert blocked_rule is not None
+    blocked_expression = session.scalar(
+        select(CourseRuleExpression).where(CourseRuleExpression.course_rule_id == blocked_rule.id)
+    )
+    assert blocked_expression is not None
+
+    accounting_minor = session.scalar(
+        select(AcademicProgram).where(AcademicProgram.code == "MINACCT")
+    )
+    assert accounting_minor is not None
+    assert accounting_minor.program_type is ProgramType.MINOR

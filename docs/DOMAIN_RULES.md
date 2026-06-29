@@ -165,6 +165,34 @@ It should output:
 - Assumptions and risks.
 - Explanation of why each course is placed in a term.
 
+Phase 5A implements a deterministic baseline planner rather than a global mathematical optimizer. It creates persisted academic plan snapshots for `CURRENT_PROGRAM` and `WHAT_IF_SCENARIO` modes, derives remaining course candidates from Degree Audit results, and uses Course Eligibility to identify prerequisite, corequisite, permission, and manual-review constraints.
+
+Phase 5A placement rules:
+
+- Never place courses beyond the supplied maximum credits per term.
+- Mark a term `PARTIAL` or `BLOCKED` when the requested minimum credits cannot be met.
+- Place missing prerequisite courses in an earlier term when a stored prerequisite rule names a concrete course and credit limits allow it.
+- Place required corequisite courses in the same term when credit limits allow it.
+- Keep planned prerequisite evidence conditional; do not relabel a future course as completed.
+- Prefer direct remaining requirements before broad or ambiguous requirements.
+- Use stable tie-breakers from requirement order, requirement code, course code, and stable IDs.
+- Record each placement with a source, planning status, reason code, and explanation.
+
+Phase 5A availability rules:
+
+- Existing sections can be used as evidence that a course has a term-specific offering snapshot.
+- Closed or cancelled sections produce warnings but are not treated as academic impossibility.
+- Offering patterns are assumptions, not school commitments.
+- Missing or mismatched offering patterns produce warnings rather than authoritative claims that a course will or will not run.
+
+Phase 5A safety boundaries:
+
+- The planner does not select sections or build weekly schedules.
+- The planner does not inspect time conflicts, instructor preferences, meeting locations, or commute times.
+- The planner does not poll seats, join waitlists, register, add, drop, swap, or reserve courses.
+- What-if plans may reference scenario snapshots but must not update official `StudentAcademicProgram` records.
+- Mock, inferred, or ambiguous plan results must require advisor or school confirmation for high-impact decisions.
+
 ## 6. Semester Schedule Optimizer Rules
 
 The Semester Schedule Optimizer works at section level. It should consider:
@@ -218,6 +246,8 @@ Phase 3A specifically emits advisor-confirmation warnings for pending transfers,
 Phase 3B additionally emits advisor-confirmation warnings for missing directional program-combination rules, unclear overlap policy, unmet unique-secondary-credit expectations, allocation search limits, and estimated additional credits.
 
 Phase 4 additionally emits advisor-confirmation warnings for mock eligibility estimates, missing stored course restrictions, rules marked for manual confirmation, unknown or unsupported expression nodes, ambiguous campus/program restrictions, and permission requirements.
+
+Phase 5A additionally emits advisor-confirmation warnings for mock plan estimates, broad requirements without concrete candidate courses, unplaced requirements, missing or uncertain offering patterns, credit-limit or horizon shortfalls, closed/cancelled section snapshots, and planner assumptions that could affect graduation timing.
 
 ## 9. Phase 3A Requirement Status Semantics
 

@@ -1556,6 +1556,403 @@
         }
       }
     },
+    "/api/v1/academic-plans": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Create Academic Plan",
+        "operationId": "create_academic_plan_api_v1_academic_plans_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcademicPlanCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcademicPlanDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/academic-plans/compare": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Compare Academic Plans",
+        "operationId": "compare_academic_plans_api_v1_academic_plans_compare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcademicPlanCompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AcademicPlanComparisonResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Compare Academic Plans Api V1 Academic Plans Compare Post"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/academic-plans/{plan_id}": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Academic Plan",
+        "operationId": "get_academic_plan_api_v1_academic_plans__plan_id__get",
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Plan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcademicPlanDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/academic-plans/{plan_id}/terms": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Academic Plan Terms",
+        "operationId": "get_academic_plan_terms_api_v1_academic_plans__plan_id__terms_get",
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Plan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AcademicPlanTermResponse"
+                  },
+                  "title": "Response Get Academic Plan Terms Api V1 Academic Plans  Plan Id  Terms Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/academic-plans/{plan_id}/courses": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Academic Plan Courses",
+        "operationId": "get_academic_plan_courses_api_v1_academic_plans__plan_id__courses_get",
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Plan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AcademicPlanCourseResponse"
+                  },
+                  "title": "Response Get Academic Plan Courses Api V1 Academic Plans  Plan Id  Courses Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/academic-plans/{plan_id}/warnings": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Academic Plan Warnings",
+        "operationId": "get_academic_plan_warnings_api_v1_academic_plans__plan_id__warnings_get",
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Plan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AcademicPlanWarningResponse"
+                  },
+                  "title": "Response Get Academic Plan Warnings Api V1 Academic Plans  Plan Id  Warnings Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/students/{student_id}/academic-plans": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "List Student Academic Plans",
+        "operationId": "list_student_academic_plans_api_v1_students__student_id__academic_plans_get",
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AcademicPlanRunResponse"
+                  },
+                  "title": "Response List Student Academic Plans Api V1 Students  Student Id  Academic Plans Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/academic-scenarios": {
       "post": {
         "tags": [
@@ -2228,6 +2625,780 @@
   },
   "components": {
     "schemas": {
+      "AcademicPlanCompareRequest": {
+        "properties": {
+          "academic_plan_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "minItems": 2,
+            "title": "Academic Plan Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "academic_plan_ids"
+        ],
+        "title": "AcademicPlanCompareRequest"
+      },
+      "AcademicPlanComparisonResponse": {
+        "properties": {
+          "academic_plan_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Academic Plan Run Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "COMPLETED",
+              "COMPLETED_WITH_WARNINGS",
+              "FAILED"
+            ],
+            "title": "Status"
+          },
+          "total_planned_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Planned Credits"
+          },
+          "term_count": {
+            "type": "integer",
+            "title": "Term Count"
+          },
+          "planned_course_count": {
+            "type": "integer",
+            "title": "Planned Course Count"
+          },
+          "warning_count": {
+            "type": "integer",
+            "title": "Warning Count"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "academic_plan_run_id",
+          "status",
+          "total_planned_credits",
+          "term_count",
+          "planned_course_count",
+          "warning_count"
+        ],
+        "title": "AcademicPlanComparisonResponse"
+      },
+      "AcademicPlanCourseResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "academic_plan_term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Academic Plan Term Id"
+          },
+          "term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Term Id"
+          },
+          "term_code": {
+            "type": "string",
+            "title": "Term Code"
+          },
+          "course_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Id"
+          },
+          "course_code": {
+            "type": "string",
+            "title": "Course Code"
+          },
+          "course_title": {
+            "type": "string",
+            "title": "Course Title"
+          },
+          "requirement_node_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Node Id"
+          },
+          "requirement_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Code"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "DEGREE_AUDIT_REMAINING",
+              "WHAT_IF_REMAINING",
+              "PREREQUISITE_UNLOCK",
+              "COREQUISITE_PAIR",
+              "MANUAL_PLACEHOLDER"
+            ],
+            "title": "Source"
+          },
+          "priority_rank": {
+            "type": "integer",
+            "title": "Priority Rank"
+          },
+          "credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Credits"
+          },
+          "eligibility_result": {
+            "type": "string",
+            "enum": [
+              "ELIGIBLE",
+              "CONDITIONALLY_ELIGIBLE",
+              "NOT_ELIGIBLE",
+              "PERMISSION_REQUIRED",
+              "MANUAL_REVIEW_REQUIRED"
+            ],
+            "title": "Eligibility Result"
+          },
+          "planning_status": {
+            "type": "string",
+            "enum": [
+              "PLANNED",
+              "CONDITIONALLY_PLANNED",
+              "BLOCKED",
+              "ALTERNATIVE",
+              "MANUAL_REVIEW_REQUIRED"
+            ],
+            "title": "Planning Status"
+          },
+          "reason_code": {
+            "type": "string",
+            "title": "Reason Code"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "academic_plan_term_id",
+          "term_id",
+          "term_code",
+          "course_id",
+          "course_code",
+          "course_title",
+          "source",
+          "priority_rank",
+          "credits",
+          "eligibility_result",
+          "planning_status",
+          "reason_code",
+          "explanation",
+          "created_at"
+        ],
+        "title": "AcademicPlanCourseResponse"
+      },
+      "AcademicPlanCreateRequest": {
+        "properties": {
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "program_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Program Version Id"
+          },
+          "academic_plan_scenario_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Academic Plan Scenario Id"
+          },
+          "planning_mode": {
+            "type": "string",
+            "enum": [
+              "CURRENT_PROGRAM",
+              "WHAT_IF_SCENARIO"
+            ],
+            "title": "Planning Mode"
+          },
+          "start_term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Start Term Id"
+          },
+          "terms_to_plan": {
+            "type": "integer",
+            "maximum": 16.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Terms To Plan"
+          },
+          "minimum_credits_per_term": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Minimum Credits Per Term"
+          },
+          "maximum_credits_per_term": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Maximum Credits Per Term"
+          },
+          "preferred_credits_per_term": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Preferred Credits Per Term"
+          }
+        },
+        "type": "object",
+        "required": [
+          "student_profile_id",
+          "program_version_id",
+          "planning_mode",
+          "start_term_id",
+          "terms_to_plan",
+          "minimum_credits_per_term",
+          "maximum_credits_per_term",
+          "preferred_credits_per_term"
+        ],
+        "title": "AcademicPlanCreateRequest"
+      },
+      "AcademicPlanDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "program_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Program Version Id"
+          },
+          "academic_plan_scenario_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Academic Plan Scenario Id"
+          },
+          "planning_mode": {
+            "type": "string",
+            "enum": [
+              "CURRENT_PROGRAM",
+              "WHAT_IF_SCENARIO"
+            ],
+            "title": "Planning Mode"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "COMPLETED",
+              "COMPLETED_WITH_WARNINGS",
+              "FAILED"
+            ],
+            "title": "Status"
+          },
+          "engine_version": {
+            "type": "string",
+            "title": "Engine Version"
+          },
+          "start_term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Start Term Id"
+          },
+          "target_completion_term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Completion Term Id"
+          },
+          "minimum_credits_per_term": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Minimum Credits Per Term"
+          },
+          "maximum_credits_per_term": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Maximum Credits Per Term"
+          },
+          "preferred_credits_per_term": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Preferred Credits Per Term"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "terms": {
+            "items": {
+              "$ref": "#/components/schemas/AcademicPlanTermResponse"
+            },
+            "type": "array",
+            "title": "Terms"
+          },
+          "planned_courses": {
+            "items": {
+              "$ref": "#/components/schemas/AcademicPlanCourseResponse"
+            },
+            "type": "array",
+            "title": "Planned Courses"
+          },
+          "requirement_coverage": {
+            "items": {
+              "$ref": "#/components/schemas/AcademicPlanRequirementCoverageResponse"
+            },
+            "type": "array",
+            "title": "Requirement Coverage"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/AcademicPlanWarningResponse"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "student_profile_id",
+          "program_version_id",
+          "planning_mode",
+          "status",
+          "engine_version",
+          "start_term_id",
+          "target_completion_term_id",
+          "minimum_credits_per_term",
+          "maximum_credits_per_term",
+          "preferred_credits_per_term",
+          "created_at",
+          "updated_at",
+          "terms",
+          "planned_courses",
+          "requirement_coverage",
+          "warnings"
+        ],
+        "title": "AcademicPlanDetailResponse"
+      },
+      "AcademicPlanRequirementCoverageResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "academic_plan_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Academic Plan Run Id"
+          },
+          "academic_plan_course_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Academic Plan Course Id"
+          },
+          "requirement_node_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Requirement Node Id"
+          },
+          "requirement_code": {
+            "type": "string",
+            "title": "Requirement Code"
+          },
+          "coverage_type": {
+            "type": "string",
+            "enum": [
+              "DIRECT_REQUIREMENT",
+              "ELECTIVE_POOL",
+              "TOTAL_CREDITS",
+              "PREREQUISITE_ONLY",
+              "WHAT_IF_REQUIREMENT"
+            ],
+            "title": "Coverage Type"
+          },
+          "credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Credits"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "academic_plan_run_id",
+          "academic_plan_course_id",
+          "requirement_node_id",
+          "requirement_code",
+          "coverage_type",
+          "credits",
+          "created_at"
+        ],
+        "title": "AcademicPlanRequirementCoverageResponse"
+      },
+      "AcademicPlanRunResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "program_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Program Version Id"
+          },
+          "academic_plan_scenario_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Academic Plan Scenario Id"
+          },
+          "planning_mode": {
+            "type": "string",
+            "enum": [
+              "CURRENT_PROGRAM",
+              "WHAT_IF_SCENARIO"
+            ],
+            "title": "Planning Mode"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "COMPLETED",
+              "COMPLETED_WITH_WARNINGS",
+              "FAILED"
+            ],
+            "title": "Status"
+          },
+          "engine_version": {
+            "type": "string",
+            "title": "Engine Version"
+          },
+          "start_term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Start Term Id"
+          },
+          "target_completion_term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Completion Term Id"
+          },
+          "minimum_credits_per_term": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Minimum Credits Per Term"
+          },
+          "maximum_credits_per_term": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Maximum Credits Per Term"
+          },
+          "preferred_credits_per_term": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Preferred Credits Per Term"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "student_profile_id",
+          "program_version_id",
+          "planning_mode",
+          "status",
+          "engine_version",
+          "start_term_id",
+          "target_completion_term_id",
+          "minimum_credits_per_term",
+          "maximum_credits_per_term",
+          "preferred_credits_per_term",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AcademicPlanRunResponse"
+      },
+      "AcademicPlanTermResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "academic_plan_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Academic Plan Run Id"
+          },
+          "term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Term Id"
+          },
+          "term_code": {
+            "type": "string",
+            "title": "Term Code"
+          },
+          "sequence_index": {
+            "type": "integer",
+            "title": "Sequence Index"
+          },
+          "planned_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Planned Credits"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PLANNED",
+              "PARTIAL",
+              "BLOCKED",
+              "MANUAL_REVIEW_REQUIRED"
+            ],
+            "title": "Status"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "academic_plan_run_id",
+          "term_id",
+          "term_code",
+          "sequence_index",
+          "planned_credits",
+          "status",
+          "explanation",
+          "created_at"
+        ],
+        "title": "AcademicPlanTermResponse"
+      },
+      "AcademicPlanWarningResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "academic_plan_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Academic Plan Run Id"
+          },
+          "academic_plan_term_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Academic Plan Term Id"
+          },
+          "academic_plan_course_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Academic Plan Course Id"
+          },
+          "warning_code": {
+            "type": "string",
+            "title": "Warning Code"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "INFO",
+              "WARNING",
+              "ERROR"
+            ],
+            "title": "Severity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "requires_advisor_confirmation": {
+            "type": "boolean",
+            "title": "Requires Advisor Confirmation"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "academic_plan_run_id",
+          "warning_code",
+          "severity",
+          "message",
+          "requires_advisor_confirmation",
+          "created_at"
+        ],
+        "title": "AcademicPlanWarningResponse"
+      },
       "AcademicProgramResponse": {
         "properties": {
           "id": {

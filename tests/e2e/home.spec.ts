@@ -279,6 +279,123 @@ const mockEligibilityCheck = {
   updated_at: '2026-06-24T00:00:01Z',
 };
 
+const mockAcademicPlan = {
+  id: '00000000-0000-4000-8000-000000000401',
+  student_profile_id: '74874476-4024-5e2d-807a-fbb4ab620249',
+  program_version_id: 'f65bee76-6061-515f-a3df-cdf5567514af',
+  academic_plan_scenario_id: null,
+  planning_mode: 'CURRENT_PROGRAM',
+  status: 'COMPLETED_WITH_WARNINGS',
+  engine_version: 'phase-5a-academic-planner-v1',
+  start_term_id: 'f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec',
+  target_completion_term_id: 'fed14bfe-972b-5392-8c72-379ceb879e85',
+  minimum_credits_per_term: '3.0',
+  maximum_credits_per_term: '9.0',
+  preferred_credits_per_term: '6.0',
+  completed_at: '2026-06-29T00:00:01Z',
+  created_at: '2026-06-29T00:00:00Z',
+  updated_at: '2026-06-29T00:00:01Z',
+  terms: [
+    {
+      id: '00000000-0000-4000-8000-000000000402',
+      academic_plan_run_id: '00000000-0000-4000-8000-000000000401',
+      term_id: 'f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec',
+      term_code: '2024FA',
+      sequence_index: 0,
+      planned_credits: '3.0',
+      status: 'PLANNED',
+      explanation: 'Term is planned with mock remaining coursework.',
+      created_at: '2026-06-29T00:00:00Z',
+    },
+    {
+      id: '00000000-0000-4000-8000-000000000403',
+      academic_plan_run_id: '00000000-0000-4000-8000-000000000401',
+      term_id: 'fed14bfe-972b-5392-8c72-379ceb879e85',
+      term_code: '2025SP',
+      sequence_index: 1,
+      planned_credits: '6.0',
+      status: 'PLANNED',
+      explanation: 'Term is planned with a prerequisite unlock.',
+      created_at: '2026-06-29T00:00:00Z',
+    },
+  ],
+  planned_courses: [
+    {
+      id: '00000000-0000-4000-8000-000000000404',
+      academic_plan_term_id: '00000000-0000-4000-8000-000000000402',
+      term_id: 'f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec',
+      term_code: '2024FA',
+      course_id: 'e6ab2a34-d85a-5446-875e-83fd36d5b08e',
+      course_code: 'FIN 300',
+      course_title: 'Mock Corporate Finance',
+      requirement_node_id: '00000000-0000-4000-8000-000000000501',
+      requirement_code: 'FIN-PREREQ',
+      source: 'PREREQUISITE_UNLOCK',
+      priority_rank: 0,
+      credits: '3.0',
+      eligibility_result: 'ELIGIBLE',
+      planning_status: 'PLANNED',
+      reason_code: 'PREREQUISITE_PLANNED_EARLIER',
+      explanation: 'Placed before FIN 400 so the later course can become eligible.',
+      created_at: '2026-06-29T00:00:00Z',
+    },
+    {
+      id: '00000000-0000-4000-8000-000000000405',
+      academic_plan_term_id: '00000000-0000-4000-8000-000000000403',
+      term_id: 'fed14bfe-972b-5392-8c72-379ceb879e85',
+      term_code: '2025SP',
+      course_id: 'b59bb40b-e3d0-57e3-a424-0d9b8bd2f305',
+      course_code: 'FIN 400',
+      course_title: 'Mock Advanced Finance',
+      requirement_node_id: '00000000-0000-4000-8000-000000000502',
+      requirement_code: 'FIN-CAPSTONE',
+      source: 'DEGREE_AUDIT_REMAINING',
+      priority_rank: 1,
+      credits: '3.0',
+      eligibility_result: 'CONDITIONALLY_ELIGIBLE',
+      planning_status: 'CONDITIONALLY_PLANNED',
+      reason_code: 'REQUIREMENT_REMAINING',
+      explanation: 'Placed for a remaining requirement after prerequisite planning.',
+      created_at: '2026-06-29T00:00:00Z',
+    },
+  ],
+  requirement_coverage: [
+    {
+      id: '00000000-0000-4000-8000-000000000406',
+      academic_plan_run_id: '00000000-0000-4000-8000-000000000401',
+      academic_plan_course_id: '00000000-0000-4000-8000-000000000405',
+      requirement_node_id: '00000000-0000-4000-8000-000000000502',
+      requirement_code: 'FIN-CAPSTONE',
+      coverage_type: 'DIRECT_REQUIREMENT',
+      credits: '3.0',
+      created_at: '2026-06-29T00:00:00Z',
+    },
+  ],
+  warnings: [
+    {
+      id: '00000000-0000-4000-8000-000000000407',
+      academic_plan_run_id: '00000000-0000-4000-8000-000000000401',
+      academic_plan_term_id: null,
+      academic_plan_course_id: null,
+      warning_code: 'MOCK_PLAN_NOT_OFFICIAL',
+      severity: 'INFO',
+      message: 'This plan uses mock non-official catalog and section data.',
+      requires_advisor_confirmation: true,
+      created_at: '2026-06-29T00:00:00Z',
+    },
+  ],
+};
+
+const mockAcademicPlanComparison = {
+  academic_plan_run_id: mockAcademicPlan.id,
+  status: 'COMPLETED_WITH_WARNINGS',
+  total_planned_credits: '9.0',
+  term_count: 2,
+  planned_course_count: 2,
+  warning_count: 1,
+  completed_at: '2026-06-29T00:00:01Z',
+};
+
 async function mockSuccessfulAuditApis(page: Page) {
   await page.route(
     'http://localhost:8000/api/v1/students/*/degree-audits/latest',
@@ -362,6 +479,53 @@ async function mockSuccessfulEligibilityApis(page: Page) {
   });
 }
 
+async function mockSuccessfulPlannerApis(page: Page) {
+  await page.route('http://localhost:8000/api/v1/academic-plans', async (route) => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(mockAcademicPlan),
+      });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route('http://localhost:8000/api/v1/students/*/academic-plans', async (route) => {
+    const summary = {
+      ...mockAcademicPlan,
+      terms: undefined,
+      planned_courses: undefined,
+      requirement_coverage: undefined,
+      warnings: undefined,
+    };
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify([
+        summary,
+        {
+          ...summary,
+          id: '00000000-0000-4000-8000-000000000408',
+          planning_mode: 'WHAT_IF_SCENARIO',
+        },
+      ]),
+    });
+  });
+  await page.route('http://localhost:8000/api/v1/academic-plans/compare', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify([
+        mockAcademicPlanComparison,
+        {
+          ...mockAcademicPlanComparison,
+          academic_plan_run_id: '00000000-0000-4000-8000-000000000408',
+          total_planned_credits: '15.0',
+          warning_count: 2,
+        },
+      ]),
+    });
+  });
+}
+
 test('home page shows degree progress shell and required mock warnings', async ({ page }) => {
   await mockSuccessfulAuditApis(page);
 
@@ -369,7 +533,7 @@ test('home page shows degree progress shell and required mock warnings', async (
 
   await expect(page.getByRole('heading', { name: /Degree Progress/ })).toBeVisible();
   await expect(page.getByText('API connected')).toBeVisible();
-  await expect(page.getByText('Mock data — not official university policy.')).toBeVisible();
+  await expect(page.getByText('Mock data — not official university policy.').first()).toBeVisible();
   await expect(page.getByText('Advisor confirmation is required for high-impact academic guidance.')).toBeVisible();
   await expect(page.getByText('Audit Mode')).toBeVisible();
   await expect(page.getByText('Mock Finance Foundations')).toBeVisible();
@@ -476,4 +640,57 @@ test('home page reports course eligibility schema failures', async ({ page }) =>
 
   await expect(page.getByText('Eligibility schema error')).toBeVisible();
   await expect(page.getByText(/unexpected course eligibility response shape/i)).toBeVisible();
+});
+
+test('home page creates and compares long-term academic plans', async ({ page }) => {
+  await mockSuccessfulAuditApis(page);
+  await mockSuccessfulPlannerApis(page);
+
+  await page.goto('/');
+
+  await expect(page.getByRole('heading', { name: /Long-Term Academic Planner/ })).toBeVisible();
+  await expect(
+    page
+      .getByLabel('Academic planner disclaimers')
+      .getByText('Mock data — not official university policy.'),
+  ).toBeVisible();
+  await expect(page.getByText('This plan is not registration.').first()).toBeVisible();
+  await expect(
+    page.getByText('This plan does not check weekly schedule conflicts.'),
+  ).toBeVisible();
+  await expect(page.getByText('Course offering predictions are estimates.')).toBeVisible();
+  await expect(page.getByText('Advisor confirmation may be required.').first()).toBeVisible();
+
+  await page.getByLabel('Planning scope').selectOption('current-program');
+  await page.getByLabel('Terms').fill('2');
+  await page.getByLabel('Min credits').fill('3');
+  await page.getByLabel('Preferred credits').fill('6');
+  await page.getByLabel('Max credits').fill('9');
+  await page.getByRole('button', { name: /Create plan/ }).click();
+
+  const planSummary = page.getByLabel('Academic plan summary');
+  await expect(planSummary.getByText(/completed with warnings/i)).toBeVisible();
+  await expect(planSummary.getByText('Planned Credits')).toBeVisible();
+  await expect(page.getByLabel('Term-by-term academic plan').getByText('FIN 400')).toBeVisible();
+  await expect(page.getByText('PREREQUISITE_PLANNED_EARLIER')).toBeVisible();
+  await expect(page.getByText('MOCK_PLAN_NOT_OFFICIAL')).toBeVisible();
+
+  await page.getByRole('button', { name: /Compare saved plans/ }).click();
+  await expect(page.getByText('WHAT_IF_SCENARIO')).toBeVisible();
+});
+
+test('home page reports academic planner schema failures', async ({ page }) => {
+  await mockSuccessfulAuditApis(page);
+  await page.route('http://localhost:8000/api/v1/academic-plans', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ unexpected: true }),
+    });
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: /Create plan/ }).click();
+
+  await expect(page.getByText('Academic planner schema error')).toBeVisible();
+  await expect(page.getByText(/unexpected academic plan response shape/i)).toBeVisible();
 });

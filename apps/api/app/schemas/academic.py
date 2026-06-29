@@ -305,6 +305,41 @@ ScenarioAllocationTypeValue = Literal[
     "TOTAL_CREDIT_ONLY",
     "UNALLOCATED",
 ]
+AcademicPlanningModeValue = Literal["CURRENT_PROGRAM", "WHAT_IF_SCENARIO"]
+AcademicPlanRunStatusValue = Literal[
+    "PENDING",
+    "RUNNING",
+    "COMPLETED",
+    "COMPLETED_WITH_WARNINGS",
+    "FAILED",
+]
+AcademicPlanTermStatusValue = Literal[
+    "PLANNED",
+    "PARTIAL",
+    "BLOCKED",
+    "MANUAL_REVIEW_REQUIRED",
+]
+AcademicPlanCourseSourceValue = Literal[
+    "DEGREE_AUDIT_REMAINING",
+    "WHAT_IF_REMAINING",
+    "PREREQUISITE_UNLOCK",
+    "COREQUISITE_PAIR",
+    "MANUAL_PLACEHOLDER",
+]
+AcademicPlanCourseStatusValue = Literal[
+    "PLANNED",
+    "CONDITIONALLY_PLANNED",
+    "BLOCKED",
+    "ALTERNATIVE",
+    "MANUAL_REVIEW_REQUIRED",
+]
+AcademicPlanCoverageTypeValue = Literal[
+    "DIRECT_REQUIREMENT",
+    "ELECTIVE_POOL",
+    "TOTAL_CREDITS",
+    "PREREQUISITE_ONLY",
+    "WHAT_IF_REQUIREMENT",
+]
 EligibilityModeValue = Literal["CURRENT", "PROJECTED", "REGISTRATION"]
 EligibilityCheckStatusValue = Literal[
     "PENDING",
@@ -613,6 +648,112 @@ class CourseEligibilityCheckResponse(BaseModel):
 
 class CourseEligibilityBatchResponse(BaseModel):
     results: list[CourseEligibilityCheckResponse]
+
+
+class AcademicPlanCreateRequest(BaseModel):
+    student_profile_id: UUID
+    program_version_id: UUID
+    academic_plan_scenario_id: UUID | None = None
+    planning_mode: AcademicPlanningModeValue
+    start_term_id: UUID
+    terms_to_plan: int = Field(gt=0, le=16)
+    minimum_credits_per_term: Decimal = Field(ge=0)
+    maximum_credits_per_term: Decimal = Field(ge=0)
+    preferred_credits_per_term: Decimal = Field(ge=0)
+
+
+class AcademicPlanCompareRequest(BaseModel):
+    academic_plan_ids: list[UUID] = Field(min_length=2)
+
+
+class AcademicPlanRunResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    program_version_id: UUID
+    academic_plan_scenario_id: UUID | None = None
+    planning_mode: AcademicPlanningModeValue
+    status: AcademicPlanRunStatusValue
+    engine_version: str
+    start_term_id: UUID
+    target_completion_term_id: UUID
+    minimum_credits_per_term: Decimal
+    maximum_credits_per_term: Decimal
+    preferred_credits_per_term: Decimal
+    completed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AcademicPlanTermResponse(BaseModel):
+    id: UUID
+    academic_plan_run_id: UUID
+    term_id: UUID
+    term_code: str
+    sequence_index: int
+    planned_credits: Decimal
+    status: AcademicPlanTermStatusValue
+    explanation: str
+    created_at: datetime
+
+
+class AcademicPlanCourseResponse(BaseModel):
+    id: UUID
+    academic_plan_term_id: UUID
+    term_id: UUID
+    term_code: str
+    course_id: UUID
+    course_code: str
+    course_title: str
+    requirement_node_id: UUID | None = None
+    requirement_code: str | None = None
+    source: AcademicPlanCourseSourceValue
+    priority_rank: int
+    credits: Decimal
+    eligibility_result: EligibilityOverallResultValue
+    planning_status: AcademicPlanCourseStatusValue
+    reason_code: str
+    explanation: str
+    created_at: datetime
+
+
+class AcademicPlanRequirementCoverageResponse(BaseModel):
+    id: UUID
+    academic_plan_run_id: UUID
+    academic_plan_course_id: UUID
+    requirement_node_id: UUID
+    requirement_code: str
+    coverage_type: AcademicPlanCoverageTypeValue
+    credits: Decimal
+    created_at: datetime
+
+
+class AcademicPlanWarningResponse(BaseModel):
+    id: UUID
+    academic_plan_run_id: UUID
+    academic_plan_term_id: UUID | None = None
+    academic_plan_course_id: UUID | None = None
+    warning_code: str
+    severity: AuditWarningSeverityValue
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class AcademicPlanDetailResponse(AcademicPlanRunResponse):
+    terms: list[AcademicPlanTermResponse]
+    planned_courses: list[AcademicPlanCourseResponse]
+    requirement_coverage: list[AcademicPlanRequirementCoverageResponse]
+    warnings: list[AcademicPlanWarningResponse]
+
+
+class AcademicPlanComparisonResponse(BaseModel):
+    academic_plan_run_id: UUID
+    status: AcademicPlanRunStatusValue
+    total_planned_credits: Decimal
+    term_count: int
+    planned_course_count: int
+    warning_count: int
+    completed_at: datetime | None = None
 
 
 class ErrorDetailResponse(BaseModel):

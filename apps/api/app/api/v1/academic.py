@@ -4,12 +4,18 @@ from typing import Annotated, Protocol
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.academic import (
+    AcademicPlanCourse,
+    AcademicPlanningMode,
+    AcademicPlanRequirementCoverage,
+    AcademicPlanRun,
     AcademicPlanScenario,
+    AcademicPlanTerm,
+    AcademicPlanWarning,
     AcademicProgram,
     AcademicTerm,
     AuditCourseApplication,
@@ -48,6 +54,15 @@ from app.models.academic import (
     StudentProfile,
 )
 from app.schemas.academic import (
+    AcademicPlanCompareRequest,
+    AcademicPlanComparisonResponse,
+    AcademicPlanCourseResponse,
+    AcademicPlanCreateRequest,
+    AcademicPlanDetailResponse,
+    AcademicPlanRequirementCoverageResponse,
+    AcademicPlanRunResponse,
+    AcademicPlanTermResponse,
+    AcademicPlanWarningResponse,
     AcademicProgramResponse,
     AcademicScenarioCompareRequest,
     AcademicScenarioCreateRequest,
@@ -92,6 +107,8 @@ from app.schemas.academic import (
     StudentCourseAttemptResponse,
     StudentProfileResponse,
 )
+from app.services.academic_planner.engine import AcademicPlannerApplicationService
+from app.services.academic_planner.exceptions import AcademicPlannerValidationError
 from app.services.academic_scenarios.engine import AcademicScenarioApplicationService
 from app.services.academic_scenarios.exceptions import AcademicScenarioValidationError
 from app.services.academic_scenarios.result import ScenarioProgramInput
@@ -669,6 +686,191 @@ def eligibility_check_response(
         warnings=[eligibility_warning_response(warning) for warning in warnings],
         created_at=run.created_at,
         updated_at=run.updated_at,
+    )
+
+
+def academic_plan_run_response(run: AcademicPlanRun) -> AcademicPlanRunResponse:
+    return AcademicPlanRunResponse(
+        id=run.id,
+        student_profile_id=run.student_profile_id,
+        program_version_id=run.program_version_id,
+        academic_plan_scenario_id=run.academic_plan_scenario_id,
+        planning_mode=run.planning_mode.value,
+        status=run.status.value,
+        engine_version=run.engine_version,
+        start_term_id=run.start_term_id,
+        target_completion_term_id=run.target_completion_term_id,
+        minimum_credits_per_term=run.minimum_credits_per_term,
+        maximum_credits_per_term=run.maximum_credits_per_term,
+        preferred_credits_per_term=run.preferred_credits_per_term,
+        completed_at=run.completed_at,
+        created_at=run.created_at,
+        updated_at=run.updated_at,
+    )
+
+
+def academic_plan_term_response(
+    plan_term: AcademicPlanTerm,
+    term: AcademicTerm,
+) -> AcademicPlanTermResponse:
+    return AcademicPlanTermResponse(
+        id=plan_term.id,
+        academic_plan_run_id=plan_term.academic_plan_run_id,
+        term_id=plan_term.term_id,
+        term_code=term.term_code,
+        sequence_index=plan_term.sequence_index,
+        planned_credits=plan_term.planned_credits,
+        status=plan_term.status.value,
+        explanation=plan_term.explanation,
+        created_at=plan_term.created_at,
+    )
+
+
+def academic_plan_course_response(
+    plan_course: AcademicPlanCourse,
+    plan_term: AcademicPlanTerm,
+    term: AcademicTerm,
+    course: Course,
+    requirement: RequirementNode | None,
+) -> AcademicPlanCourseResponse:
+    return AcademicPlanCourseResponse(
+        id=plan_course.id,
+        academic_plan_term_id=plan_course.academic_plan_term_id,
+        term_id=plan_term.term_id,
+        term_code=term.term_code,
+        course_id=plan_course.course_id,
+        course_code=f"{course.subject_code} {course.course_number}",
+        course_title=course.title,
+        requirement_node_id=plan_course.requirement_node_id,
+        requirement_code=requirement.code if requirement is not None else None,
+        source=plan_course.source.value,
+        priority_rank=plan_course.priority_rank,
+        credits=plan_course.credits,
+        eligibility_result=plan_course.eligibility_result.value,
+        planning_status=plan_course.planning_status.value,
+        reason_code=plan_course.reason_code,
+        explanation=plan_course.explanation,
+        created_at=plan_course.created_at,
+    )
+
+
+def academic_plan_coverage_response(
+    coverage: AcademicPlanRequirementCoverage,
+    requirement: RequirementNode,
+) -> AcademicPlanRequirementCoverageResponse:
+    return AcademicPlanRequirementCoverageResponse(
+        id=coverage.id,
+        academic_plan_run_id=coverage.academic_plan_run_id,
+        academic_plan_course_id=coverage.academic_plan_course_id,
+        requirement_node_id=coverage.requirement_node_id,
+        requirement_code=requirement.code,
+        coverage_type=coverage.coverage_type.value,
+        credits=coverage.credits,
+        created_at=coverage.created_at,
+    )
+
+
+def academic_plan_warning_response(
+    warning: AcademicPlanWarning,
+) -> AcademicPlanWarningResponse:
+    return AcademicPlanWarningResponse(
+        id=warning.id,
+        academic_plan_run_id=warning.academic_plan_run_id,
+        academic_plan_term_id=warning.academic_plan_term_id,
+        academic_plan_course_id=warning.academic_plan_course_id,
+        warning_code=warning.warning_code,
+        severity=warning.severity.value,
+        message=warning.message,
+        requires_advisor_confirmation=warning.requires_advisor_confirmation,
+        created_at=warning.created_at,
+    )
+
+
+def academic_plan_terms_response(
+    plan_id: UUID,
+    db: Session,
+) -> list[AcademicPlanTermResponse]:
+    rows = db.execute(
+        select(AcademicPlanTerm, AcademicTerm)
+        .join(AcademicTerm, AcademicPlanTerm.term_id == AcademicTerm.id)
+        .where(AcademicPlanTerm.academic_plan_run_id == plan_id)
+        .order_by(AcademicPlanTerm.sequence_index, AcademicTerm.term_code)
+    ).all()
+    return [academic_plan_term_response(plan_term, term) for plan_term, term in rows]
+
+
+def academic_plan_courses_response(
+    plan_id: UUID,
+    db: Session,
+) -> list[AcademicPlanCourseResponse]:
+    rows = db.execute(
+        select(AcademicPlanCourse, AcademicPlanTerm, AcademicTerm, Course, RequirementNode)
+        .join(AcademicPlanTerm, AcademicPlanCourse.academic_plan_term_id == AcademicPlanTerm.id)
+        .join(AcademicTerm, AcademicPlanTerm.term_id == AcademicTerm.id)
+        .join(Course, AcademicPlanCourse.course_id == Course.id)
+        .outerjoin(RequirementNode, AcademicPlanCourse.requirement_node_id == RequirementNode.id)
+        .where(AcademicPlanTerm.academic_plan_run_id == plan_id)
+        .order_by(
+            AcademicPlanTerm.sequence_index,
+            AcademicPlanCourse.priority_rank,
+            Course.subject_code,
+            Course.course_number,
+        )
+    ).all()
+    return [
+        academic_plan_course_response(plan_course, plan_term, term, course, requirement)
+        for plan_course, plan_term, term, course, requirement in rows
+    ]
+
+
+def academic_plan_coverage_responses(
+    plan_id: UUID,
+    db: Session,
+) -> list[AcademicPlanRequirementCoverageResponse]:
+    rows = db.execute(
+        select(AcademicPlanRequirementCoverage, RequirementNode)
+        .join(
+            RequirementNode,
+            AcademicPlanRequirementCoverage.requirement_node_id == RequirementNode.id,
+        )
+        .where(AcademicPlanRequirementCoverage.academic_plan_run_id == plan_id)
+        .order_by(
+            AcademicPlanRequirementCoverage.created_at,
+            AcademicPlanRequirementCoverage.id,
+        )
+    ).all()
+    return [
+        academic_plan_coverage_response(coverage, requirement) for coverage, requirement in rows
+    ]
+
+
+def academic_plan_warnings_response(
+    plan_id: UUID,
+    db: Session,
+) -> list[AcademicPlanWarningResponse]:
+    warnings = db.scalars(
+        select(AcademicPlanWarning)
+        .where(AcademicPlanWarning.academic_plan_run_id == plan_id)
+        .order_by(
+            AcademicPlanWarning.severity,
+            AcademicPlanWarning.created_at,
+            AcademicPlanWarning.id,
+        )
+    ).all()
+    return [academic_plan_warning_response(warning) for warning in warnings]
+
+
+def academic_plan_detail_response(
+    run: AcademicPlanRun,
+    db: Session,
+) -> AcademicPlanDetailResponse:
+    base = academic_plan_run_response(run).model_dump()
+    return AcademicPlanDetailResponse(
+        **base,
+        terms=academic_plan_terms_response(run.id, db),
+        planned_courses=academic_plan_courses_response(run.id, db),
+        requirement_coverage=academic_plan_coverage_responses(run.id, db),
+        warnings=academic_plan_warnings_response(run.id, db),
     )
 
 
@@ -1317,6 +1519,184 @@ def list_student_eligibility_checks(
         .order_by(EligibilityCheckRun.created_at.desc(), EligibilityCheckRun.id.desc())
     ).all()
     return [eligibility_check_response(run, db) for run in runs]
+
+
+@router.post(
+    "/academic-plans",
+    response_model=AcademicPlanDetailResponse,
+    status_code=201,
+    responses={404: not_found_response, 400: not_found_response},
+)
+def create_academic_plan(
+    request: AcademicPlanCreateRequest,
+    db: DatabaseSession,
+) -> AcademicPlanDetailResponse:
+    try:
+        run = AcademicPlannerApplicationService(db).create_plan(
+            student_profile_id=request.student_profile_id,
+            program_version_id=request.program_version_id,
+            academic_plan_scenario_id=request.academic_plan_scenario_id,
+            planning_mode=AcademicPlanningMode(request.planning_mode),
+            start_term_id=request.start_term_id,
+            terms_to_plan=request.terms_to_plan,
+            minimum_credits_per_term=request.minimum_credits_per_term,
+            maximum_credits_per_term=request.maximum_credits_per_term,
+            preferred_credits_per_term=request.preferred_credits_per_term,
+        )
+    except AcademicPlannerValidationError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return academic_plan_detail_response(run, db)
+
+
+@router.post(
+    "/academic-plans/compare",
+    response_model=list[AcademicPlanComparisonResponse],
+    responses={404: not_found_response},
+)
+def compare_academic_plans(
+    request: AcademicPlanCompareRequest,
+    db: DatabaseSession,
+) -> list[AcademicPlanComparisonResponse]:
+    runs = {
+        run.id: run
+        for run in db.scalars(
+            select(AcademicPlanRun).where(AcademicPlanRun.id.in_(request.academic_plan_ids))
+        ).all()
+    }
+    missing = [plan_id for plan_id in request.academic_plan_ids if plan_id not in runs]
+    if missing:
+        raise not_found("AcademicPlanRun", missing[0])
+    comparisons: list[AcademicPlanComparisonResponse] = []
+    for plan_id in request.academic_plan_ids:
+        term_count = (
+            db.scalar(
+                select(func.count())
+                .select_from(AcademicPlanTerm)
+                .where(AcademicPlanTerm.academic_plan_run_id == plan_id)
+            )
+            or 0
+        )
+        course_count = (
+            db.scalar(
+                select(func.count())
+                .select_from(AcademicPlanCourse)
+                .join(
+                    AcademicPlanTerm,
+                    AcademicPlanCourse.academic_plan_term_id == AcademicPlanTerm.id,
+                )
+                .where(AcademicPlanTerm.academic_plan_run_id == plan_id)
+            )
+            or 0
+        )
+        warning_count = (
+            db.scalar(
+                select(func.count())
+                .select_from(AcademicPlanWarning)
+                .where(AcademicPlanWarning.academic_plan_run_id == plan_id)
+            )
+            or 0
+        )
+        total_credits = (
+            db.scalar(
+                select(func.coalesce(func.sum(AcademicPlanTerm.planned_credits), 0)).where(
+                    AcademicPlanTerm.academic_plan_run_id == plan_id
+                )
+            )
+            or 0
+        )
+        run = runs[plan_id]
+        comparisons.append(
+            AcademicPlanComparisonResponse(
+                academic_plan_run_id=run.id,
+                status=run.status.value,
+                total_planned_credits=total_credits,
+                term_count=term_count,
+                planned_course_count=course_count,
+                warning_count=warning_count,
+                completed_at=run.completed_at,
+            )
+        )
+    return comparisons
+
+
+@router.get(
+    "/academic-plans/{plan_id}",
+    response_model=AcademicPlanDetailResponse,
+    responses={404: not_found_response},
+)
+def get_academic_plan(
+    plan_id: UUID,
+    db: DatabaseSession,
+) -> AcademicPlanDetailResponse:
+    run = db.get(AcademicPlanRun, plan_id)
+    if run is None:
+        raise not_found("AcademicPlanRun", plan_id)
+    return academic_plan_detail_response(run, db)
+
+
+@router.get(
+    "/academic-plans/{plan_id}/terms",
+    response_model=list[AcademicPlanTermResponse],
+    responses={404: not_found_response},
+)
+def get_academic_plan_terms(
+    plan_id: UUID,
+    db: DatabaseSession,
+) -> list[AcademicPlanTermResponse]:
+    if db.get(AcademicPlanRun, plan_id) is None:
+        raise not_found("AcademicPlanRun", plan_id)
+    return academic_plan_terms_response(plan_id, db)
+
+
+@router.get(
+    "/academic-plans/{plan_id}/courses",
+    response_model=list[AcademicPlanCourseResponse],
+    responses={404: not_found_response},
+)
+def get_academic_plan_courses(
+    plan_id: UUID,
+    db: DatabaseSession,
+) -> list[AcademicPlanCourseResponse]:
+    if db.get(AcademicPlanRun, plan_id) is None:
+        raise not_found("AcademicPlanRun", plan_id)
+    return academic_plan_courses_response(plan_id, db)
+
+
+@router.get(
+    "/academic-plans/{plan_id}/warnings",
+    response_model=list[AcademicPlanWarningResponse],
+    responses={404: not_found_response},
+)
+def get_academic_plan_warnings(
+    plan_id: UUID,
+    db: DatabaseSession,
+) -> list[AcademicPlanWarningResponse]:
+    if db.get(AcademicPlanRun, plan_id) is None:
+        raise not_found("AcademicPlanRun", plan_id)
+    return academic_plan_warnings_response(plan_id, db)
+
+
+@router.get(
+    "/students/{student_id}/academic-plans",
+    response_model=list[AcademicPlanRunResponse],
+    responses={404: not_found_response},
+)
+def list_student_academic_plans(
+    student_id: UUID,
+    db: DatabaseSession,
+) -> list[AcademicPlanRunResponse]:
+    if db.get(StudentProfile, student_id) is None:
+        raise not_found("StudentProfile", student_id)
+    runs = db.scalars(
+        select(AcademicPlanRun)
+        .where(AcademicPlanRun.student_profile_id == student_id)
+        .order_by(AcademicPlanRun.created_at.desc(), AcademicPlanRun.id.desc())
+    ).all()
+    return [academic_plan_run_response(run) for run in runs]
 
 
 @router.post(

@@ -54,6 +54,7 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Phase 3A adds a synchronous Degree Audit application service under `/api/v1`. The API layer validates request/response schemas and delegates audit creation to the application service, which calls the domain engine and persists a snapshot.
 - Phase 3B adds synchronous academic scenario endpoints under `/api/v1/academic-scenarios`. The scenario service validates hypothetical program combinations, reuses Phase 3A Degree Audit per program, runs deterministic multi-program allocation, and persists comparison summaries and warnings.
 - Phase 4 adds synchronous course eligibility endpoints under `/api/v1/eligibility-checks`. The eligibility service evaluates stored course-rule expression trees against student records, persists check snapshots, and reports rule/expression evidence without mutating student academic programs or registration data.
+- Phase 5A adds synchronous long-term academic planner endpoints under `/api/v1/academic-plans`. The planner reuses Degree Audit and Course Eligibility, persists course-level term plans and warnings, and does not mutate official student records or registration data.
 
 ### Browser Extension
 - Later-phase optional data capture tool.
@@ -136,6 +137,16 @@ Eligibility modes are explicit: `CURRENT`, `PROJECTED`, and `REGISTRATION`. In-p
 ### Planning Boundary
 Builds long-range course plans independent of section times.
 
+Phase 5A implements this boundary with:
+
+- `AcademicPlanRun` as the snapshot root for one student, program version, planning mode, start term, horizon, and credit policy.
+- `AcademicPlanTerm` for each generated future term and its planned-credit total.
+- `AcademicPlanCourse` for course-level placements with source, eligibility result, planning status, reason code, and explanation.
+- `AcademicPlanRequirementCoverage` for traceable requirement coverage claims.
+- `AcademicPlanWarning` for mock-data, credit-limit, offering-pattern, horizon, and advisor-review notices.
+
+The planner remains deterministic and course-level. It can use section and offering-pattern snapshots as availability signals, but it does not select sections, inspect weekly meeting conflicts, optimize schedules, poll seats, or automate registration. What-if plans reference `AcademicPlanScenario` snapshots instead of changing `StudentAcademicProgram`.
+
 ### Scheduling Boundary
 Builds section-level schedules for a single term.
 
@@ -151,10 +162,10 @@ Produces risk flags, advisor review items, confidence levels, and high-risk reco
 5. Phase 3A Degree Audit creates explicit snapshots for stored mock student/program data.
 6. Phase 3B What-if Scenarios create mock program-combination snapshots, per-program audit runs, allocations, warnings, and comparison summaries.
 7. Phase 4 Course Eligibility Checks evaluate stored mock course rules and optional section rules for a selected course/term.
-8. Academic Plan Optimizer proposes future terms in a later phase.
+8. Phase 5A Academic Planner proposes course-level future terms and persists requirement coverage and warnings.
 9. Schedule Optimizer ranks concrete section schedules for a selected term in a later phase.
 10. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
-11. UI presents explanations and warnings and will let users adjust assumptions once the optimizer phases exist.
+11. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
 
 ## 6. API Design Principles
 
@@ -183,7 +194,7 @@ Each evaluator and optimizer returns:
 - PostgreSQL supports relational integrity, JSONB rule trees, and advanced constraints.
 - SQLAlchemy gives mature Python ORM support.
 - Pydantic enables strict validation and versioned schemas.
-- OR-Tools CP-SAT is suitable for constraint optimization in planning and scheduling.
+- OR-Tools CP-SAT is suitable for future constraint optimization in planning and scheduling; Phase 5A uses a deterministic baseline planner.
 - Playwright enables realistic E2E tests for planner workflows.
 
 ## 9. Deployment Direction

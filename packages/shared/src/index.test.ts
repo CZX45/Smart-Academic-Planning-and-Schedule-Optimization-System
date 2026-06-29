@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ApiRequestError,
   ApiResponseSchemaError,
+  AcademicPlanDetailSchema,
   CourseEligibilityCheckSchema,
   HealthResponseSchema,
   ReadinessResponseSchema,
@@ -13,6 +14,7 @@ import {
   DegreeAuditRunSchema,
   RequirementEvaluationSchema,
   DegreeAuditWarningSchema,
+  createAcademicPlan,
   createCourseEligibilityCheck,
   fetchHealth,
 } from "./index.js";
@@ -365,6 +367,125 @@ describe("course eligibility schemas", () => {
           section_id: eligibilityPayload.section_id,
           target_term_id: eligibilityPayload.target_term_id,
           mode: "REGISTRATION",
+        },
+        { fetchFn },
+      ),
+    ).rejects.toThrow(ApiResponseSchemaError);
+  });
+});
+
+describe("academic plan schemas", () => {
+  const planPayload = {
+    id: "00000000-0000-4000-8000-000000000401",
+    student_profile_id: "00000000-0000-4000-8000-000000000001",
+    program_version_id: "00000000-0000-4000-8000-000000000002",
+    academic_plan_scenario_id: null,
+    planning_mode: "CURRENT_PROGRAM",
+    status: "COMPLETED_WITH_WARNINGS",
+    engine_version: "phase-5a-academic-planner-v1",
+    start_term_id: "00000000-0000-4000-8000-000000000101",
+    target_completion_term_id: "00000000-0000-4000-8000-000000000102",
+    minimum_credits_per_term: "3.0",
+    maximum_credits_per_term: "6.0",
+    preferred_credits_per_term: "6.0",
+    completed_at: "2026-06-29T00:00:01Z",
+    created_at: "2026-06-29T00:00:00Z",
+    updated_at: "2026-06-29T00:00:01Z",
+    terms: [
+      {
+        id: "00000000-0000-4000-8000-000000000402",
+        academic_plan_run_id: "00000000-0000-4000-8000-000000000401",
+        term_id: "00000000-0000-4000-8000-000000000101",
+        term_code: "2024FA",
+        sequence_index: 0,
+        planned_credits: "4.0",
+        status: "PLANNED",
+        explanation: "Term is planned.",
+        created_at: "2026-06-29T00:00:00Z",
+      },
+    ],
+    planned_courses: [
+      {
+        id: "00000000-0000-4000-8000-000000000403",
+        academic_plan_term_id: "00000000-0000-4000-8000-000000000402",
+        term_id: "00000000-0000-4000-8000-000000000101",
+        term_code: "2024FA",
+        course_id: "00000000-0000-4000-8000-000000000301",
+        course_code: "FIN 400",
+        course_title: "Mock Advanced Finance",
+        requirement_node_id: "00000000-0000-4000-8000-000000000201",
+        requirement_code: "CAPSTONE-DEMO",
+        source: "DEGREE_AUDIT_REMAINING",
+        priority_rank: 0,
+        credits: "3.0",
+        eligibility_result: "CONDITIONALLY_ELIGIBLE",
+        planning_status: "CONDITIONALLY_PLANNED",
+        reason_code: "REQUIREMENT_REMAINING",
+        explanation: "Placed for a remaining requirement.",
+        created_at: "2026-06-29T00:00:00Z",
+      },
+    ],
+    requirement_coverage: [
+      {
+        id: "00000000-0000-4000-8000-000000000404",
+        academic_plan_run_id: "00000000-0000-4000-8000-000000000401",
+        academic_plan_course_id: "00000000-0000-4000-8000-000000000403",
+        requirement_node_id: "00000000-0000-4000-8000-000000000201",
+        requirement_code: "CAPSTONE-DEMO",
+        coverage_type: "DIRECT_REQUIREMENT",
+        credits: "3.0",
+        created_at: "2026-06-29T00:00:00Z",
+      },
+    ],
+    warnings: [
+      {
+        id: "00000000-0000-4000-8000-000000000405",
+        academic_plan_run_id: "00000000-0000-4000-8000-000000000401",
+        academic_plan_term_id: null,
+        academic_plan_course_id: null,
+        warning_code: "MOCK_PLAN_NOT_OFFICIAL",
+        severity: "INFO",
+        message: "Mock plan is not official.",
+        requires_advisor_confirmation: true,
+        created_at: "2026-06-29T00:00:00Z",
+      },
+    ],
+  };
+
+  it("validates academic plan snapshots with terms, courses, coverage, and warnings", () => {
+    expect(AcademicPlanDetailSchema.parse(planPayload)).toMatchObject({
+      planning_mode: "CURRENT_PROGRAM",
+      planned_courses: [{ course_code: "FIN 400" }],
+    });
+  });
+
+  it("rejects malformed academic plan API payloads", async () => {
+    const fetchFn = async () =>
+      new Response(
+        JSON.stringify({
+          ...planPayload,
+          planned_courses: [
+            {
+              ...planPayload.planned_courses[0],
+              planning_status: "REGISTERED",
+            },
+          ],
+        }),
+      );
+
+    await expect(
+      createAcademicPlan(
+        "http://api.test",
+        {
+          student_profile_id: planPayload.student_profile_id,
+          program_version_id: planPayload.program_version_id,
+          academic_plan_scenario_id: null,
+          planning_mode: "CURRENT_PROGRAM",
+          start_term_id: planPayload.start_term_id,
+          terms_to_plan: 2,
+          minimum_credits_per_term: "3.0",
+          maximum_credits_per_term: "6.0",
+          preferred_credits_per_term: "6.0",
         },
         { fetchFn },
       ),

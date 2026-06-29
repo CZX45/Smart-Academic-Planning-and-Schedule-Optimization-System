@@ -3,7 +3,9 @@
 import {
   ApiRequestError,
   ApiResponseSchemaError,
+  compareAcademicPlans,
   compareAcademicScenarios,
+  createAcademicPlan,
   createAcademicScenario,
   createCourseEligibilityCheck,
   createDegreeAudit,
@@ -15,8 +17,12 @@ import {
   fetchDegreeAuditRequirements,
   fetchHealth,
   fetchLatestDegreeAudit,
+  fetchStudentAcademicPlans,
   fetchStudentEligibilityChecks,
   fetchStudentAcademicScenarios,
+  type AcademicPlanComparison,
+  type AcademicPlanDetail,
+  type AcademicPlanRun,
   type AcademicScenario,
   type CourseEligibilityCheck,
   type DegreeAuditRun,
@@ -85,6 +91,19 @@ type EligibilityState =
   | { status: "offline"; message: string }
   | { status: "failed"; message: string }
   | { status: "schema-error"; message: string };
+type PlannerState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | {
+      status: "ready";
+      plan: AcademicPlanDetail;
+      comparisons: AcademicPlanComparison[];
+      savedPlans: AcademicPlanRun[];
+    }
+  | { status: "empty"; message: string }
+  | { status: "offline"; message: string }
+  | { status: "failed"; message: string }
+  | { status: "schema-error"; message: string };
 type CandidateCourse = {
   id: string;
   label: string;
@@ -93,6 +112,12 @@ type CandidateCourse = {
   termId: string;
   mode: "CURRENT" | "PROJECTED" | "REGISTRATION";
   plannedCorequisiteCourseIds?: string[];
+};
+type PlannerScope = {
+  id: string;
+  label: string;
+  planningMode: "CURRENT_PROGRAM" | "WHAT_IF_SCENARIO";
+  candidateProgramId?: string;
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -184,6 +209,23 @@ const candidateCourses: CandidateCourse[] = [
     mode: "REGISTRATION",
   },
 ];
+const plannerScopes: PlannerScope[] = [
+  {
+    id: "current-program",
+    label: "Current Mock BS Finance",
+    planningMode: "CURRENT_PROGRAM",
+  },
+  {
+    id: "what-if-accounting-minor",
+    label: "What-if: add Mock Accounting Minor",
+    planningMode: "WHAT_IF_SCENARIO",
+    candidateProgramId: "accounting-minor",
+  },
+];
+const plannerStartTerms = [
+  { id: fall2024TermId, label: "Fall 2024" },
+  { id: spring2025TermId, label: "Spring 2025" },
+];
 
 function describeHealthError(error: unknown): string {
   if (error instanceof ApiResponseSchemaError) {
@@ -225,6 +267,16 @@ function describeEligibilityError(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown course eligibility error";
 }
 
+function describePlannerError(error: unknown): string {
+  if (error instanceof ApiResponseSchemaError) {
+    return "API returned an unexpected academic plan response shape.";
+  }
+  if (error instanceof ApiRequestError) {
+    return error.message;
+  }
+  return error instanceof Error ? error.message : "Unknown academic planner error";
+}
+
 function isNotFound(error: unknown): boolean {
   return error instanceof ApiRequestError && error.message.includes("status 404");
 }
@@ -261,6 +313,22 @@ export default function Home() {
   const [scenarioState, setScenarioState] = useState<ScenarioState>({ status: "idle" });
   const [selectedCourseId, setSelectedCourseId] = useState(candidateCourses[0].id);
   const [eligibilityState, setEligibilityState] = useState<EligibilityState>(() =>
+    apiBaseUrl
+      ? { status: "idle" }
+      : {
+          status: "offline",
+          message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        },
+  );
+  const [selectedPlannerScopeId, setSelectedPlannerScopeId] = useState(plannerScopes[0].id);
+  const [selectedPlannerStartTermId, setSelectedPlannerStartTermId] = useState(
+    plannerStartTerms[0].id,
+  );
+  const [termsToPlan, setTermsToPlan] = useState(4);
+  const [minimumCredits, setMinimumCredits] = useState(3);
+  const [preferredCredits, setPreferredCredits] = useState(6);
+  const [maximumCredits, setMaximumCredits] = useState(9);
+  const [plannerState, setPlannerState] = useState<PlannerState>(() =>
     apiBaseUrl
       ? { status: "idle" }
       : {
@@ -393,6 +461,23 @@ export default function Home() {
           setSelectedCourseId={setSelectedCourseId}
           eligibilityState={eligibilityState}
           setEligibilityState={setEligibilityState}
+        />
+
+        <AcademicPlanner
+          selectedPlannerScopeId={selectedPlannerScopeId}
+          setSelectedPlannerScopeId={setSelectedPlannerScopeId}
+          selectedPlannerStartTermId={selectedPlannerStartTermId}
+          setSelectedPlannerStartTermId={setSelectedPlannerStartTermId}
+          termsToPlan={termsToPlan}
+          setTermsToPlan={setTermsToPlan}
+          minimumCredits={minimumCredits}
+          setMinimumCredits={setMinimumCredits}
+          preferredCredits={preferredCredits}
+          setPreferredCredits={setPreferredCredits}
+          maximumCredits={maximumCredits}
+          setMaximumCredits={setMaximumCredits}
+          plannerState={plannerState}
+          setPlannerState={setPlannerState}
         />
       </section>
     </main>
@@ -1009,6 +1094,432 @@ function ReasonList({
         ))}
       </ul>
     </section>
+  );
+}
+
+function AcademicPlanner({
+  selectedPlannerScopeId,
+  setSelectedPlannerScopeId,
+  selectedPlannerStartTermId,
+  setSelectedPlannerStartTermId,
+  termsToPlan,
+  setTermsToPlan,
+  minimumCredits,
+  setMinimumCredits,
+  preferredCredits,
+  setPreferredCredits,
+  maximumCredits,
+  setMaximumCredits,
+  plannerState,
+  setPlannerState,
+}: {
+  selectedPlannerScopeId: string;
+  setSelectedPlannerScopeId: (value: string) => void;
+  selectedPlannerStartTermId: string;
+  setSelectedPlannerStartTermId: (value: string) => void;
+  termsToPlan: number;
+  setTermsToPlan: Dispatch<SetStateAction<number>>;
+  minimumCredits: number;
+  setMinimumCredits: Dispatch<SetStateAction<number>>;
+  preferredCredits: number;
+  setPreferredCredits: Dispatch<SetStateAction<number>>;
+  maximumCredits: number;
+  setMaximumCredits: Dispatch<SetStateAction<number>>;
+  plannerState: PlannerState;
+  setPlannerState: Dispatch<SetStateAction<PlannerState>>;
+}) {
+  const selectedScope =
+    plannerScopes.find((scope) => scope.id === selectedPlannerScopeId) ?? plannerScopes[0];
+
+  async function createScenarioForScope(scope: PlannerScope): Promise<string | null> {
+    if (scope.planningMode === "CURRENT_PROGRAM") {
+      return null;
+    }
+
+    const candidate = candidatePrograms.find(
+      (program) => program.id === scope.candidateProgramId,
+    );
+    if (!candidate) {
+      throw new ApiRequestError("Planner what-if candidate program is not configured.");
+    }
+
+    const scenario = await createAcademicScenario(
+      apiBaseUrl ?? "",
+      {
+        student_profile_id: mockStudentId,
+        scenario_name:
+          candidate.relationshipType === "PRIMARY_MAJOR"
+            ? `Planner change to ${candidate.label}`
+            : `Planner add ${candidate.label}`,
+        scenario_type: candidate.scenarioType,
+        calculation_mode: "PROJECTED",
+        programs:
+          candidate.relationshipType === "PRIMARY_MAJOR"
+            ? [
+                {
+                  program_version_id: candidate.programVersionId,
+                  relationship_type: "PRIMARY_MAJOR",
+                  priority: 0,
+                },
+              ]
+            : [
+                {
+                  program_version_id: mockProgramVersionId,
+                  relationship_type: "PRIMARY_MAJOR",
+                  priority: 0,
+                },
+                {
+                  program_version_id: candidate.programVersionId,
+                  relationship_type: candidate.relationshipType,
+                  priority: 10,
+                },
+              ],
+      },
+      { timeoutMs: 8_000 },
+    );
+    return scenario.id;
+  }
+
+  async function handleCreatePlan(): Promise<void> {
+    if (!apiBaseUrl) {
+      setPlannerState({
+        status: "offline",
+        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+      });
+      return;
+    }
+    setPlannerState({ status: "loading" });
+    try {
+      const academicPlanScenarioId = await createScenarioForScope(selectedScope);
+      const plan = await createAcademicPlan(
+        apiBaseUrl,
+        {
+          student_profile_id: mockStudentId,
+          program_version_id: mockProgramVersionId,
+          academic_plan_scenario_id: academicPlanScenarioId,
+          planning_mode: selectedScope.planningMode,
+          start_term_id: selectedPlannerStartTermId,
+          terms_to_plan: termsToPlan,
+          minimum_credits_per_term: String(minimumCredits),
+          maximum_credits_per_term: String(maximumCredits),
+          preferred_credits_per_term: String(preferredCredits),
+        },
+        { timeoutMs: 10_000 },
+      );
+      setPlannerState({
+        status: "ready",
+        plan,
+        comparisons: [],
+        savedPlans: [],
+      });
+    } catch (error: unknown) {
+      setPlannerState({
+        status: error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        message: describePlannerError(error),
+      });
+    }
+  }
+
+  async function handleComparePlans(): Promise<void> {
+    if (!apiBaseUrl) {
+      setPlannerState({
+        status: "offline",
+        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+      });
+      return;
+    }
+    try {
+      const savedPlans = await fetchStudentAcademicPlans(apiBaseUrl, mockStudentId, {
+        timeoutMs: 5_000,
+      });
+      if (savedPlans.length < 2) {
+        setPlannerState({
+          status: "empty",
+          message: "At least two saved academic plans are needed.",
+        });
+        return;
+      }
+      const comparisons = await compareAcademicPlans(
+        apiBaseUrl,
+        { academic_plan_ids: savedPlans.slice(0, 2).map((plan) => plan.id) },
+        { timeoutMs: 5_000 },
+      );
+      setPlannerState((current) =>
+        current.status === "ready"
+          ? { ...current, comparisons, savedPlans }
+          : {
+              status: "empty",
+              message: "Create an academic plan before comparing saved plans.",
+            },
+      );
+    } catch (error: unknown) {
+      setPlannerState({
+        status: error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        message: describePlannerError(error),
+      });
+    }
+  }
+
+  return (
+    <section className="planner-panel" aria-label="Long-Term Academic Planner">
+      <div className="section-heading">
+        <div>
+          <h2>Long-Term Academic Planner</h2>
+          <p className="subtle">
+            Generate an explainable term-by-term mock plan from remaining degree
+            requirements.
+          </p>
+        </div>
+        <p className="notice compact">This plan is not registration.</p>
+      </div>
+
+      <ul className="disclaimer-list" aria-label="Academic planner disclaimers">
+        <li>Mock data — not official university policy.</li>
+        <li>This plan is not registration.</li>
+        <li>This plan does not check weekly schedule conflicts.</li>
+        <li>Course offering predictions are estimates.</li>
+        <li>Advisor confirmation may be required.</li>
+      </ul>
+
+      <div className="scenario-controls planner-controls">
+        <label>
+          Planning scope
+          <select
+            value={selectedPlannerScopeId}
+            onChange={(event) => setSelectedPlannerScopeId(event.target.value)}
+          >
+            {plannerScopes.map((scope) => (
+              <option key={scope.id} value={scope.id}>
+                {scope.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Start term
+          <select
+            value={selectedPlannerStartTermId}
+            onChange={(event) => setSelectedPlannerStartTermId(event.target.value)}
+          >
+            {plannerStartTerms.map((term) => (
+              <option key={term.id} value={term.id}>
+                {term.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Terms
+          <input
+            min={1}
+            max={16}
+            type="number"
+            value={termsToPlan}
+            onChange={(event) => setTermsToPlan(Number(event.target.value))}
+          />
+        </label>
+        <label>
+          Min credits
+          <input
+            min={0}
+            type="number"
+            value={minimumCredits}
+            onChange={(event) => setMinimumCredits(Number(event.target.value))}
+          />
+        </label>
+        <label>
+          Preferred credits
+          <input
+            min={0}
+            type="number"
+            value={preferredCredits}
+            onChange={(event) => setPreferredCredits(Number(event.target.value))}
+          />
+        </label>
+        <label>
+          Max credits
+          <input
+            min={0}
+            type="number"
+            value={maximumCredits}
+            onChange={(event) => setMaximumCredits(Number(event.target.value))}
+          />
+        </label>
+        <button type="button" onClick={() => void handleCreatePlan()}>
+          Create plan
+        </button>
+        <button type="button" onClick={() => void handleComparePlans()}>
+          Compare saved plans
+        </button>
+      </div>
+
+      {plannerState.status === "loading" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Creating academic plan</h2>
+          <p>Evaluating degree audit gaps, prerequisite unlocks, and term capacity.</p>
+        </section>
+      ) : null}
+
+      {plannerState.status === "offline" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Academic planner API offline</h2>
+          <p>{plannerState.message}</p>
+        </section>
+      ) : null}
+
+      {plannerState.status === "failed" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Academic planner failed</h2>
+          <p>{plannerState.message}</p>
+        </section>
+      ) : null}
+
+      {plannerState.status === "schema-error" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Academic planner schema error</h2>
+          <p>{plannerState.message}</p>
+        </section>
+      ) : null}
+
+      {plannerState.status === "empty" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>No saved plans</h2>
+          <p>{plannerState.message}</p>
+        </section>
+      ) : null}
+
+      {plannerState.status === "ready" ? (
+        <AcademicPlanResultView state={plannerState} />
+      ) : null}
+    </section>
+  );
+}
+
+function AcademicPlanResultView({
+  state,
+}: {
+  state: Extract<PlannerState, { status: "ready" }>;
+}) {
+  const { plan } = state;
+  const totalPlannedCredits = plan.planned_courses.reduce(
+    (total, course) => total + Number(course.credits),
+    0,
+  );
+
+  return (
+    <div className="planner-result">
+      <section className="summary-grid" aria-label="Academic plan summary">
+        <SummaryMetric label="Plan Status" value={statusLabel(plan.status)} />
+        <SummaryMetric label="Planning Mode" value={statusLabel(plan.planning_mode)} />
+        <SummaryMetric label="Terms" value={String(plan.terms.length)} />
+        <SummaryMetric label="Planned Courses" value={String(plan.planned_courses.length)} />
+        <SummaryMetric
+          label="Planned Credits"
+          value={formatCredits(String(totalPlannedCredits))}
+        />
+        <SummaryMetric label="Warnings" value={String(plan.warnings.length)} />
+      </section>
+
+      <section className="planner-term-grid" aria-label="Term-by-term academic plan">
+        <h2>Term-by-Term Plan</h2>
+        {plan.planned_courses.length === 0 ? (
+          <p className="subtle">No planner courses were generated for the selected settings.</p>
+        ) : null}
+        <div className="term-columns">
+          {plan.terms.map((term) => {
+            const courses = plan.planned_courses.filter(
+              (course) => course.term_id === term.term_id,
+            );
+            return (
+              <section key={term.id} className="term-column">
+                <div className="term-heading">
+                  <h3>{term.term_code}</h3>
+                  <span className={`status-pill ${term.status.toLowerCase()}`}>
+                    {statusLabel(term.status)}
+                  </span>
+                </div>
+                <p>{formatCredits(term.planned_credits)} planned credits</p>
+                {courses.length > 0 ? (
+                  <ul className="compact-list">
+                    {courses.map((course) => (
+                      <li key={course.id}>
+                        <strong>{course.course_code}</strong>
+                        <span>
+                          {course.course_title} · {formatCredits(course.credits)} credits
+                        </span>
+                        <span>
+                          {statusLabel(course.planning_status)} · {course.reason_code}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="subtle">No courses placed in this term.</p>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="planner-columns">
+        <div>
+          <h2>Requirement Coverage</h2>
+          {plan.requirement_coverage.length > 0 ? (
+            <ul className="compact-list">
+              {plan.requirement_coverage.map((coverage) => (
+                <li key={coverage.id}>
+                  <strong>{coverage.requirement_code}</strong>
+                  <span>
+                    {statusLabel(coverage.coverage_type)} · {formatCredits(coverage.credits)}
+                    credits
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="subtle">No requirement coverage was created.</p>
+          )}
+        </div>
+        <div>
+          <h2>Planner Warnings</h2>
+          {plan.warnings.length > 0 ? (
+            <ul className="compact-list">
+              {plan.warnings.map((warning) => (
+                <li key={warning.id}>
+                  <strong>{warning.warning_code}</strong>
+                  <span>{warning.message}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="subtle">No planner warnings.</p>
+          )}
+        </div>
+      </section>
+
+      {state.comparisons.length > 0 ? (
+        <section className="comparison-table" aria-label="Saved academic plan comparison">
+          <h2>Saved Plan Comparison</h2>
+          <div className="comparison-rows">
+            {state.comparisons.map((comparison) => {
+              const savedPlan = state.savedPlans.find(
+                (item) => item.id === comparison.academic_plan_run_id,
+              );
+              return (
+                <div key={comparison.academic_plan_run_id} className="comparison-row">
+                  <strong>{savedPlan?.planning_mode ?? comparison.academic_plan_run_id}</strong>
+                  <span>
+                    {formatCredits(comparison.total_planned_credits)} planned credits ·{" "}
+                    {comparison.warning_count} warnings
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+    </div>
   );
 }
 

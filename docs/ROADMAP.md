@@ -166,7 +166,7 @@ Deferred from Phase 3B:
 
 ## Phase 4: Eligibility Engine
 
-Status: current phase.
+Status: complete.
 
 Deliverables:
 
@@ -192,6 +192,33 @@ Deferred from Phase 4:
 - Semester schedule optimization, OR-Tools, time conflicts, seat monitoring, waitlists, browser extension import, real school scraping, and registration automation.
 
 ## Phase 5: Academic Plan Optimizer
+
+Status: current phase, with Phase 5A core planner implemented.
+
+Phase 5A deliverables:
+
+- Course-level long-term planner service under `/api/v1/academic-plans`.
+- Persisted `AcademicPlanRun`, term, course, requirement coverage, and warning snapshots.
+- `CURRENT_PROGRAM` and `WHAT_IF_SCENARIO` planning modes.
+- Credit minimum, preferred, and maximum controls.
+- Deterministic prerequisite-unlock and corequisite-pair placement.
+- Offering-pattern and closed/cancelled-section warnings without seat monitoring.
+- Shared TypeScript schemas/client helpers and a Long-Term Academic Planner UI panel.
+- Mock seed cases for prerequisite unlocks, corequisite pairs, closed sections, unknown offering patterns, and what-if planning.
+
+Phase 5A testable outcomes:
+
+- Planner creates repeatable mock course plans without mutating official student records.
+- Planner respects maximum credits per term and reports minimum-credit shortfalls.
+- Planner keeps weekly schedule conflicts and registration actions out of scope.
+- Planner responses include structured warnings, reason codes, and explanations.
+
+Deferred from Phase 5A:
+
+- Earliest-graduation proof with a global optimizer.
+- User preference optimization beyond simple credit controls.
+- Multi-objective plan ranking and alternative-plan search.
+- Semester section schedule optimization, OR-Tools, time conflicts, seat monitoring, waitlists, browser extension import, real school scraping, and registration automation.
 
 Deliverables:
 

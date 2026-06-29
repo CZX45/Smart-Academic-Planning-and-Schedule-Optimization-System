@@ -63,6 +63,14 @@ Phase 4 adds course eligibility check snapshot storage:
 - `rule_expression_evaluations`
 - `eligibility_warnings`
 
+Phase 5A adds long-term academic planner snapshot storage:
+
+- `academic_plan_runs`
+- `academic_plan_terms`
+- `academic_plan_courses`
+- `academic_plan_requirement_coverages`
+- `academic_plan_warnings`
+
 Every Phase 2A academic-domain table includes `source_type`, `is_official`, source reference fields, and timestamps. The development seed uses only `source_type = MOCK` and `is_official = false`.
 
 Phase 2B also source-tags offering patterns, sections, meetings, rules, and rule expressions. Mock data remains non-official and cannot be used as authoritative school policy.
@@ -72,6 +80,8 @@ Phase 3A audit rows are generated snapshots, not source records. They do not sto
 Phase 3B scenario rows are generated snapshots. They do not modify `student_academic_programs`; each scenario stores its own membership, audit links, allocations, warnings, and comparison summary. `program_combination_rules` are source-tagged because they represent policy data. Mock rules must remain `source_type = MOCK` and `is_official = false`.
 
 Phase 4 eligibility rows are generated snapshots. They do not modify `student_academic_programs`, `student_course_attempts`, `sections`, or registration data. They reference stored mock `CourseRule` and `CourseRuleExpression` rows and store rule/expression evidence so the API can explain why a course is eligible, conditional, blocked, permission-gated, or manual-review-only.
+
+Phase 5A academic plan rows are generated snapshots. They do not modify `student_academic_programs`, `student_course_attempts`, `sections`, section meetings, or registration data. They reference stored degree-audit, course, requirement, term, scenario, eligibility, and offering-pattern inputs where available, and every planned course stores a source, status, reason code, and explanation.
 
 Important Phase 2A constraints include:
 
@@ -103,6 +113,12 @@ Important Phase 2A constraints include:
 - A rule evaluation is unique per eligibility run and course rule.
 - A rule expression evaluation is unique per rule evaluation and expression node and must include a reason code and explanation.
 - Eligibility warnings must include a warning code, severity, message, and advisor-confirmation flag.
+- An academic plan run references a student, program version, start term, target completion term, planning mode, engine version, and credit policy.
+- A what-if academic plan run must reference an `AcademicPlanScenario`; a current-program run must not require one.
+- Academic plan terms are unique by run/term and run/sequence.
+- Academic plan courses are unique by plan term and course and store eligibility result, planning status, source, reason code, and explanation.
+- Academic plan requirement coverage links planned courses to requirement nodes and stores coverage type and credits.
+- Academic plan warnings must include a warning code, severity, message, and advisor-confirmation flag.
 
 ### Institution and Versioning
 
@@ -213,6 +229,16 @@ Expression examples:
   - `academic_plan_scenario_id`, `completed_credits`, `in_progress_credits`, `planned_credits`, `remaining_requirement_credits`, `shared_credits`, `unique_secondary_credits`, `estimated_additional_credits`, `unresolved_requirements`, `manual_review_count`, `completion_percentage`, `is_estimate`, `created_at`
 - `scenario_warning`
   - `id`, `academic_plan_scenario_id`, `scenario_program_id`, `warning_code`, `severity`, `message`, `requires_advisor_confirmation`, `created_at`
+- `academic_plan_run`
+  - `id`, `student_profile_id`, `program_version_id`, `academic_plan_scenario_id`, `planning_mode`, `status`, `engine_version`, `start_term_id`, `target_completion_term_id`, `minimum_credits_per_term`, `maximum_credits_per_term`, `preferred_credits_per_term`, `completed_at`, `created_at`, `updated_at`
+- `academic_plan_term`
+  - `id`, `academic_plan_run_id`, `term_id`, `sequence_index`, `planned_credits`, `status`, `explanation`, `created_at`
+- `academic_plan_course`
+  - `id`, `academic_plan_term_id`, `course_id`, `requirement_node_id`, `source`, `priority_rank`, `credits`, `eligibility_result`, `planning_status`, `reason_code`, `explanation`, `created_at`
+- `academic_plan_requirement_coverage`
+  - `id`, `academic_plan_run_id`, `academic_plan_course_id`, `requirement_node_id`, `coverage_type`, `credits`, `created_at`
+- `academic_plan_warning`
+  - `id`, `academic_plan_run_id`, `academic_plan_term_id`, `academic_plan_course_id`, `warning_code`, `severity`, `message`, `requires_advisor_confirmation`, `created_at`
 - `planning_session`
   - `id`, `student_id`, `name`, `created_at`, `assumptions`, `status`
 - `planned_course`
@@ -277,6 +303,50 @@ Use relational tables for identities, relationships, student records, courses, s
 - `NOT_ELIGIBLE`
 - `PERMISSION_REQUIRED`
 - `MANUAL_REVIEW_REQUIRED`
+
+### Academic Planning Mode
+
+- `CURRENT_PROGRAM`
+- `WHAT_IF_SCENARIO`
+
+### Academic Plan Run Status
+
+- `PENDING`
+- `RUNNING`
+- `COMPLETED`
+- `COMPLETED_WITH_WARNINGS`
+- `FAILED`
+
+### Academic Plan Term Status
+
+- `PLANNED`
+- `PARTIAL`
+- `BLOCKED`
+- `MANUAL_REVIEW_REQUIRED`
+
+### Academic Plan Course Source
+
+- `DEGREE_AUDIT_REMAINING`
+- `WHAT_IF_REMAINING`
+- `PREREQUISITE_UNLOCK`
+- `COREQUISITE_PAIR`
+- `MANUAL_PLACEHOLDER`
+
+### Academic Plan Course Status
+
+- `PLANNED`
+- `CONDITIONALLY_PLANNED`
+- `BLOCKED`
+- `ALTERNATIVE`
+- `MANUAL_REVIEW_REQUIRED`
+
+### Academic Plan Coverage Type
+
+- `DIRECT_REQUIREMENT`
+- `ELECTIVE_POOL`
+- `TOTAL_CREDITS`
+- `PREREQUISITE_ONLY`
+- `WHAT_IF_REQUIREMENT`
 
 ### Audit Application Type
 
