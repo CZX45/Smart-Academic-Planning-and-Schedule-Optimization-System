@@ -160,6 +160,11 @@ h2 {
   gap: 16px;
 }
 
+.schedule-panel {
+  display: grid;
+  gap: 16px;
+}
+
 .section-heading {
   align-items: flex-start;
   display: flex;
@@ -235,6 +240,11 @@ h2 {
   gap: 16px;
 }
 
+.schedule-result {
+  display: grid;
+  gap: 16px;
+}
+
 .scenario-columns {
   display: grid;
   gap: 14px;
@@ -258,6 +268,8 @@ h2 {
 .planner-columns > div,
 .planner-term-grid,
 .term-column,
+.schedule-options,
+.schedule-option,
 .comparison-table {
   background: white;
   border: 1px solid #d7dde7;
@@ -302,15 +314,46 @@ h2 {
   gap: 12px;
 }
 
+.schedule-options {
+  display: grid;
+  gap: 12px;
+}
+
 .term-columns {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
 }
 
+.schedule-option-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
 .term-column {
   display: grid;
   gap: 10px;
+}
+
+.schedule-option {
+  display: grid;
+  gap: 10px;
+}
+
+.toggle-row {
+  align-items: center;
+  align-self: center;
+  display: inline-flex !important;
+  gap: 8px !important;
+  min-height: 40px;
+}
+
+.toggle-row input {
+  height: 18px;
+  max-width: none;
+  min-height: 18px;
+  width: 18px;
 }
 
 .term-heading {
@@ -380,14 +423,17 @@ h2 {
 
 .in_progress,
 .planned,
-.partially_satisfied {
+.partially_satisfied,
+.feasible,
+.feasible_with_warnings {
   background: #e0f2fe;
   color: #075985;
 }
 
 .not_satisfied,
 .not_eligible,
-.manual_review_required {
+.manual_review_required,
+.infeasible {
   background: #fee2e2;
   color: #991b1b;
 }
@@ -411,6 +457,11 @@ h2 {
 .not_applicable {
   background: #f3f4f6;
   color: #374151;
+}
+
+.partial {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .eligibility-rule {
@@ -485,5 +536,9 @@ h2 {
 
   .eligibility-columns {
     grid-template-columns: 1fr;
+  }
+
+  .scenario-controls select {
+    min-width: 100%;
   }
 }

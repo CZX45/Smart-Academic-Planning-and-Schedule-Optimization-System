@@ -552,6 +552,253 @@ export type AcademicPlanComparison = z.infer<
   typeof AcademicPlanComparisonSchema
 >;
 
+const DayOfWeekSchema = z.enum([
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY",
+]);
+
+const SectionStatusSchema = z.enum([
+  "PLANNED",
+  "OPEN",
+  "CLOSED",
+  "WAITLIST",
+  "CANCELLED",
+  "COMPLETED",
+  "UNKNOWN",
+]);
+
+const SectionModalitySchema = z.enum([
+  "IN_PERSON",
+  "ONLINE_SYNCHRONOUS",
+  "ONLINE_ASYNCHRONOUS",
+  "HYBRID",
+  "ARRANGED",
+  "UNKNOWN",
+]);
+
+const MeetingTypeSchema = z.enum([
+  "LECTURE",
+  "LAB",
+  "RECITATION",
+  "SEMINAR",
+  "EXAM",
+  "OTHER",
+]);
+
+const SchedulePlanningModeSchema = z.enum([
+  "FROM_DEGREE_AUDIT",
+  "FROM_LONG_TERM_PLAN",
+  "CUSTOM_COURSE_SET",
+]);
+
+const ScheduleRunStatusSchema = z.enum([
+  "PENDING",
+  "RUNNING",
+  "COMPLETED",
+  "COMPLETED_WITH_WARNINGS",
+  "FAILED",
+]);
+
+const ScheduleOptionStatusSchema = z.enum([
+  "FEASIBLE",
+  "FEASIBLE_WITH_WARNINGS",
+  "PARTIAL",
+  "INFEASIBLE",
+]);
+
+const ScheduleConflictTypeSchema = z.enum([
+  "TIME_OVERLAP",
+  "UNAVAILABLE_TIME",
+  "EXCLUDED_DAY",
+  "CREDIT_LIMIT",
+  "DUPLICATE_COURSE",
+  "ELIGIBILITY_BLOCKED",
+  "COREQUISITE_MISSING",
+  "NO_SECTION_AVAILABLE",
+  "MANUAL_REVIEW_REQUIRED",
+]);
+
+export const ScheduleOptimizationRunSchema = z.object({
+  id: UuidSchema,
+  student_profile_id: UuidSchema,
+  term_id: UuidSchema,
+  academic_plan_run_id: UuidSchema.nullable(),
+  planning_mode: SchedulePlanningModeSchema,
+  status: ScheduleRunStatusSchema,
+  engine_version: z.string(),
+  minimum_credits: DecimalValueSchema,
+  maximum_credits: DecimalValueSchema,
+  preferred_credits: DecimalValueSchema,
+  requested_option_count: z.number(),
+  completed_at: DateTimeSchema.nullable(),
+  created_at: DateTimeSchema,
+  updated_at: DateTimeSchema,
+});
+
+export type ScheduleOptimizationRun = z.infer<
+  typeof ScheduleOptimizationRunSchema
+>;
+
+export const ScheduleUnavailableTimeBlockSchema = z.object({
+  day_of_week: DayOfWeekSchema,
+  start_time: z.string(),
+  end_time: z.string(),
+});
+
+export type ScheduleUnavailableTimeBlock = z.infer<
+  typeof ScheduleUnavailableTimeBlockSchema
+>;
+
+export const ScheduleConstraintSetSchema = z.object({
+  id: UuidSchema,
+  schedule_optimization_run_id: UuidSchema,
+  excluded_days: z.array(DayOfWeekSchema),
+  unavailable_time_blocks: z.array(ScheduleUnavailableTimeBlockSchema),
+  earliest_start_time: z.string().nullable(),
+  latest_end_time: z.string().nullable(),
+  minimum_gap_minutes: z.number().nullable(),
+  maximum_gap_minutes: z.number().nullable(),
+  candidate_course_ids: z.array(UuidSchema),
+  allowed_modalities: z.array(SectionModalitySchema),
+  excluded_modalities: z.array(SectionModalitySchema),
+  required_course_ids: z.array(UuidSchema),
+  excluded_course_ids: z.array(UuidSchema),
+  required_section_ids: z.array(UuidSchema),
+  excluded_section_ids: z.array(UuidSchema),
+  prefer_online: z.boolean(),
+  prefer_compact_schedule: z.boolean(),
+  prefer_fewer_days: z.boolean(),
+  prefer_in_person: z.boolean(),
+  avoid_early_start: z.boolean(),
+  avoid_late_end: z.boolean(),
+  allow_permission_required: z.boolean(),
+  created_at: DateTimeSchema,
+});
+
+export type ScheduleConstraintSet = z.infer<
+  typeof ScheduleConstraintSetSchema
+>;
+
+export const ScheduleSectionMeetingSchema = z.object({
+  id: UuidSchema,
+  section_id: UuidSchema,
+  meeting_type: MeetingTypeSchema,
+  day_of_week: DayOfWeekSchema.nullable(),
+  start_time: z.string().nullable(),
+  end_time: z.string().nullable(),
+  start_date: z.string().nullable(),
+  end_date: z.string().nullable(),
+  building: z.string().nullable(),
+  room: z.string().nullable(),
+  timezone: z.string().nullable(),
+  is_arranged: z.boolean(),
+  is_online: z.boolean(),
+  display_order: z.number(),
+});
+
+export type ScheduleSectionMeeting = z.infer<
+  typeof ScheduleSectionMeetingSchema
+>;
+
+export const ScheduleOptionSectionSchema = z.object({
+  id: UuidSchema,
+  schedule_option_id: UuidSchema,
+  section_id: UuidSchema,
+  course_id: UuidSchema,
+  course_code: z.string(),
+  course_title: z.string(),
+  section_code: z.string(),
+  section_status: SectionStatusSchema,
+  modality: SectionModalitySchema,
+  credits: DecimalValueSchema,
+  eligibility_result: EligibilityOverallResultSchema,
+  selection_reason: z.string(),
+  meetings: z.array(ScheduleSectionMeetingSchema),
+  created_at: DateTimeSchema,
+});
+
+export type ScheduleOptionSection = z.infer<
+  typeof ScheduleOptionSectionSchema
+>;
+
+export const ScheduleOptionSchema = z.object({
+  id: UuidSchema,
+  schedule_optimization_run_id: UuidSchema,
+  option_rank: z.number(),
+  status: ScheduleOptionStatusSchema,
+  total_credits: DecimalValueSchema,
+  class_days_count: z.number(),
+  earliest_start_time: z.string().nullable(),
+  latest_end_time: z.string().nullable(),
+  total_gap_minutes: z.number(),
+  score: DecimalValueSchema,
+  explanation: z.string(),
+  selected_sections: z.array(ScheduleOptionSectionSchema),
+  created_at: DateTimeSchema,
+});
+
+export type ScheduleOption = z.infer<typeof ScheduleOptionSchema>;
+
+export const ScheduleConflictSchema = z.object({
+  id: UuidSchema,
+  schedule_optimization_run_id: UuidSchema,
+  schedule_option_id: UuidSchema.nullable(),
+  conflict_type: ScheduleConflictTypeSchema,
+  section_id: UuidSchema.nullable(),
+  other_section_id: UuidSchema.nullable(),
+  day_of_week: DayOfWeekSchema.nullable(),
+  start_time: z.string().nullable(),
+  end_time: z.string().nullable(),
+  message: z.string(),
+  created_at: DateTimeSchema,
+});
+
+export type ScheduleConflict = z.infer<typeof ScheduleConflictSchema>;
+
+export const ScheduleWarningSchema = z.object({
+  id: UuidSchema,
+  schedule_optimization_run_id: UuidSchema,
+  schedule_option_id: UuidSchema.nullable(),
+  warning_code: z.string(),
+  severity: z.enum(["INFO", "WARNING", "ERROR"]),
+  message: z.string(),
+  requires_advisor_confirmation: z.boolean(),
+  created_at: DateTimeSchema,
+});
+
+export type ScheduleWarning = z.infer<typeof ScheduleWarningSchema>;
+
+export const ScheduleOptimizationDetailSchema =
+  ScheduleOptimizationRunSchema.extend({
+    constraint_set: ScheduleConstraintSetSchema.nullable(),
+    options: z.array(ScheduleOptionSchema),
+    conflicts: z.array(ScheduleConflictSchema),
+    warnings: z.array(ScheduleWarningSchema),
+  });
+
+export type ScheduleOptimizationDetail = z.infer<
+  typeof ScheduleOptimizationDetailSchema
+>;
+
+export const ScheduleOptimizationComparisonSchema = z.object({
+  schedule_optimization_run_id: UuidSchema,
+  status: ScheduleRunStatusSchema,
+  option_count: z.number(),
+  warning_count: z.number(),
+  best_score: DecimalValueSchema.nullable(),
+  best_total_credits: DecimalValueSchema.nullable(),
+  completed_at: DateTimeSchema.nullable(),
+});
+
+export type ScheduleOptimizationComparison = z.infer<
+  typeof ScheduleOptimizationComparisonSchema
+>;
+
 export class ApiRequestError extends Error {
   constructor(message: string) {
     super(message);
@@ -623,6 +870,44 @@ export type CreateAcademicPlanRequest = {
 
 export type CompareAcademicPlansRequest = {
   academic_plan_ids: string[];
+};
+
+export type CreateScheduleOptimizationRequest = {
+  student_profile_id: string;
+  term_id: string;
+  academic_plan_run_id?: string | null;
+  planning_mode:
+    | "FROM_DEGREE_AUDIT"
+    | "FROM_LONG_TERM_PLAN"
+    | "CUSTOM_COURSE_SET";
+  candidate_course_ids?: string[];
+  minimum_credits: string | number;
+  maximum_credits: string | number;
+  preferred_credits: string | number;
+  requested_option_count: number;
+  excluded_days?: Array<z.infer<typeof DayOfWeekSchema>>;
+  unavailable_time_blocks?: ScheduleUnavailableTimeBlock[];
+  earliest_start_time?: string | null;
+  latest_end_time?: string | null;
+  allowed_modalities?: Array<z.infer<typeof SectionModalitySchema>>;
+  excluded_modalities?: Array<z.infer<typeof SectionModalitySchema>>;
+  required_course_ids?: string[];
+  excluded_course_ids?: string[];
+  required_section_ids?: string[];
+  excluded_section_ids?: string[];
+  prefer_online?: boolean;
+  prefer_compact_schedule?: boolean;
+  prefer_fewer_days?: boolean;
+  prefer_in_person?: boolean;
+  avoid_early_start?: boolean;
+  avoid_late_end?: boolean;
+  allow_permission_required?: boolean;
+  minimum_gap_minutes?: number | null;
+  maximum_gap_minutes?: number | null;
+};
+
+export type CompareScheduleOptimizationsRequest = {
+  schedule_optimization_run_ids: string[];
 };
 
 const DEFAULT_TIMEOUT_MS = 5_000;
@@ -1132,6 +1417,128 @@ export async function compareAcademicPlans(
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Academic plan comparison response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function createScheduleOptimization(
+  apiBaseUrl: string,
+  request: CreateScheduleOptimizationRequest,
+  options: FetchHealthOptions = {},
+): Promise<ScheduleOptimizationDetail> {
+  const parsed = ScheduleOptimizationDetailSchema.safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/schedule-optimizations", {
+      ...options,
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(request),
+    }),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Schedule optimization response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchScheduleOptimization(
+  apiBaseUrl: string,
+  runId: string,
+  options: FetchHealthOptions = {},
+): Promise<ScheduleOptimizationDetail> {
+  const parsed = ScheduleOptimizationDetailSchema.safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/schedule-optimizations/${runId}`, options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Schedule optimization detail response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchScheduleOptimizationOptions(
+  apiBaseUrl: string,
+  runId: string,
+  options: FetchHealthOptions = {},
+): Promise<ScheduleOption[]> {
+  const parsed = z.array(ScheduleOptionSchema).safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/schedule-optimizations/${runId}/options`, options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Schedule optimization options response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchScheduleOptimizationConflicts(
+  apiBaseUrl: string,
+  runId: string,
+  options: FetchHealthOptions = {},
+): Promise<ScheduleConflict[]> {
+  const parsed = z.array(ScheduleConflictSchema).safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/schedule-optimizations/${runId}/conflicts`, options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Schedule optimization conflicts response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchScheduleOptimizationWarnings(
+  apiBaseUrl: string,
+  runId: string,
+  options: FetchHealthOptions = {},
+): Promise<ScheduleWarning[]> {
+  const parsed = z.array(ScheduleWarningSchema).safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/schedule-optimizations/${runId}/warnings`, options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Schedule optimization warnings response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchStudentScheduleOptimizations(
+  apiBaseUrl: string,
+  studentId: string,
+  options: FetchHealthOptions = {},
+): Promise<ScheduleOptimizationRun[]> {
+  const parsed = z.array(ScheduleOptimizationRunSchema).safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/students/${studentId}/schedule-optimizations`, options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Student schedule optimizations response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function compareScheduleOptimizations(
+  apiBaseUrl: string,
+  request: CompareScheduleOptimizationsRequest,
+  options: FetchHealthOptions = {},
+): Promise<ScheduleOptimizationComparison[]> {
+  const parsed = z.array(ScheduleOptimizationComparisonSchema).safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/schedule-optimizations/compare", {
+      ...options,
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(request),
+    }),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Schedule optimization comparison response did not match the expected schema",
     );
   }
   return parsed.data;

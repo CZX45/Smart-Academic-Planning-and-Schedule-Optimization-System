@@ -199,3 +199,19 @@ Consequences:
 - The frontend can render term-by-term plans without reimplementing planner logic.
 - Planner warnings preserve uncertainty for mock data, broad requirements, credit limits, horizon limits, and offering assumptions.
 - Phase 5A remains course-level and deliberately does not select sections, check weekly meeting conflicts, monitor seats, or perform registration actions.
+
+## ADR-0015: Implement Phase 6A semester scheduler as persisted bounded snapshots
+
+Status: Accepted
+
+Context: The system needs a section-level schedule optimizer that can rank concrete semester schedules, but live registration, seat monitoring, browser automation, and a full OR-Tools solver remain outside the current safety and complexity boundary.
+
+Decision: Implement Phase 6A as a synchronous backend application service that creates one `ScheduleOptimizationRun` snapshot with child constraint-set, option, selected-section, conflict, and warning rows. Reuse Course Eligibility in `REGISTRATION` mode, but keep section availability informational and never mutate sections, seats, waitlists, student records, or registration data. Support `FROM_DEGREE_AUDIT`, `FROM_LONG_TERM_PLAN`, and `CUSTOM_COURSE_SET` modes. Use a deterministic bounded search and stable tie-breakers rather than OR-Tools in this foundation phase.
+
+Consequences:
+
+- Schedule results are repeatable, auditable snapshots rather than live registration state.
+- The frontend can render ranked section options, conflicts, and warnings without reimplementing schedule logic.
+- Hard constraints and preference scoring are explainable and testable.
+- Search limits are explicit and warn rather than pretending to be exhaustive.
+- Phase 6A remains read-only and deliberately does not poll seats, join waitlists, add, drop, swap, register, scrape portals, or bypass school authentication.

@@ -5,10 +5,12 @@ import {
   ApiResponseSchemaError,
   compareAcademicPlans,
   compareAcademicScenarios,
+  compareScheduleOptimizations,
   createAcademicPlan,
   createAcademicScenario,
   createCourseEligibilityCheck,
   createDegreeAudit,
+  createScheduleOptimization,
   fetchAcademicScenarioAllocations,
   fetchAcademicScenarioAudits,
   fetchAcademicScenarioComparison,
@@ -17,6 +19,7 @@ import {
   fetchDegreeAuditRequirements,
   fetchHealth,
   fetchLatestDegreeAudit,
+  fetchStudentScheduleOptimizations,
   fetchStudentAcademicPlans,
   fetchStudentEligibilityChecks,
   fetchStudentAcademicScenarios,
@@ -28,6 +31,9 @@ import {
   type DegreeAuditRun,
   type HealthResponse,
   type RequirementEvaluation,
+  type ScheduleOptimizationComparison,
+  type ScheduleOptimizationDetail,
+  type ScheduleOptimizationRun,
   type ScenarioComparisonSnapshot,
   type ScenarioCourseAllocation,
   type ScenarioProgram,
@@ -104,6 +110,19 @@ type PlannerState =
   | { status: "offline"; message: string }
   | { status: "failed"; message: string }
   | { status: "schema-error"; message: string };
+type ScheduleState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | {
+      status: "ready";
+      schedule: ScheduleOptimizationDetail;
+      comparisons: ScheduleOptimizationComparison[];
+      savedRuns: ScheduleOptimizationRun[];
+    }
+  | { status: "empty"; message: string }
+  | { status: "offline"; message: string }
+  | { status: "failed"; message: string }
+  | { status: "schema-error"; message: string };
 type CandidateCourse = {
   id: string;
   label: string;
@@ -118,6 +137,12 @@ type PlannerScope = {
   label: string;
   planningMode: "CURRENT_PROGRAM" | "WHAT_IF_SCENARIO";
   candidateProgramId?: string;
+};
+type SchedulePreset = {
+  id: string;
+  label: string;
+  candidateCourseIds: string[];
+  termId: string;
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -226,6 +251,23 @@ const plannerStartTerms = [
   { id: fall2024TermId, label: "Fall 2024" },
   { id: spring2025TermId, label: "Spring 2025" },
 ];
+const schedulePresets: SchedulePreset[] = [
+  {
+    id: "fall-fin-300-403",
+    label: "Fall 2024: FIN 300 + FIN 403",
+    termId: fall2024TermId,
+    candidateCourseIds: [
+      "e6ab2a34-d85a-5446-875e-83fd36d5b08e",
+      "9413e6c7-26a0-5acf-9de4-88b132dc802d",
+    ],
+  },
+  {
+    id: "fall-fin-300",
+    label: "Fall 2024: FIN 300 only",
+    termId: fall2024TermId,
+    candidateCourseIds: ["e6ab2a34-d85a-5446-875e-83fd36d5b08e"],
+  },
+];
 
 function describeHealthError(error: unknown): string {
   if (error instanceof ApiResponseSchemaError) {
@@ -275,6 +317,16 @@ function describePlannerError(error: unknown): string {
     return error.message;
   }
   return error instanceof Error ? error.message : "Unknown academic planner error";
+}
+
+function describeScheduleError(error: unknown): string {
+  if (error instanceof ApiResponseSchemaError) {
+    return "API returned an unexpected schedule optimization response shape.";
+  }
+  if (error instanceof ApiRequestError) {
+    return error.message;
+  }
+  return error instanceof Error ? error.message : "Unknown schedule optimizer error";
 }
 
 function isNotFound(error: unknown): boolean {
@@ -329,6 +381,22 @@ export default function Home() {
   const [preferredCredits, setPreferredCredits] = useState(6);
   const [maximumCredits, setMaximumCredits] = useState(9);
   const [plannerState, setPlannerState] = useState<PlannerState>(() =>
+    apiBaseUrl
+      ? { status: "idle" }
+      : {
+          status: "offline",
+          message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        },
+  );
+  const [selectedSchedulePresetId, setSelectedSchedulePresetId] = useState(
+    schedulePresets[0].id,
+  );
+  const [scheduleNoFriday, setScheduleNoFriday] = useState(true);
+  const [scheduleAvoidTuesdayBlock, setScheduleAvoidTuesdayBlock] = useState(true);
+  const [schedulePreferOnline, setSchedulePreferOnline] = useState(false);
+  const [schedulePreferCompact, setSchedulePreferCompact] = useState(true);
+  const [schedulePreferFewerDays, setSchedulePreferFewerDays] = useState(true);
+  const [scheduleState, setScheduleState] = useState<ScheduleState>(() =>
     apiBaseUrl
       ? { status: "idle" }
       : {
@@ -478,6 +546,23 @@ export default function Home() {
           setMaximumCredits={setMaximumCredits}
           plannerState={plannerState}
           setPlannerState={setPlannerState}
+        />
+
+        <SemesterScheduleBuilder
+          selectedSchedulePresetId={selectedSchedulePresetId}
+          setSelectedSchedulePresetId={setSelectedSchedulePresetId}
+          scheduleNoFriday={scheduleNoFriday}
+          setScheduleNoFriday={setScheduleNoFriday}
+          scheduleAvoidTuesdayBlock={scheduleAvoidTuesdayBlock}
+          setScheduleAvoidTuesdayBlock={setScheduleAvoidTuesdayBlock}
+          schedulePreferOnline={schedulePreferOnline}
+          setSchedulePreferOnline={setSchedulePreferOnline}
+          schedulePreferCompact={schedulePreferCompact}
+          setSchedulePreferCompact={setSchedulePreferCompact}
+          schedulePreferFewerDays={schedulePreferFewerDays}
+          setSchedulePreferFewerDays={setSchedulePreferFewerDays}
+          scheduleState={scheduleState}
+          setScheduleState={setScheduleState}
         />
       </section>
     </main>
@@ -1521,6 +1606,403 @@ function AcademicPlanResultView({
       ) : null}
     </div>
   );
+}
+
+function SemesterScheduleBuilder({
+  selectedSchedulePresetId,
+  setSelectedSchedulePresetId,
+  scheduleNoFriday,
+  setScheduleNoFriday,
+  scheduleAvoidTuesdayBlock,
+  setScheduleAvoidTuesdayBlock,
+  schedulePreferOnline,
+  setSchedulePreferOnline,
+  schedulePreferCompact,
+  setSchedulePreferCompact,
+  schedulePreferFewerDays,
+  setSchedulePreferFewerDays,
+  scheduleState,
+  setScheduleState,
+}: {
+  selectedSchedulePresetId: string;
+  setSelectedSchedulePresetId: (value: string) => void;
+  scheduleNoFriday: boolean;
+  setScheduleNoFriday: Dispatch<SetStateAction<boolean>>;
+  scheduleAvoidTuesdayBlock: boolean;
+  setScheduleAvoidTuesdayBlock: Dispatch<SetStateAction<boolean>>;
+  schedulePreferOnline: boolean;
+  setSchedulePreferOnline: Dispatch<SetStateAction<boolean>>;
+  schedulePreferCompact: boolean;
+  setSchedulePreferCompact: Dispatch<SetStateAction<boolean>>;
+  schedulePreferFewerDays: boolean;
+  setSchedulePreferFewerDays: Dispatch<SetStateAction<boolean>>;
+  scheduleState: ScheduleState;
+  setScheduleState: Dispatch<SetStateAction<ScheduleState>>;
+}) {
+  const selectedPreset =
+    schedulePresets.find((preset) => preset.id === selectedSchedulePresetId) ??
+    schedulePresets[0];
+
+  async function handleCreateSchedule(): Promise<void> {
+    if (!apiBaseUrl) {
+      setScheduleState({
+        status: "offline",
+        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+      });
+      return;
+    }
+    setScheduleState({ status: "loading" });
+    try {
+      const schedule = await createScheduleOptimization(
+        apiBaseUrl,
+        {
+          student_profile_id: mockStudentId,
+          term_id: selectedPreset.termId,
+          academic_plan_run_id: null,
+          planning_mode: "CUSTOM_COURSE_SET",
+          candidate_course_ids: selectedPreset.candidateCourseIds,
+          minimum_credits: "3.0",
+          maximum_credits: "6.0",
+          preferred_credits: "6.0",
+          requested_option_count: 3,
+          excluded_days: scheduleNoFriday ? ["FRIDAY"] : [],
+          unavailable_time_blocks: scheduleAvoidTuesdayBlock
+            ? [
+                {
+                  day_of_week: "TUESDAY",
+                  start_time: "11:00",
+                  end_time: "11:30",
+                },
+              ]
+            : [],
+          earliest_start_time: "08:00",
+          latest_end_time: "18:00",
+          prefer_online: schedulePreferOnline,
+          prefer_compact_schedule: schedulePreferCompact,
+          prefer_fewer_days: schedulePreferFewerDays,
+          prefer_in_person: !schedulePreferOnline,
+          avoid_late_end: true,
+          allow_permission_required: false,
+        },
+        { timeoutMs: 10_000 },
+      );
+      setScheduleState({ status: "ready", schedule, comparisons: [], savedRuns: [] });
+    } catch (error: unknown) {
+      setScheduleState({
+        status: error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        message: describeScheduleError(error),
+      });
+    }
+  }
+
+  async function handleCompareSchedules(): Promise<void> {
+    if (!apiBaseUrl) {
+      setScheduleState({
+        status: "offline",
+        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+      });
+      return;
+    }
+    try {
+      const savedRuns = await fetchStudentScheduleOptimizations(apiBaseUrl, mockStudentId, {
+        timeoutMs: 5_000,
+      });
+      if (savedRuns.length < 2) {
+        setScheduleState({
+          status: "empty",
+          message: "At least two saved schedule runs are needed.",
+        });
+        return;
+      }
+      const comparisons = await compareScheduleOptimizations(
+        apiBaseUrl,
+        {
+          schedule_optimization_run_ids: savedRuns.slice(0, 2).map((run) => run.id),
+        },
+        { timeoutMs: 5_000 },
+      );
+      setScheduleState((current) =>
+        current.status === "ready"
+          ? { ...current, comparisons, savedRuns }
+          : {
+              status: "empty",
+              message: "Create a schedule before comparing saved schedule runs.",
+            },
+      );
+    } catch (error: unknown) {
+      setScheduleState({
+        status: error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        message: describeScheduleError(error),
+      });
+    }
+  }
+
+  return (
+    <section className="schedule-panel" aria-label="Semester Schedule Builder">
+      <div className="section-heading">
+        <div>
+          <h2>Semester Schedule Builder</h2>
+          <p className="subtle">
+            Build explainable single-term section options from mock section data.
+          </p>
+        </div>
+        <p className="notice compact">This is not registration.</p>
+      </div>
+
+      <ul className="disclaimer-list" aria-label="Schedule builder disclaimers">
+        <li>Mock data - not official university policy.</li>
+        <li>No add, drop, swap, waitlist, or registration action is performed.</li>
+        <li>High-impact schedule decisions need advisor or school confirmation.</li>
+      </ul>
+
+      <div className="scenario-controls schedule-controls">
+        <label>
+          Course set
+          <select
+            value={selectedSchedulePresetId}
+            onChange={(event) => setSelectedSchedulePresetId(event.target.value)}
+          >
+            {schedulePresets.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="toggle-row">
+          <input
+            checked={scheduleNoFriday}
+            type="checkbox"
+            onChange={(event) => setScheduleNoFriday(event.target.checked)}
+          />
+          No Friday
+        </label>
+        <label className="toggle-row">
+          <input
+            checked={scheduleAvoidTuesdayBlock}
+            type="checkbox"
+            onChange={(event) => setScheduleAvoidTuesdayBlock(event.target.checked)}
+          />
+          Tue 11:00 block
+        </label>
+        <label className="toggle-row">
+          <input
+            checked={schedulePreferOnline}
+            type="checkbox"
+            onChange={(event) => setSchedulePreferOnline(event.target.checked)}
+          />
+          Prefer online
+        </label>
+        <label className="toggle-row">
+          <input
+            checked={schedulePreferCompact}
+            type="checkbox"
+            onChange={(event) => setSchedulePreferCompact(event.target.checked)}
+          />
+          Compact
+        </label>
+        <label className="toggle-row">
+          <input
+            checked={schedulePreferFewerDays}
+            type="checkbox"
+            onChange={(event) => setSchedulePreferFewerDays(event.target.checked)}
+          />
+          Fewer days
+        </label>
+        <button type="button" onClick={() => void handleCreateSchedule()}>
+          Build schedule
+        </button>
+        <button type="button" onClick={() => void handleCompareSchedules()}>
+          Compare saved schedules
+        </button>
+      </div>
+
+      {scheduleState.status === "loading" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Building semester schedule</h2>
+          <p>Checking mock section meetings, eligibility, conflicts, and preferences.</p>
+        </section>
+      ) : null}
+
+      {scheduleState.status === "offline" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Schedule optimizer API offline</h2>
+          <p>{scheduleState.message}</p>
+        </section>
+      ) : null}
+
+      {scheduleState.status === "failed" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Schedule optimizer failed</h2>
+          <p>{scheduleState.message}</p>
+        </section>
+      ) : null}
+
+      {scheduleState.status === "schema-error" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Schedule optimizer schema error</h2>
+          <p>{scheduleState.message}</p>
+        </section>
+      ) : null}
+
+      {scheduleState.status === "empty" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>No saved schedules</h2>
+          <p>{scheduleState.message}</p>
+        </section>
+      ) : null}
+
+      {scheduleState.status === "ready" ? (
+        <ScheduleResultView state={scheduleState} />
+      ) : null}
+    </section>
+  );
+}
+
+function ScheduleResultView({
+  state,
+}: {
+  state: Extract<ScheduleState, { status: "ready" }>;
+}) {
+  const { schedule } = state;
+  const bestOption = schedule.options[0] ?? null;
+
+  return (
+    <div className="schedule-result">
+      <section className="summary-grid" aria-label="Schedule optimization summary">
+        <SummaryMetric label="Run Status" value={statusLabel(schedule.status)} />
+        <SummaryMetric label="Options" value={String(schedule.options.length)} />
+        <SummaryMetric label="Conflicts" value={String(schedule.conflicts.length)} />
+        <SummaryMetric label="Warnings" value={String(schedule.warnings.length)} />
+        <SummaryMetric
+          label="Best Credits"
+          value={bestOption ? formatCredits(bestOption.total_credits) : "0.0"}
+        />
+        <SummaryMetric
+          label="Best Score"
+          value={bestOption ? Number(bestOption.score).toFixed(2) : "0.00"}
+        />
+      </section>
+
+      <section className="schedule-options" aria-label="Schedule options">
+        <h2>Section Options</h2>
+        {schedule.options.length === 0 ? (
+          <p className="subtle">No feasible section option was created.</p>
+        ) : null}
+        <div className="schedule-option-grid">
+          {schedule.options.map((option) => (
+            <section key={option.id} className="schedule-option">
+              <div className="term-heading">
+                <h3>Option {option.option_rank}</h3>
+                <span className={`status-pill ${option.status.toLowerCase()}`}>
+                  {statusLabel(option.status)}
+                </span>
+              </div>
+              <p>
+                {formatCredits(option.total_credits)} credits - {option.class_days_count} class
+                days - score {Number(option.score).toFixed(2)}
+              </p>
+              <p className="subtle">{option.explanation}</p>
+              <ul className="compact-list">
+                {option.selected_sections.map((selected) => (
+                  <li key={selected.id}>
+                    <strong>
+                      {selected.course_code} {selected.section_code}
+                    </strong>
+                    <span>
+                      {selected.course_title} - {statusLabel(selected.modality)} -{" "}
+                      {statusLabel(selected.eligibility_result)}
+                    </span>
+                    <span>{formatMeetingList(selected.meetings)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </section>
+
+      <section className="planner-columns">
+        <div>
+          <h2>Conflicts</h2>
+          {schedule.conflicts.length > 0 ? (
+            <ul className="compact-list">
+              {schedule.conflicts.map((conflict) => (
+                <li key={conflict.id}>
+                  <strong>{conflict.conflict_type}</strong>
+                  <span>{conflict.message}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="subtle">No conflicts were recorded.</p>
+          )}
+        </div>
+        <div>
+          <h2>Schedule Warnings</h2>
+          {schedule.warnings.length > 0 ? (
+            <ul className="compact-list">
+              {schedule.warnings.map((warning) => (
+                <li key={warning.id}>
+                  <strong>{warning.warning_code}</strong>
+                  <span>{warning.message}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="subtle">No schedule warnings.</p>
+          )}
+        </div>
+      </section>
+
+      {state.comparisons.length > 0 ? (
+        <section className="comparison-table" aria-label="Saved schedule comparison">
+          <h2>Saved Schedule Comparison</h2>
+          <div className="comparison-rows">
+            {state.comparisons.map((comparison) => {
+              const savedRun = state.savedRuns.find(
+                (item) => item.id === comparison.schedule_optimization_run_id,
+              );
+              return (
+                <div
+                  key={comparison.schedule_optimization_run_id}
+                  className="comparison-row"
+                >
+                  <strong>{savedRun?.planning_mode ?? comparison.status}</strong>
+                  <span>
+                    {comparison.option_count} options -{" "}
+                    {comparison.best_total_credits
+                      ? formatCredits(comparison.best_total_credits)
+                      : "0.0"}{" "}
+                    best credits - {comparison.warning_count} warnings
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function formatMeetingList(
+  meetings: ScheduleOptimizationDetail["options"][number]["selected_sections"][number]["meetings"],
+): string {
+  if (meetings.length === 0) {
+    return "Meeting time not available";
+  }
+  return meetings
+    .map((meeting) => {
+      if (meeting.is_online && !meeting.day_of_week) {
+        return "Online async";
+      }
+      if (!meeting.day_of_week || !meeting.start_time || !meeting.end_time) {
+        return statusLabel(meeting.meeting_type);
+      }
+      return `${statusLabel(meeting.day_of_week)} ${meeting.start_time}-${meeting.end_time}`;
+    })
+    .join("; ");
 }
 
 async function loadScenarioDetail(

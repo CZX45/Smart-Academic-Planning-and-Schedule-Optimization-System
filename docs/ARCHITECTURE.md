@@ -55,6 +55,7 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Phase 3B adds synchronous academic scenario endpoints under `/api/v1/academic-scenarios`. The scenario service validates hypothetical program combinations, reuses Phase 3A Degree Audit per program, runs deterministic multi-program allocation, and persists comparison summaries and warnings.
 - Phase 4 adds synchronous course eligibility endpoints under `/api/v1/eligibility-checks`. The eligibility service evaluates stored course-rule expression trees against student records, persists check snapshots, and reports rule/expression evidence without mutating student academic programs or registration data.
 - Phase 5A adds synchronous long-term academic planner endpoints under `/api/v1/academic-plans`. The planner reuses Degree Audit and Course Eligibility, persists course-level term plans and warnings, and does not mutate official student records or registration data.
+- Phase 6A adds synchronous semester schedule optimizer endpoints under `/api/v1/schedule-optimizations`. The optimizer ranks bounded single-term section combinations, persists constraint/option/conflict/warning snapshots, and does not mutate student records, section data, seats, waitlists, or registration data.
 
 ### Browser Extension
 - Later-phase optional data capture tool.
@@ -150,6 +151,16 @@ The planner remains deterministic and course-level. It can use section and offer
 ### Scheduling Boundary
 Builds section-level schedules for a single term.
 
+Phase 6A implements this boundary with:
+
+- `ScheduleOptimizationRun` as the snapshot root for one student, term, planning mode, credit policy, and engine version.
+- `ScheduleConstraintSet` for persisted hard constraints and preference inputs, including candidate course IDs, excluded days, unavailable blocks, time windows, modalities, and permission behavior.
+- `ScheduleOption` for each ranked result with status, score, credit total, class-day count, time window, gap minutes, and explanation.
+- `ScheduleOptionSection` for selected concrete sections with course, section, eligibility result, credits, and selection reason.
+- `ScheduleConflict` and `ScheduleWarning` for rejected candidates, infeasibility causes, mock-data notices, advisor-confirmation warnings, and bounded-search assumptions.
+
+The Phase 6A scheduler is deterministic and bounded. It can use Course Eligibility in `REGISTRATION` mode, but section availability remains informational and registration actions are out of scope. It rejects overlapping required meetings, unavailable blocks, excluded days, hard eligibility blocks, duplicate-course choices, and credit overloads. It scores feasible or partial options by preferred credits, compactness, fewer days, modality preference, and early/late preferences. It does not use OR-Tools, poll seats, join waitlists, add, drop, swap, or register.
+
 ### Advising and Risk Boundary
 Produces risk flags, advisor review items, confidence levels, and high-risk recommendation warnings.
 
@@ -163,7 +174,7 @@ Produces risk flags, advisor review items, confidence levels, and high-risk reco
 6. Phase 3B What-if Scenarios create mock program-combination snapshots, per-program audit runs, allocations, warnings, and comparison summaries.
 7. Phase 4 Course Eligibility Checks evaluate stored mock course rules and optional section rules for a selected course/term.
 8. Phase 5A Academic Planner proposes course-level future terms and persists requirement coverage and warnings.
-9. Schedule Optimizer ranks concrete section schedules for a selected term in a later phase.
+9. Phase 6A Schedule Optimizer ranks concrete mock section schedules for a selected term and persists options, conflicts, and warnings.
 10. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
 11. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
 
@@ -194,7 +205,7 @@ Each evaluator and optimizer returns:
 - PostgreSQL supports relational integrity, JSONB rule trees, and advanced constraints.
 - SQLAlchemy gives mature Python ORM support.
 - Pydantic enables strict validation and versioned schemas.
-- OR-Tools CP-SAT is suitable for future constraint optimization in planning and scheduling; Phase 5A uses a deterministic baseline planner.
+- OR-Tools CP-SAT is suitable for future constraint optimization in planning and scheduling; Phase 5A uses a deterministic baseline planner and Phase 6A uses a deterministic bounded scheduler.
 - Playwright enables realistic E2E tests for planner workflows.
 
 ## 9. Deployment Direction

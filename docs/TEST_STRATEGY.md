@@ -70,6 +70,15 @@ Phase 5A adds deterministic long-term academic planner coverage:
 - Shared TypeScript schema tests for academic plan run, term, course, coverage, warning, detail, comparison, and schema-error responses.
 - Playwright tests for Long-Term Academic Planner UI success, required disclaimers, term-by-term output, requirement coverage, warnings, saved-plan comparison, API offline/failure/empty/schema-error states, and the absence of registration or weekly-conflict claims.
 
+Phase 6A adds deterministic semester schedule optimizer coverage:
+
+- SQLite-backed model tests for schedule runs, constraint sets, options, option sections, conflicts, warnings, uniqueness, credit constraints, and snapshot persistence.
+- Engine tests for no-Friday constraints, unavailable blocks, time-overlap conflicts, online/in-person preference scoring, minimum-credit partial results, maximum-credit hard limits, permission-required blocking, and advisor-confirmation warnings.
+- API tests for schedule creation, detail, options, conflicts, warnings, student schedule list, compare endpoint, invalid credit settings, 404s, and schema validation.
+- Seed tests for mock section cases covering overlapping meetings, Friday exclusion, online alternatives, permission-required sections, and conditional eligibility.
+- Shared TypeScript schema tests for schedule run, constraint set, option, selected section, meeting, conflict, warning, detail, comparison, and schema-error responses.
+- Playwright tests for Semester Schedule Builder UI success, required disclaimers, ranked options, conflicts, warnings, saved-schedule comparison, API offline/failure/empty/schema-error states, and the absence of registration or waitlist actions.
+
 ### End-to-End Tests
 
 Playwright tests for:
@@ -170,6 +179,15 @@ Phase 5A covers academic planner behavior:
 - Maximum credit limits are hard placement limits; minimum-credit failures become warnings.
 - Offering patterns are assumptions and never official commitments.
 - Planner output remains course-level and does not select sections, inspect weekly conflicts, poll seats, or register.
+
+Phase 6A covers semester schedule optimizer behavior:
+
+- `FROM_DEGREE_AUDIT`, `FROM_LONG_TERM_PLAN`, and `CUSTOM_COURSE_SET` modes create snapshots without mutating declarations, attempts, sections, seats, waitlists, or registration data.
+- Candidate courses can come from an audit, a long-term plan, or an explicit mock course set.
+- Hard constraints reject overlapping meetings, unavailable blocks, excluded days, duplicate course sections, blocked eligibility, and credit overloads.
+- Partial results and infeasibility produce structured conflicts, warnings, and explanations.
+- Preference scoring is deterministic and explainable.
+- Scheduler output remains section-level and does not poll seats, join waitlists, add, drop, swap, or register.
 
 ## 5. Property and Constraint Tests
 

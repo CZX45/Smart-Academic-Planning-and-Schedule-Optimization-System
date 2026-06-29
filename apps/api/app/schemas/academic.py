@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
@@ -339,6 +339,52 @@ AcademicPlanCoverageTypeValue = Literal[
     "TOTAL_CREDITS",
     "PREREQUISITE_ONLY",
     "WHAT_IF_REQUIREMENT",
+]
+SchedulePlanningModeValue = Literal[
+    "FROM_DEGREE_AUDIT",
+    "FROM_LONG_TERM_PLAN",
+    "CUSTOM_COURSE_SET",
+]
+ScheduleRunStatusValue = Literal[
+    "PENDING",
+    "RUNNING",
+    "COMPLETED",
+    "COMPLETED_WITH_WARNINGS",
+    "FAILED",
+]
+ScheduleOptionStatusValue = Literal[
+    "FEASIBLE",
+    "FEASIBLE_WITH_WARNINGS",
+    "PARTIAL",
+    "INFEASIBLE",
+]
+ScheduleConflictTypeValue = Literal[
+    "TIME_OVERLAP",
+    "UNAVAILABLE_TIME",
+    "EXCLUDED_DAY",
+    "CREDIT_LIMIT",
+    "DUPLICATE_COURSE",
+    "ELIGIBILITY_BLOCKED",
+    "COREQUISITE_MISSING",
+    "NO_SECTION_AVAILABLE",
+    "MANUAL_REVIEW_REQUIRED",
+]
+DayOfWeekValue = Literal[
+    "MONDAY",
+    "TUESDAY",
+    "WEDNESDAY",
+    "THURSDAY",
+    "FRIDAY",
+    "SATURDAY",
+    "SUNDAY",
+]
+SectionModalityValue = Literal[
+    "IN_PERSON",
+    "ONLINE_SYNCHRONOUS",
+    "ONLINE_ASYNCHRONOUS",
+    "HYBRID",
+    "ARRANGED",
+    "UNKNOWN",
 ]
 EligibilityModeValue = Literal["CURRENT", "PROJECTED", "REGISTRATION"]
 EligibilityCheckStatusValue = Literal[
@@ -753,6 +799,165 @@ class AcademicPlanComparisonResponse(BaseModel):
     term_count: int
     planned_course_count: int
     warning_count: int
+    completed_at: datetime | None = None
+
+
+class ScheduleUnavailableTimeBlockRequest(BaseModel):
+    day_of_week: DayOfWeekValue
+    start_time: time
+    end_time: time
+
+
+class ScheduleOptimizationCreateRequest(BaseModel):
+    student_profile_id: UUID
+    term_id: UUID
+    academic_plan_run_id: UUID | None = None
+    planning_mode: SchedulePlanningModeValue
+    candidate_course_ids: list[UUID] = Field(default_factory=list)
+    minimum_credits: Decimal = Field(ge=0)
+    maximum_credits: Decimal = Field(ge=0)
+    preferred_credits: Decimal = Field(ge=0)
+    requested_option_count: int = Field(gt=0, le=20)
+    excluded_days: list[DayOfWeekValue] = Field(default_factory=list)
+    unavailable_time_blocks: list[ScheduleUnavailableTimeBlockRequest] = Field(default_factory=list)
+    earliest_start_time: time | None = None
+    latest_end_time: time | None = None
+    allowed_modalities: list[SectionModalityValue] = Field(default_factory=list)
+    excluded_modalities: list[SectionModalityValue] = Field(default_factory=list)
+    required_course_ids: list[UUID] = Field(default_factory=list)
+    excluded_course_ids: list[UUID] = Field(default_factory=list)
+    required_section_ids: list[UUID] = Field(default_factory=list)
+    excluded_section_ids: list[UUID] = Field(default_factory=list)
+    prefer_online: bool = False
+    prefer_compact_schedule: bool = False
+    prefer_fewer_days: bool = False
+    prefer_in_person: bool = False
+    avoid_early_start: bool = False
+    avoid_late_end: bool = False
+    allow_permission_required: bool = False
+    minimum_gap_minutes: int | None = Field(default=None, ge=0)
+    maximum_gap_minutes: int | None = Field(default=None, ge=0)
+
+
+class ScheduleOptimizationCompareRequest(BaseModel):
+    schedule_optimization_run_ids: list[UUID] = Field(min_length=2)
+
+
+class ScheduleOptimizationRunResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    term_id: UUID
+    academic_plan_run_id: UUID | None = None
+    planning_mode: SchedulePlanningModeValue
+    status: ScheduleRunStatusValue
+    engine_version: str
+    minimum_credits: Decimal
+    maximum_credits: Decimal
+    preferred_credits: Decimal
+    requested_option_count: int
+    completed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ScheduleConstraintSetResponse(BaseModel):
+    id: UUID
+    schedule_optimization_run_id: UUID
+    excluded_days: list[str]
+    unavailable_time_blocks: list[dict[str, str]]
+    earliest_start_time: str | None = None
+    latest_end_time: str | None = None
+    minimum_gap_minutes: int | None = None
+    maximum_gap_minutes: int | None = None
+    candidate_course_ids: list[str]
+    allowed_modalities: list[str]
+    excluded_modalities: list[str]
+    required_course_ids: list[str]
+    excluded_course_ids: list[str]
+    required_section_ids: list[str]
+    excluded_section_ids: list[str]
+    prefer_online: bool
+    prefer_compact_schedule: bool
+    prefer_fewer_days: bool
+    prefer_in_person: bool
+    avoid_early_start: bool
+    avoid_late_end: bool
+    allow_permission_required: bool
+    created_at: datetime
+
+
+class ScheduleOptionSectionResponse(BaseModel):
+    id: UUID
+    schedule_option_id: UUID
+    section_id: UUID
+    course_id: UUID
+    course_code: str
+    course_title: str
+    section_code: str
+    section_status: str
+    modality: str
+    credits: Decimal
+    eligibility_result: EligibilityOverallResultValue
+    selection_reason: str
+    meetings: list[SectionMeetingResponse]
+    created_at: datetime
+
+
+class ScheduleOptionResponse(BaseModel):
+    id: UUID
+    schedule_optimization_run_id: UUID
+    option_rank: int
+    status: ScheduleOptionStatusValue
+    total_credits: Decimal
+    class_days_count: int
+    earliest_start_time: str | None = None
+    latest_end_time: str | None = None
+    total_gap_minutes: int
+    score: Decimal
+    explanation: str
+    selected_sections: list[ScheduleOptionSectionResponse]
+    created_at: datetime
+
+
+class ScheduleConflictResponse(BaseModel):
+    id: UUID
+    schedule_optimization_run_id: UUID
+    schedule_option_id: UUID | None = None
+    conflict_type: ScheduleConflictTypeValue
+    section_id: UUID | None = None
+    other_section_id: UUID | None = None
+    day_of_week: DayOfWeekValue | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+    message: str
+    created_at: datetime
+
+
+class ScheduleWarningResponse(BaseModel):
+    id: UUID
+    schedule_optimization_run_id: UUID
+    schedule_option_id: UUID | None = None
+    warning_code: str
+    severity: AuditWarningSeverityValue
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class ScheduleOptimizationDetailResponse(ScheduleOptimizationRunResponse):
+    constraint_set: ScheduleConstraintSetResponse | None = None
+    options: list[ScheduleOptionResponse]
+    conflicts: list[ScheduleConflictResponse]
+    warnings: list[ScheduleWarningResponse]
+
+
+class ScheduleOptimizationComparisonResponse(BaseModel):
+    schedule_optimization_run_id: UUID
+    status: ScheduleRunStatusValue
+    option_count: int
+    warning_count: int
+    best_score: Decimal | None = None
+    best_total_credits: Decimal | None = None
     completed_at: datetime | None = None
 
 

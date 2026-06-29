@@ -14,8 +14,10 @@ import {
   DegreeAuditRunSchema,
   RequirementEvaluationSchema,
   DegreeAuditWarningSchema,
+  ScheduleOptimizationDetailSchema,
   createAcademicPlan,
   createCourseEligibilityCheck,
+  createScheduleOptimization,
   fetchHealth,
 } from "./index.js";
 
@@ -486,6 +488,167 @@ describe("academic plan schemas", () => {
           minimum_credits_per_term: "3.0",
           maximum_credits_per_term: "6.0",
           preferred_credits_per_term: "6.0",
+        },
+        { fetchFn },
+      ),
+    ).rejects.toThrow(ApiResponseSchemaError);
+  });
+});
+
+describe("schedule optimizer schemas", () => {
+  const schedulePayload = {
+    id: "00000000-0000-4000-8000-000000000501",
+    student_profile_id: "00000000-0000-4000-8000-000000000001",
+    term_id: "00000000-0000-4000-8000-000000000101",
+    academic_plan_run_id: null,
+    planning_mode: "CUSTOM_COURSE_SET",
+    status: "COMPLETED_WITH_WARNINGS",
+    engine_version: "phase-6a-schedule-optimizer-v1",
+    minimum_credits: "3.0",
+    maximum_credits: "6.0",
+    preferred_credits: "6.0",
+    requested_option_count: 2,
+    completed_at: "2026-06-29T00:00:01Z",
+    created_at: "2026-06-29T00:00:00Z",
+    updated_at: "2026-06-29T00:00:01Z",
+    constraint_set: {
+      id: "00000000-0000-4000-8000-000000000502",
+      schedule_optimization_run_id: "00000000-0000-4000-8000-000000000501",
+      excluded_days: ["FRIDAY"],
+      unavailable_time_blocks: [
+        { day_of_week: "TUESDAY", start_time: "11:00", end_time: "11:30" },
+      ],
+      earliest_start_time: "08:00",
+      latest_end_time: "18:00",
+      minimum_gap_minutes: null,
+      maximum_gap_minutes: null,
+      candidate_course_ids: ["00000000-0000-4000-8000-000000000301"],
+      allowed_modalities: [],
+      excluded_modalities: [],
+      required_course_ids: [],
+      excluded_course_ids: [],
+      required_section_ids: [],
+      excluded_section_ids: [],
+      prefer_online: false,
+      prefer_compact_schedule: true,
+      prefer_fewer_days: true,
+      prefer_in_person: true,
+      avoid_early_start: false,
+      avoid_late_end: true,
+      allow_permission_required: false,
+      created_at: "2026-06-29T00:00:00Z",
+    },
+    options: [
+      {
+        id: "00000000-0000-4000-8000-000000000503",
+        schedule_optimization_run_id: "00000000-0000-4000-8000-000000000501",
+        option_rank: 1,
+        status: "FEASIBLE_WITH_WARNINGS",
+        total_credits: "6.0",
+        class_days_count: 2,
+        earliest_start_time: "09:00",
+        latest_end_time: "12:15",
+        total_gap_minutes: 45,
+        score: "86.00",
+        explanation: "Selected deterministic mock sections with traceable warnings.",
+        selected_sections: [
+          {
+            id: "00000000-0000-4000-8000-000000000504",
+            schedule_option_id: "00000000-0000-4000-8000-000000000503",
+            section_id: "00000000-0000-4000-8000-000000000505",
+            course_id: "00000000-0000-4000-8000-000000000301",
+            course_code: "FIN 300",
+            course_title: "Mock Corporate Finance",
+            section_code: "001",
+            section_status: "OPEN",
+            modality: "IN_PERSON",
+            credits: "3.0",
+            eligibility_result: "ELIGIBLE",
+            selection_reason: "MANUAL_CANDIDATE",
+            meetings: [
+              {
+                id: "00000000-0000-4000-8000-000000000506",
+                section_id: "00000000-0000-4000-8000-000000000505",
+                meeting_type: "LECTURE",
+                day_of_week: "MONDAY",
+                start_time: "09:00",
+                end_time: "10:15",
+                start_date: null,
+                end_date: null,
+                building: "MOCK",
+                room: "101",
+                timezone: "America/New_York",
+                is_arranged: false,
+                is_online: false,
+                display_order: 1,
+              },
+            ],
+            created_at: "2026-06-29T00:00:00Z",
+          },
+        ],
+        created_at: "2026-06-29T00:00:00Z",
+      },
+    ],
+    conflicts: [
+      {
+        id: "00000000-0000-4000-8000-000000000507",
+        schedule_optimization_run_id: "00000000-0000-4000-8000-000000000501",
+        schedule_option_id: null,
+        conflict_type: "UNAVAILABLE_TIME",
+        section_id: "00000000-0000-4000-8000-000000000505",
+        other_section_id: null,
+        day_of_week: "TUESDAY",
+        start_time: "11:00",
+        end_time: "11:30",
+        message: "Mock section conflicts with an unavailable time block.",
+        created_at: "2026-06-29T00:00:00Z",
+      },
+    ],
+    warnings: [
+      {
+        id: "00000000-0000-4000-8000-000000000508",
+        schedule_optimization_run_id: "00000000-0000-4000-8000-000000000501",
+        schedule_option_id: null,
+        warning_code: "MOCK_SECTION_DATA_NOT_OFFICIAL",
+        severity: "INFO",
+        message: "Mock schedule data is not official.",
+        requires_advisor_confirmation: true,
+        created_at: "2026-06-29T00:00:00Z",
+      },
+    ],
+  };
+
+  it("validates schedule optimizer snapshots with options, conflicts, and warnings", () => {
+    expect(ScheduleOptimizationDetailSchema.parse(schedulePayload)).toMatchObject({
+      planning_mode: "CUSTOM_COURSE_SET",
+      options: [{ selected_sections: [{ course_code: "FIN 300" }] }],
+      conflicts: [{ conflict_type: "UNAVAILABLE_TIME" }],
+    });
+  });
+
+  it("rejects malformed schedule optimizer API payloads", async () => {
+    const fetchFn = async () =>
+      new Response(
+        JSON.stringify({
+          ...schedulePayload,
+          options: [{ ...schedulePayload.options[0], status: "AUTO_REGISTERED" }],
+        }),
+      );
+
+    await expect(
+      createScheduleOptimization(
+        "http://api.test",
+        {
+          student_profile_id: schedulePayload.student_profile_id,
+          term_id: schedulePayload.term_id,
+          academic_plan_run_id: null,
+          planning_mode: "CUSTOM_COURSE_SET",
+          candidate_course_ids: schedulePayload.constraint_set.candidate_course_ids,
+          minimum_credits: "3.0",
+          maximum_credits: "6.0",
+          preferred_credits: "6.0",
+          requested_option_count: 2,
+          excluded_days: ["FRIDAY"],
         },
         { fetchFn },
       ),

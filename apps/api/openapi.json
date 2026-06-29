@@ -1953,6 +1953,403 @@
         }
       }
     },
+    "/api/v1/schedule-optimizations": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Create Schedule Optimization",
+        "operationId": "create_schedule_optimization_api_v1_schedule_optimizations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleOptimizationCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleOptimizationDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/schedule-optimizations/compare": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Compare Schedule Optimizations",
+        "operationId": "compare_schedule_optimizations_api_v1_schedule_optimizations_compare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleOptimizationCompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduleOptimizationComparisonResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Compare Schedule Optimizations Api V1 Schedule Optimizations Compare Post"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/schedule-optimizations/{run_id}": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Schedule Optimization",
+        "operationId": "get_schedule_optimization_api_v1_schedule_optimizations__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleOptimizationDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/schedule-optimizations/{run_id}/options": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Schedule Optimization Options",
+        "operationId": "get_schedule_optimization_options_api_v1_schedule_optimizations__run_id__options_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduleOptionResponse"
+                  },
+                  "title": "Response Get Schedule Optimization Options Api V1 Schedule Optimizations  Run Id  Options Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/schedule-optimizations/{run_id}/conflicts": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Schedule Optimization Conflicts",
+        "operationId": "get_schedule_optimization_conflicts_api_v1_schedule_optimizations__run_id__conflicts_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduleConflictResponse"
+                  },
+                  "title": "Response Get Schedule Optimization Conflicts Api V1 Schedule Optimizations  Run Id  Conflicts Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/schedule-optimizations/{run_id}/warnings": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Schedule Optimization Warnings",
+        "operationId": "get_schedule_optimization_warnings_api_v1_schedule_optimizations__run_id__warnings_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduleWarningResponse"
+                  },
+                  "title": "Response Get Schedule Optimization Warnings Api V1 Schedule Optimizations  Run Id  Warnings Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/students/{student_id}/schedule-optimizations": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "List Student Schedule Optimizations",
+        "operationId": "list_student_schedule_optimizations_api_v1_students__student_id__schedule_optimizations_get",
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduleOptimizationRunResponse"
+                  },
+                  "title": "Response List Student Schedule Optimizations Api V1 Students  Student Id  Schedule Optimizations Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/academic-scenarios": {
       "post": {
         "tags": [
@@ -6218,6 +6615,1216 @@
           "created_at"
         ],
         "title": "ScenarioWarningResponse"
+      },
+      "ScheduleConflictResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "schedule_optimization_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Schedule Optimization Run Id"
+          },
+          "schedule_option_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schedule Option Id"
+          },
+          "conflict_type": {
+            "type": "string",
+            "enum": [
+              "TIME_OVERLAP",
+              "UNAVAILABLE_TIME",
+              "EXCLUDED_DAY",
+              "CREDIT_LIMIT",
+              "DUPLICATE_COURSE",
+              "ELIGIBILITY_BLOCKED",
+              "COREQUISITE_MISSING",
+              "NO_SECTION_AVAILABLE",
+              "MANUAL_REVIEW_REQUIRED"
+            ],
+            "title": "Conflict Type"
+          },
+          "section_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Id"
+          },
+          "other_section_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Other Section Id"
+          },
+          "day_of_week": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "MONDAY",
+                  "TUESDAY",
+                  "WEDNESDAY",
+                  "THURSDAY",
+                  "FRIDAY",
+                  "SATURDAY",
+                  "SUNDAY"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day Of Week"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "schedule_optimization_run_id",
+          "conflict_type",
+          "message",
+          "created_at"
+        ],
+        "title": "ScheduleConflictResponse"
+      },
+      "ScheduleConstraintSetResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "schedule_optimization_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Schedule Optimization Run Id"
+          },
+          "excluded_days": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Excluded Days"
+          },
+          "unavailable_time_blocks": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Unavailable Time Blocks"
+          },
+          "earliest_start_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earliest Start Time"
+          },
+          "latest_end_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest End Time"
+          },
+          "minimum_gap_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Gap Minutes"
+          },
+          "maximum_gap_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Gap Minutes"
+          },
+          "candidate_course_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Candidate Course Ids"
+          },
+          "allowed_modalities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Modalities"
+          },
+          "excluded_modalities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Excluded Modalities"
+          },
+          "required_course_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Course Ids"
+          },
+          "excluded_course_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Excluded Course Ids"
+          },
+          "required_section_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Section Ids"
+          },
+          "excluded_section_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Excluded Section Ids"
+          },
+          "prefer_online": {
+            "type": "boolean",
+            "title": "Prefer Online"
+          },
+          "prefer_compact_schedule": {
+            "type": "boolean",
+            "title": "Prefer Compact Schedule"
+          },
+          "prefer_fewer_days": {
+            "type": "boolean",
+            "title": "Prefer Fewer Days"
+          },
+          "prefer_in_person": {
+            "type": "boolean",
+            "title": "Prefer In Person"
+          },
+          "avoid_early_start": {
+            "type": "boolean",
+            "title": "Avoid Early Start"
+          },
+          "avoid_late_end": {
+            "type": "boolean",
+            "title": "Avoid Late End"
+          },
+          "allow_permission_required": {
+            "type": "boolean",
+            "title": "Allow Permission Required"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "schedule_optimization_run_id",
+          "excluded_days",
+          "unavailable_time_blocks",
+          "candidate_course_ids",
+          "allowed_modalities",
+          "excluded_modalities",
+          "required_course_ids",
+          "excluded_course_ids",
+          "required_section_ids",
+          "excluded_section_ids",
+          "prefer_online",
+          "prefer_compact_schedule",
+          "prefer_fewer_days",
+          "prefer_in_person",
+          "avoid_early_start",
+          "avoid_late_end",
+          "allow_permission_required",
+          "created_at"
+        ],
+        "title": "ScheduleConstraintSetResponse"
+      },
+      "ScheduleOptimizationCompareRequest": {
+        "properties": {
+          "schedule_optimization_run_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "minItems": 2,
+            "title": "Schedule Optimization Run Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schedule_optimization_run_ids"
+        ],
+        "title": "ScheduleOptimizationCompareRequest"
+      },
+      "ScheduleOptimizationComparisonResponse": {
+        "properties": {
+          "schedule_optimization_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Schedule Optimization Run Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "COMPLETED",
+              "COMPLETED_WITH_WARNINGS",
+              "FAILED"
+            ],
+            "title": "Status"
+          },
+          "option_count": {
+            "type": "integer",
+            "title": "Option Count"
+          },
+          "warning_count": {
+            "type": "integer",
+            "title": "Warning Count"
+          },
+          "best_score": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Score"
+          },
+          "best_total_credits": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Total Credits"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schedule_optimization_run_id",
+          "status",
+          "option_count",
+          "warning_count"
+        ],
+        "title": "ScheduleOptimizationComparisonResponse"
+      },
+      "ScheduleOptimizationCreateRequest": {
+        "properties": {
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Term Id"
+          },
+          "academic_plan_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Academic Plan Run Id"
+          },
+          "planning_mode": {
+            "type": "string",
+            "enum": [
+              "FROM_DEGREE_AUDIT",
+              "FROM_LONG_TERM_PLAN",
+              "CUSTOM_COURSE_SET"
+            ],
+            "title": "Planning Mode"
+          },
+          "candidate_course_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Candidate Course Ids"
+          },
+          "minimum_credits": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Minimum Credits"
+          },
+          "maximum_credits": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Maximum Credits"
+          },
+          "preferred_credits": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Preferred Credits"
+          },
+          "requested_option_count": {
+            "type": "integer",
+            "maximum": 20.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Requested Option Count"
+          },
+          "excluded_days": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "MONDAY",
+                "TUESDAY",
+                "WEDNESDAY",
+                "THURSDAY",
+                "FRIDAY",
+                "SATURDAY",
+                "SUNDAY"
+              ]
+            },
+            "type": "array",
+            "title": "Excluded Days"
+          },
+          "unavailable_time_blocks": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleUnavailableTimeBlockRequest"
+            },
+            "type": "array",
+            "title": "Unavailable Time Blocks"
+          },
+          "earliest_start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earliest Start Time"
+          },
+          "latest_end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest End Time"
+          },
+          "allowed_modalities": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "IN_PERSON",
+                "ONLINE_SYNCHRONOUS",
+                "ONLINE_ASYNCHRONOUS",
+                "HYBRID",
+                "ARRANGED",
+                "UNKNOWN"
+              ]
+            },
+            "type": "array",
+            "title": "Allowed Modalities"
+          },
+          "excluded_modalities": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "IN_PERSON",
+                "ONLINE_SYNCHRONOUS",
+                "ONLINE_ASYNCHRONOUS",
+                "HYBRID",
+                "ARRANGED",
+                "UNKNOWN"
+              ]
+            },
+            "type": "array",
+            "title": "Excluded Modalities"
+          },
+          "required_course_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Required Course Ids"
+          },
+          "excluded_course_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Excluded Course Ids"
+          },
+          "required_section_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Required Section Ids"
+          },
+          "excluded_section_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Excluded Section Ids"
+          },
+          "prefer_online": {
+            "type": "boolean",
+            "title": "Prefer Online",
+            "default": false
+          },
+          "prefer_compact_schedule": {
+            "type": "boolean",
+            "title": "Prefer Compact Schedule",
+            "default": false
+          },
+          "prefer_fewer_days": {
+            "type": "boolean",
+            "title": "Prefer Fewer Days",
+            "default": false
+          },
+          "prefer_in_person": {
+            "type": "boolean",
+            "title": "Prefer In Person",
+            "default": false
+          },
+          "avoid_early_start": {
+            "type": "boolean",
+            "title": "Avoid Early Start",
+            "default": false
+          },
+          "avoid_late_end": {
+            "type": "boolean",
+            "title": "Avoid Late End",
+            "default": false
+          },
+          "allow_permission_required": {
+            "type": "boolean",
+            "title": "Allow Permission Required",
+            "default": false
+          },
+          "minimum_gap_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Gap Minutes"
+          },
+          "maximum_gap_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Gap Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "student_profile_id",
+          "term_id",
+          "planning_mode",
+          "minimum_credits",
+          "maximum_credits",
+          "preferred_credits",
+          "requested_option_count"
+        ],
+        "title": "ScheduleOptimizationCreateRequest"
+      },
+      "ScheduleOptimizationDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Term Id"
+          },
+          "academic_plan_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Academic Plan Run Id"
+          },
+          "planning_mode": {
+            "type": "string",
+            "enum": [
+              "FROM_DEGREE_AUDIT",
+              "FROM_LONG_TERM_PLAN",
+              "CUSTOM_COURSE_SET"
+            ],
+            "title": "Planning Mode"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "COMPLETED",
+              "COMPLETED_WITH_WARNINGS",
+              "FAILED"
+            ],
+            "title": "Status"
+          },
+          "engine_version": {
+            "type": "string",
+            "title": "Engine Version"
+          },
+          "minimum_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Minimum Credits"
+          },
+          "maximum_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Maximum Credits"
+          },
+          "preferred_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Preferred Credits"
+          },
+          "requested_option_count": {
+            "type": "integer",
+            "title": "Requested Option Count"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "constraint_set": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduleConstraintSetResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleOptionResponse"
+            },
+            "type": "array",
+            "title": "Options"
+          },
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleConflictResponse"
+            },
+            "type": "array",
+            "title": "Conflicts"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleWarningResponse"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "student_profile_id",
+          "term_id",
+          "planning_mode",
+          "status",
+          "engine_version",
+          "minimum_credits",
+          "maximum_credits",
+          "preferred_credits",
+          "requested_option_count",
+          "created_at",
+          "updated_at",
+          "options",
+          "conflicts",
+          "warnings"
+        ],
+        "title": "ScheduleOptimizationDetailResponse"
+      },
+      "ScheduleOptimizationRunResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Term Id"
+          },
+          "academic_plan_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Academic Plan Run Id"
+          },
+          "planning_mode": {
+            "type": "string",
+            "enum": [
+              "FROM_DEGREE_AUDIT",
+              "FROM_LONG_TERM_PLAN",
+              "CUSTOM_COURSE_SET"
+            ],
+            "title": "Planning Mode"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "COMPLETED",
+              "COMPLETED_WITH_WARNINGS",
+              "FAILED"
+            ],
+            "title": "Status"
+          },
+          "engine_version": {
+            "type": "string",
+            "title": "Engine Version"
+          },
+          "minimum_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Minimum Credits"
+          },
+          "maximum_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Maximum Credits"
+          },
+          "preferred_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Preferred Credits"
+          },
+          "requested_option_count": {
+            "type": "integer",
+            "title": "Requested Option Count"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "student_profile_id",
+          "term_id",
+          "planning_mode",
+          "status",
+          "engine_version",
+          "minimum_credits",
+          "maximum_credits",
+          "preferred_credits",
+          "requested_option_count",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ScheduleOptimizationRunResponse"
+      },
+      "ScheduleOptionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "schedule_optimization_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Schedule Optimization Run Id"
+          },
+          "option_rank": {
+            "type": "integer",
+            "title": "Option Rank"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "FEASIBLE",
+              "FEASIBLE_WITH_WARNINGS",
+              "PARTIAL",
+              "INFEASIBLE"
+            ],
+            "title": "Status"
+          },
+          "total_credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Credits"
+          },
+          "class_days_count": {
+            "type": "integer",
+            "title": "Class Days Count"
+          },
+          "earliest_start_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earliest Start Time"
+          },
+          "latest_end_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest End Time"
+          },
+          "total_gap_minutes": {
+            "type": "integer",
+            "title": "Total Gap Minutes"
+          },
+          "score": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Score"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "selected_sections": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleOptionSectionResponse"
+            },
+            "type": "array",
+            "title": "Selected Sections"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "schedule_optimization_run_id",
+          "option_rank",
+          "status",
+          "total_credits",
+          "class_days_count",
+          "total_gap_minutes",
+          "score",
+          "explanation",
+          "selected_sections",
+          "created_at"
+        ],
+        "title": "ScheduleOptionResponse"
+      },
+      "ScheduleOptionSectionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "schedule_option_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Schedule Option Id"
+          },
+          "section_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Section Id"
+          },
+          "course_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Id"
+          },
+          "course_code": {
+            "type": "string",
+            "title": "Course Code"
+          },
+          "course_title": {
+            "type": "string",
+            "title": "Course Title"
+          },
+          "section_code": {
+            "type": "string",
+            "title": "Section Code"
+          },
+          "section_status": {
+            "type": "string",
+            "title": "Section Status"
+          },
+          "modality": {
+            "type": "string",
+            "title": "Modality"
+          },
+          "credits": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Credits"
+          },
+          "eligibility_result": {
+            "type": "string",
+            "enum": [
+              "ELIGIBLE",
+              "CONDITIONALLY_ELIGIBLE",
+              "NOT_ELIGIBLE",
+              "PERMISSION_REQUIRED",
+              "MANUAL_REVIEW_REQUIRED"
+            ],
+            "title": "Eligibility Result"
+          },
+          "selection_reason": {
+            "type": "string",
+            "title": "Selection Reason"
+          },
+          "meetings": {
+            "items": {
+              "$ref": "#/components/schemas/SectionMeetingResponse"
+            },
+            "type": "array",
+            "title": "Meetings"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "schedule_option_id",
+          "section_id",
+          "course_id",
+          "course_code",
+          "course_title",
+          "section_code",
+          "section_status",
+          "modality",
+          "credits",
+          "eligibility_result",
+          "selection_reason",
+          "meetings",
+          "created_at"
+        ],
+        "title": "ScheduleOptionSectionResponse"
+      },
+      "ScheduleUnavailableTimeBlockRequest": {
+        "properties": {
+          "day_of_week": {
+            "type": "string",
+            "enum": [
+              "MONDAY",
+              "TUESDAY",
+              "WEDNESDAY",
+              "THURSDAY",
+              "FRIDAY",
+              "SATURDAY",
+              "SUNDAY"
+            ],
+            "title": "Day Of Week"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "time",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "type": "string",
+            "format": "time",
+            "title": "End Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day_of_week",
+          "start_time",
+          "end_time"
+        ],
+        "title": "ScheduleUnavailableTimeBlockRequest"
+      },
+      "ScheduleWarningResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "schedule_optimization_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Schedule Optimization Run Id"
+          },
+          "schedule_option_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schedule Option Id"
+          },
+          "warning_code": {
+            "type": "string",
+            "title": "Warning Code"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "INFO",
+              "WARNING",
+              "ERROR"
+            ],
+            "title": "Severity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "requires_advisor_confirmation": {
+            "type": "boolean",
+            "title": "Requires Advisor Confirmation"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "schedule_optimization_run_id",
+          "warning_code",
+          "severity",
+          "message",
+          "requires_advisor_confirmation",
+          "created_at"
+        ],
+        "title": "ScheduleWarningResponse"
       },
       "SectionMeetingResponse": {
         "properties": {
