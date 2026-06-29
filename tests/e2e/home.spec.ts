@@ -533,7 +533,7 @@ test('home page shows degree progress shell and required mock warnings', async (
 
   await expect(page.getByRole('heading', { name: /Degree Progress/ })).toBeVisible();
   await expect(page.getByText('API connected')).toBeVisible();
-  await expect(page.getByText('Mock data — not official university policy.')).toBeVisible();
+  await expect(page.getByText('Mock data — not official university policy.').first()).toBeVisible();
   await expect(page.getByText('Advisor confirmation is required for high-impact academic guidance.')).toBeVisible();
   await expect(page.getByText('Audit Mode')).toBeVisible();
   await expect(page.getByText('Mock Finance Foundations')).toBeVisible();
@@ -649,7 +649,11 @@ test('home page creates and compares long-term academic plans', async ({ page })
   await page.goto('/');
 
   await expect(page.getByRole('heading', { name: /Long-Term Academic Planner/ })).toBeVisible();
-  await expect(page.getByText('Mock data — not official university policy.')).toBeVisible();
+  await expect(
+    page
+      .getByLabel('Academic planner disclaimers')
+      .getByText('Mock data — not official university policy.'),
+  ).toBeVisible();
   await expect(page.getByText('This plan is not registration.').first()).toBeVisible();
   await expect(
     page.getByText('This plan does not check weekly schedule conflicts.'),
