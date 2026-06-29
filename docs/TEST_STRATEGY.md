@@ -61,6 +61,15 @@ Phase 4 adds deterministic course eligibility coverage:
 - Shared TypeScript schema tests for eligibility check, rule, expression, reason, warning, corequisite, availability, and schema-error responses.
 - Playwright tests for Course Eligibility UI success, mock disclaimers, API offline/failure/empty/schema-error states, permission-required display, and seat availability separation.
 
+Phase 5A adds deterministic long-term academic planner coverage:
+
+- SQLite-backed model tests for plan runs, terms, planned courses, requirement coverage, warnings, uniqueness, credit constraints, and what-if scenario requirements.
+- Engine tests for current-program planning, what-if planning without official declaration mutation, prerequisite-unlock ordering, corequisite pairing, maximum-credit enforcement, minimum-credit warnings, horizon shortfalls, unknown offering patterns, and closed/cancelled section warnings.
+- API tests for plan creation, detail, terms, courses, warnings, student plan list, compare endpoint, invalid credit settings, 404s, and schema validation.
+- Seed tests for mock planner source markers and cases covering prerequisite, corequisite, closed section, no offering pattern, and what-if candidate data.
+- Shared TypeScript schema tests for academic plan run, term, course, coverage, warning, detail, comparison, and schema-error responses.
+- Playwright tests for Long-Term Academic Planner UI success, required disclaimers, term-by-term output, requirement coverage, warnings, saved-plan comparison, API offline/failure/empty/schema-error states, and the absence of registration or weekly-conflict claims.
+
 ### End-to-End Tests
 
 Playwright tests for:
@@ -151,6 +160,16 @@ Phase 4 covers course eligibility behavior:
 - Permission-required and manual-review results are traceable to expression evidence.
 - Section status and seat counts are reported separately from academic eligibility.
 - Mock and missing-rule data always carries warnings rather than official-policy certainty.
+
+Phase 5A covers academic planner behavior:
+
+- `CURRENT_PROGRAM` and `WHAT_IF_SCENARIO` modes create snapshots without mutating declarations.
+- Remaining requirement candidates come from Degree Audit results, not duplicated frontend logic.
+- Prerequisite and corequisite decisions reuse Course Eligibility evidence where available.
+- Planned prerequisite evidence stays conditional.
+- Maximum credit limits are hard placement limits; minimum-credit failures become warnings.
+- Offering patterns are assumptions and never official commitments.
+- Planner output remains course-level and does not select sections, inspect weekly conflicts, poll seats, or register.
 
 ## 5. Property and Constraint Tests
 

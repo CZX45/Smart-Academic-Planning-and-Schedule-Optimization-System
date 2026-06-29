@@ -43,6 +43,7 @@ Academic requirements are high-impact. Incorrect results may delay graduation, a
 - Display confidence levels.
 - Separate mock, student-entered, inferred, advisor-confirmed, and official data.
 - Require advisor confirmation messaging for high-risk results.
+- Treat academic plans as advisory course-level snapshots; never convert them into add/drop/swap, waitlist, seat-grabbing, or registration actions.
 - Maintain regression fixtures for every catalog/program version.
 
 ## 6. Privacy Controls

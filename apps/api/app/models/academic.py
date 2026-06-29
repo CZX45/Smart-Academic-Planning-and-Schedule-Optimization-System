@@ -181,6 +181,50 @@ class AcademicPlanScenarioStatus(StrEnum):
     ARCHIVED = "ARCHIVED"
 
 
+class AcademicPlanningMode(StrEnum):
+    CURRENT_PROGRAM = "CURRENT_PROGRAM"
+    WHAT_IF_SCENARIO = "WHAT_IF_SCENARIO"
+
+
+class AcademicPlanRunStatus(StrEnum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    COMPLETED_WITH_WARNINGS = "COMPLETED_WITH_WARNINGS"
+    FAILED = "FAILED"
+
+
+class AcademicPlanTermStatus(StrEnum):
+    PLANNED = "PLANNED"
+    PARTIAL = "PARTIAL"
+    BLOCKED = "BLOCKED"
+    MANUAL_REVIEW_REQUIRED = "MANUAL_REVIEW_REQUIRED"
+
+
+class AcademicPlanCourseSource(StrEnum):
+    DEGREE_AUDIT_REMAINING = "DEGREE_AUDIT_REMAINING"
+    WHAT_IF_REMAINING = "WHAT_IF_REMAINING"
+    PREREQUISITE_UNLOCK = "PREREQUISITE_UNLOCK"
+    COREQUISITE_PAIR = "COREQUISITE_PAIR"
+    MANUAL_PLACEHOLDER = "MANUAL_PLACEHOLDER"
+
+
+class AcademicPlanCourseStatus(StrEnum):
+    PLANNED = "PLANNED"
+    CONDITIONALLY_PLANNED = "CONDITIONALLY_PLANNED"
+    BLOCKED = "BLOCKED"
+    ALTERNATIVE = "ALTERNATIVE"
+    MANUAL_REVIEW_REQUIRED = "MANUAL_REVIEW_REQUIRED"
+
+
+class AcademicPlanCoverageType(StrEnum):
+    DIRECT_REQUIREMENT = "DIRECT_REQUIREMENT"
+    ELECTIVE_POOL = "ELECTIVE_POOL"
+    TOTAL_CREDITS = "TOTAL_CREDITS"
+    PREREQUISITE_ONLY = "PREREQUISITE_ONLY"
+    WHAT_IF_REQUIREMENT = "WHAT_IF_REQUIREMENT"
+
+
 class ScenarioRelationshipType(StrEnum):
     PRIMARY_MAJOR = "PRIMARY_MAJOR"
     MINOR = "MINOR"
@@ -410,6 +454,48 @@ scenario_type_enum = Enum(
 academic_plan_scenario_status_enum = Enum(
     AcademicPlanScenarioStatus,
     name="academic_plan_scenario_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+academic_planning_mode_enum = Enum(
+    AcademicPlanningMode,
+    name="academic_planning_mode",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+academic_plan_run_status_enum = Enum(
+    AcademicPlanRunStatus,
+    name="academic_plan_run_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+academic_plan_term_status_enum = Enum(
+    AcademicPlanTermStatus,
+    name="academic_plan_term_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+academic_plan_course_source_enum = Enum(
+    AcademicPlanCourseSource,
+    name="academic_plan_course_source",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+academic_plan_course_status_enum = Enum(
+    AcademicPlanCourseStatus,
+    name="academic_plan_course_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+academic_plan_coverage_type_enum = Enum(
+    AcademicPlanCoverageType,
+    name="academic_plan_coverage_type",
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
@@ -2471,6 +2557,318 @@ class ScenarioWarning(UuidPrimaryKeyMixin, Base):
 
     academic_plan_scenario_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     scenario_program_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    warning_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    severity: Mapped[AuditWarningSeverity] = mapped_column(
+        audit_warning_severity_enum,
+        nullable=False,
+    )
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    requires_advisor_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class AcademicPlanRun(UuidPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "academic_plan_runs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["student_profile_id"],
+            ["student_profiles.id"],
+            name="fk_academic_plan_runs_student",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["program_version_id"],
+            ["program_versions.id"],
+            name="fk_academic_plan_runs_program",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["academic_plan_scenario_id"],
+            ["academic_plan_scenarios.id"],
+            name="fk_academic_plan_runs_scenario",
+            ondelete="SET NULL",
+        ),
+        ForeignKeyConstraint(
+            ["start_term_id"],
+            ["academic_terms.id"],
+            name="fk_academic_plan_runs_start_term",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["target_completion_term_id"],
+            ["academic_terms.id"],
+            name="fk_academic_plan_runs_target_term",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "length(engine_version) > 0",
+            name="ck_academic_plan_runs_engine",
+        ),
+        CheckConstraint(
+            "minimum_credits_per_term >= 0",
+            name="ck_academic_plan_runs_min_credits",
+        ),
+        CheckConstraint(
+            "maximum_credits_per_term >= 0",
+            name="ck_academic_plan_runs_max_credits",
+        ),
+        CheckConstraint(
+            "preferred_credits_per_term >= 0",
+            name="ck_academic_plan_runs_pref_credits",
+        ),
+        CheckConstraint(
+            "preferred_credits_per_term <= maximum_credits_per_term",
+            name="ck_academic_plan_runs_pref_under_max",
+        ),
+        CheckConstraint(
+            "planning_mode != 'WHAT_IF_SCENARIO' OR academic_plan_scenario_id IS NOT NULL",
+            name="ck_academic_plan_runs_what_if_has_scenario",
+        ),
+        Index(
+            "ix_academic_plan_runs_student_created",
+            "student_profile_id",
+            "created_at",
+        ),
+        Index(
+            "ix_academic_plan_runs_scenario",
+            "academic_plan_scenario_id",
+        ),
+    )
+
+    student_profile_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    program_version_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    academic_plan_scenario_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), nullable=True
+    )
+    planning_mode: Mapped[AcademicPlanningMode] = mapped_column(
+        academic_planning_mode_enum,
+        nullable=False,
+    )
+    status: Mapped[AcademicPlanRunStatus] = mapped_column(
+        academic_plan_run_status_enum,
+        nullable=False,
+    )
+    engine_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    start_term_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    target_completion_term_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    minimum_credits_per_term: Mapped[Decimal] = mapped_column(Numeric(5, 1), nullable=False)
+    maximum_credits_per_term: Mapped[Decimal] = mapped_column(Numeric(5, 1), nullable=False)
+    preferred_credits_per_term: Mapped[Decimal] = mapped_column(Numeric(5, 1), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AcademicPlanTerm(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "academic_plan_terms"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["academic_plan_run_id"],
+            ["academic_plan_runs.id"],
+            name="fk_academic_plan_terms_run",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["term_id"],
+            ["academic_terms.id"],
+            name="fk_academic_plan_terms_term",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "sequence_index >= 0",
+            name="ck_academic_plan_terms_sequence",
+        ),
+        CheckConstraint(
+            "planned_credits >= 0",
+            name="ck_academic_plan_terms_credits",
+        ),
+        CheckConstraint(
+            "length(explanation) > 0",
+            name="ck_academic_plan_terms_explained",
+        ),
+        UniqueConstraint(
+            "academic_plan_run_id",
+            "term_id",
+            name="uq_academic_plan_terms_run_term",
+        ),
+        UniqueConstraint(
+            "academic_plan_run_id",
+            "sequence_index",
+            name="uq_academic_plan_terms_run_sequence",
+        ),
+        Index(
+            "ix_academic_plan_terms_run_sequence",
+            "academic_plan_run_id",
+            "sequence_index",
+        ),
+    )
+
+    academic_plan_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    term_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    sequence_index: Mapped[int] = mapped_column(nullable=False)
+    planned_credits: Mapped[Decimal] = mapped_column(Numeric(5, 1), nullable=False)
+    status: Mapped[AcademicPlanTermStatus] = mapped_column(
+        academic_plan_term_status_enum,
+        nullable=False,
+    )
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class AcademicPlanCourse(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "academic_plan_courses"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["academic_plan_term_id"],
+            ["academic_plan_terms.id"],
+            name="fk_academic_plan_courses_term",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["course_id"],
+            ["courses.id"],
+            name="fk_academic_plan_courses_course",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["requirement_node_id"],
+            ["requirement_nodes.id"],
+            name="fk_academic_plan_courses_requirement",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "priority_rank >= 0",
+            name="ck_academic_plan_courses_priority",
+        ),
+        CheckConstraint("credits >= 0", name="ck_academic_plan_courses_credits"),
+        CheckConstraint("length(reason_code) > 0", name="ck_academic_plan_courses_reason"),
+        CheckConstraint("length(explanation) > 0", name="ck_academic_plan_courses_explained"),
+        UniqueConstraint(
+            "academic_plan_term_id",
+            "course_id",
+            name="uq_academic_plan_courses_term_course",
+        ),
+        Index(
+            "ix_academic_plan_courses_term_rank",
+            "academic_plan_term_id",
+            "priority_rank",
+        ),
+    )
+
+    academic_plan_term_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    course_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    requirement_node_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    source: Mapped[AcademicPlanCourseSource] = mapped_column(
+        academic_plan_course_source_enum,
+        nullable=False,
+    )
+    priority_rank: Mapped[int] = mapped_column(nullable=False)
+    credits: Mapped[Decimal] = mapped_column(Numeric(5, 1), nullable=False)
+    eligibility_result: Mapped[EligibilityOverallResult] = mapped_column(
+        eligibility_overall_result_enum,
+        nullable=False,
+    )
+    planning_status: Mapped[AcademicPlanCourseStatus] = mapped_column(
+        academic_plan_course_status_enum,
+        nullable=False,
+    )
+    reason_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class AcademicPlanRequirementCoverage(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "academic_plan_requirement_coverages"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["academic_plan_run_id"],
+            ["academic_plan_runs.id"],
+            name="fk_academic_plan_cov_run",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["academic_plan_course_id"],
+            ["academic_plan_courses.id"],
+            name="fk_academic_plan_cov_course",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["requirement_node_id"],
+            ["requirement_nodes.id"],
+            name="fk_academic_plan_cov_requirement",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("credits >= 0", name="ck_academic_plan_cov_credits"),
+        UniqueConstraint(
+            "academic_plan_course_id",
+            "requirement_node_id",
+            "coverage_type",
+            name="uq_academic_plan_cov_course_req_type",
+        ),
+        Index(
+            "ix_academic_plan_cov_run",
+            "academic_plan_run_id",
+        ),
+    )
+
+    academic_plan_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    academic_plan_course_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    requirement_node_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    coverage_type: Mapped[AcademicPlanCoverageType] = mapped_column(
+        academic_plan_coverage_type_enum,
+        nullable=False,
+    )
+    credits: Mapped[Decimal] = mapped_column(Numeric(5, 1), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class AcademicPlanWarning(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "academic_plan_warnings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["academic_plan_run_id"],
+            ["academic_plan_runs.id"],
+            name="fk_academic_plan_warnings_run",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["academic_plan_term_id"],
+            ["academic_plan_terms.id"],
+            name="fk_academic_plan_warnings_term",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["academic_plan_course_id"],
+            ["academic_plan_courses.id"],
+            name="fk_academic_plan_warnings_course",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("length(warning_code) > 0", name="ck_academic_plan_warnings_code"),
+        CheckConstraint("length(message) > 0", name="ck_academic_plan_warnings_message"),
+        Index(
+            "ix_academic_plan_warnings_run_severity",
+            "academic_plan_run_id",
+            "severity",
+        ),
+    )
+
+    academic_plan_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    academic_plan_term_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    academic_plan_course_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     warning_code: Mapped[str] = mapped_column(String(80), nullable=False)
     severity: Mapped[AuditWarningSeverity] = mapped_column(
         audit_warning_severity_enum,

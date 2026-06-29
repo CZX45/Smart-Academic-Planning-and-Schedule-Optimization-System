@@ -155,6 +155,11 @@ h2 {
   gap: 16px;
 }
 
+.planner-panel {
+  display: grid;
+  gap: 16px;
+}
+
 .section-heading {
   align-items: flex-start;
   display: flex;
@@ -179,6 +184,7 @@ h2 {
 }
 
 .scenario-controls select,
+.scenario-controls input,
 .scenario-controls button {
   border: 1px solid #cbd5e1;
   border-radius: 7px;
@@ -190,6 +196,12 @@ h2 {
   background: white;
   min-width: 250px;
   padding: 0 12px;
+}
+
+.scenario-controls input {
+  background: white;
+  max-width: 110px;
+  padding: 0 10px;
 }
 
 .scenario-controls button {
@@ -204,12 +216,21 @@ h2 {
   background: #0f766e;
 }
 
+.planner-controls {
+  align-items: end;
+}
+
 .scenario-result {
   display: grid;
   gap: 16px;
 }
 
 .eligibility-result {
+  display: grid;
+  gap: 16px;
+}
+
+.planner-result {
   display: grid;
   gap: 16px;
 }
@@ -226,8 +247,17 @@ h2 {
   grid-template-columns: minmax(220px, 0.9fr) minmax(300px, 1.3fr) minmax(220px, 0.9fr);
 }
 
+.planner-columns {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
 .scenario-columns > div,
 .eligibility-columns > div,
+.planner-columns > div,
+.planner-term-grid,
+.term-column,
 .comparison-table {
   background: white;
   border: 1px solid #d7dde7;
@@ -253,6 +283,46 @@ h2 {
 .compact-list span,
 .comparison-row span {
   color: #4b5563;
+}
+
+.disclaimer-list {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  color: #1e3a8a;
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 14px 16px;
+}
+
+.planner-term-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.term-columns {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.term-column {
+  display: grid;
+  gap: 10px;
+}
+
+.term-heading {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.term-heading h3 {
+  font-size: 0.96rem;
+  margin: 0;
 }
 
 .requirement-row {

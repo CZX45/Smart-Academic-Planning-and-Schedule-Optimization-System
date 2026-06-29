@@ -2,7 +2,7 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 4 adds a mock-only Course Eligibility Engine on top of stored Phase 2B course-rule expression trees. It evaluates prerequisites, corequisites, minimum grades, standing/program/campus restrictions, section-level permissions, and section availability snapshots without modifying student records. It does **not** implement graduation timing prediction, long-term planning, schedule optimization, OR-Tools, real school login, scraping, automatic registration, waitlist automation, or authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 5A adds a mock-only Long-Term Academic Planner on top of Degree Audit, What-if Scenarios, and Course Eligibility. It creates persisted course-level plan snapshots by term, records requirement coverage, prerequisite/corequisite planning reasons, credit-limit warnings, and offering-pattern assumptions without modifying student records. It does **not** create registrations, add/drop/swap courses, inspect weekly section conflicts, monitor seats, run OR-Tools, scrape portals, bypass school authentication, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
@@ -220,6 +220,24 @@ Eligibility modes are `CURRENT`, `PROJECTED`, and `REGISTRATION`. Results can be
 
 The web app includes a Course Eligibility panel for mock course checks, expression evidence, warnings, offline/failure/schema-error states, and saved eligibility history.
 
+## Phase 5A long-term academic planner API
+
+Phase 5A creates academic plan snapshots under `/api/v1/academic-plans`. The planner evaluates remaining mock requirements, prerequisite/corequisite ordering, target terms, per-term credit limits, and stored offering-pattern assumptions. It stores generated terms, planned courses, requirement coverage, and warnings as reviewable snapshots.
+
+New endpoints include:
+
+- `POST /api/v1/academic-plans`
+- `POST /api/v1/academic-plans/compare`
+- `GET /api/v1/academic-plans/{plan_id}`
+- `GET /api/v1/academic-plans/{plan_id}/terms`
+- `GET /api/v1/academic-plans/{plan_id}/courses`
+- `GET /api/v1/academic-plans/{plan_id}/warnings`
+- `GET /api/v1/students/{student_id}/academic-plans`
+
+Planning modes are `CURRENT_PROGRAM` and `WHAT_IF_SCENARIO`. A plan can complete with warnings when requirements are broad, a course lacks an offering pattern, a term falls below the requested minimum credits, or the horizon/credit limits prevent placement. Phase 5A deliberately remains course-level: it does not select sections, calculate weekly schedule conflicts, poll seat counts, or perform registration actions.
+
+The web app includes a Long-Term Academic Planner panel for current-program and what-if mock plans, credit-limit controls, term-by-term output, requirement coverage, warnings, saved-plan comparison, and offline/failure/schema-error states.
+
 ## Quality gates
 
 Run the following before opening a pull request:
@@ -244,7 +262,7 @@ pnpm exec playwright install --with-deps
 pnpm e2e
 ```
 
-## Phase 2A, 2B, 3A, and 3B scope and data safety
+## Phase 2A through 5A scope and data safety
 
 Phase 2A is a domain-storage foundation. It models institutions, campuses, terms, academic programs, program versions, courses, course equivalencies, requirement trees, course options, mock student profiles, academic program declarations, course attempts, transfer credits, waivers, and substitutions.
 
@@ -255,6 +273,8 @@ Phase 3A adds `DegreeAuditRun`, `RequirementEvaluation`, `AuditCourseApplication
 Phase 3B adds `AcademicPlanScenario`, `ScenarioProgram`, `ProgramCombinationRule`, `ScenarioProgramAudit`, `ScenarioCourseAllocation`, `ScenarioComparisonSnapshot`, and `ScenarioWarning`. It compares hypothetical program combinations without changing official student declarations.
 
 Phase 4 adds `EligibilityCheckRun`, `RuleEvaluation`, `RuleExpressionEvaluation`, and `EligibilityWarning`. It snapshots mock course eligibility checks without changing `StudentAcademicProgram`, `StudentCourseAttempt`, section, or registration records.
+
+Phase 5A adds `AcademicPlanRun`, `AcademicPlanTerm`, `AcademicPlanCourse`, `AcademicPlanRequirementCoverage`, and `AcademicPlanWarning`. It snapshots mock long-term course plans without changing official student declarations, course attempts, sections, section meetings, or registration records.
 
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 
