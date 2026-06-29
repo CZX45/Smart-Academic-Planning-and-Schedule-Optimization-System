@@ -396,6 +396,181 @@ const mockAcademicPlanComparison = {
   completed_at: '2026-06-29T00:00:01Z',
 };
 
+const mockScheduleOptimization = {
+  id: '00000000-0000-4000-8000-000000000601',
+  student_profile_id: '74874476-4024-5e2d-807a-fbb4ab620249',
+  term_id: 'f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec',
+  academic_plan_run_id: null,
+  planning_mode: 'CUSTOM_COURSE_SET',
+  status: 'COMPLETED_WITH_WARNINGS',
+  engine_version: 'phase-6a-schedule-optimizer-v1',
+  minimum_credits: '3.0',
+  maximum_credits: '6.0',
+  preferred_credits: '6.0',
+  requested_option_count: 3,
+  completed_at: '2026-06-29T00:00:01Z',
+  created_at: '2026-06-29T00:00:00Z',
+  updated_at: '2026-06-29T00:00:01Z',
+  constraint_set: {
+    id: '00000000-0000-4000-8000-000000000602',
+    schedule_optimization_run_id: '00000000-0000-4000-8000-000000000601',
+    excluded_days: ['FRIDAY'],
+    unavailable_time_blocks: [
+      { day_of_week: 'TUESDAY', start_time: '11:00', end_time: '11:30' },
+    ],
+    earliest_start_time: '08:00',
+    latest_end_time: '18:00',
+    minimum_gap_minutes: null,
+    maximum_gap_minutes: null,
+    candidate_course_ids: [
+      'e6ab2a34-d85a-5446-875e-83fd36d5b08e',
+      '9413e6c7-26a0-5acf-9de4-88b132dc802d',
+    ],
+    allowed_modalities: [],
+    excluded_modalities: [],
+    required_course_ids: [],
+    excluded_course_ids: [],
+    required_section_ids: [],
+    excluded_section_ids: [],
+    prefer_online: false,
+    prefer_compact_schedule: true,
+    prefer_fewer_days: true,
+    prefer_in_person: true,
+    avoid_early_start: false,
+    avoid_late_end: true,
+    allow_permission_required: false,
+    created_at: '2026-06-29T00:00:00Z',
+  },
+  options: [
+    {
+      id: '00000000-0000-4000-8000-000000000603',
+      schedule_optimization_run_id: '00000000-0000-4000-8000-000000000601',
+      option_rank: 1,
+      status: 'FEASIBLE_WITH_WARNINGS',
+      total_credits: '6.0',
+      class_days_count: 2,
+      earliest_start_time: '09:00',
+      latest_end_time: '12:15',
+      total_gap_minutes: 45,
+      score: '88.00',
+      explanation: 'Selected deterministic mock sections after applying constraints.',
+      selected_sections: [
+        {
+          id: '00000000-0000-4000-8000-000000000604',
+          schedule_option_id: '00000000-0000-4000-8000-000000000603',
+          section_id: 'c080de5c-b981-54b9-b699-cde089ecce4c',
+          course_id: 'e6ab2a34-d85a-5446-875e-83fd36d5b08e',
+          course_code: 'FIN 300',
+          course_title: 'Mock Managerial Finance',
+          section_code: '001',
+          section_status: 'OPEN',
+          modality: 'IN_PERSON',
+          credits: '3.0',
+          eligibility_result: 'ELIGIBLE',
+          selection_reason: 'MANUAL_CANDIDATE',
+          meetings: [
+            {
+              id: '00000000-0000-4000-8000-000000000605',
+              section_id: 'c080de5c-b981-54b9-b699-cde089ecce4c',
+              meeting_type: 'LECTURE',
+              day_of_week: 'MONDAY',
+              start_time: '09:00',
+              end_time: '10:15',
+              start_date: '2024-08-26',
+              end_date: '2024-12-13',
+              building: 'Mock Academic Building',
+              room: '101',
+              timezone: 'America/New_York',
+              is_arranged: false,
+              is_online: false,
+              display_order: 10,
+            },
+          ],
+          created_at: '2026-06-29T00:00:00Z',
+        },
+        {
+          id: '00000000-0000-4000-8000-000000000606',
+          schedule_option_id: '00000000-0000-4000-8000-000000000603',
+          section_id: 'b4af4050-6534-5112-8351-c572d43bec95',
+          course_id: '9413e6c7-26a0-5acf-9de4-88b132dc802d',
+          course_code: 'FIN 403',
+          course_title: 'Mock International Finance',
+          section_code: '002',
+          section_status: 'OPEN',
+          modality: 'IN_PERSON',
+          credits: '3.0',
+          eligibility_result: 'ELIGIBLE',
+          selection_reason: 'MANUAL_CANDIDATE',
+          meetings: [
+            {
+              id: '00000000-0000-4000-8000-000000000607',
+              section_id: 'b4af4050-6534-5112-8351-c572d43bec95',
+              meeting_type: 'LECTURE',
+              day_of_week: 'TUESDAY',
+              start_time: '11:00',
+              end_time: '12:15',
+              start_date: '2024-08-26',
+              end_date: '2024-12-13',
+              building: 'Mock Academic Building',
+              room: '204',
+              timezone: 'America/New_York',
+              is_arranged: false,
+              is_online: false,
+              display_order: 10,
+            },
+          ],
+          created_at: '2026-06-29T00:00:00Z',
+        },
+      ],
+      created_at: '2026-06-29T00:00:00Z',
+    },
+  ],
+  conflicts: [
+    {
+      id: '00000000-0000-4000-8000-000000000608',
+      schedule_optimization_run_id: '00000000-0000-4000-8000-000000000601',
+      schedule_option_id: null,
+      conflict_type: 'TIME_OVERLAP',
+      section_id: 'c080de5c-b981-54b9-b699-cde089ecce4c',
+      other_section_id: '96822dc7-d1c1-5f4c-93c4-bf6afddb981f',
+      day_of_week: 'MONDAY',
+      start_time: '09:30',
+      end_time: '10:15',
+      message: 'FIN 300 001 overlaps with FIN 403 001 in mock section data.',
+      created_at: '2026-06-29T00:00:00Z',
+    },
+  ],
+  warnings: [
+    {
+      id: '00000000-0000-4000-8000-000000000609',
+      schedule_optimization_run_id: '00000000-0000-4000-8000-000000000601',
+      schedule_option_id: null,
+      warning_code: 'MOCK_SECTION_DATA_NOT_OFFICIAL',
+      severity: 'INFO',
+      message: 'This schedule uses mock non-official section data.',
+      requires_advisor_confirmation: true,
+      created_at: '2026-06-29T00:00:00Z',
+    },
+  ],
+};
+
+const mockScheduleRunSummary = {
+  id: mockScheduleOptimization.id,
+  student_profile_id: mockScheduleOptimization.student_profile_id,
+  term_id: mockScheduleOptimization.term_id,
+  academic_plan_run_id: mockScheduleOptimization.academic_plan_run_id,
+  planning_mode: mockScheduleOptimization.planning_mode,
+  status: mockScheduleOptimization.status,
+  engine_version: mockScheduleOptimization.engine_version,
+  minimum_credits: mockScheduleOptimization.minimum_credits,
+  maximum_credits: mockScheduleOptimization.maximum_credits,
+  preferred_credits: mockScheduleOptimization.preferred_credits,
+  requested_option_count: mockScheduleOptimization.requested_option_count,
+  completed_at: mockScheduleOptimization.completed_at,
+  created_at: mockScheduleOptimization.created_at,
+  updated_at: mockScheduleOptimization.updated_at,
+};
+
 async function mockSuccessfulAuditApis(page: Page) {
   await page.route(
     'http://localhost:8000/api/v1/students/*/degree-audits/latest',
@@ -520,6 +695,57 @@ async function mockSuccessfulPlannerApis(page: Page) {
           academic_plan_run_id: '00000000-0000-4000-8000-000000000408',
           total_planned_credits: '15.0',
           warning_count: 2,
+        },
+      ]),
+    });
+  });
+}
+
+async function mockSuccessfulScheduleApis(page: Page) {
+  await page.route('http://localhost:8000/api/v1/schedule-optimizations', async (route) => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(mockScheduleOptimization),
+      });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route('http://localhost:8000/api/v1/students/*/schedule-optimizations', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify([
+        mockScheduleRunSummary,
+        {
+          ...mockScheduleRunSummary,
+          id: '00000000-0000-4000-8000-000000000610',
+          requested_option_count: 2,
+        },
+      ]),
+    });
+  });
+  await page.route('http://localhost:8000/api/v1/schedule-optimizations/compare', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          schedule_optimization_run_id: mockScheduleOptimization.id,
+          status: 'COMPLETED_WITH_WARNINGS',
+          option_count: 1,
+          warning_count: 1,
+          best_score: '88.00',
+          best_total_credits: '6.0',
+          completed_at: '2026-06-29T00:00:01Z',
+        },
+        {
+          schedule_optimization_run_id: '00000000-0000-4000-8000-000000000610',
+          status: 'COMPLETED_WITH_WARNINGS',
+          option_count: 2,
+          warning_count: 1,
+          best_score: '74.00',
+          best_total_credits: '3.0',
+          completed_at: '2026-06-29T00:00:01Z',
         },
       ]),
     });
@@ -693,4 +919,50 @@ test('home page reports academic planner schema failures', async ({ page }) => {
 
   await expect(page.getByText('Academic planner schema error')).toBeVisible();
   await expect(page.getByText(/unexpected academic plan response shape/i)).toBeVisible();
+});
+
+test('home page builds and compares semester schedules', async ({ page }) => {
+  await mockSuccessfulAuditApis(page);
+  await mockSuccessfulScheduleApis(page);
+
+  await page.goto('/');
+
+  await expect(page.getByRole('heading', { name: /Semester Schedule Builder/ })).toBeVisible();
+  await expect(
+    page
+      .getByLabel('Schedule builder disclaimers')
+      .getByText('No add, drop, swap, waitlist, or registration action is performed.'),
+  ).toBeVisible();
+
+  await page.getByLabel('Course set').selectOption('fall-fin-300-403');
+  await page.getByRole('button', { name: /Build schedule/ }).click();
+
+  const scheduleSummary = page.getByLabel('Schedule optimization summary');
+  await expect(scheduleSummary.getByText(/completed with warnings/i)).toBeVisible();
+  await expect(scheduleSummary.getByText('Best Credits')).toBeVisible();
+  await expect(page.getByLabel('Schedule options').getByText('FIN 300 001')).toBeVisible();
+  await expect(page.getByLabel('Schedule options').getByText('FIN 403 002')).toBeVisible();
+  await expect(page.getByText('TIME_OVERLAP')).toBeVisible();
+  await expect(page.getByText('MOCK_SECTION_DATA_NOT_OFFICIAL')).toBeVisible();
+
+  await page.getByRole('button', { name: /Compare saved schedules/ }).click();
+  await expect(page.getByLabel('Saved schedule comparison').getByText('CUSTOM_COURSE_SET')).toHaveCount(
+    2,
+  );
+});
+
+test('home page reports schedule optimizer schema failures', async ({ page }) => {
+  await mockSuccessfulAuditApis(page);
+  await page.route('http://localhost:8000/api/v1/schedule-optimizations', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ unexpected: true }),
+    });
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: /Build schedule/ }).click();
+
+  await expect(page.getByText('Schedule optimizer schema error')).toBeVisible();
+  await expect(page.getByText(/unexpected schedule optimization response shape/i)).toBeVisible();
 });

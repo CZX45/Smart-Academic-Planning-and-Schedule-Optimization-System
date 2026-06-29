@@ -6,6 +6,7 @@ from enum import StrEnum
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     Date,
@@ -223,6 +224,39 @@ class AcademicPlanCoverageType(StrEnum):
     TOTAL_CREDITS = "TOTAL_CREDITS"
     PREREQUISITE_ONLY = "PREREQUISITE_ONLY"
     WHAT_IF_REQUIREMENT = "WHAT_IF_REQUIREMENT"
+
+
+class SchedulePlanningMode(StrEnum):
+    FROM_DEGREE_AUDIT = "FROM_DEGREE_AUDIT"
+    FROM_LONG_TERM_PLAN = "FROM_LONG_TERM_PLAN"
+    CUSTOM_COURSE_SET = "CUSTOM_COURSE_SET"
+
+
+class ScheduleRunStatus(StrEnum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    COMPLETED_WITH_WARNINGS = "COMPLETED_WITH_WARNINGS"
+    FAILED = "FAILED"
+
+
+class ScheduleOptionStatus(StrEnum):
+    FEASIBLE = "FEASIBLE"
+    FEASIBLE_WITH_WARNINGS = "FEASIBLE_WITH_WARNINGS"
+    PARTIAL = "PARTIAL"
+    INFEASIBLE = "INFEASIBLE"
+
+
+class ScheduleConflictType(StrEnum):
+    TIME_OVERLAP = "TIME_OVERLAP"
+    UNAVAILABLE_TIME = "UNAVAILABLE_TIME"
+    EXCLUDED_DAY = "EXCLUDED_DAY"
+    CREDIT_LIMIT = "CREDIT_LIMIT"
+    DUPLICATE_COURSE = "DUPLICATE_COURSE"
+    ELIGIBILITY_BLOCKED = "ELIGIBILITY_BLOCKED"
+    COREQUISITE_MISSING = "COREQUISITE_MISSING"
+    NO_SECTION_AVAILABLE = "NO_SECTION_AVAILABLE"
+    MANUAL_REVIEW_REQUIRED = "MANUAL_REVIEW_REQUIRED"
 
 
 class ScenarioRelationshipType(StrEnum):
@@ -496,6 +530,34 @@ academic_plan_course_status_enum = Enum(
 academic_plan_coverage_type_enum = Enum(
     AcademicPlanCoverageType,
     name="academic_plan_coverage_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+schedule_planning_mode_enum = Enum(
+    SchedulePlanningMode,
+    name="schedule_planning_mode",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+schedule_run_status_enum = Enum(
+    ScheduleRunStatus,
+    name="schedule_run_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+schedule_option_status_enum = Enum(
+    ScheduleOptionStatus,
+    name="schedule_option_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+schedule_conflict_type_enum = Enum(
+    ScheduleConflictType,
+    name="schedule_conflict_type",
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
@@ -2869,6 +2931,349 @@ class AcademicPlanWarning(UuidPrimaryKeyMixin, Base):
     academic_plan_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     academic_plan_term_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     academic_plan_course_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    warning_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    severity: Mapped[AuditWarningSeverity] = mapped_column(
+        audit_warning_severity_enum,
+        nullable=False,
+    )
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    requires_advisor_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ScheduleOptimizationRun(UuidPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "schedule_optimization_runs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["student_profile_id"],
+            ["student_profiles.id"],
+            name="fk_schedule_runs_student",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["term_id"],
+            ["academic_terms.id"],
+            name="fk_schedule_runs_term",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["academic_plan_run_id"],
+            ["academic_plan_runs.id"],
+            name="fk_schedule_runs_academic_plan",
+            ondelete="SET NULL",
+        ),
+        CheckConstraint("length(engine_version) > 0", name="ck_schedule_runs_engine"),
+        CheckConstraint("minimum_credits >= 0", name="ck_schedule_runs_min_credits"),
+        CheckConstraint("maximum_credits >= 0", name="ck_schedule_runs_max_credits"),
+        CheckConstraint("preferred_credits >= 0", name="ck_schedule_runs_pref_credits"),
+        CheckConstraint(
+            "maximum_credits >= minimum_credits",
+            name="ck_schedule_runs_max_ge_min",
+        ),
+        CheckConstraint(
+            "preferred_credits <= maximum_credits",
+            name="ck_schedule_runs_pref_under_max",
+        ),
+        CheckConstraint(
+            "requested_option_count > 0 AND requested_option_count <= 20",
+            name="ck_schedule_runs_option_count",
+        ),
+        Index(
+            "ix_schedule_runs_student_created",
+            "student_profile_id",
+            "created_at",
+        ),
+        Index("ix_schedule_runs_term_status", "term_id", "status"),
+    )
+
+    student_profile_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    term_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    academic_plan_run_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=True,
+    )
+    planning_mode: Mapped[SchedulePlanningMode] = mapped_column(
+        schedule_planning_mode_enum,
+        nullable=False,
+    )
+    status: Mapped[ScheduleRunStatus] = mapped_column(
+        schedule_run_status_enum,
+        nullable=False,
+    )
+    engine_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    minimum_credits: Mapped[Decimal] = mapped_column(Numeric(5, 1), nullable=False)
+    maximum_credits: Mapped[Decimal] = mapped_column(Numeric(5, 1), nullable=False)
+    preferred_credits: Mapped[Decimal] = mapped_column(Numeric(5, 1), nullable=False)
+    requested_option_count: Mapped[int] = mapped_column(nullable=False, default=3)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ScheduleConstraintSet(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "schedule_constraint_sets"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["schedule_optimization_run_id"],
+            ["schedule_optimization_runs.id"],
+            name="fk_schedule_constraints_run",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint(
+            "earliest_start_time IS NULL OR latest_end_time IS NULL "
+            "OR earliest_start_time < latest_end_time",
+            name="ck_schedule_constraints_time_window",
+        ),
+        CheckConstraint(
+            "minimum_gap_minutes IS NULL OR minimum_gap_minutes >= 0",
+            name="ck_schedule_constraints_min_gap",
+        ),
+        CheckConstraint(
+            "maximum_gap_minutes IS NULL OR maximum_gap_minutes >= 0",
+            name="ck_schedule_constraints_max_gap",
+        ),
+        CheckConstraint(
+            "minimum_gap_minutes IS NULL OR maximum_gap_minutes IS NULL "
+            "OR maximum_gap_minutes >= minimum_gap_minutes",
+            name="ck_schedule_constraints_gap_order",
+        ),
+        UniqueConstraint(
+            "schedule_optimization_run_id",
+            name="uq_schedule_constraints_run",
+        ),
+    )
+
+    schedule_optimization_run_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=False,
+    )
+    excluded_days: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    unavailable_time_blocks: Mapped[list[dict[str, str]]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=list,
+    )
+    earliest_start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    latest_end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    minimum_gap_minutes: Mapped[int | None] = mapped_column(nullable=True)
+    maximum_gap_minutes: Mapped[int | None] = mapped_column(nullable=True)
+    candidate_course_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    allowed_modalities: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    excluded_modalities: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    required_course_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    excluded_course_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    required_section_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    excluded_section_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    prefer_online: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    prefer_compact_schedule: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    prefer_fewer_days: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    prefer_in_person: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    avoid_early_start: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    avoid_late_end: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    allow_permission_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ScheduleOption(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "schedule_options"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["schedule_optimization_run_id"],
+            ["schedule_optimization_runs.id"],
+            name="fk_schedule_options_run",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("option_rank > 0", name="ck_schedule_options_rank_positive"),
+        CheckConstraint("total_credits >= 0", name="ck_schedule_options_credits"),
+        CheckConstraint("class_days_count >= 0", name="ck_schedule_options_days"),
+        CheckConstraint("total_gap_minutes >= 0", name="ck_schedule_options_gap"),
+        CheckConstraint("length(explanation) > 0", name="ck_schedule_options_explained"),
+        UniqueConstraint(
+            "schedule_optimization_run_id",
+            "option_rank",
+            name="uq_schedule_options_run_rank",
+        ),
+        Index(
+            "ix_schedule_options_run_rank",
+            "schedule_optimization_run_id",
+            "option_rank",
+        ),
+    )
+
+    schedule_optimization_run_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=False,
+    )
+    option_rank: Mapped[int] = mapped_column(nullable=False)
+    status: Mapped[ScheduleOptionStatus] = mapped_column(
+        schedule_option_status_enum,
+        nullable=False,
+    )
+    total_credits: Mapped[Decimal] = mapped_column(Numeric(5, 1), nullable=False)
+    class_days_count: Mapped[int] = mapped_column(nullable=False)
+    earliest_start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    latest_end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    total_gap_minutes: Mapped[int] = mapped_column(nullable=False, default=0)
+    score: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ScheduleOptionSection(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "schedule_option_sections"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["schedule_option_id"],
+            ["schedule_options.id"],
+            name="fk_schedule_option_sections_option",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["section_id"],
+            ["sections.id"],
+            name="fk_schedule_option_sections_section",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["course_id"],
+            ["courses.id"],
+            name="fk_schedule_option_sections_course",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("credits >= 0", name="ck_schedule_option_sections_credits"),
+        CheckConstraint(
+            "length(selection_reason) > 0",
+            name="ck_schedule_option_sections_reason",
+        ),
+        UniqueConstraint(
+            "schedule_option_id",
+            "course_id",
+            name="uq_schedule_option_sections_course",
+        ),
+        UniqueConstraint(
+            "schedule_option_id",
+            "section_id",
+            name="uq_schedule_option_sections_section",
+        ),
+        Index(
+            "ix_schedule_option_sections_option",
+            "schedule_option_id",
+            "course_id",
+        ),
+    )
+
+    schedule_option_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    section_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    course_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    credits: Mapped[Decimal] = mapped_column(Numeric(5, 1), nullable=False)
+    eligibility_result: Mapped[EligibilityOverallResult] = mapped_column(
+        eligibility_overall_result_enum,
+        nullable=False,
+    )
+    selection_reason: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ScheduleConflict(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "schedule_conflicts"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["schedule_optimization_run_id"],
+            ["schedule_optimization_runs.id"],
+            name="fk_schedule_conflicts_run",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["schedule_option_id"],
+            ["schedule_options.id"],
+            name="fk_schedule_conflicts_option",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["section_id"],
+            ["sections.id"],
+            name="fk_schedule_conflicts_section",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["other_section_id"],
+            ["sections.id"],
+            name="fk_schedule_conflicts_other_section",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("length(message) > 0", name="ck_schedule_conflicts_message"),
+        Index(
+            "ix_schedule_conflicts_run_type",
+            "schedule_optimization_run_id",
+            "conflict_type",
+        ),
+    )
+
+    schedule_optimization_run_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=False,
+    )
+    schedule_option_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    conflict_type: Mapped[ScheduleConflictType] = mapped_column(
+        schedule_conflict_type_enum,
+        nullable=False,
+    )
+    section_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    other_section_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    day_of_week: Mapped[DayOfWeek | None] = mapped_column(day_of_week_enum, nullable=True)
+    start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ScheduleWarning(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "schedule_warnings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["schedule_optimization_run_id"],
+            ["schedule_optimization_runs.id"],
+            name="fk_schedule_warnings_run",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["schedule_option_id"],
+            ["schedule_options.id"],
+            name="fk_schedule_warnings_option",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("length(warning_code) > 0", name="ck_schedule_warnings_code"),
+        CheckConstraint("length(message) > 0", name="ck_schedule_warnings_message"),
+        Index(
+            "ix_schedule_warnings_run_severity",
+            "schedule_optimization_run_id",
+            "severity",
+        ),
+    )
+
+    schedule_optimization_run_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=False,
+    )
+    schedule_option_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     warning_code: Mapped[str] = mapped_column(String(80), nullable=False)
     severity: Mapped[AuditWarningSeverity] = mapped_column(
         audit_warning_severity_enum,

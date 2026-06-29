@@ -71,6 +71,15 @@ Phase 5A adds long-term academic planner snapshot storage:
 - `academic_plan_requirement_coverages`
 - `academic_plan_warnings`
 
+Phase 6A adds semester schedule optimizer snapshot storage:
+
+- `schedule_optimization_runs`
+- `schedule_constraint_sets`
+- `schedule_options`
+- `schedule_option_sections`
+- `schedule_conflicts`
+- `schedule_warnings`
+
 Every Phase 2A academic-domain table includes `source_type`, `is_official`, source reference fields, and timestamps. The development seed uses only `source_type = MOCK` and `is_official = false`.
 
 Phase 2B also source-tags offering patterns, sections, meetings, rules, and rule expressions. Mock data remains non-official and cannot be used as authoritative school policy.
@@ -82,6 +91,8 @@ Phase 3B scenario rows are generated snapshots. They do not modify `student_acad
 Phase 4 eligibility rows are generated snapshots. They do not modify `student_academic_programs`, `student_course_attempts`, `sections`, or registration data. They reference stored mock `CourseRule` and `CourseRuleExpression` rows and store rule/expression evidence so the API can explain why a course is eligible, conditional, blocked, permission-gated, or manual-review-only.
 
 Phase 5A academic plan rows are generated snapshots. They do not modify `student_academic_programs`, `student_course_attempts`, `sections`, section meetings, or registration data. They reference stored degree-audit, course, requirement, term, scenario, eligibility, and offering-pattern inputs where available, and every planned course stores a source, status, reason code, and explanation.
+
+Phase 6A schedule rows are generated snapshots. They do not modify `student_academic_programs`, `student_course_attempts`, `sections`, section meetings, seat counts, waitlists, or registration data. They reference stored course, term, section, meeting, and eligibility inputs where available, and every option, selected section, conflict, and warning is explainable.
 
 Important Phase 2A constraints include:
 
@@ -119,6 +130,12 @@ Important Phase 2A constraints include:
 - Academic plan courses are unique by plan term and course and store eligibility result, planning status, source, reason code, and explanation.
 - Academic plan requirement coverage links planned courses to requirement nodes and stores coverage type and credits.
 - Academic plan warnings must include a warning code, severity, message, and advisor-confirmation flag.
+- A schedule optimization run references a student, term, optional academic plan run, planning mode, engine version, credit policy, requested option count, status, and completion timestamp.
+- A schedule constraint set is unique per run and persists candidate course IDs, excluded days, unavailable time blocks, time windows, gap preferences, modality filters, required/excluded course and section IDs, and permission behavior.
+- Schedule options are unique by run/rank and store status, score, credit total, class-day count, time window, gap minutes, and explanation.
+- Schedule option sections are unique by option/course and option/section and store selected course, section, credits, eligibility result, and selection reason.
+- Schedule conflicts reference the run and optional option/sections, include a typed conflict reason, optional time window, and message.
+- Schedule warnings must include a warning code, severity, message, and advisor-confirmation flag.
 
 ### Institution and Versioning
 
@@ -244,11 +261,17 @@ Expression examples:
 - `planned_course`
   - `id`, `planning_session_id`, `course_id`, `term_id`, `status`, `reason`
 - `schedule_optimization_run`
-  - `id`, `planning_session_id`, `term_id`, `preferences`, `status`, `objective_summary`
-- `schedule_candidate`
-  - `id`, `schedule_run_id`, `rank`, `score`, `warnings`, `explanation`
-- `schedule_candidate_section`
-  - `id`, `schedule_candidate_id`, `section_id`
+  - `id`, `student_profile_id`, `term_id`, `academic_plan_run_id`, `planning_mode`, `status`, `engine_version`, `minimum_credits`, `maximum_credits`, `preferred_credits`, `requested_option_count`, `completed_at`, `created_at`, `updated_at`
+- `schedule_constraint_set`
+  - `id`, `schedule_optimization_run_id`, `candidate_course_ids`, `excluded_days`, `unavailable_time_blocks`, `earliest_start_time`, `latest_end_time`, `minimum_gap_minutes`, `maximum_gap_minutes`, `allowed_modalities`, `excluded_modalities`, `required_course_ids`, `excluded_course_ids`, `required_section_ids`, `excluded_section_ids`, preference booleans, `created_at`
+- `schedule_option`
+  - `id`, `schedule_optimization_run_id`, `option_rank`, `status`, `total_credits`, `class_days_count`, `earliest_start_time`, `latest_end_time`, `total_gap_minutes`, `score`, `explanation`, `created_at`
+- `schedule_option_section`
+  - `id`, `schedule_option_id`, `section_id`, `course_id`, `credits`, `eligibility_result`, `selection_reason`, `created_at`
+- `schedule_conflict`
+  - `id`, `schedule_optimization_run_id`, `schedule_option_id`, `conflict_type`, `section_id`, `other_section_id`, `day_of_week`, `start_time`, `end_time`, `message`, `created_at`
+- `schedule_warning`
+  - `id`, `schedule_optimization_run_id`, `schedule_option_id`, `warning_code`, `severity`, `message`, `requires_advisor_confirmation`, `created_at`
 
 ## 3. Suggested PostgreSQL Strategy
 
@@ -347,6 +370,39 @@ Use relational tables for identities, relationships, student records, courses, s
 - `TOTAL_CREDITS`
 - `PREREQUISITE_ONLY`
 - `WHAT_IF_REQUIREMENT`
+
+### Schedule Planning Mode
+
+- `FROM_DEGREE_AUDIT`
+- `FROM_LONG_TERM_PLAN`
+- `CUSTOM_COURSE_SET`
+
+### Schedule Run Status
+
+- `PENDING`
+- `RUNNING`
+- `COMPLETED`
+- `COMPLETED_WITH_WARNINGS`
+- `FAILED`
+
+### Schedule Option Status
+
+- `FEASIBLE`
+- `FEASIBLE_WITH_WARNINGS`
+- `PARTIAL`
+- `INFEASIBLE`
+
+### Schedule Conflict Type
+
+- `TIME_OVERLAP`
+- `UNAVAILABLE_TIME`
+- `EXCLUDED_DAY`
+- `CREDIT_LIMIT`
+- `DUPLICATE_COURSE`
+- `ELIGIBILITY_BLOCKED`
+- `COREQUISITE_MISSING`
+- `NO_SECTION_AVAILABLE`
+- `MANUAL_REVIEW_REQUIRED`
 
 ### Audit Application Type
 

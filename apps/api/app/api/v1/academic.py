@@ -1,4 +1,5 @@
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated, Protocol
 from uuid import UUID
@@ -25,6 +26,7 @@ from app.models.academic import (
     CourseOfferingPattern,
     CourseRule,
     CourseRuleExpression,
+    DayOfWeek,
     DegreeAuditRun,
     DegreeAuditWarning,
     EligibilityCheckRun,
@@ -44,6 +46,13 @@ from app.models.academic import (
     ScenarioRelationshipType,
     ScenarioType,
     ScenarioWarning,
+    ScheduleConflict,
+    ScheduleConstraintSet,
+    ScheduleOptimizationRun,
+    ScheduleOption,
+    ScheduleOptionSection,
+    SchedulePlanningMode,
+    ScheduleWarning,
     Section,
     SectionMeeting,
     SectionModality,
@@ -100,6 +109,16 @@ from app.schemas.academic import (
     ScenarioProgramAuditResponse,
     ScenarioProgramResponse,
     ScenarioWarningResponse,
+    ScheduleConflictResponse,
+    ScheduleConstraintSetResponse,
+    ScheduleOptimizationCompareRequest,
+    ScheduleOptimizationComparisonResponse,
+    ScheduleOptimizationCreateRequest,
+    ScheduleOptimizationDetailResponse,
+    ScheduleOptimizationRunResponse,
+    ScheduleOptionResponse,
+    ScheduleOptionSectionResponse,
+    ScheduleWarningResponse,
     SectionMeetingResponse,
     SectionResponse,
     SourceMetadataResponse,
@@ -116,6 +135,8 @@ from app.services.course_eligibility.engine import CourseEligibilityApplicationS
 from app.services.course_eligibility.exceptions import CourseEligibilityValidationError
 from app.services.degree_audit.exceptions import DegreeAuditValidationError
 from app.services.degree_audit.persistence import DegreeAuditApplicationService
+from app.services.schedule_optimizer.engine import ScheduleOptimizerApplicationService
+from app.services.schedule_optimizer.exceptions import ScheduleOptimizerValidationError
 
 router = APIRouter(prefix="/api/v1", tags=["academic"])
 not_found_response = {"model": ErrorResponse}
@@ -871,6 +892,236 @@ def academic_plan_detail_response(
         planned_courses=academic_plan_courses_response(run.id, db),
         requirement_coverage=academic_plan_coverage_responses(run.id, db),
         warnings=academic_plan_warnings_response(run.id, db),
+    )
+
+
+def schedule_run_response(run: ScheduleOptimizationRun) -> ScheduleOptimizationRunResponse:
+    return ScheduleOptimizationRunResponse(
+        id=run.id,
+        student_profile_id=run.student_profile_id,
+        term_id=run.term_id,
+        academic_plan_run_id=run.academic_plan_run_id,
+        planning_mode=run.planning_mode.value,
+        status=run.status.value,
+        engine_version=run.engine_version,
+        minimum_credits=run.minimum_credits,
+        maximum_credits=run.maximum_credits,
+        preferred_credits=run.preferred_credits,
+        requested_option_count=run.requested_option_count,
+        completed_at=run.completed_at,
+        created_at=run.created_at,
+        updated_at=run.updated_at,
+    )
+
+
+def schedule_constraint_response(
+    constraint_set: ScheduleConstraintSet,
+) -> ScheduleConstraintSetResponse:
+    return ScheduleConstraintSetResponse(
+        id=constraint_set.id,
+        schedule_optimization_run_id=constraint_set.schedule_optimization_run_id,
+        excluded_days=constraint_set.excluded_days,
+        unavailable_time_blocks=constraint_set.unavailable_time_blocks,
+        earliest_start_time=(
+            constraint_set.earliest_start_time.isoformat(timespec="minutes")
+            if constraint_set.earliest_start_time
+            else None
+        ),
+        latest_end_time=(
+            constraint_set.latest_end_time.isoformat(timespec="minutes")
+            if constraint_set.latest_end_time
+            else None
+        ),
+        minimum_gap_minutes=constraint_set.minimum_gap_minutes,
+        maximum_gap_minutes=constraint_set.maximum_gap_minutes,
+        candidate_course_ids=constraint_set.candidate_course_ids,
+        allowed_modalities=constraint_set.allowed_modalities,
+        excluded_modalities=constraint_set.excluded_modalities,
+        required_course_ids=constraint_set.required_course_ids,
+        excluded_course_ids=constraint_set.excluded_course_ids,
+        required_section_ids=constraint_set.required_section_ids,
+        excluded_section_ids=constraint_set.excluded_section_ids,
+        prefer_online=constraint_set.prefer_online,
+        prefer_compact_schedule=constraint_set.prefer_compact_schedule,
+        prefer_fewer_days=constraint_set.prefer_fewer_days,
+        prefer_in_person=constraint_set.prefer_in_person,
+        avoid_early_start=constraint_set.avoid_early_start,
+        avoid_late_end=constraint_set.avoid_late_end,
+        allow_permission_required=constraint_set.allow_permission_required,
+        created_at=constraint_set.created_at,
+    )
+
+
+def schedule_option_section_response(
+    selected: ScheduleOptionSection,
+    section: Section,
+    course: Course,
+    meetings: list[SectionMeeting],
+) -> ScheduleOptionSectionResponse:
+    return ScheduleOptionSectionResponse(
+        id=selected.id,
+        schedule_option_id=selected.schedule_option_id,
+        section_id=selected.section_id,
+        course_id=selected.course_id,
+        course_code=f"{course.subject_code} {course.course_number}",
+        course_title=course.title,
+        section_code=section.section_code,
+        section_status=section.status.value,
+        modality=section.modality.value,
+        credits=selected.credits,
+        eligibility_result=selected.eligibility_result.value,
+        selection_reason=selected.selection_reason,
+        meetings=[section_meeting_response(meeting) for meeting in meetings],
+        created_at=selected.created_at,
+    )
+
+
+def schedule_option_response(
+    option: ScheduleOption,
+    selected_sections: list[ScheduleOptionSectionResponse],
+) -> ScheduleOptionResponse:
+    return ScheduleOptionResponse(
+        id=option.id,
+        schedule_optimization_run_id=option.schedule_optimization_run_id,
+        option_rank=option.option_rank,
+        status=option.status.value,
+        total_credits=option.total_credits,
+        class_days_count=option.class_days_count,
+        earliest_start_time=(
+            option.earliest_start_time.isoformat(timespec="minutes")
+            if option.earliest_start_time
+            else None
+        ),
+        latest_end_time=(
+            option.latest_end_time.isoformat(timespec="minutes") if option.latest_end_time else None
+        ),
+        total_gap_minutes=option.total_gap_minutes,
+        score=option.score,
+        explanation=option.explanation,
+        selected_sections=selected_sections,
+        created_at=option.created_at,
+    )
+
+
+def schedule_conflict_response(conflict: ScheduleConflict) -> ScheduleConflictResponse:
+    return ScheduleConflictResponse(
+        id=conflict.id,
+        schedule_optimization_run_id=conflict.schedule_optimization_run_id,
+        schedule_option_id=conflict.schedule_option_id,
+        conflict_type=conflict.conflict_type.value,
+        section_id=conflict.section_id,
+        other_section_id=conflict.other_section_id,
+        day_of_week=conflict.day_of_week.value if conflict.day_of_week else None,
+        start_time=(
+            conflict.start_time.isoformat(timespec="minutes") if conflict.start_time else None
+        ),
+        end_time=conflict.end_time.isoformat(timespec="minutes") if conflict.end_time else None,
+        message=conflict.message,
+        created_at=conflict.created_at,
+    )
+
+
+def schedule_warning_response(warning: ScheduleWarning) -> ScheduleWarningResponse:
+    return ScheduleWarningResponse(
+        id=warning.id,
+        schedule_optimization_run_id=warning.schedule_optimization_run_id,
+        schedule_option_id=warning.schedule_option_id,
+        warning_code=warning.warning_code,
+        severity=warning.severity.value,
+        message=warning.message,
+        requires_advisor_confirmation=warning.requires_advisor_confirmation,
+        created_at=warning.created_at,
+    )
+
+
+def schedule_options_response(
+    run_id: UUID,
+    db: Session,
+) -> list[ScheduleOptionResponse]:
+    options = db.scalars(
+        select(ScheduleOption)
+        .where(ScheduleOption.schedule_optimization_run_id == run_id)
+        .order_by(ScheduleOption.option_rank, ScheduleOption.id)
+    ).all()
+    responses: list[ScheduleOptionResponse] = []
+    for option in options:
+        rows = db.execute(
+            select(ScheduleOptionSection, Section, Course)
+            .join(Section, ScheduleOptionSection.section_id == Section.id)
+            .join(Course, ScheduleOptionSection.course_id == Course.id)
+            .where(ScheduleOptionSection.schedule_option_id == option.id)
+            .order_by(Course.subject_code, Course.course_number, Section.section_code)
+        ).all()
+        section_ids = [selected.section_id for selected, _section, _course in rows]
+        meeting_rows: Sequence[SectionMeeting] = []
+        if section_ids:
+            meeting_rows = db.scalars(
+                select(SectionMeeting)
+                .where(SectionMeeting.section_id.in_(section_ids))
+                .order_by(
+                    SectionMeeting.section_id,
+                    SectionMeeting.display_order,
+                    SectionMeeting.id,
+                )
+            ).all()
+        meetings_by_section: dict[UUID, list[SectionMeeting]] = defaultdict(list)
+        for meeting in meeting_rows:
+            meetings_by_section[meeting.section_id].append(meeting)
+        selected_responses = [
+            schedule_option_section_response(
+                selected,
+                section,
+                course,
+                meetings_by_section[selected.section_id],
+            )
+            for selected, section, course in rows
+        ]
+        responses.append(schedule_option_response(option, selected_responses))
+    return responses
+
+
+def schedule_conflicts_response(
+    run_id: UUID,
+    db: Session,
+) -> list[ScheduleConflictResponse]:
+    conflicts = db.scalars(
+        select(ScheduleConflict)
+        .where(ScheduleConflict.schedule_optimization_run_id == run_id)
+        .order_by(ScheduleConflict.conflict_type, ScheduleConflict.created_at, ScheduleConflict.id)
+    ).all()
+    return [schedule_conflict_response(conflict) for conflict in conflicts]
+
+
+def schedule_warnings_response(
+    run_id: UUID,
+    db: Session,
+) -> list[ScheduleWarningResponse]:
+    warnings = db.scalars(
+        select(ScheduleWarning)
+        .where(ScheduleWarning.schedule_optimization_run_id == run_id)
+        .order_by(ScheduleWarning.severity, ScheduleWarning.created_at, ScheduleWarning.id)
+    ).all()
+    return [schedule_warning_response(warning) for warning in warnings]
+
+
+def schedule_detail_response(
+    run: ScheduleOptimizationRun,
+    db: Session,
+) -> ScheduleOptimizationDetailResponse:
+    base = schedule_run_response(run).model_dump()
+    constraint_set = db.scalar(
+        select(ScheduleConstraintSet).where(
+            ScheduleConstraintSet.schedule_optimization_run_id == run.id
+        )
+    )
+    return ScheduleOptimizationDetailResponse(
+        **base,
+        constraint_set=(
+            schedule_constraint_response(constraint_set) if constraint_set is not None else None
+        ),
+        options=schedule_options_response(run.id, db),
+        conflicts=schedule_conflicts_response(run.id, db),
+        warnings=schedule_warnings_response(run.id, db),
     )
 
 
@@ -1697,6 +1948,206 @@ def list_student_academic_plans(
         .order_by(AcademicPlanRun.created_at.desc(), AcademicPlanRun.id.desc())
     ).all()
     return [academic_plan_run_response(run) for run in runs]
+
+
+@router.post(
+    "/schedule-optimizations",
+    response_model=ScheduleOptimizationDetailResponse,
+    status_code=201,
+    responses={404: not_found_response, 400: not_found_response},
+)
+def create_schedule_optimization(
+    request: ScheduleOptimizationCreateRequest,
+    db: DatabaseSession,
+) -> ScheduleOptimizationDetailResponse:
+    try:
+        run = ScheduleOptimizerApplicationService(db).create_schedule(
+            student_profile_id=request.student_profile_id,
+            term_id=request.term_id,
+            academic_plan_run_id=request.academic_plan_run_id,
+            planning_mode=SchedulePlanningMode(request.planning_mode),
+            candidate_course_ids=request.candidate_course_ids,
+            minimum_credits=request.minimum_credits,
+            maximum_credits=request.maximum_credits,
+            preferred_credits=request.preferred_credits,
+            requested_option_count=request.requested_option_count,
+            excluded_days=[DayOfWeek(day) for day in request.excluded_days],
+            unavailable_time_blocks=[
+                {
+                    "day_of_week": block.day_of_week,
+                    "start_time": block.start_time.isoformat(timespec="minutes"),
+                    "end_time": block.end_time.isoformat(timespec="minutes"),
+                }
+                for block in request.unavailable_time_blocks
+            ],
+            earliest_start_time=request.earliest_start_time,
+            latest_end_time=request.latest_end_time,
+            allowed_modalities=[
+                SectionModality(modality) for modality in request.allowed_modalities
+            ],
+            excluded_modalities=[
+                SectionModality(modality) for modality in request.excluded_modalities
+            ],
+            required_course_ids=request.required_course_ids,
+            excluded_course_ids=request.excluded_course_ids,
+            required_section_ids=request.required_section_ids,
+            excluded_section_ids=request.excluded_section_ids,
+            prefer_online=request.prefer_online,
+            prefer_compact_schedule=request.prefer_compact_schedule,
+            prefer_fewer_days=request.prefer_fewer_days,
+            prefer_in_person=request.prefer_in_person,
+            avoid_early_start=request.avoid_early_start,
+            avoid_late_end=request.avoid_late_end,
+            allow_permission_required=request.allow_permission_required,
+            minimum_gap_minutes=request.minimum_gap_minutes,
+            maximum_gap_minutes=request.maximum_gap_minutes,
+        )
+    except ScheduleOptimizerValidationError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return schedule_detail_response(run, db)
+
+
+@router.post(
+    "/schedule-optimizations/compare",
+    response_model=list[ScheduleOptimizationComparisonResponse],
+    responses={404: not_found_response},
+)
+def compare_schedule_optimizations(
+    request: ScheduleOptimizationCompareRequest,
+    db: DatabaseSession,
+) -> list[ScheduleOptimizationComparisonResponse]:
+    runs = {
+        run.id: run
+        for run in db.scalars(
+            select(ScheduleOptimizationRun).where(
+                ScheduleOptimizationRun.id.in_(request.schedule_optimization_run_ids)
+            )
+        ).all()
+    }
+    missing = [run_id for run_id in request.schedule_optimization_run_ids if run_id not in runs]
+    if missing:
+        raise not_found("ScheduleOptimizationRun", missing[0])
+
+    comparisons: list[ScheduleOptimizationComparisonResponse] = []
+    for run_id in request.schedule_optimization_run_ids:
+        option_count = (
+            db.scalar(
+                select(func.count())
+                .select_from(ScheduleOption)
+                .where(ScheduleOption.schedule_optimization_run_id == run_id)
+            )
+            or 0
+        )
+        warning_count = (
+            db.scalar(
+                select(func.count())
+                .select_from(ScheduleWarning)
+                .where(ScheduleWarning.schedule_optimization_run_id == run_id)
+            )
+            or 0
+        )
+        best_option = db.scalar(
+            select(ScheduleOption)
+            .where(ScheduleOption.schedule_optimization_run_id == run_id)
+            .order_by(ScheduleOption.option_rank, ScheduleOption.id)
+            .limit(1)
+        )
+        run = runs[run_id]
+        comparisons.append(
+            ScheduleOptimizationComparisonResponse(
+                schedule_optimization_run_id=run.id,
+                status=run.status.value,
+                option_count=option_count,
+                warning_count=warning_count,
+                best_score=best_option.score if best_option else None,
+                best_total_credits=best_option.total_credits if best_option else None,
+                completed_at=run.completed_at,
+            )
+        )
+    return comparisons
+
+
+@router.get(
+    "/schedule-optimizations/{run_id}",
+    response_model=ScheduleOptimizationDetailResponse,
+    responses={404: not_found_response},
+)
+def get_schedule_optimization(
+    run_id: UUID,
+    db: DatabaseSession,
+) -> ScheduleOptimizationDetailResponse:
+    run = db.get(ScheduleOptimizationRun, run_id)
+    if run is None:
+        raise not_found("ScheduleOptimizationRun", run_id)
+    return schedule_detail_response(run, db)
+
+
+@router.get(
+    "/schedule-optimizations/{run_id}/options",
+    response_model=list[ScheduleOptionResponse],
+    responses={404: not_found_response},
+)
+def get_schedule_optimization_options(
+    run_id: UUID,
+    db: DatabaseSession,
+) -> list[ScheduleOptionResponse]:
+    if db.get(ScheduleOptimizationRun, run_id) is None:
+        raise not_found("ScheduleOptimizationRun", run_id)
+    return schedule_options_response(run_id, db)
+
+
+@router.get(
+    "/schedule-optimizations/{run_id}/conflicts",
+    response_model=list[ScheduleConflictResponse],
+    responses={404: not_found_response},
+)
+def get_schedule_optimization_conflicts(
+    run_id: UUID,
+    db: DatabaseSession,
+) -> list[ScheduleConflictResponse]:
+    if db.get(ScheduleOptimizationRun, run_id) is None:
+        raise not_found("ScheduleOptimizationRun", run_id)
+    return schedule_conflicts_response(run_id, db)
+
+
+@router.get(
+    "/schedule-optimizations/{run_id}/warnings",
+    response_model=list[ScheduleWarningResponse],
+    responses={404: not_found_response},
+)
+def get_schedule_optimization_warnings(
+    run_id: UUID,
+    db: DatabaseSession,
+) -> list[ScheduleWarningResponse]:
+    if db.get(ScheduleOptimizationRun, run_id) is None:
+        raise not_found("ScheduleOptimizationRun", run_id)
+    return schedule_warnings_response(run_id, db)
+
+
+@router.get(
+    "/students/{student_id}/schedule-optimizations",
+    response_model=list[ScheduleOptimizationRunResponse],
+    responses={404: not_found_response},
+)
+def list_student_schedule_optimizations(
+    student_id: UUID,
+    db: DatabaseSession,
+) -> list[ScheduleOptimizationRunResponse]:
+    if db.get(StudentProfile, student_id) is None:
+        raise not_found("StudentProfile", student_id)
+    runs = db.scalars(
+        select(ScheduleOptimizationRun)
+        .where(ScheduleOptimizationRun.student_profile_id == student_id)
+        .order_by(
+            ScheduleOptimizationRun.created_at.desc(),
+            ScheduleOptimizationRun.id.desc(),
+        )
+    ).all()
+    return [schedule_run_response(run) for run in runs]
 
 
 @router.post(

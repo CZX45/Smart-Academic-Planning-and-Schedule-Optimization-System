@@ -208,7 +208,36 @@ The Semester Schedule Optimizer works at section level. It should consider:
 - Instructor preferences.
 - Backup sections and backup schedules.
 
-Phase 2B provides section and meeting storage for this future optimizer. A `Section` is a term-specific snapshot for a `Course`; a `SectionMeeting` stores one meeting component such as lecture, lab, seminar, exam, arranged, or online asynchronous work. Phase 2B does not detect time conflicts or generate schedules.
+Phase 6A implements a deterministic bounded baseline scheduler. A `Section` is a term-specific snapshot for a `Course`; a `SectionMeeting` stores one meeting component such as lecture, lab, seminar, exam, arranged, or online asynchronous work.
+
+Phase 6A hard rules:
+
+- Build schedules for one student and one term at a time.
+- Keep academic planning separate from section scheduling; schedule runs may reference a long-term plan, but they select concrete sections only for the requested term.
+- Never select two sections for the same course in one option.
+- Never select sections whose required meetings overlap.
+- Never select a section that intersects a hard unavailable block.
+- Never select a section on an excluded day.
+- Never exceed the hard maximum credit limit.
+- Treat closed, waitlisted, cancelled, or unknown seat data as warnings or conflicts, not as permission to perform registration actions.
+- Use Course Eligibility in `REGISTRATION` mode; `NOT_ELIGIBLE`, permission-required without explicit permission allowance, and manual-review results block automatic option selection.
+- Record every rejected section or infeasible condition as a `ScheduleConflict` or `ScheduleWarning` when it affects the result.
+
+Phase 6A preference rules:
+
+- Prefer schedules closer to the preferred credit target.
+- Prefer compact schedules when requested.
+- Prefer fewer class days when requested.
+- Prefer online or in-person modalities only as scoring preferences unless the request supplies modality filters.
+- Penalize early starts and late endings when requested.
+- Use stable tie-breakers so identical inputs produce the same option order.
+
+Phase 6A safety boundaries:
+
+- The optimizer does not use OR-Tools.
+- The optimizer does not poll, refresh, reserve, or monitor seats.
+- The optimizer does not register, add, drop, swap, waitlist, or suggest automated portal actions.
+- Mock, inferred, ambiguous, or stale schedule data must require advisor or school confirmation for high-impact choices.
 
 ## 7. Infeasibility Explanations
 
@@ -248,6 +277,8 @@ Phase 3B additionally emits advisor-confirmation warnings for missing directiona
 Phase 4 additionally emits advisor-confirmation warnings for mock eligibility estimates, missing stored course restrictions, rules marked for manual confirmation, unknown or unsupported expression nodes, ambiguous campus/program restrictions, and permission requirements.
 
 Phase 5A additionally emits advisor-confirmation warnings for mock plan estimates, broad requirements without concrete candidate courses, unplaced requirements, missing or uncertain offering patterns, credit-limit or horizon shortfalls, closed/cancelled section snapshots, and planner assumptions that could affect graduation timing.
+
+Phase 6A additionally emits advisor-confirmation warnings for mock schedule data, missing or ambiguous section restrictions, eligibility estimates, permission-required sections, unavailable or conflicting sections, bounded-search limits, credit shortfalls, and any schedule recommendation based on non-official section snapshots.
 
 ## 9. Phase 3A Requirement Status Semantics
 

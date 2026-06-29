@@ -236,7 +236,32 @@ Testable outcomes:
 
 ## Phase 6: Semester Schedule Optimizer
 
-Deliverables:
+Status: current phase, with Phase 6A foundation implemented.
+
+Phase 6A deliverables:
+
+- Deterministic bounded section-level scheduler under `/api/v1/schedule-optimizations`.
+- Persisted `ScheduleOptimizationRun`, constraint set, option, selected section, conflict, and warning snapshots.
+- `FROM_DEGREE_AUDIT`, `FROM_LONG_TERM_PLAN`, and `CUSTOM_COURSE_SET` planning modes.
+- Time overlap, unavailable block, excluded day, credit range, modality, permission, and eligibility filtering.
+- Preference scoring for preferred credits, compactness, fewer days, online/in-person modality, early starts, and late endings.
+- Shared TypeScript schemas/client helpers and a Semester Schedule Builder UI panel.
+- Mock seed cases for section overlaps, Friday exclusion, online alternatives, and conditional/permission eligibility.
+
+Phase 6A testable outcomes:
+
+- Scheduler creates repeatable mock section options without mutating official student records, sections, seats, waitlists, or registration data.
+- Scheduler records conflicts and warnings for rejected sections and uncertain data.
+- Scheduler keeps OR-Tools, seat monitoring, waitlists, browser extension import, real school scraping, and registration automation out of scope.
+- Schedule responses include structured explanations, reason codes, warnings, and advisor-confirmation flags where appropriate.
+
+Deferred from Phase 6A:
+
+- OR-Tools CP-SAT or global mathematical schedule optimization.
+- Instructor preference data, commute/location optimization, backup schedules, and richer minimal-relaxation search.
+- Live section updates, seat monitoring, waitlist handling, browser extension import, real school scraping, and registration automation.
+
+Longer-term deliverables:
 
 - Section-level schedule solver using OR-Tools CP-SAT.
 - Time conflict, unavailable block, credit range, no-Friday, earliest/latest, compactness, modality, and instructor preferences.
