@@ -258,6 +258,148 @@ export type ScenarioComparisonSnapshot = z.infer<
   typeof ScenarioComparisonSnapshotSchema
 >;
 
+const EligibilityOverallResultSchema = z.enum([
+  "ELIGIBLE",
+  "CONDITIONALLY_ELIGIBLE",
+  "NOT_ELIGIBLE",
+  "PERMISSION_REQUIRED",
+  "MANUAL_REVIEW_REQUIRED",
+]);
+
+const EligibilityRuleResultSchema = z.enum([
+  "SATISFIED",
+  "CONDITIONALLY_SATISFIED",
+  "NOT_SATISFIED",
+  "PERMISSION_REQUIRED",
+  "MANUAL_REVIEW_REQUIRED",
+  "NOT_APPLICABLE",
+]);
+
+export const EligibilityReasonSchema = z.object({
+  reason_code: z.string(),
+  explanation: z.string(),
+  course_rule_id: UuidSchema.nullable().optional(),
+  course_rule_expression_id: UuidSchema.nullable().optional(),
+  referenced_entity_type: z.string().nullable().optional(),
+  referenced_entity_id: UuidSchema.nullable().optional(),
+  expected_value: z.string().nullable().optional(),
+  actual_value: z.string().nullable().optional(),
+});
+
+export type EligibilityReason = z.infer<typeof EligibilityReasonSchema>;
+
+export const CorequisiteSummarySchema = z.object({
+  required_corequisite_courses: z.array(UuidSchema),
+  already_completed: z.array(UuidSchema),
+  currently_in_progress: z.array(UuidSchema),
+  must_enroll_concurrently: z.array(UuidSchema),
+});
+
+export type CorequisiteSummary = z.infer<typeof CorequisiteSummarySchema>;
+
+export const RegistrationAvailabilitySchema = z.object({
+  section_status: z.string(),
+  available_seats: z.number().nullable().optional(),
+  waitlist_available: z.number().nullable().optional(),
+  availability_note: z.string().nullable().optional(),
+});
+
+export type RegistrationAvailability = z.infer<
+  typeof RegistrationAvailabilitySchema
+>;
+
+export const RuleExpressionEvaluationSchema = z.object({
+  id: UuidSchema,
+  rule_evaluation_id: UuidSchema,
+  course_rule_expression_id: UuidSchema,
+  node_type: z.string(),
+  result: EligibilityRuleResultSchema,
+  actual_value: z.string().nullable().optional(),
+  expected_value: z.string().nullable().optional(),
+  matched_course_id: UuidSchema.nullable().optional(),
+  matched_attempt_id: UuidSchema.nullable().optional(),
+  reason_code: z.string(),
+  explanation: z.string(),
+  created_at: DateTimeSchema,
+});
+
+export type RuleExpressionEvaluation = z.infer<
+  typeof RuleExpressionEvaluationSchema
+>;
+
+export const RuleEvaluationSchema = z.object({
+  id: UuidSchema,
+  eligibility_check_run_id: UuidSchema,
+  course_rule_id: UuidSchema,
+  result: EligibilityRuleResultSchema,
+  rule_type: z.string(),
+  explanation: z.string(),
+  display_order: z.number(),
+  expressions: z.array(RuleExpressionEvaluationSchema),
+  created_at: DateTimeSchema,
+});
+
+export type RuleEvaluation = z.infer<typeof RuleEvaluationSchema>;
+
+export const EligibilityWarningSchema = z.object({
+  id: UuidSchema,
+  eligibility_check_run_id: UuidSchema,
+  rule_evaluation_id: UuidSchema.nullable(),
+  warning_code: z.string(),
+  severity: z.enum(["INFO", "WARNING", "ERROR"]),
+  message: z.string(),
+  requires_advisor_confirmation: z.boolean(),
+  created_at: DateTimeSchema,
+});
+
+export type EligibilityWarning = z.infer<typeof EligibilityWarningSchema>;
+
+export const CourseEligibilityCheckSchema = z.object({
+  id: UuidSchema,
+  institution_id: UuidSchema,
+  student_profile_id: UuidSchema,
+  course_id: UuidSchema,
+  section_id: UuidSchema.nullable(),
+  target_term_id: UuidSchema,
+  mode: z.enum(["CURRENT", "PROJECTED", "REGISTRATION"]),
+  status: z.enum([
+    "PENDING",
+    "RUNNING",
+    "COMPLETED",
+    "FAILED",
+    "COMPLETED_WITH_WARNINGS",
+  ]),
+  engine_version: z.string(),
+  overall_result: EligibilityOverallResultSchema,
+  academic_eligibility_result: EligibilityOverallResultSchema,
+  started_at: DateTimeSchema.nullable(),
+  completed_at: DateTimeSchema.nullable(),
+  source_snapshot_hash: z.string(),
+  rule_evaluations: z.array(RuleEvaluationSchema),
+  blocking_reasons: z.array(EligibilityReasonSchema),
+  conditional_reasons: z.array(EligibilityReasonSchema),
+  permissions_required: z.array(EligibilityReasonSchema),
+  manual_review_reasons: z.array(EligibilityReasonSchema),
+  corequisites_to_add: z.array(UuidSchema),
+  corequisite_summary: CorequisiteSummarySchema.nullable(),
+  registration_availability: RegistrationAvailabilitySchema.nullable(),
+  warnings: z.array(EligibilityWarningSchema),
+  created_at: DateTimeSchema,
+  updated_at: DateTimeSchema,
+});
+
+export type CourseEligibilityCheck = z.infer<
+  typeof CourseEligibilityCheckSchema
+>;
+
+export const CourseEligibilityBatchSchema = z.object({
+  results: z.array(CourseEligibilityCheckSchema),
+});
+
+export type CourseEligibilityBatch = z.infer<
+  typeof CourseEligibilityBatchSchema
+>;
+
 export class ApiRequestError extends Error {
   constructor(message: string) {
     super(message);
@@ -304,6 +446,15 @@ export type CreateAcademicScenarioRequest = {
       | "CONCENTRATION";
     priority: number;
   }>;
+};
+
+export type CreateCourseEligibilityCheckRequest = {
+  student_profile_id: string;
+  course_id: string;
+  section_id?: string | null;
+  target_term_id: string;
+  mode: "CURRENT" | "PROJECTED" | "REGISTRATION";
+  planned_corequisite_course_ids?: string[];
 };
 
 const DEFAULT_TIMEOUT_MS = 5_000;
@@ -617,6 +768,80 @@ export async function compareAcademicScenarios(
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Academic scenario comparison list response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function createCourseEligibilityCheck(
+  apiBaseUrl: string,
+  request: CreateCourseEligibilityCheckRequest,
+  options: FetchHealthOptions = {},
+): Promise<CourseEligibilityCheck> {
+  const parsed = CourseEligibilityCheckSchema.safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/eligibility-checks", {
+      ...options,
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(request),
+    }),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Course eligibility response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function createCourseEligibilityBatch(
+  apiBaseUrl: string,
+  requests: CreateCourseEligibilityCheckRequest[],
+  options: FetchHealthOptions = {},
+): Promise<CourseEligibilityBatch> {
+  const parsed = CourseEligibilityBatchSchema.safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/eligibility-checks/batch", {
+      ...options,
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ checks: requests }),
+    }),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Course eligibility batch response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchCourseEligibilityCheck(
+  apiBaseUrl: string,
+  checkId: string,
+  options: FetchHealthOptions = {},
+): Promise<CourseEligibilityCheck> {
+  const parsed = CourseEligibilityCheckSchema.safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/eligibility-checks/${checkId}`, options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Course eligibility detail response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchStudentEligibilityChecks(
+  apiBaseUrl: string,
+  studentId: string,
+  options: FetchHealthOptions = {},
+): Promise<CourseEligibilityCheck[]> {
+  const parsed = z.array(CourseEligibilityCheckSchema).safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/students/${studentId}/eligibility-checks`, options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Student eligibility checks response did not match the expected schema",
     );
   }
   return parsed.data;

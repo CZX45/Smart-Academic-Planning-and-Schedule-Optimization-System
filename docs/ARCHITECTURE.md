@@ -53,6 +53,7 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Phase 2B adds read-only section, meeting, offering-pattern, course-rule, and rule-expression endpoints. It stores prerequisite, corequisite, restriction, and permission trees but does not evaluate eligibility, plans, schedules, or registration actions.
 - Phase 3A adds a synchronous Degree Audit application service under `/api/v1`. The API layer validates request/response schemas and delegates audit creation to the application service, which calls the domain engine and persists a snapshot.
 - Phase 3B adds synchronous academic scenario endpoints under `/api/v1/academic-scenarios`. The scenario service validates hypothetical program combinations, reuses Phase 3A Degree Audit per program, runs deterministic multi-program allocation, and persists comparison summaries and warnings.
+- Phase 4 adds synchronous course eligibility endpoints under `/api/v1/eligibility-checks`. The eligibility service evaluates stored course-rule expression trees against student records, persists check snapshots, and reports rule/expression evidence without mutating student academic programs or registration data.
 
 ### Browser Extension
 - Later-phase optional data capture tool.
@@ -122,6 +123,16 @@ The scenario service deliberately does not evaluate prerequisites, registration 
 ### Eligibility Boundary
 Evaluates prerequisites, corequisites, grade minimums, restrictions, and registration eligibility.
 
+Phase 4 implements this boundary with:
+
+- `EligibilityCheckRun` as the snapshot root for one student, course, optional section, target term, and mode.
+- `RuleEvaluation` for each course-level or section-level `CourseRule` evaluated in the check.
+- `RuleExpressionEvaluation` for each evaluated expression node, including reason codes, expected values, actual values, and matched course/attempt evidence where applicable.
+- `EligibilityWarning` for mock-data, advisor-confirmation, missing-rule, and manual-review notices.
+- A backend evaluator registry for `CourseRuleExpressionNodeType` leaves; the web app consumes API results and does not reimplement eligibility logic.
+
+Eligibility modes are explicit: `CURRENT`, `PROJECTED`, and `REGISTRATION`. In-progress, planned, and concurrent corequisite evidence can make a result conditional but is not relabeled as final completion. Section availability is returned as an availability snapshot and is not treated as academic eligibility. Phase 4 deliberately does not predict graduation terms, build multi-term plans, optimize schedules, call OR-Tools, poll seats, or perform registration actions.
+
 ### Planning Boundary
 Builds long-range course plans independent of section times.
 
@@ -139,10 +150,11 @@ Produces risk flags, advisor review items, confidence levels, and high-risk reco
 4. Phase 2B read-only APIs expose stored mock sections, meetings, offering patterns, and course-rule expression trees with source metadata.
 5. Phase 3A Degree Audit creates explicit snapshots for stored mock student/program data.
 6. Phase 3B What-if Scenarios create mock program-combination snapshots, per-program audit runs, allocations, warnings, and comparison summaries.
-7. Academic Plan Optimizer proposes future terms in a later phase.
-8. Schedule Optimizer ranks concrete section schedules for a selected term in a later phase.
-9. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
-10. UI presents explanations and warnings and will let users adjust assumptions once the optimizer phases exist.
+7. Phase 4 Course Eligibility Checks evaluate stored mock course rules and optional section rules for a selected course/term.
+8. Academic Plan Optimizer proposes future terms in a later phase.
+9. Schedule Optimizer ranks concrete section schedules for a selected term in a later phase.
+10. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
+11. UI presents explanations and warnings and will let users adjust assumptions once the optimizer phases exist.
 
 ## 6. API Design Principles
 

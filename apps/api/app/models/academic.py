@@ -107,6 +107,37 @@ class AuditMode(StrEnum):
     PROJECTED = "PROJECTED"
 
 
+class EligibilityMode(StrEnum):
+    CURRENT = "CURRENT"
+    PROJECTED = "PROJECTED"
+    REGISTRATION = "REGISTRATION"
+
+
+class EligibilityCheckStatus(StrEnum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    COMPLETED_WITH_WARNINGS = "COMPLETED_WITH_WARNINGS"
+
+
+class EligibilityOverallResult(StrEnum):
+    ELIGIBLE = "ELIGIBLE"
+    CONDITIONALLY_ELIGIBLE = "CONDITIONALLY_ELIGIBLE"
+    NOT_ELIGIBLE = "NOT_ELIGIBLE"
+    PERMISSION_REQUIRED = "PERMISSION_REQUIRED"
+    MANUAL_REVIEW_REQUIRED = "MANUAL_REVIEW_REQUIRED"
+
+
+class EligibilityRuleResult(StrEnum):
+    SATISFIED = "SATISFIED"
+    CONDITIONALLY_SATISFIED = "CONDITIONALLY_SATISFIED"
+    NOT_SATISFIED = "NOT_SATISFIED"
+    PERMISSION_REQUIRED = "PERMISSION_REQUIRED"
+    MANUAL_REVIEW_REQUIRED = "MANUAL_REVIEW_REQUIRED"
+    NOT_APPLICABLE = "NOT_APPLICABLE"
+
+
 class RequirementEvaluationStatus(StrEnum):
     SATISFIED = "SATISFIED"
     IN_PROGRESS = "IN_PROGRESS"
@@ -309,6 +340,41 @@ audit_run_status_enum = Enum(
 audit_mode_enum = Enum(
     AuditMode,
     name="audit_mode",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+eligibility_mode_enum = Enum(
+    EligibilityMode,
+    name="eligibility_mode",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+eligibility_check_status_enum = Enum(
+    EligibilityCheckStatus,
+    name="eligibility_check_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+eligibility_overall_result_enum = Enum(
+    EligibilityOverallResult,
+    name="eligibility_overall_result",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+eligibility_academic_result_enum = Enum(
+    EligibilityOverallResult,
+    name="eligibility_academic_result",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+eligibility_rule_result_enum = Enum(
+    EligibilityRuleResult,
+    name="eligibility_rule_result",
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
@@ -1776,6 +1842,222 @@ class DegreeAuditWarning(UuidPrimaryKeyMixin, Base):
     warning_code: Mapped[str] = mapped_column(String(80), nullable=False)
     severity: Mapped[AuditWarningSeverity] = mapped_column(
         audit_warning_severity_enum, nullable=False
+    )
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    requires_advisor_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class EligibilityCheckRun(UuidPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "eligibility_check_runs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["institution_id"],
+            ["institutions.id"],
+            name="fk_eligibility_runs_institution",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["student_profile_id"],
+            ["student_profiles.id"],
+            name="fk_eligibility_runs_student",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["course_id", "institution_id"],
+            ["courses.id", "courses.institution_id"],
+            name="fk_eligibility_runs_course_inst",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["section_id", "course_id", "institution_id"],
+            ["sections.id", "sections.course_id", "sections.institution_id"],
+            name="fk_eligibility_runs_section_course_inst",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["target_term_id", "institution_id"],
+            ["academic_terms.id", "academic_terms.institution_id"],
+            name="fk_eligibility_runs_term_inst",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("length(engine_version) > 0", name="ck_eligibility_runs_engine"),
+        CheckConstraint("length(source_snapshot_hash) > 0", name="ck_eligibility_runs_hash"),
+        Index(
+            "ix_eligibility_runs_student_created",
+            "student_profile_id",
+            "created_at",
+        ),
+        Index(
+            "ix_eligibility_runs_course_term",
+            "course_id",
+            "target_term_id",
+            "mode",
+        ),
+    )
+
+    institution_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    student_profile_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    course_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    section_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    target_term_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    mode: Mapped[EligibilityMode] = mapped_column(eligibility_mode_enum, nullable=False)
+    status: Mapped[EligibilityCheckStatus] = mapped_column(
+        eligibility_check_status_enum,
+        nullable=False,
+    )
+    engine_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    overall_result: Mapped[EligibilityOverallResult] = mapped_column(
+        eligibility_overall_result_enum,
+        nullable=False,
+    )
+    academic_eligibility_result: Mapped[EligibilityOverallResult] = mapped_column(
+        eligibility_academic_result_enum,
+        nullable=False,
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    source_snapshot_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+
+
+class RuleEvaluation(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "rule_evaluations"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["eligibility_check_run_id"],
+            ["eligibility_check_runs.id"],
+            name="fk_rule_evaluations_run",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["course_rule_id"],
+            ["course_rules.id"],
+            name="fk_rule_evaluations_rule",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("display_order >= 0", name="ck_rule_evals_display_order_non_neg"),
+        CheckConstraint("length(explanation) > 0", name="ck_rule_evals_explanation"),
+        UniqueConstraint(
+            "eligibility_check_run_id",
+            "course_rule_id",
+            name="uq_rule_evals_run_rule",
+        ),
+        Index(
+            "ix_rule_evals_run_order",
+            "eligibility_check_run_id",
+            "display_order",
+        ),
+    )
+
+    eligibility_check_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    course_rule_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    result: Mapped[EligibilityRuleResult] = mapped_column(
+        eligibility_rule_result_enum,
+        nullable=False,
+    )
+    rule_type: Mapped[CourseRuleType] = mapped_column(course_rule_type_enum, nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    display_order: Mapped[int] = mapped_column(nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class RuleExpressionEvaluation(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "rule_expression_evaluations"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["rule_evaluation_id"],
+            ["rule_evaluations.id"],
+            name="fk_rule_expr_evals_rule_eval",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["course_rule_expression_id"],
+            ["course_rule_expressions.id"],
+            name="fk_rule_expr_evals_expression",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["matched_course_id"],
+            ["courses.id"],
+            name="fk_rule_expr_evals_matched_course",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["matched_attempt_id"],
+            ["student_course_attempts.id"],
+            name="fk_rule_expr_evals_matched_attempt",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("length(reason_code) > 0", name="ck_rule_expr_evals_reason"),
+        CheckConstraint("length(explanation) > 0", name="ck_rule_expr_evals_explanation"),
+        UniqueConstraint(
+            "rule_evaluation_id",
+            "course_rule_expression_id",
+            name="uq_rule_expr_evals_rule_expression",
+        ),
+        Index(
+            "ix_rule_expr_evals_rule_eval",
+            "rule_evaluation_id",
+        ),
+    )
+
+    rule_evaluation_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    course_rule_expression_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    result: Mapped[EligibilityRuleResult] = mapped_column(
+        eligibility_rule_result_enum,
+        nullable=False,
+    )
+    actual_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expected_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    matched_course_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    matched_attempt_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    reason_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class EligibilityWarning(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "eligibility_warnings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["eligibility_check_run_id"],
+            ["eligibility_check_runs.id"],
+            name="fk_eligibility_warnings_run",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["rule_evaluation_id"],
+            ["rule_evaluations.id"],
+            name="fk_eligibility_warnings_rule_eval",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("length(warning_code) > 0", name="ck_eligibility_warnings_code"),
+        CheckConstraint("length(message) > 0", name="ck_eligibility_warnings_message"),
+        Index(
+            "ix_eligibility_warnings_run_severity",
+            "eligibility_check_run_id",
+            "severity",
+        ),
+    )
+
+    eligibility_check_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    rule_evaluation_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    warning_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    severity: Mapped[AuditWarningSeverity] = mapped_column(
+        audit_warning_severity_enum,
+        nullable=False,
     )
     message: Mapped[str] = mapped_column(Text, nullable=False)
     requires_advisor_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False)

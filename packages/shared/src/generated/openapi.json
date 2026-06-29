@@ -1210,6 +1210,352 @@
         }
       }
     },
+    "/api/v1/eligibility-checks": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Create Course Eligibility Check",
+        "operationId": "create_course_eligibility_check_api_v1_eligibility_checks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseEligibilityCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseEligibilityCheckResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/eligibility-checks/batch": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Create Course Eligibility Batch",
+        "operationId": "create_course_eligibility_batch_api_v1_eligibility_checks_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseEligibilityBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseEligibilityBatchResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/eligibility-checks/{eligibility_check_id}": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Course Eligibility Check",
+        "operationId": "get_course_eligibility_check_api_v1_eligibility_checks__eligibility_check_id__get",
+        "parameters": [
+          {
+            "name": "eligibility_check_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Eligibility Check Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseEligibilityCheckResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/eligibility-checks/{eligibility_check_id}/rules": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Course Eligibility Rules",
+        "operationId": "get_course_eligibility_rules_api_v1_eligibility_checks__eligibility_check_id__rules_get",
+        "parameters": [
+          {
+            "name": "eligibility_check_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Eligibility Check Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RuleEvaluationResponse"
+                  },
+                  "title": "Response Get Course Eligibility Rules Api V1 Eligibility Checks  Eligibility Check Id  Rules Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/eligibility-checks/{eligibility_check_id}/warnings": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Course Eligibility Warnings",
+        "operationId": "get_course_eligibility_warnings_api_v1_eligibility_checks__eligibility_check_id__warnings_get",
+        "parameters": [
+          {
+            "name": "eligibility_check_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Eligibility Check Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EligibilityWarningResponse"
+                  },
+                  "title": "Response Get Course Eligibility Warnings Api V1 Eligibility Checks  Eligibility Check Id  Warnings Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/students/{student_id}/eligibility-checks": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "List Student Eligibility Checks",
+        "operationId": "list_student_eligibility_checks_api_v1_students__student_id__eligibility_checks_get",
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CourseEligibilityCheckResponse"
+                  },
+                  "title": "Response List Student Eligibility Checks Api V1 Students  Student Id  Eligibility Checks Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/academic-scenarios": {
       "post": {
         "tags": [
@@ -2276,6 +2622,359 @@
         ],
         "title": "CampusResponse"
       },
+      "CorequisiteSummaryResponse": {
+        "properties": {
+          "required_corequisite_courses": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Required Corequisite Courses"
+          },
+          "already_completed": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Already Completed"
+          },
+          "currently_in_progress": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Currently In Progress"
+          },
+          "must_enroll_concurrently": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Must Enroll Concurrently"
+          }
+        },
+        "type": "object",
+        "required": [
+          "required_corequisite_courses",
+          "already_completed",
+          "currently_in_progress",
+          "must_enroll_concurrently"
+        ],
+        "title": "CorequisiteSummaryResponse"
+      },
+      "CourseEligibilityBatchRequest": {
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CourseEligibilityCreateRequest"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Checks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "checks"
+        ],
+        "title": "CourseEligibilityBatchRequest"
+      },
+      "CourseEligibilityBatchResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/CourseEligibilityCheckResponse"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "results"
+        ],
+        "title": "CourseEligibilityBatchResponse"
+      },
+      "CourseEligibilityCheckResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "institution_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Institution Id"
+          },
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "course_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Id"
+          },
+          "section_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Id"
+          },
+          "target_term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Term Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "CURRENT",
+              "PROJECTED",
+              "REGISTRATION"
+            ],
+            "title": "Mode"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "COMPLETED",
+              "FAILED",
+              "COMPLETED_WITH_WARNINGS"
+            ],
+            "title": "Status"
+          },
+          "engine_version": {
+            "type": "string",
+            "title": "Engine Version"
+          },
+          "overall_result": {
+            "type": "string",
+            "enum": [
+              "ELIGIBLE",
+              "CONDITIONALLY_ELIGIBLE",
+              "NOT_ELIGIBLE",
+              "PERMISSION_REQUIRED",
+              "MANUAL_REVIEW_REQUIRED"
+            ],
+            "title": "Overall Result"
+          },
+          "academic_eligibility_result": {
+            "type": "string",
+            "enum": [
+              "ELIGIBLE",
+              "CONDITIONALLY_ELIGIBLE",
+              "NOT_ELIGIBLE",
+              "PERMISSION_REQUIRED",
+              "MANUAL_REVIEW_REQUIRED"
+            ],
+            "title": "Academic Eligibility Result"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "source_snapshot_hash": {
+            "type": "string",
+            "title": "Source Snapshot Hash"
+          },
+          "rule_evaluations": {
+            "items": {
+              "$ref": "#/components/schemas/RuleEvaluationResponse"
+            },
+            "type": "array",
+            "title": "Rule Evaluations"
+          },
+          "blocking_reasons": {
+            "items": {
+              "$ref": "#/components/schemas/EligibilityReasonResponse"
+            },
+            "type": "array",
+            "title": "Blocking Reasons"
+          },
+          "conditional_reasons": {
+            "items": {
+              "$ref": "#/components/schemas/EligibilityReasonResponse"
+            },
+            "type": "array",
+            "title": "Conditional Reasons"
+          },
+          "permissions_required": {
+            "items": {
+              "$ref": "#/components/schemas/EligibilityReasonResponse"
+            },
+            "type": "array",
+            "title": "Permissions Required"
+          },
+          "manual_review_reasons": {
+            "items": {
+              "$ref": "#/components/schemas/EligibilityReasonResponse"
+            },
+            "type": "array",
+            "title": "Manual Review Reasons"
+          },
+          "corequisites_to_add": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Corequisites To Add"
+          },
+          "corequisite_summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorequisiteSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "registration_availability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RegistrationAvailabilityResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/EligibilityWarningResponse"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "institution_id",
+          "student_profile_id",
+          "course_id",
+          "target_term_id",
+          "mode",
+          "status",
+          "engine_version",
+          "overall_result",
+          "academic_eligibility_result",
+          "source_snapshot_hash",
+          "rule_evaluations",
+          "blocking_reasons",
+          "conditional_reasons",
+          "permissions_required",
+          "manual_review_reasons",
+          "corequisites_to_add",
+          "warnings",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CourseEligibilityCheckResponse"
+      },
+      "CourseEligibilityCreateRequest": {
+        "properties": {
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "course_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Id"
+          },
+          "section_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Id"
+          },
+          "target_term_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Term Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "CURRENT",
+              "PROJECTED",
+              "REGISTRATION"
+            ],
+            "title": "Mode"
+          },
+          "planned_corequisite_course_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Planned Corequisite Course Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "student_profile_id",
+          "course_id",
+          "target_term_id",
+          "mode"
+        ],
+        "title": "CourseEligibilityCreateRequest"
+      },
       "CourseOfferingPatternResponse": {
         "properties": {
           "id": {
@@ -2899,6 +3598,156 @@
         ],
         "title": "DegreeAuditWarningResponse"
       },
+      "EligibilityReasonResponse": {
+        "properties": {
+          "reason_code": {
+            "type": "string",
+            "title": "Reason Code"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "course_rule_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Rule Id"
+          },
+          "course_rule_expression_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Rule Expression Id"
+          },
+          "referenced_entity_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Referenced Entity Type"
+          },
+          "referenced_entity_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Referenced Entity Id"
+          },
+          "expected_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Value"
+          },
+          "actual_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason_code",
+          "explanation"
+        ],
+        "title": "EligibilityReasonResponse"
+      },
+      "EligibilityWarningResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "eligibility_check_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Eligibility Check Run Id"
+          },
+          "rule_evaluation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Evaluation Id"
+          },
+          "warning_code": {
+            "type": "string",
+            "title": "Warning Code"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "INFO",
+              "WARNING",
+              "ERROR"
+            ],
+            "title": "Severity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "requires_advisor_confirmation": {
+            "type": "boolean",
+            "title": "Requires Advisor Confirmation"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "eligibility_check_run_id",
+          "warning_code",
+          "severity",
+          "message",
+          "requires_advisor_confirmation",
+          "created_at"
+        ],
+        "title": "EligibilityWarningResponse"
+      },
       "ErrorDetailResponse": {
         "properties": {
           "code": {
@@ -3162,6 +4011,52 @@
           "database_ready"
         ],
         "title": "ReadinessResponse"
+      },
+      "RegistrationAvailabilityResponse": {
+        "properties": {
+          "section_status": {
+            "type": "string",
+            "title": "Section Status"
+          },
+          "available_seats": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Seats"
+          },
+          "waitlist_available": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waitlist Available"
+          },
+          "availability_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "section_status"
+        ],
+        "title": "RegistrationAvailabilityResponse"
       },
       "RequirementCourseOptionResponse": {
         "properties": {
@@ -3525,6 +4420,180 @@
           "nodes"
         ],
         "title": "RequirementTreeResponse"
+      },
+      "RuleEvaluationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "eligibility_check_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Eligibility Check Run Id"
+          },
+          "course_rule_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Rule Id"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "SATISFIED",
+              "CONDITIONALLY_SATISFIED",
+              "NOT_SATISFIED",
+              "PERMISSION_REQUIRED",
+              "MANUAL_REVIEW_REQUIRED",
+              "NOT_APPLICABLE"
+            ],
+            "title": "Result"
+          },
+          "rule_type": {
+            "type": "string",
+            "title": "Rule Type"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order"
+          },
+          "expressions": {
+            "items": {
+              "$ref": "#/components/schemas/RuleExpressionEvaluationResponse"
+            },
+            "type": "array",
+            "title": "Expressions"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "eligibility_check_run_id",
+          "course_rule_id",
+          "result",
+          "rule_type",
+          "explanation",
+          "display_order",
+          "expressions",
+          "created_at"
+        ],
+        "title": "RuleEvaluationResponse"
+      },
+      "RuleExpressionEvaluationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "rule_evaluation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Rule Evaluation Id"
+          },
+          "course_rule_expression_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Rule Expression Id"
+          },
+          "node_type": {
+            "type": "string",
+            "title": "Node Type"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "SATISFIED",
+              "CONDITIONALLY_SATISFIED",
+              "NOT_SATISFIED",
+              "PERMISSION_REQUIRED",
+              "MANUAL_REVIEW_REQUIRED",
+              "NOT_APPLICABLE"
+            ],
+            "title": "Result"
+          },
+          "actual_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Value"
+          },
+          "expected_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Value"
+          },
+          "matched_course_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Course Id"
+          },
+          "matched_attempt_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Attempt Id"
+          },
+          "reason_code": {
+            "type": "string",
+            "title": "Reason Code"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "rule_evaluation_id",
+          "course_rule_expression_id",
+          "node_type",
+          "result",
+          "reason_code",
+          "explanation",
+          "created_at"
+        ],
+        "title": "RuleExpressionEvaluationResponse"
       },
       "ScenarioComparisonSnapshotResponse": {
         "properties": {

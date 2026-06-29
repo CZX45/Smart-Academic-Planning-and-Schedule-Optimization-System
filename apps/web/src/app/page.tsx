@@ -5,6 +5,7 @@ import {
   ApiResponseSchemaError,
   compareAcademicScenarios,
   createAcademicScenario,
+  createCourseEligibilityCheck,
   createDegreeAudit,
   fetchAcademicScenarioAllocations,
   fetchAcademicScenarioAudits,
@@ -14,8 +15,10 @@ import {
   fetchDegreeAuditRequirements,
   fetchHealth,
   fetchLatestDegreeAudit,
+  fetchStudentEligibilityChecks,
   fetchStudentAcademicScenarios,
   type AcademicScenario,
+  type CourseEligibilityCheck,
   type DegreeAuditRun,
   type HealthResponse,
   type RequirementEvaluation,
@@ -74,10 +77,29 @@ type ScenarioState =
     }
   | { status: "empty"; message: string }
   | { status: "failed"; message: string };
+type EligibilityState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ready"; result: CourseEligibilityCheck; history: CourseEligibilityCheck[] }
+  | { status: "empty"; message: string }
+  | { status: "offline"; message: string }
+  | { status: "failed"; message: string }
+  | { status: "schema-error"; message: string };
+type CandidateCourse = {
+  id: string;
+  label: string;
+  courseId: string;
+  sectionId?: string;
+  termId: string;
+  mode: "CURRENT" | "PROJECTED" | "REGISTRATION";
+  plannedCorequisiteCourseIds?: string[];
+};
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 const mockStudentId = "74874476-4024-5e2d-807a-fbb4ab620249";
 const mockProgramVersionId = "f65bee76-6061-515f-a3df-cdf5567514af";
+const fall2024TermId = "f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec";
+const spring2025TermId = "fed14bfe-972b-5392-8c72-379ceb879e85";
 const candidatePrograms: CandidateProgram[] = [
   {
     id: "accounting-minor",
@@ -115,6 +137,53 @@ const candidatePrograms: CandidateProgram[] = [
     programVersionId: "25bb6050-f3fa-5cd9-b3e2-3314e419be20",
   },
 ];
+const candidateCourses: CandidateCourse[] = [
+  {
+    id: "fin-300-current",
+    label: "FIN 300 · current prerequisite pass",
+    courseId: "e6ab2a34-d85a-5446-875e-83fd36d5b08e",
+    termId: fall2024TermId,
+    mode: "CURRENT",
+  },
+  {
+    id: "fin-350-projected",
+    label: "FIN 350 · projected conditional prerequisite",
+    courseId: "e8af4b61-f180-5018-8437-e4981c728c56",
+    termId: spring2025TermId,
+    mode: "PROJECTED",
+  },
+  {
+    id: "fin-400-registration",
+    label: "FIN 400 HYB · permission and waitlist",
+    courseId: "b59bb40b-e3d0-57e3-a424-0d9b8bd2f305",
+    sectionId: "404cdd60-5eb4-5128-8ae3-ecbe6430f6d1",
+    termId: spring2025TermId,
+    mode: "REGISTRATION",
+  },
+  {
+    id: "fin-410-coreq",
+    label: "FIN 410 · explicit corequisite plan",
+    courseId: "b2002864-645f-5bf6-b4e0-1d92e60bef8a",
+    termId: spring2025TermId,
+    mode: "REGISTRATION",
+    plannedCorequisiteCourseIds: ["f184da12-a8fd-5471-a571-856cc12097e9"],
+  },
+  {
+    id: "fin-450-current",
+    label: "FIN 450 · missing prerequisite",
+    courseId: "4b01b0ee-7b75-59ab-a01a-0b4bb2f7be4a",
+    termId: spring2025TermId,
+    mode: "CURRENT",
+  },
+  {
+    id: "free-100-closed",
+    label: "FREE 100 · no stored restrictions, closed section",
+    courseId: "ba71f086-848f-51e0-9b7f-d72be59cf1d7",
+    sectionId: "3ff503ba-0b3b-5e2c-baea-45de63142192",
+    termId: fall2024TermId,
+    mode: "REGISTRATION",
+  },
+];
 
 function describeHealthError(error: unknown): string {
   if (error instanceof ApiResponseSchemaError) {
@@ -144,6 +213,16 @@ function describeScenarioError(error: unknown): string {
     return error.message;
   }
   return error instanceof Error ? error.message : "Unknown what-if scenario error";
+}
+
+function describeEligibilityError(error: unknown): string {
+  if (error instanceof ApiResponseSchemaError) {
+    return "API returned an unexpected course eligibility response shape.";
+  }
+  if (error instanceof ApiRequestError) {
+    return error.message;
+  }
+  return error instanceof Error ? error.message : "Unknown course eligibility error";
 }
 
 function isNotFound(error: unknown): boolean {
@@ -180,6 +259,15 @@ export default function Home() {
   );
   const [selectedCandidateId, setSelectedCandidateId] = useState(candidatePrograms[0].id);
   const [scenarioState, setScenarioState] = useState<ScenarioState>({ status: "idle" });
+  const [selectedCourseId, setSelectedCourseId] = useState(candidateCourses[0].id);
+  const [eligibilityState, setEligibilityState] = useState<EligibilityState>(() =>
+    apiBaseUrl
+      ? { status: "idle" }
+      : {
+          status: "offline",
+          message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        },
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -298,6 +386,13 @@ export default function Home() {
           setSelectedCandidateId={setSelectedCandidateId}
           scenarioState={scenarioState}
           setScenarioState={setScenarioState}
+        />
+
+        <CourseEligibilityChecker
+          selectedCourseId={selectedCourseId}
+          setSelectedCourseId={setSelectedCourseId}
+          eligibilityState={eligibilityState}
+          setEligibilityState={setEligibilityState}
         />
       </section>
     </main>
@@ -615,6 +710,304 @@ function WhatIfAnalysis({
           selectedCandidate={selectedCandidate}
         />
       ) : null}
+    </section>
+  );
+}
+
+function CourseEligibilityChecker({
+  selectedCourseId,
+  setSelectedCourseId,
+  eligibilityState,
+  setEligibilityState,
+}: {
+  selectedCourseId: string;
+  setSelectedCourseId: (value: string) => void;
+  eligibilityState: EligibilityState;
+  setEligibilityState: Dispatch<SetStateAction<EligibilityState>>;
+}) {
+  const selectedCourse =
+    candidateCourses.find((candidate) => candidate.id === selectedCourseId) ??
+    candidateCourses[0];
+
+  async function handleRunEligibility(): Promise<void> {
+    if (!apiBaseUrl) {
+      setEligibilityState({
+        status: "offline",
+        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+      });
+      return;
+    }
+    setEligibilityState({ status: "loading" });
+    try {
+      const result = await createCourseEligibilityCheck(
+        apiBaseUrl,
+        {
+          student_profile_id: mockStudentId,
+          course_id: selectedCourse.courseId,
+          section_id: selectedCourse.sectionId ?? null,
+          target_term_id: selectedCourse.termId,
+          mode: selectedCourse.mode,
+          planned_corequisite_course_ids:
+            selectedCourse.plannedCorequisiteCourseIds ?? [],
+        },
+        { timeoutMs: 8_000 },
+      );
+      const history = await fetchStudentEligibilityChecks(apiBaseUrl, mockStudentId, {
+        timeoutMs: 5_000,
+      });
+      setEligibilityState({ status: "ready", result, history });
+    } catch (error: unknown) {
+      setEligibilityState({
+        status: error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        message: describeEligibilityError(error),
+      });
+    }
+  }
+
+  async function handleLoadHistory(): Promise<void> {
+    if (!apiBaseUrl) {
+      setEligibilityState({
+        status: "offline",
+        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+      });
+      return;
+    }
+    setEligibilityState({ status: "loading" });
+    try {
+      const history = await fetchStudentEligibilityChecks(apiBaseUrl, mockStudentId, {
+        timeoutMs: 5_000,
+      });
+      if (history.length === 0) {
+        setEligibilityState({
+          status: "empty",
+          message: "No course eligibility checks have been created yet.",
+        });
+        return;
+      }
+      setEligibilityState({
+        status: "ready",
+        result: history[0],
+        history,
+      });
+    } catch (error: unknown) {
+      setEligibilityState({
+        status: error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        message: describeEligibilityError(error),
+      });
+    }
+  }
+
+  return (
+    <section className="eligibility-panel" aria-label="Course Eligibility Checker">
+      <div className="section-heading">
+        <div>
+          <h2>Course Eligibility</h2>
+          <p className="subtle">
+            Mock estimate only; confirm official rules with the school or an advisor.
+          </p>
+        </div>
+        <p className="notice compact">Section seats are separate from academic eligibility.</p>
+      </div>
+
+      <div className="scenario-controls">
+        <label>
+          Course check
+          <select
+            value={selectedCourseId}
+            onChange={(event) => setSelectedCourseId(event.target.value)}
+          >
+            {candidateCourses.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" onClick={() => void handleRunEligibility()}>
+          Check eligibility
+        </button>
+        <button type="button" onClick={() => void handleLoadHistory()}>
+          Load history
+        </button>
+      </div>
+
+      {eligibilityState.status === "loading" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Checking eligibility</h2>
+          <p>Evaluating stored mock course rules and expression evidence.</p>
+        </section>
+      ) : null}
+
+      {eligibilityState.status === "offline" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Eligibility API offline</h2>
+          <p>{eligibilityState.message}</p>
+        </section>
+      ) : null}
+
+      {eligibilityState.status === "failed" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Eligibility check failed</h2>
+          <p>{eligibilityState.message}</p>
+        </section>
+      ) : null}
+
+      {eligibilityState.status === "schema-error" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Eligibility schema error</h2>
+          <p>{eligibilityState.message}</p>
+        </section>
+      ) : null}
+
+      {eligibilityState.status === "empty" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>No eligibility checks</h2>
+          <p>{eligibilityState.message}</p>
+        </section>
+      ) : null}
+
+      {eligibilityState.status === "ready" ? (
+        <EligibilityResultView state={eligibilityState} />
+      ) : null}
+    </section>
+  );
+}
+
+function EligibilityResultView({
+  state,
+}: {
+  state: Extract<EligibilityState, { status: "ready" }>;
+}) {
+  const { result } = state;
+  const availability = result.registration_availability;
+  return (
+    <div className="eligibility-result">
+      <section className="summary-grid" aria-label="Course eligibility summary">
+        <SummaryMetric label="Mode" value={statusLabel(result.mode)} />
+        <SummaryMetric label="Result" value={statusLabel(result.overall_result)} />
+        <SummaryMetric
+          label="Academic Result"
+          value={statusLabel(result.academic_eligibility_result)}
+        />
+        <SummaryMetric
+          label="Section Status"
+          value={availability ? statusLabel(availability.section_status) : "Course only"}
+        />
+        <SummaryMetric
+          label="Available Seats"
+          value={
+            availability?.available_seats === undefined ||
+            availability?.available_seats === null
+              ? "Not reported"
+              : String(availability.available_seats)
+          }
+        />
+        <SummaryMetric label="Warnings" value={String(result.warnings.length)} />
+      </section>
+
+      <section className="eligibility-columns">
+        <div>
+          <h2>Reasons</h2>
+          <ReasonList
+            title="Blocking"
+            reasons={result.blocking_reasons}
+          />
+          <ReasonList
+            title="Conditional"
+            reasons={result.conditional_reasons}
+          />
+          <ReasonList
+            title="Permission"
+            reasons={result.permissions_required}
+          />
+          <ReasonList
+            title="Manual Review"
+            reasons={result.manual_review_reasons}
+          />
+        </div>
+        <div>
+          <h2>Rule Evidence</h2>
+          {result.rule_evaluations.length > 0 ? (
+            result.rule_evaluations.map((rule) => (
+              <details key={rule.id} className="eligibility-rule">
+                <summary>
+                  <span>{statusLabel(rule.rule_type)}</span>
+                  <span className={`status-pill ${rule.result.toLowerCase()}`}>
+                    {statusLabel(rule.result)}
+                  </span>
+                </summary>
+                <div className="eligibility-expression-list">
+                  {rule.expressions.map((expression) => (
+                    <div key={expression.id} className="eligibility-expression">
+                      <strong>{statusLabel(expression.node_type)}</strong>
+                      <span>{statusLabel(expression.result)}</span>
+                      <p>{expression.explanation}</p>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ))
+          ) : (
+            <p className="subtle">No stored rules were found for this course scope.</p>
+          )}
+        </div>
+        <div>
+          <h2>Warnings</h2>
+          {result.warnings.length > 0 ? (
+            <ul className="compact-list">
+              {result.warnings.map((warning) => (
+                <li key={warning.id}>
+                  <strong>{warning.warning_code}</strong>
+                  <span>{warning.message}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="subtle">No eligibility warnings.</p>
+          )}
+        </div>
+      </section>
+
+      {state.history.length > 1 ? (
+        <section className="comparison-table" aria-label="Eligibility history">
+          <h2>Recent Eligibility Checks</h2>
+          <div className="comparison-rows">
+            {state.history.slice(0, 4).map((item) => (
+              <div key={item.id} className="comparison-row">
+                <strong>{statusLabel(item.overall_result)}</strong>
+                <span>
+                  {statusLabel(item.mode)} · {new Date(item.created_at).toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function ReasonList({
+  title,
+  reasons,
+}: {
+  title: string;
+  reasons: CourseEligibilityCheck["blocking_reasons"];
+}) {
+  if (reasons.length === 0) {
+    return null;
+  }
+  return (
+    <section className="reason-group">
+      <h3>{title}</h3>
+      <ul className="compact-list">
+        {reasons.map((reason) => (
+          <li key={`${title}-${reason.reason_code}-${reason.course_rule_expression_id ?? ""}`}>
+            <strong>{reason.reason_code}</strong>
+            <span>{reason.explanation}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

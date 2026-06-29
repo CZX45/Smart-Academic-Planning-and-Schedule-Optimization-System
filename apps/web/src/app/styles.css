@@ -150,6 +150,11 @@ h2 {
   gap: 16px;
 }
 
+.eligibility-panel {
+  display: grid;
+  gap: 16px;
+}
+
 .section-heading {
   align-items: flex-start;
   display: flex;
@@ -204,13 +209,25 @@ h2 {
   gap: 16px;
 }
 
+.eligibility-result {
+  display: grid;
+  gap: 16px;
+}
+
 .scenario-columns {
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
+.eligibility-columns {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(300px, 1.3fr) minmax(220px, 0.9fr);
+}
+
 .scenario-columns > div,
+.eligibility-columns > div,
 .comparison-table {
   background: white;
   border: 1px solid #d7dde7;
@@ -299,14 +316,84 @@ h2 {
 }
 
 .not_satisfied,
+.not_eligible,
 .manual_review_required {
   background: #fee2e2;
   color: #991b1b;
 }
 
+.conditionally_satisfied,
+.conditionally_eligible {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.permission_required {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.eligible {
+  background: #dcfce7;
+  color: #166534;
+}
+
 .not_applicable {
   background: #f3f4f6;
   color: #374151;
+}
+
+.eligibility-rule {
+  border: 1px solid #d7dde7;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.eligibility-rule + .eligibility-rule {
+  margin-top: 10px;
+}
+
+.eligibility-rule summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.eligibility-expression-list {
+  border-top: 1px solid #e5e7eb;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.eligibility-expression {
+  display: grid;
+  gap: 4px;
+}
+
+.eligibility-expression span {
+  color: #4b5563;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.eligibility-expression p {
+  color: #4b5563;
+  margin-bottom: 0;
+}
+
+.reason-group {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.reason-group h3 {
+  font-size: 0.88rem;
+  margin: 0;
 }
 
 .advisor-note {
@@ -324,5 +411,9 @@ h2 {
   .requirement-row summary {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .eligibility-columns {
+    grid-template-columns: 1fr;
   }
 }

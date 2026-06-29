@@ -167,3 +167,19 @@ Consequences:
 - Shared credit, unique secondary credit, and total earned credit remain separate concepts.
 - The allocator can be replaced later without rewriting Degree Audit.
 - Phase 3B estimates additional credits but does not predict graduation timing or evaluate eligibility.
+
+## ADR-0013: Implement Phase 4 course eligibility as expression snapshot evaluation
+
+Status: Accepted
+
+Context: Stored course-rule expression trees must become explainable student/course eligibility decisions without duplicating frontend logic or crossing into schedule optimization or registration automation.
+
+Decision: Implement Course Eligibility as a synchronous backend application service that evaluates one `StudentProfile` against one `Course`, optional `Section`, target term, and explicit eligibility mode. Persist an `EligibilityCheckRun` snapshot with `RuleEvaluation`, `RuleExpressionEvaluation`, and `EligibilityWarning` rows. Reuse the centralized grade policy and existing course-attempt/transfer status semantics. Return section availability as a separate snapshot field rather than folding seats into academic eligibility.
+
+Consequences:
+
+- Eligibility checks are auditable, repeatable, and tied to stored rules and expression evidence.
+- The frontend can render eligibility results without reimplementing prerequisite/corequisite logic.
+- `CURRENT`, `PROJECTED`, and `REGISTRATION` modes keep completed, in-progress, planned, and concurrent corequisite evidence distinct.
+- Phase 4 can explain permissions, hard failures, conditional outcomes, and manual-review outcomes without building long-term plans or schedules.
+- Phase 4 does not predict graduation timing, optimize schedules, call OR-Tools, monitor seats, or automate registration.

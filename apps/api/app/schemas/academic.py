@@ -305,6 +305,29 @@ ScenarioAllocationTypeValue = Literal[
     "TOTAL_CREDIT_ONLY",
     "UNALLOCATED",
 ]
+EligibilityModeValue = Literal["CURRENT", "PROJECTED", "REGISTRATION"]
+EligibilityCheckStatusValue = Literal[
+    "PENDING",
+    "RUNNING",
+    "COMPLETED",
+    "FAILED",
+    "COMPLETED_WITH_WARNINGS",
+]
+EligibilityOverallResultValue = Literal[
+    "ELIGIBLE",
+    "CONDITIONALLY_ELIGIBLE",
+    "NOT_ELIGIBLE",
+    "PERMISSION_REQUIRED",
+    "MANUAL_REVIEW_REQUIRED",
+]
+EligibilityRuleResultValue = Literal[
+    "SATISFIED",
+    "CONDITIONALLY_SATISFIED",
+    "NOT_SATISFIED",
+    "PERMISSION_REQUIRED",
+    "MANUAL_REVIEW_REQUIRED",
+    "NOT_APPLICABLE",
+]
 
 
 class DegreeAuditCreateRequest(BaseModel):
@@ -482,6 +505,114 @@ class ScenarioComparisonSnapshotResponse(BaseModel):
     completion_percentage: Decimal
     is_estimate: bool
     created_at: datetime
+
+
+class CourseEligibilityCreateRequest(BaseModel):
+    student_profile_id: UUID
+    course_id: UUID
+    section_id: UUID | None = None
+    target_term_id: UUID
+    mode: EligibilityModeValue
+    planned_corequisite_course_ids: list[UUID] = Field(default_factory=list)
+
+
+class CourseEligibilityBatchRequest(BaseModel):
+    checks: list[CourseEligibilityCreateRequest] = Field(min_length=1, max_length=50)
+
+
+class EligibilityReasonResponse(BaseModel):
+    reason_code: str
+    explanation: str
+    course_rule_id: UUID | None = None
+    course_rule_expression_id: UUID | None = None
+    referenced_entity_type: str | None = None
+    referenced_entity_id: UUID | None = None
+    expected_value: str | None = None
+    actual_value: str | None = None
+
+
+class CorequisiteSummaryResponse(BaseModel):
+    required_corequisite_courses: list[UUID]
+    already_completed: list[UUID]
+    currently_in_progress: list[UUID]
+    must_enroll_concurrently: list[UUID]
+
+
+class RegistrationAvailabilityResponse(BaseModel):
+    section_status: str
+    available_seats: int | None = None
+    waitlist_available: int | None = None
+    availability_note: str | None = None
+
+
+class RuleExpressionEvaluationResponse(BaseModel):
+    id: UUID
+    rule_evaluation_id: UUID
+    course_rule_expression_id: UUID
+    node_type: str
+    result: EligibilityRuleResultValue
+    actual_value: str | None = None
+    expected_value: str | None = None
+    matched_course_id: UUID | None = None
+    matched_attempt_id: UUID | None = None
+    reason_code: str
+    explanation: str
+    created_at: datetime
+
+
+class RuleEvaluationResponse(BaseModel):
+    id: UUID
+    eligibility_check_run_id: UUID
+    course_rule_id: UUID
+    result: EligibilityRuleResultValue
+    rule_type: str
+    explanation: str
+    display_order: int
+    expressions: list[RuleExpressionEvaluationResponse]
+    created_at: datetime
+
+
+class EligibilityWarningResponse(BaseModel):
+    id: UUID
+    eligibility_check_run_id: UUID
+    rule_evaluation_id: UUID | None = None
+    warning_code: str
+    severity: AuditWarningSeverityValue
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class CourseEligibilityCheckResponse(BaseModel):
+    id: UUID
+    institution_id: UUID
+    student_profile_id: UUID
+    course_id: UUID
+    section_id: UUID | None = None
+    target_term_id: UUID
+    mode: EligibilityModeValue
+    status: EligibilityCheckStatusValue
+    engine_version: str
+    overall_result: EligibilityOverallResultValue
+    academic_eligibility_result: EligibilityOverallResultValue
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    source_snapshot_hash: str
+    rule_evaluations: list[RuleEvaluationResponse]
+    blocking_reasons: list[EligibilityReasonResponse]
+    conditional_reasons: list[EligibilityReasonResponse]
+    permissions_required: list[EligibilityReasonResponse]
+    manual_review_reasons: list[EligibilityReasonResponse]
+    corequisites_to_add: list[UUID]
+    corequisite_summary: CorequisiteSummaryResponse | None = None
+    registration_availability: RegistrationAvailabilityResponse | None = None
+    warnings: list[EligibilityWarningResponse]
+    created_at: datetime
+    updated_at: datetime
+
+
+class CourseEligibilityBatchResponse(BaseModel):
+    results: list[CourseEligibilityCheckResponse]
 
 
 class ErrorDetailResponse(BaseModel):

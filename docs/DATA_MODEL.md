@@ -56,6 +56,13 @@ Phase 3B adds what-if scenario and multi-program allocation storage:
 - `scenario_comparison_snapshots`
 - `scenario_warnings`
 
+Phase 4 adds course eligibility check snapshot storage:
+
+- `eligibility_check_runs`
+- `rule_evaluations`
+- `rule_expression_evaluations`
+- `eligibility_warnings`
+
 Every Phase 2A academic-domain table includes `source_type`, `is_official`, source reference fields, and timestamps. The development seed uses only `source_type = MOCK` and `is_official = false`.
 
 Phase 2B also source-tags offering patterns, sections, meetings, rules, and rule expressions. Mock data remains non-official and cannot be used as authoritative school policy.
@@ -63,6 +70,8 @@ Phase 2B also source-tags offering patterns, sections, meetings, rules, and rule
 Phase 3A audit rows are generated snapshots, not source records. They do not store school credentials or portal secrets. Each run stores `engine_version`, `calculation_mode`, source snapshot hash, credit totals, completion percentage as fixed-precision numeric data, and zero-or-more warnings.
 
 Phase 3B scenario rows are generated snapshots. They do not modify `student_academic_programs`; each scenario stores its own membership, audit links, allocations, warnings, and comparison summary. `program_combination_rules` are source-tagged because they represent policy data. Mock rules must remain `source_type = MOCK` and `is_official = false`.
+
+Phase 4 eligibility rows are generated snapshots. They do not modify `student_academic_programs`, `student_course_attempts`, `sections`, or registration data. They reference stored mock `CourseRule` and `CourseRuleExpression` rows and store rule/expression evidence so the API can explain why a course is eligible, conditional, blocked, permission-gated, or manual-review-only.
 
 Important Phase 2A constraints include:
 
@@ -89,6 +98,11 @@ Important Phase 2A constraints include:
 - Program combination credit/course limits cannot be negative, and a rule cannot point a program version at itself.
 - Scenario course allocations must reference a clear source record and include structured allocation type, reason code, and explanation.
 - Scenario comparison values are nonnegative and must trace back to program audit and allocation rows.
+- Eligibility runs reference a student, course, target term, optional section, explicit mode, engine version, source snapshot hash, overall result, and academic eligibility result.
+- Eligibility run section references are constrained to the same course and institution as the checked course.
+- A rule evaluation is unique per eligibility run and course rule.
+- A rule expression evaluation is unique per rule evaluation and expression node and must include a reason code and explanation.
+- Eligibility warnings must include a warning code, severity, message, and advisor-confirmation flag.
 
 ### Institution and Versioning
 
@@ -144,6 +158,17 @@ Phase 2B implements course eligibility-rule storage as `CourseRule` plus `Course
   - `id`, `institution_id`, `course_rule_id`, `parent_id`, `node_type`, `display_order`, `referenced_course_id`, `minimum_grade`, `minimum_completed_credits`, `class_standing`, `referenced_program_id`, `referenced_campus_id`, `permission_type`, `text_value`, `source_type`, `is_official`
 
 Prerequisites and corequisites use the same expression model. Restriction and permission rules also use the same tree shape. Phase 2B stores and returns these trees but does not evaluate them against a student record.
+
+Phase 4 evaluates the stored expression trees and snapshots the result:
+
+- `eligibility_check_run`
+  - `id`, `institution_id`, `student_profile_id`, `course_id`, `section_id`, `target_term_id`, `mode`, `status`, `engine_version`, `overall_result`, `academic_eligibility_result`, `started_at`, `completed_at`, `source_snapshot_hash`, `created_at`, `updated_at`
+- `rule_evaluation`
+  - `id`, `eligibility_check_run_id`, `course_rule_id`, `result`, `rule_type`, `explanation`, `display_order`, `created_at`
+- `rule_expression_evaluation`
+  - `id`, `rule_evaluation_id`, `course_rule_expression_id`, `result`, `actual_value`, `expected_value`, `matched_course_id`, `matched_attempt_id`, `reason_code`, `explanation`, `created_at`
+- `eligibility_warning`
+  - `id`, `eligibility_check_run_id`, `rule_evaluation_id`, `warning_code`, `severity`, `message`, `requires_advisor_confirmation`, `created_at`
 
 Expression examples:
 
@@ -238,6 +263,20 @@ Use relational tables for identities, relationships, student records, courses, s
 
 - `CURRENT`: final completed and approved records can satisfy requirements; in-progress and planned records remain separate.
 - `PROJECTED`: in-progress and planned records can be displayed as potential contributions but are not relabeled as completed.
+
+### Course Eligibility Mode
+
+- `CURRENT`: final completed and approved records can satisfy course rules.
+- `PROJECTED`: in-progress and planned evidence can create conditional eligibility but is not final completion.
+- `REGISTRATION`: evaluates the selected term/optional section and reports section availability separately from academic eligibility.
+
+### Course Eligibility Overall Result
+
+- `ELIGIBLE`
+- `CONDITIONALLY_ELIGIBLE`
+- `NOT_ELIGIBLE`
+- `PERMISSION_REQUIRED`
+- `MANUAL_REVIEW_REQUIRED`
 
 ### Audit Application Type
 

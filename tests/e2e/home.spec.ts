@@ -197,6 +197,88 @@ const mockScenarioComparison = {
   created_at: '2026-06-23T00:00:00Z',
 };
 
+const mockEligibilityCheck = {
+  id: '00000000-0000-4000-8000-000000000301',
+  institution_id: '00000000-0000-4000-8000-000000000302',
+  student_profile_id: '74874476-4024-5e2d-807a-fbb4ab620249',
+  course_id: 'b59bb40b-e3d0-57e3-a424-0d9b8bd2f305',
+  section_id: '404cdd60-5eb4-5128-8ae3-ecbe6430f6d1',
+  target_term_id: 'fed14bfe-972b-5392-8c72-379ceb879e85',
+  mode: 'REGISTRATION',
+  status: 'COMPLETED_WITH_WARNINGS',
+  engine_version: 'phase-4-course-eligibility-v1',
+  overall_result: 'PERMISSION_REQUIRED',
+  academic_eligibility_result: 'PERMISSION_REQUIRED',
+  started_at: '2026-06-24T00:00:00Z',
+  completed_at: '2026-06-24T00:00:01Z',
+  source_snapshot_hash: 'e2e-eligibility-fixture',
+  rule_evaluations: [
+    {
+      id: '00000000-0000-4000-8000-000000000307',
+      eligibility_check_run_id: '00000000-0000-4000-8000-000000000301',
+      course_rule_id: '00000000-0000-4000-8000-000000000308',
+      result: 'PERMISSION_REQUIRED',
+      rule_type: 'PERMISSION',
+      explanation: 'Permission rule evaluated as PERMISSION_REQUIRED.',
+      display_order: 0,
+      expressions: [
+        {
+          id: '00000000-0000-4000-8000-000000000309',
+          rule_evaluation_id: '00000000-0000-4000-8000-000000000307',
+          course_rule_expression_id: '00000000-0000-4000-8000-000000000310',
+          node_type: 'PERMISSION_REQUIRED',
+          result: 'PERMISSION_REQUIRED',
+          actual_value: null,
+          expected_value: 'DEPARTMENT_APPROVAL',
+          matched_course_id: null,
+          matched_attempt_id: null,
+          reason_code: 'PERMISSION_REQUIRED',
+          explanation: 'Permission is required before registration eligibility can be confirmed.',
+          created_at: '2026-06-24T00:00:01Z',
+        },
+      ],
+      created_at: '2026-06-24T00:00:01Z',
+    },
+  ],
+  blocking_reasons: [],
+  conditional_reasons: [],
+  permissions_required: [
+    {
+      reason_code: 'PERMISSION_REQUIRED',
+      explanation: 'Permission is required before registration eligibility can be confirmed.',
+      course_rule_id: '00000000-0000-4000-8000-000000000308',
+      course_rule_expression_id: '00000000-0000-4000-8000-000000000310',
+      referenced_entity_type: null,
+      referenced_entity_id: null,
+      expected_value: 'DEPARTMENT_APPROVAL',
+      actual_value: null,
+    },
+  ],
+  manual_review_reasons: [],
+  corequisites_to_add: [],
+  corequisite_summary: null,
+  registration_availability: {
+    section_status: 'WAITLIST',
+    available_seats: 0,
+    waitlist_available: 4,
+    availability_note: 'Section availability is reported separately from academic eligibility.',
+  },
+  warnings: [
+    {
+      id: '00000000-0000-4000-8000-000000000311',
+      eligibility_check_run_id: '00000000-0000-4000-8000-000000000301',
+      rule_evaluation_id: null,
+      warning_code: 'MOCK_ELIGIBILITY_ESTIMATE',
+      severity: 'INFO',
+      message: 'This eligibility result uses mock non-official rules.',
+      requires_advisor_confirmation: true,
+      created_at: '2026-06-24T00:00:01Z',
+    },
+  ],
+  created_at: '2026-06-24T00:00:00Z',
+  updated_at: '2026-06-24T00:00:01Z',
+};
+
 async function mockSuccessfulAuditApis(page: Page) {
   await page.route(
     'http://localhost:8000/api/v1/students/*/degree-audits/latest',
@@ -257,6 +339,25 @@ async function mockSuccessfulScenarioApis(page: Page) {
         mockScenarioComparison,
         { ...mockScenarioComparison, academic_plan_scenario_id: '00000000-0000-4000-8000-000000000201', estimated_additional_credits: '15.0' },
       ]),
+    });
+  });
+}
+
+async function mockSuccessfulEligibilityApis(page: Page) {
+  await page.route('http://localhost:8000/api/v1/eligibility-checks', async (route) => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(mockEligibilityCheck),
+      });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route('http://localhost:8000/api/v1/students/*/eligibility-checks', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify([mockEligibilityCheck]),
     });
   });
 }
@@ -339,4 +440,40 @@ test('home page reports what-if API and schema failures', async ({ page }) => {
 
   await expect(page.getByText('What-if scenario unavailable')).toBeVisible();
   await expect(page.getByText(/unexpected academic scenario response shape/i)).toBeVisible();
+});
+
+test('home page checks course eligibility without recalculating section seats', async ({ page }) => {
+  await mockSuccessfulAuditApis(page);
+  await mockSuccessfulEligibilityApis(page);
+
+  await page.goto('/');
+
+  await expect(page.getByRole('heading', { name: /Course Eligibility/ })).toBeVisible();
+  await expect(page.getByText('Section seats are separate from academic eligibility.')).toBeVisible();
+
+  await page.getByLabel('Course check').selectOption('fin-400-registration');
+  await page.getByRole('button', { name: /Check eligibility/ }).click();
+
+  const eligibilitySummary = page.getByLabel('Course eligibility summary');
+  await expect(eligibilitySummary.getByText(/permission required/i).first()).toBeVisible();
+  await expect(eligibilitySummary.getByText(/waitlist/i)).toBeVisible();
+  await expect(eligibilitySummary.getByText('Available Seats')).toBeVisible();
+  await expect(page.getByText('PERMISSION_REQUIRED')).toBeVisible();
+  await expect(page.getByText('MOCK_ELIGIBILITY_ESTIMATE')).toBeVisible();
+});
+
+test('home page reports course eligibility schema failures', async ({ page }) => {
+  await mockSuccessfulAuditApis(page);
+  await page.route('http://localhost:8000/api/v1/eligibility-checks', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ unexpected: true }),
+    });
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: /Check eligibility/ }).click();
+
+  await expect(page.getByText('Eligibility schema error')).toBeVisible();
+  await expect(page.getByText(/unexpected course eligibility response shape/i)).toBeVisible();
 });
