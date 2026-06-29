@@ -21,11 +21,16 @@ from app.models.academic import (
     CourseRuleExpression,
     DegreeAuditRun,
     DegreeAuditWarning,
+    EligibilityCheckRun,
+    EligibilityMode,
+    EligibilityWarning,
     Institution,
     ProgramVersion,
     RequirementCourseOption,
     RequirementEvaluation,
     RequirementNode,
+    RuleEvaluation,
+    RuleExpressionEvaluation,
     ScenarioComparisonSnapshot,
     ScenarioCourseAllocation,
     ScenarioProgram,
@@ -49,6 +54,11 @@ from app.schemas.academic import (
     AcademicScenarioResponse,
     AuditCourseApplicationResponse,
     CampusResponse,
+    CorequisiteSummaryResponse,
+    CourseEligibilityBatchRequest,
+    CourseEligibilityBatchResponse,
+    CourseEligibilityCheckResponse,
+    CourseEligibilityCreateRequest,
     CourseOfferingPatternResponse,
     CourseResponse,
     CourseRuleExpressionNodeResponse,
@@ -57,14 +67,19 @@ from app.schemas.academic import (
     DegreeAuditCreateRequest,
     DegreeAuditRunResponse,
     DegreeAuditWarningResponse,
+    EligibilityReasonResponse,
+    EligibilityWarningResponse,
     ErrorResponse,
     InstitutionResponse,
     ProgramVersionDetailResponse,
     ProgramVersionSummaryResponse,
+    RegistrationAvailabilityResponse,
     RequirementCourseOptionResponse,
     RequirementEvaluationResponse,
     RequirementNodeResponse,
     RequirementTreeResponse,
+    RuleEvaluationResponse,
+    RuleExpressionEvaluationResponse,
     ScenarioComparisonSnapshotResponse,
     ScenarioCourseAllocationResponse,
     ScenarioProgramAuditResponse,
@@ -80,6 +95,8 @@ from app.schemas.academic import (
 from app.services.academic_scenarios.engine import AcademicScenarioApplicationService
 from app.services.academic_scenarios.exceptions import AcademicScenarioValidationError
 from app.services.academic_scenarios.result import ScenarioProgramInput
+from app.services.course_eligibility.engine import CourseEligibilityApplicationService
+from app.services.course_eligibility.exceptions import CourseEligibilityValidationError
 from app.services.degree_audit.exceptions import DegreeAuditValidationError
 from app.services.degree_audit.persistence import DegreeAuditApplicationService
 
@@ -448,6 +465,210 @@ def scenario_comparison_response(
         completion_percentage=snapshot.completion_percentage,
         is_estimate=snapshot.is_estimate,
         created_at=snapshot.created_at,
+    )
+
+
+def eligibility_expression_response(
+    evaluation: RuleExpressionEvaluation,
+    expression: CourseRuleExpression,
+) -> RuleExpressionEvaluationResponse:
+    return RuleExpressionEvaluationResponse(
+        id=evaluation.id,
+        rule_evaluation_id=evaluation.rule_evaluation_id,
+        course_rule_expression_id=evaluation.course_rule_expression_id,
+        node_type=expression.node_type.value,
+        result=evaluation.result.value,
+        actual_value=evaluation.actual_value,
+        expected_value=evaluation.expected_value,
+        matched_course_id=evaluation.matched_course_id,
+        matched_attempt_id=evaluation.matched_attempt_id,
+        reason_code=evaluation.reason_code,
+        explanation=evaluation.explanation,
+        created_at=evaluation.created_at,
+    )
+
+
+def eligibility_rule_response(
+    evaluation: RuleEvaluation,
+    expressions: list[RuleExpressionEvaluationResponse],
+) -> RuleEvaluationResponse:
+    return RuleEvaluationResponse(
+        id=evaluation.id,
+        eligibility_check_run_id=evaluation.eligibility_check_run_id,
+        course_rule_id=evaluation.course_rule_id,
+        result=evaluation.result.value,
+        rule_type=evaluation.rule_type.value,
+        explanation=evaluation.explanation,
+        display_order=evaluation.display_order,
+        expressions=expressions,
+        created_at=evaluation.created_at,
+    )
+
+
+def eligibility_warning_response(warning: EligibilityWarning) -> EligibilityWarningResponse:
+    return EligibilityWarningResponse(
+        id=warning.id,
+        eligibility_check_run_id=warning.eligibility_check_run_id,
+        rule_evaluation_id=warning.rule_evaluation_id,
+        warning_code=warning.warning_code,
+        severity=warning.severity.value,
+        message=warning.message,
+        requires_advisor_confirmation=warning.requires_advisor_confirmation,
+        created_at=warning.created_at,
+    )
+
+
+def eligibility_reason_response(
+    expression: RuleExpressionEvaluationResponse,
+    course_rule_id: UUID | None,
+) -> EligibilityReasonResponse:
+    return EligibilityReasonResponse(
+        reason_code=expression.reason_code,
+        explanation=expression.explanation,
+        course_rule_id=course_rule_id,
+        course_rule_expression_id=expression.course_rule_expression_id,
+        referenced_entity_type="course" if expression.matched_course_id else None,
+        referenced_entity_id=expression.matched_course_id,
+        expected_value=expression.expected_value,
+        actual_value=expression.actual_value,
+    )
+
+
+def registration_availability_response(
+    section: Section | None,
+) -> RegistrationAvailabilityResponse | None:
+    if section is None:
+        return None
+    return RegistrationAvailabilityResponse(
+        section_status=section.status.value,
+        available_seats=section.available_seats,
+        waitlist_available=section.waitlist_available,
+        availability_note="Section availability is reported separately from academic eligibility.",
+    )
+
+
+def eligibility_check_response(
+    run: EligibilityCheckRun,
+    db: Session,
+) -> CourseEligibilityCheckResponse:
+    rule_evaluations = db.scalars(
+        select(RuleEvaluation)
+        .where(RuleEvaluation.eligibility_check_run_id == run.id)
+        .order_by(RuleEvaluation.display_order, RuleEvaluation.id)
+    ).all()
+    rule_ids = [evaluation.id for evaluation in rule_evaluations]
+    expression_responses_by_rule: dict[UUID, list[RuleExpressionEvaluationResponse]] = defaultdict(
+        list
+    )
+    if rule_ids:
+        rows = db.execute(
+            select(RuleExpressionEvaluation, CourseRuleExpression)
+            .join(
+                CourseRuleExpression,
+                RuleExpressionEvaluation.course_rule_expression_id == CourseRuleExpression.id,
+            )
+            .where(RuleExpressionEvaluation.rule_evaluation_id.in_(rule_ids))
+            .order_by(
+                RuleExpressionEvaluation.rule_evaluation_id,
+                CourseRuleExpression.display_order,
+                CourseRuleExpression.node_type,
+                RuleExpressionEvaluation.id,
+            )
+        ).all()
+        for expression_evaluation, expression in rows:
+            expression_responses_by_rule[expression_evaluation.rule_evaluation_id].append(
+                eligibility_expression_response(expression_evaluation, expression)
+            )
+
+    rule_responses = [
+        eligibility_rule_response(evaluation, expression_responses_by_rule[evaluation.id])
+        for evaluation in rule_evaluations
+    ]
+    course_rule_by_rule_eval = {rule.id: rule.course_rule_id for rule in rule_evaluations}
+    expression_responses = [
+        expression for rule in rule_responses for expression in rule.expressions
+    ]
+    blocking_reasons = [
+        eligibility_reason_response(
+            expression,
+            course_rule_by_rule_eval.get(expression.rule_evaluation_id),
+        )
+        for expression in expression_responses
+        if expression.result == "NOT_SATISFIED"
+    ]
+    conditional_reasons = [
+        eligibility_reason_response(
+            expression,
+            course_rule_by_rule_eval.get(expression.rule_evaluation_id),
+        )
+        for expression in expression_responses
+        if expression.result == "CONDITIONALLY_SATISFIED"
+    ]
+    permissions_required = [
+        eligibility_reason_response(
+            expression,
+            course_rule_by_rule_eval.get(expression.rule_evaluation_id),
+        )
+        for expression in expression_responses
+        if expression.result == "PERMISSION_REQUIRED"
+    ]
+    manual_review_reasons = [
+        eligibility_reason_response(
+            expression,
+            course_rule_by_rule_eval.get(expression.rule_evaluation_id),
+        )
+        for expression in expression_responses
+        if expression.result == "MANUAL_REVIEW_REQUIRED"
+    ]
+    corequisites_to_add = [
+        expression.matched_course_id
+        for expression in expression_responses
+        if expression.matched_course_id is not None
+        and expression.reason_code in {"COREQUISITE_MUST_ENROLL", "COREQUISITE_CONCURRENT_PLAN"}
+    ]
+    unique_corequisites_to_add = list(dict.fromkeys(corequisites_to_add))
+    corequisite_summary = (
+        CorequisiteSummaryResponse(
+            required_corequisite_courses=unique_corequisites_to_add,
+            already_completed=[],
+            currently_in_progress=[],
+            must_enroll_concurrently=unique_corequisites_to_add,
+        )
+        if unique_corequisites_to_add
+        else None
+    )
+    warnings = db.scalars(
+        select(EligibilityWarning)
+        .where(EligibilityWarning.eligibility_check_run_id == run.id)
+        .order_by(EligibilityWarning.severity, EligibilityWarning.created_at, EligibilityWarning.id)
+    ).all()
+    section = db.get(Section, run.section_id) if run.section_id is not None else None
+    return CourseEligibilityCheckResponse(
+        id=run.id,
+        institution_id=run.institution_id,
+        student_profile_id=run.student_profile_id,
+        course_id=run.course_id,
+        section_id=run.section_id,
+        target_term_id=run.target_term_id,
+        mode=run.mode.value,
+        status=run.status.value,
+        engine_version=run.engine_version,
+        overall_result=run.overall_result.value,
+        academic_eligibility_result=run.academic_eligibility_result.value,
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+        source_snapshot_hash=run.source_snapshot_hash,
+        rule_evaluations=rule_responses,
+        blocking_reasons=blocking_reasons,
+        conditional_reasons=conditional_reasons,
+        permissions_required=permissions_required,
+        manual_review_reasons=manual_review_reasons,
+        corequisites_to_add=unique_corequisites_to_add,
+        corequisite_summary=corequisite_summary,
+        registration_availability=registration_availability_response(section),
+        warnings=[eligibility_warning_response(warning) for warning in warnings],
+        created_at=run.created_at,
+        updated_at=run.updated_at,
     )
 
 
@@ -972,6 +1193,130 @@ def get_latest_student_degree_audit(
     if run is None:
         raise not_found("DegreeAuditRun", student_id)
     return degree_audit_run_response(run)
+
+
+@router.post(
+    "/eligibility-checks",
+    response_model=CourseEligibilityCheckResponse,
+    status_code=201,
+    responses={404: not_found_response, 400: not_found_response},
+)
+def create_course_eligibility_check(
+    request: CourseEligibilityCreateRequest,
+    db: DatabaseSession,
+) -> CourseEligibilityCheckResponse:
+    try:
+        run = CourseEligibilityApplicationService(db).create_check(
+            student_profile_id=request.student_profile_id,
+            course_id=request.course_id,
+            section_id=request.section_id,
+            target_term_id=request.target_term_id,
+            mode=EligibilityMode(request.mode),
+            planned_corequisite_course_ids=request.planned_corequisite_course_ids,
+        )
+    except CourseEligibilityValidationError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return eligibility_check_response(run, db)
+
+
+@router.post(
+    "/eligibility-checks/batch",
+    response_model=CourseEligibilityBatchResponse,
+    status_code=201,
+    responses={404: not_found_response, 400: not_found_response},
+)
+def create_course_eligibility_batch(
+    request: CourseEligibilityBatchRequest,
+    db: DatabaseSession,
+) -> CourseEligibilityBatchResponse:
+    results: list[CourseEligibilityCheckResponse] = []
+    service = CourseEligibilityApplicationService(db)
+    for check in request.checks:
+        try:
+            run = service.create_check(
+                student_profile_id=check.student_profile_id,
+                course_id=check.course_id,
+                section_id=check.section_id,
+                target_term_id=check.target_term_id,
+                mode=EligibilityMode(check.mode),
+                planned_corequisite_course_ids=check.planned_corequisite_course_ids,
+            )
+        except CourseEligibilityValidationError as error:
+            status_code = 404 if error.code == "not_found" else 400
+            raise HTTPException(
+                status_code=status_code,
+                detail={"code": error.code, "message": error.message},
+            ) from error
+        results.append(eligibility_check_response(run, db))
+    return CourseEligibilityBatchResponse(results=results)
+
+
+@router.get(
+    "/eligibility-checks/{eligibility_check_id}",
+    response_model=CourseEligibilityCheckResponse,
+    responses={404: not_found_response},
+)
+def get_course_eligibility_check(
+    eligibility_check_id: UUID,
+    db: DatabaseSession,
+) -> CourseEligibilityCheckResponse:
+    run = db.get(EligibilityCheckRun, eligibility_check_id)
+    if run is None:
+        raise not_found("EligibilityCheckRun", eligibility_check_id)
+    return eligibility_check_response(run, db)
+
+
+@router.get(
+    "/eligibility-checks/{eligibility_check_id}/rules",
+    response_model=list[RuleEvaluationResponse],
+    responses={404: not_found_response},
+)
+def get_course_eligibility_rules(
+    eligibility_check_id: UUID,
+    db: DatabaseSession,
+) -> list[RuleEvaluationResponse]:
+    run = db.get(EligibilityCheckRun, eligibility_check_id)
+    if run is None:
+        raise not_found("EligibilityCheckRun", eligibility_check_id)
+    return eligibility_check_response(run, db).rule_evaluations
+
+
+@router.get(
+    "/eligibility-checks/{eligibility_check_id}/warnings",
+    response_model=list[EligibilityWarningResponse],
+    responses={404: not_found_response},
+)
+def get_course_eligibility_warnings(
+    eligibility_check_id: UUID,
+    db: DatabaseSession,
+) -> list[EligibilityWarningResponse]:
+    run = db.get(EligibilityCheckRun, eligibility_check_id)
+    if run is None:
+        raise not_found("EligibilityCheckRun", eligibility_check_id)
+    return eligibility_check_response(run, db).warnings
+
+
+@router.get(
+    "/students/{student_id}/eligibility-checks",
+    response_model=list[CourseEligibilityCheckResponse],
+    responses={404: not_found_response},
+)
+def list_student_eligibility_checks(
+    student_id: UUID,
+    db: DatabaseSession,
+) -> list[CourseEligibilityCheckResponse]:
+    if db.get(StudentProfile, student_id) is None:
+        raise not_found("StudentProfile", student_id)
+    runs = db.scalars(
+        select(EligibilityCheckRun)
+        .where(EligibilityCheckRun.student_profile_id == student_id)
+        .order_by(EligibilityCheckRun.created_at.desc(), EligibilityCheckRun.id.desc())
+    ).all()
+    return [eligibility_check_response(run, db) for run in runs]
 
 
 @router.post(

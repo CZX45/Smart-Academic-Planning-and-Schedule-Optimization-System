@@ -138,7 +138,7 @@ Deferred from Phase 3A:
 
 ## Phase 3B: What-if and Advanced Allocation
 
-Status: current phase.
+Status: completed.
 
 Deliverables:
 
@@ -166,17 +166,30 @@ Deferred from Phase 3B:
 
 ## Phase 4: Eligibility Engine
 
+Status: current phase.
+
 Deliverables:
 
-- Prerequisite/corequisite expression evaluator.
-- Minimum grade, standing, major, program, campus, and section restriction support.
-- Blocking/warning/unknown/manual-review statuses.
-- API endpoint for eligibility checks.
+- Prerequisite/corequisite expression evaluator over stored `CourseRuleExpression` trees.
+- Minimum grade, standing, major, program, campus, permission, and section-rule support.
+- Explicit `CURRENT`, `PROJECTED`, and `REGISTRATION` modes.
+- Persisted eligibility check snapshots with rule-level and expression-level evidence.
+- Blocking, conditional, permission-required, manual-review, and eligible outcomes.
+- API endpoints for single, batch, detail, rules, warnings, and student eligibility history.
+- Course Eligibility UI with mock disclaimers, expression evidence, warnings, and offline/failure/schema-error states.
 
 Testable outcomes:
 
 - Complex nested prerequisite expressions evaluate deterministically.
 - Missing data produces unknown/manual-review warnings, not false certainty.
+- Course-level and section-level rules are combined.
+- Section seat availability is reported separately from academic eligibility.
+- No eligibility check mutates declared programs, course attempts, sections, or registration records.
+
+Deferred from Phase 4:
+
+- Multi-term academic planning and earliest-graduation calculation.
+- Semester schedule optimization, OR-Tools, time conflicts, seat monitoring, waitlists, browser extension import, real school scraping, and registration automation.
 
 ## Phase 5: Academic Plan Optimizer
 

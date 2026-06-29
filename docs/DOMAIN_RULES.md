@@ -132,6 +132,18 @@ Phase 2B stores these prerequisite, corequisite, restriction, repeat-restriction
 
 Phase 2B does not answer whether a student is eligible for a course or section. It only returns stored rule metadata, source metadata, manual-confirmation flags, and expression-tree nodes. Any high-impact interpretation still requires official school or advisor confirmation when data is mock, inferred, student-provided, or ambiguous.
 
+Phase 4 evaluates stored `CourseRuleExpression` trees for a selected student, course, optional section, target term, and explicit mode. It uses the centralized grade policy and the same student attempt/transfer status semantics as Degree Audit for completed evidence. In-progress and planned records can make a prerequisite or corequisite conditional in `PROJECTED` or `REGISTRATION` mode, but they are not treated as completed.
+
+Course eligibility result priority is:
+
+1. Hard unsatisfied prerequisite/restriction: `NOT_ELIGIBLE`.
+2. Permission requirement with no hard failure: `PERMISSION_REQUIRED`.
+3. In-progress, planned, or concurrent corequisite evidence: `CONDITIONALLY_ELIGIBLE`.
+4. Missing or unsafe-to-automate evidence: `MANUAL_REVIEW_REQUIRED`.
+5. All evaluated rules satisfied: `ELIGIBLE`.
+
+Course-level and section-level rules are evaluated together. Section availability is reported separately as a snapshot (`OPEN`, `WAITLIST`, `CLOSED`, etc.) and must not be converted into academic eligibility. A waitlisted or closed section can still have academic eligibility `ELIGIBLE`; it simply has no currently available seat in that section snapshot.
+
 Course offering patterns are historical or expected availability signals. They must not be presented as school commitments that a course will be offered in a future term.
 
 ## 5. Academic Plan Optimizer Rules
@@ -204,6 +216,8 @@ The system must recommend advisor confirmation for:
 Phase 3A specifically emits advisor-confirmation warnings for pending transfers, pending waivers, pending substitutions, repeated-course ambiguity, unsupported requirement scopes, missing requirement configuration, unknown/incomplete grades, and mock data that is not official policy.
 
 Phase 3B additionally emits advisor-confirmation warnings for missing directional program-combination rules, unclear overlap policy, unmet unique-secondary-credit expectations, allocation search limits, and estimated additional credits.
+
+Phase 4 additionally emits advisor-confirmation warnings for mock eligibility estimates, missing stored course restrictions, rules marked for manual confirmation, unknown or unsupported expression nodes, ambiguous campus/program restrictions, and permission requirements.
 
 ## 9. Phase 3A Requirement Status Semantics
 

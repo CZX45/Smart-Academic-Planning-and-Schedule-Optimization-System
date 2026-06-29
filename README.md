@@ -2,7 +2,7 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 3B adds persisted What-if Scenarios and Multi-Program Allocation on top of the Phase 3A Degree Audit Core. It can simulate mock minors, second majors, certificates, concentrations, and primary-major changes without modifying official `StudentAcademicProgram` records. It reuses the Phase 3A audit engine for each scenario program, then performs a deterministic bounded global allocation across stored audit applications. It does **not** implement eligibility decisions, prerequisite/corequisite evaluation, graduation timing prediction, planning, scheduling, real school login, scraping, automatic registration, waitlist automation, or authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 4 adds a mock-only Course Eligibility Engine on top of stored Phase 2B course-rule expression trees. It evaluates prerequisites, corequisites, minimum grades, standing/program/campus restrictions, section-level permissions, and section availability snapshots without modifying student records. It does **not** implement graduation timing prediction, long-term planning, schedule optimization, OR-Tools, real school login, scraping, automatic registration, waitlist automation, or authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
@@ -203,6 +203,23 @@ Program combination rules are directional. Shared credits require both requireme
 
 The web app includes an Explore Programs / What-if Analysis panel for mock candidate programs, scenario summaries, allocation rows, warnings, and saved-scenario comparison.
 
+## Phase 4 course eligibility API
+
+Phase 4 creates eligibility check snapshots under `/api/v1/eligibility-checks`. The engine evaluates stored mock course-level and section-level rule expression trees against a mock student record. Section availability is returned separately from academic eligibility so closed or waitlisted seats do not silently change prerequisite/restriction outcomes.
+
+New endpoints include:
+
+- `POST /api/v1/eligibility-checks`
+- `POST /api/v1/eligibility-checks/batch`
+- `GET /api/v1/eligibility-checks/{eligibility_check_id}`
+- `GET /api/v1/eligibility-checks/{eligibility_check_id}/rules`
+- `GET /api/v1/eligibility-checks/{eligibility_check_id}/warnings`
+- `GET /api/v1/students/{student_id}/eligibility-checks`
+
+Eligibility modes are `CURRENT`, `PROJECTED`, and `REGISTRATION`. Results can be `ELIGIBLE`, `CONDITIONALLY_ELIGIBLE`, `NOT_ELIGIBLE`, `PERMISSION_REQUIRED`, or `MANUAL_REVIEW_REQUIRED`. Responses include rule-level and expression-level explanations, structured reasons, warnings, corequisite summaries, and optional section availability.
+
+The web app includes a Course Eligibility panel for mock course checks, expression evidence, warnings, offline/failure/schema-error states, and saved eligibility history.
+
 ## Quality gates
 
 Run the following before opening a pull request:
@@ -237,9 +254,11 @@ Phase 3A adds `DegreeAuditRun`, `RequirementEvaluation`, `AuditCourseApplication
 
 Phase 3B adds `AcademicPlanScenario`, `ScenarioProgram`, `ProgramCombinationRule`, `ScenarioProgramAudit`, `ScenarioCourseAllocation`, `ScenarioComparisonSnapshot`, and `ScenarioWarning`. It compares hypothetical program combinations without changing official student declarations.
 
+Phase 4 adds `EligibilityCheckRun`, `RuleEvaluation`, `RuleExpressionEvaluation`, and `EligibilityWarning`. It snapshots mock course eligibility checks without changing `StudentAcademicProgram`, `StudentCourseAttempt`, section, or registration records.
+
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 
-The next planned implementation phase is Phase 4 Course Eligibility Engine. The project should not jump directly to planning, scheduling, OR-Tools, browser extension work, or registration behavior.
+The project should not jump from Phase 4 directly into automatic registration, waitlist automation, seat-grabbing, credential storage, or portal bypass behavior.
 
 ## Documentation Index
 

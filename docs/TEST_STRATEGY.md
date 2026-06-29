@@ -53,6 +53,14 @@ Phase 3B adds deterministic what-if scenario coverage:
 - Shared TypeScript schema tests for scenario, scenario program, allocation, warning, and comparison responses.
 - Playwright tests for selecting a mock candidate program, creating a scenario, displaying shared/unique/additional credits, warnings, mock-policy disclaimers, comparing saved scenarios, API failure, and schema-error handling.
 
+Phase 4 adds deterministic course eligibility coverage:
+
+- SQLite-backed model tests for eligibility check runs, rule evaluations, expression evaluations, warnings, uniqueness, and course/section consistency.
+- Engine tests for completed prerequisite pass, hard missing prerequisite failure, projected and registration conditional evidence, explicit concurrent corequisite plans, section-level permission rules, no stored restrictions, and section availability separation.
+- API tests for single check creation, detail, rules, warnings, student check list, batch checks, invalid section/course pairs, batch limits, 404s, and schema validation.
+- Shared TypeScript schema tests for eligibility check, rule, expression, reason, warning, corequisite, availability, and schema-error responses.
+- Playwright tests for Course Eligibility UI success, mock disclaimers, API offline/failure/empty/schema-error states, permission-required display, and seat availability separation.
+
 ### End-to-End Tests
 
 Playwright tests for:
@@ -133,6 +141,16 @@ Phase 3B covers scenario behavior:
 - Missing overlap policy is a warning, not a guessed rule.
 - Requirement application, shared credit, and total earned credit remain separate.
 - Estimated additional credits are estimates and never graduation-timing predictions.
+
+Phase 4 covers course eligibility behavior:
+
+- `CURRENT`, `PROJECTED`, and `REGISTRATION` modes are explicit and deterministic.
+- Completed evidence reuses centralized grade policy and status semantics.
+- In-progress, planned, and concurrent corequisite evidence remains conditional.
+- Course-level and section-level rules are combined.
+- Permission-required and manual-review results are traceable to expression evidence.
+- Section status and seat counts are reported separately from academic eligibility.
+- Mock and missing-rule data always carries warnings rather than official-policy certainty.
 
 ## 5. Property and Constraint Tests
 

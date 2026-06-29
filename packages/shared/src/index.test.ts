@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ApiRequestError,
   ApiResponseSchemaError,
+  CourseEligibilityCheckSchema,
   HealthResponseSchema,
   ReadinessResponseSchema,
   AcademicScenarioSchema,
@@ -12,6 +13,7 @@ import {
   DegreeAuditRunSchema,
   RequirementEvaluationSchema,
   DegreeAuditWarningSchema,
+  createCourseEligibilityCheck,
   fetchHealth,
 } from "./index.js";
 
@@ -252,5 +254,120 @@ describe("academic scenario schemas", () => {
         created_at: "2026-06-23T00:00:00Z",
       }),
     ).toMatchObject({ is_estimate: true });
+  });
+});
+
+describe("course eligibility schemas", () => {
+  const eligibilityPayload = {
+    id: "00000000-0000-4000-8000-000000000301",
+    institution_id: "00000000-0000-4000-8000-000000000302",
+    student_profile_id: "00000000-0000-4000-8000-000000000303",
+    course_id: "00000000-0000-4000-8000-000000000304",
+    section_id: "00000000-0000-4000-8000-000000000305",
+    target_term_id: "00000000-0000-4000-8000-000000000306",
+    mode: "REGISTRATION",
+    status: "COMPLETED_WITH_WARNINGS",
+    engine_version: "phase-4-course-eligibility-v1",
+    overall_result: "PERMISSION_REQUIRED",
+    academic_eligibility_result: "PERMISSION_REQUIRED",
+    started_at: "2026-06-24T00:00:00Z",
+    completed_at: "2026-06-24T00:00:01Z",
+    source_snapshot_hash: "hash",
+    rule_evaluations: [
+      {
+        id: "00000000-0000-4000-8000-000000000307",
+        eligibility_check_run_id: "00000000-0000-4000-8000-000000000301",
+        course_rule_id: "00000000-0000-4000-8000-000000000308",
+        result: "PERMISSION_REQUIRED",
+        rule_type: "PERMISSION",
+        explanation: "Permission rule evaluated as PERMISSION_REQUIRED.",
+        display_order: 0,
+        expressions: [
+          {
+            id: "00000000-0000-4000-8000-000000000309",
+            rule_evaluation_id: "00000000-0000-4000-8000-000000000307",
+            course_rule_expression_id: "00000000-0000-4000-8000-000000000310",
+            node_type: "PERMISSION_REQUIRED",
+            result: "PERMISSION_REQUIRED",
+            actual_value: null,
+            expected_value: "DEPARTMENT_APPROVAL",
+            matched_course_id: null,
+            matched_attempt_id: null,
+            reason_code: "PERMISSION_REQUIRED",
+            explanation: "Permission is required.",
+            created_at: "2026-06-24T00:00:01Z",
+          },
+        ],
+        created_at: "2026-06-24T00:00:01Z",
+      },
+    ],
+    blocking_reasons: [],
+    conditional_reasons: [],
+    permissions_required: [
+      {
+        reason_code: "PERMISSION_REQUIRED",
+        explanation: "Permission is required.",
+        course_rule_id: "00000000-0000-4000-8000-000000000308",
+        course_rule_expression_id: "00000000-0000-4000-8000-000000000310",
+        referenced_entity_type: null,
+        referenced_entity_id: null,
+        expected_value: "DEPARTMENT_APPROVAL",
+        actual_value: null,
+      },
+    ],
+    manual_review_reasons: [],
+    corequisites_to_add: [],
+    corequisite_summary: null,
+    registration_availability: {
+      section_status: "WAITLIST",
+      available_seats: 0,
+      waitlist_available: 4,
+      availability_note: "Section availability is separate.",
+    },
+    warnings: [
+      {
+        id: "00000000-0000-4000-8000-000000000311",
+        eligibility_check_run_id: "00000000-0000-4000-8000-000000000301",
+        rule_evaluation_id: null,
+        warning_code: "MOCK_ELIGIBILITY_ESTIMATE",
+        severity: "INFO",
+        message: "Mock non-official result.",
+        requires_advisor_confirmation: true,
+        created_at: "2026-06-24T00:00:01Z",
+      },
+    ],
+    created_at: "2026-06-24T00:00:00Z",
+    updated_at: "2026-06-24T00:00:01Z",
+  };
+
+  it("validates eligibility check snapshots with expression evidence", () => {
+    expect(CourseEligibilityCheckSchema.parse(eligibilityPayload)).toMatchObject({
+      overall_result: "PERMISSION_REQUIRED",
+      registration_availability: { section_status: "WAITLIST" },
+    });
+  });
+
+  it("rejects malformed course eligibility API payloads", async () => {
+    const fetchFn = async () =>
+      new Response(
+        JSON.stringify({
+          ...eligibilityPayload,
+          overall_result: "READY_FOR_SCHEDULING",
+        }),
+      );
+
+    await expect(
+      createCourseEligibilityCheck(
+        "http://api.test",
+        {
+          student_profile_id: eligibilityPayload.student_profile_id,
+          course_id: eligibilityPayload.course_id,
+          section_id: eligibilityPayload.section_id,
+          target_term_id: eligibilityPayload.target_term_id,
+          mode: "REGISTRATION",
+        },
+        { fetchFn },
+      ),
+    ).rejects.toThrow(ApiResponseSchemaError);
   });
 });
