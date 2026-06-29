@@ -946,7 +946,9 @@ test('home page builds and compares semester schedules', async ({ page }) => {
   await expect(page.getByText('MOCK_SECTION_DATA_NOT_OFFICIAL')).toBeVisible();
 
   await page.getByRole('button', { name: /Compare saved schedules/ }).click();
-  await expect(page.getByLabel('Saved schedule comparison').getByText('CUSTOM_COURSE_SET')).toBeVisible();
+  await expect(page.getByLabel('Saved schedule comparison').getByText('CUSTOM_COURSE_SET')).toHaveCount(
+    2,
+  );
 });
 
 test('home page reports schedule optimizer schema failures', async ({ page }) => {
