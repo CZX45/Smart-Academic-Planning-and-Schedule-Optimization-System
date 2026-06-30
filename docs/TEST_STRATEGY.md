@@ -87,6 +87,15 @@ Phase 6B extends deterministic semester schedule optimizer coverage:
 - Shared TypeScript schema tests for advanced schedule request fields, score breakdowns, repair suggestions, hard-constraint summaries, and soft-preference summaries.
 - Playwright tests for advanced schedule controls, mock-data disclaimers, score breakdown rendering, option comparison, diversity metadata, repair suggestions, and the absence of registration, add/drop, or waitlist actions.
 
+Phase 7A adds read-only data import preview coverage:
+
+- SQLite-backed model tests for data import runs, files, imported records, mapping candidates, validation warnings, preview summaries, nonnegative counts, confidence ranges, unique row numbers, explanations, and official-source rejection.
+- Service tests for bounded CSV/JSON parsing, course-code normalization, exact mock catalog matching, unmatched-course warnings, staging-only disclaimers, and no mutation of `StudentCourseAttempt`, `Course`, `Section`, requirement, seat, waitlist, or registration tables.
+- API tests for import creation, detail, records, mapping candidates, warnings, preview, validation, student import list, 404s, official-source rejection, and schema validation.
+- Seed tests for mock data import staging rows, warnings, preview summary, source metadata, non-official flags, and idempotency.
+- Shared TypeScript schema tests for import run, imported record, mapping candidate, warning, preview, and create helper responses.
+- Playwright tests for the Data Import Preview panel, required non-official disclaimers, staged records, mapping candidates, warnings, saved import loading, API failure, and schema-error states.
+
 ### End-to-End Tests
 
 Playwright tests for:
@@ -204,6 +213,15 @@ Phase 6B covers advanced schedule optimizer behavior:
 - Score breakdowns sum to deterministic ranking inputs and expose penalties separately from positive preference components.
 - High-diversity mode changes returned option selection only through deterministic section-overlap comparison.
 - Repair suggestions explain feasible constraint relaxations without automating registration, seat monitoring, add/drop, swap, or waitlist behavior.
+
+Phase 7A covers read-only data import behavior:
+
+- Import runs are staging-only and never become official academic records.
+- Metadata-only file storage preserves checksum, file name, MIME type, source metadata, parser version, counts, and preview disclaimers.
+- Parsed records preserve row numbers, normalized payloads, record type, status, confidence, and raw labels.
+- Mapping candidates include target type, optional target ID, match type, confidence, selection flag, reason code, and explanation.
+- Validation warnings are emitted for staging-only use and ambiguous/unmatched data.
+- API and UI flows do not perform real school login, browser extension import, scraping, OCR-heavy extraction, registration, seat polling, waitlist handling, or official table writes.
 
 ## 5. Property and Constraint Tests
 

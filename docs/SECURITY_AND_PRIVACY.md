@@ -18,6 +18,7 @@ Potentially sensitive data includes:
 - Declared majors, minors, certificates, and expected graduation term.
 - Advisor notes and review comments.
 - Browser-extension extracted page content.
+- Data import preview content, normalized imported payload snippets, mapping candidates, and validation warnings.
 
 ## 3. Credential Policy
 
@@ -44,6 +45,7 @@ Academic requirements are high-impact. Incorrect results may delay graduation, a
 - Separate mock, student-entered, inferred, advisor-confirmed, and official data.
 - Require advisor confirmation messaging for high-risk results.
 - Treat academic plans as advisory course-level snapshots; never convert them into add/drop/swap, waitlist, seat-grabbing, or registration actions.
+- Treat Phase 7A data imports as staging-only previews. Do not mark imported data official, and do not apply it to transcript, catalog, section, requirement, seat, waitlist, or registration tables.
 - Maintain regression fixtures for every catalog/program version.
 
 ## 6. Privacy Controls
@@ -57,6 +59,7 @@ Recommended controls:
 - Audit logs for advisor/admin access.
 - Data export and deletion workflows.
 - Short retention for raw imported page snapshots.
+- Prefer metadata-only storage for Phase 7A uploads. If a future workflow stores raw imported files or browser-extracted snapshots, enforce short retention, encryption, explicit user review, and source labels.
 
 ## 7. Threats and Mitigations
 
@@ -69,6 +72,7 @@ Recommended controls:
 | Data leakage in logs | Structured logging with redaction. |
 | Prompt or fixture confusion | Clearly label mock data and never call it official. |
 | Excessive school-system requests | No high-frequency polling; backoff and user-controlled refresh. |
+| Imported data mistaken for official policy | Keep imports in staging tables, force `official_application_ready = false`, emit preview disclaimers, and require advisor/school confirmation. |
 
 ## 8. Compliance Considerations
 

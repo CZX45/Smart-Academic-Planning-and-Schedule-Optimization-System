@@ -26,12 +26,18 @@ from app.models.academic import (
     CourseOfferingPattern,
     CourseRule,
     CourseRuleExpression,
+    DataImportRun,
+    DataImportType,
     DayOfWeek,
     DegreeAuditRun,
     DegreeAuditWarning,
     EligibilityCheckRun,
     EligibilityMode,
     EligibilityWarning,
+    ImportedRecord,
+    ImportMappingCandidate,
+    ImportPreviewSummary,
+    ImportValidationWarning,
     Institution,
     ProgramVersion,
     RequirementCourseOption,
@@ -89,12 +95,18 @@ from app.schemas.academic import (
     CourseRuleExpressionNodeResponse,
     CourseRuleExpressionTreeResponse,
     CourseRuleResponse,
+    DataImportCreateRequest,
+    DataImportRunResponse,
     DegreeAuditCreateRequest,
     DegreeAuditRunResponse,
     DegreeAuditWarningResponse,
     EligibilityReasonResponse,
     EligibilityWarningResponse,
     ErrorResponse,
+    ImportedRecordResponse,
+    ImportMappingCandidateResponse,
+    ImportPreviewSummaryResponse,
+    ImportValidationWarningResponse,
     InstitutionResponse,
     ProgramVersionDetailResponse,
     ProgramVersionSummaryResponse,
@@ -136,6 +148,8 @@ from app.services.academic_scenarios.exceptions import AcademicScenarioValidatio
 from app.services.academic_scenarios.result import ScenarioProgramInput
 from app.services.course_eligibility.engine import CourseEligibilityApplicationService
 from app.services.course_eligibility.exceptions import CourseEligibilityValidationError
+from app.services.data_imports.engine import STAGING_DISCLAIMERS, DataImportApplicationService
+from app.services.data_imports.exceptions import DataImportValidationError
 from app.services.degree_audit.exceptions import DegreeAuditValidationError
 from app.services.degree_audit.persistence import DegreeAuditApplicationService
 from app.services.schedule_optimizer.engine import ScheduleOptimizerApplicationService
@@ -1255,6 +1269,101 @@ def schedule_detail_response(
     )
 
 
+def data_import_run_response(run: DataImportRun) -> DataImportRunResponse:
+    return DataImportRunResponse(
+        id=run.id,
+        student_profile_id=run.student_profile_id,
+        import_type=run.import_type.value,
+        status=run.status.value,
+        storage_strategy=run.storage_strategy.value,
+        file_name=run.file_name,
+        file_mime_type=run.file_mime_type,
+        file_size_bytes=run.file_size_bytes,
+        file_sha256=run.file_sha256,
+        parser_version=run.parser_version,
+        record_count=run.record_count,
+        valid_record_count=run.valid_record_count,
+        warning_count=run.warning_count,
+        error_count=run.error_count,
+        official_application_ready=run.official_application_ready,
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+        source=source_response(run),
+        created_at=run.created_at,
+        updated_at=run.updated_at,
+    )
+
+
+def imported_record_response(record: ImportedRecord) -> ImportedRecordResponse:
+    return ImportedRecordResponse(
+        id=record.id,
+        data_import_run_id=record.data_import_run_id,
+        record_type=record.record_type.value,
+        row_number=record.row_number,
+        status=record.status.value,
+        external_identifier=record.external_identifier,
+        raw_label=record.raw_label,
+        normalized_payload=record.normalized_payload,
+        confidence_score=record.confidence_score,
+        created_at=record.created_at,
+    )
+
+
+def import_mapping_candidate_response(
+    candidate: ImportMappingCandidate,
+) -> ImportMappingCandidateResponse:
+    return ImportMappingCandidateResponse(
+        id=candidate.id,
+        imported_record_id=candidate.imported_record_id,
+        target_entity_type=candidate.target_entity_type.value,
+        target_entity_id=candidate.target_entity_id,
+        match_type=candidate.match_type.value,
+        confidence_score=candidate.confidence_score,
+        is_selected=candidate.is_selected,
+        reason_code=candidate.reason_code,
+        explanation=candidate.explanation,
+        created_at=candidate.created_at,
+    )
+
+
+def import_validation_warning_response(
+    warning: ImportValidationWarning,
+) -> ImportValidationWarningResponse:
+    return ImportValidationWarningResponse(
+        id=warning.id,
+        data_import_run_id=warning.data_import_run_id,
+        imported_record_id=warning.imported_record_id,
+        warning_code=warning.warning_code,
+        severity=warning.severity.value,
+        message=warning.message,
+        requires_advisor_confirmation=warning.requires_advisor_confirmation,
+        created_at=warning.created_at,
+    )
+
+
+def import_preview_summary_response(
+    summary: ImportPreviewSummary,
+) -> ImportPreviewSummaryResponse:
+    disclaimers = summary.summary_payload.get("disclaimers")
+    disclaimer_values = (
+        [str(disclaimer) for disclaimer in disclaimers]
+        if isinstance(disclaimers, list)
+        else STAGING_DISCLAIMERS
+    )
+    return ImportPreviewSummaryResponse(
+        id=summary.id,
+        data_import_run_id=summary.data_import_run_id,
+        record_count=summary.record_count,
+        valid_record_count=summary.valid_record_count,
+        warning_count=summary.warning_count,
+        error_count=summary.error_count,
+        official_application_ready=summary.official_application_ready,
+        disclaimers=disclaimer_values,
+        summary_payload=summary.summary_payload,
+        created_at=summary.created_at,
+    )
+
+
 def program_summary_response(
     version: ProgramVersion,
     program: AcademicProgram,
@@ -2287,6 +2396,173 @@ def list_student_schedule_optimizations(
         )
     ).all()
     return [schedule_run_response(run) for run in runs]
+
+
+@router.post(
+    "/data-imports",
+    response_model=DataImportRunResponse,
+    status_code=201,
+    responses={404: not_found_response, 400: not_found_response},
+)
+def create_data_import(
+    request: DataImportCreateRequest,
+    db: DatabaseSession,
+) -> DataImportRunResponse:
+    try:
+        run = DataImportApplicationService(db).create_import(
+            student_profile_id=request.student_profile_id,
+            import_type=DataImportType(request.import_type),
+            file_name=request.file_name,
+            file_mime_type=request.file_mime_type,
+            content=request.content,
+            source_type=SourceType(request.source_type),
+            source_reference=request.source_reference,
+        )
+    except DataImportValidationError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return data_import_run_response(run)
+
+
+@router.get(
+    "/data-imports/{run_id}",
+    response_model=DataImportRunResponse,
+    responses={404: not_found_response},
+)
+def get_data_import(
+    run_id: UUID,
+    db: DatabaseSession,
+) -> DataImportRunResponse:
+    run = db.get(DataImportRun, run_id)
+    if run is None:
+        raise not_found("DataImportRun", run_id)
+    return data_import_run_response(run)
+
+
+@router.get(
+    "/data-imports/{run_id}/records",
+    response_model=list[ImportedRecordResponse],
+    responses={404: not_found_response},
+)
+def get_data_import_records(
+    run_id: UUID,
+    db: DatabaseSession,
+) -> list[ImportedRecordResponse]:
+    if db.get(DataImportRun, run_id) is None:
+        raise not_found("DataImportRun", run_id)
+    records = db.scalars(
+        select(ImportedRecord)
+        .where(ImportedRecord.data_import_run_id == run_id)
+        .order_by(ImportedRecord.row_number, ImportedRecord.id)
+    ).all()
+    return [imported_record_response(record) for record in records]
+
+
+@router.get(
+    "/data-imports/{run_id}/mapping-candidates",
+    response_model=list[ImportMappingCandidateResponse],
+    responses={404: not_found_response},
+)
+def get_data_import_mapping_candidates(
+    run_id: UUID,
+    db: DatabaseSession,
+) -> list[ImportMappingCandidateResponse]:
+    if db.get(DataImportRun, run_id) is None:
+        raise not_found("DataImportRun", run_id)
+    candidates = db.scalars(
+        select(ImportMappingCandidate)
+        .join(ImportedRecord, ImportMappingCandidate.imported_record_id == ImportedRecord.id)
+        .where(ImportedRecord.data_import_run_id == run_id)
+        .order_by(
+            ImportedRecord.row_number,
+            ImportMappingCandidate.confidence_score.desc(),
+            ImportMappingCandidate.id,
+        )
+    ).all()
+    return [import_mapping_candidate_response(candidate) for candidate in candidates]
+
+
+@router.get(
+    "/data-imports/{run_id}/warnings",
+    response_model=list[ImportValidationWarningResponse],
+    responses={404: not_found_response},
+)
+def get_data_import_warnings(
+    run_id: UUID,
+    db: DatabaseSession,
+) -> list[ImportValidationWarningResponse]:
+    if db.get(DataImportRun, run_id) is None:
+        raise not_found("DataImportRun", run_id)
+    warnings = db.scalars(
+        select(ImportValidationWarning)
+        .where(ImportValidationWarning.data_import_run_id == run_id)
+        .order_by(
+            ImportValidationWarning.severity,
+            ImportValidationWarning.created_at,
+            ImportValidationWarning.id,
+        )
+    ).all()
+    return [import_validation_warning_response(warning) for warning in warnings]
+
+
+@router.get(
+    "/data-imports/{run_id}/preview",
+    response_model=ImportPreviewSummaryResponse,
+    responses={404: not_found_response},
+)
+def get_data_import_preview(
+    run_id: UUID,
+    db: DatabaseSession,
+) -> ImportPreviewSummaryResponse:
+    try:
+        summary = DataImportApplicationService(db).validate_import(run_id)
+    except DataImportValidationError as error:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return import_preview_summary_response(summary)
+
+
+@router.post(
+    "/data-imports/{run_id}/validate",
+    response_model=ImportPreviewSummaryResponse,
+    responses={404: not_found_response},
+)
+def validate_data_import(
+    run_id: UUID,
+    db: DatabaseSession,
+) -> ImportPreviewSummaryResponse:
+    try:
+        summary = DataImportApplicationService(db).validate_import(run_id)
+    except DataImportValidationError as error:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return import_preview_summary_response(summary)
+
+
+@router.get(
+    "/students/{student_id}/data-imports",
+    response_model=list[DataImportRunResponse],
+    responses={404: not_found_response},
+)
+def list_student_data_imports(
+    student_id: UUID,
+    db: DatabaseSession,
+) -> list[DataImportRunResponse]:
+    if db.get(StudentProfile, student_id) is None:
+        raise not_found("StudentProfile", student_id)
+    runs = db.scalars(
+        select(DataImportRun)
+        .where(DataImportRun.student_profile_id == student_id)
+        .order_by(DataImportRun.created_at.desc(), DataImportRun.id.desc())
+    ).all()
+    return [data_import_run_response(run) for run in runs]
 
 
 @router.post(

@@ -855,6 +855,145 @@ export type ScheduleOptimizationComparison = z.infer<
   typeof ScheduleOptimizationComparisonSchema
 >;
 
+export const DataImportRunSchema = z.object({
+  id: UuidSchema,
+  student_profile_id: UuidSchema,
+  import_type: z.enum([
+    "UNOFFICIAL_TRANSCRIPT",
+    "DEGREE_AUDIT_EXPORT",
+    "COURSE_CATALOG",
+    "SECTION_SCHEDULE",
+    "GENERIC_CSV",
+    "GENERIC_JSON",
+    "UNKNOWN",
+  ]),
+  status: z.enum([
+    "PENDING",
+    "PARSING",
+    "PARSED",
+    "PARSED_WITH_WARNINGS",
+    "FAILED",
+    "REVIEW_REQUIRED",
+    "ARCHIVED",
+  ]),
+  storage_strategy: z.enum([
+    "METADATA_ONLY",
+    "LOCAL_DEV_FIXTURE",
+    "EXTERNAL_OBJECT_REFERENCE",
+    "NOT_STORED",
+  ]),
+  file_name: z.string(),
+  file_mime_type: z.string(),
+  file_size_bytes: z.number(),
+  file_sha256: z.string(),
+  parser_version: z.string(),
+  record_count: z.number(),
+  valid_record_count: z.number(),
+  warning_count: z.number(),
+  error_count: z.number(),
+  official_application_ready: z.boolean(),
+  started_at: DateTimeSchema,
+  completed_at: DateTimeSchema.nullable(),
+  source: SourceMetadataSchema,
+  created_at: DateTimeSchema,
+  updated_at: DateTimeSchema,
+});
+
+export type DataImportRun = z.infer<typeof DataImportRunSchema>;
+
+export const ImportedRecordSchema = z.object({
+  id: UuidSchema,
+  data_import_run_id: UuidSchema,
+  record_type: z.enum([
+    "COURSE_ATTEMPT",
+    "TRANSFER_CREDIT",
+    "REQUIREMENT",
+    "COURSE",
+    "SECTION",
+    "SECTION_MEETING",
+    "PROGRAM",
+    "UNKNOWN",
+  ]),
+  row_number: z.number(),
+  status: z.enum([
+    "VALID",
+    "VALID_WITH_WARNINGS",
+    "AMBIGUOUS",
+    "DUPLICATE",
+    "INVALID",
+    "UNSUPPORTED",
+  ]),
+  external_identifier: z.string().nullable(),
+  raw_label: z.string(),
+  normalized_payload: z.record(z.string(), z.unknown()),
+  confidence_score: DecimalValueSchema,
+  created_at: DateTimeSchema,
+});
+
+export type ImportedRecord = z.infer<typeof ImportedRecordSchema>;
+
+export const ImportMappingCandidateSchema = z.object({
+  id: UuidSchema,
+  imported_record_id: UuidSchema,
+  target_entity_type: z.enum([
+    "COURSE",
+    "SECTION",
+    "ACADEMIC_TERM",
+    "REQUIREMENT_NODE",
+    "PROGRAM_VERSION",
+    "STUDENT_COURSE_ATTEMPT",
+    "UNKNOWN",
+  ]),
+  target_entity_id: UuidSchema.nullable(),
+  match_type: z.enum([
+    "EXACT_CODE",
+    "NORMALIZED_CODE",
+    "TITLE_SIMILARITY",
+    "TERM_MATCH",
+    "MANUAL_REQUIRED",
+    "NO_MATCH",
+  ]),
+  confidence_score: DecimalValueSchema,
+  is_selected: z.boolean(),
+  reason_code: z.string(),
+  explanation: z.string(),
+  created_at: DateTimeSchema,
+});
+
+export type ImportMappingCandidate = z.infer<
+  typeof ImportMappingCandidateSchema
+>;
+
+export const ImportValidationWarningSchema = z.object({
+  id: UuidSchema,
+  data_import_run_id: UuidSchema,
+  imported_record_id: UuidSchema.nullable(),
+  warning_code: z.string(),
+  severity: z.enum(["INFO", "WARNING", "ERROR"]),
+  message: z.string(),
+  requires_advisor_confirmation: z.boolean(),
+  created_at: DateTimeSchema,
+});
+
+export type ImportValidationWarning = z.infer<
+  typeof ImportValidationWarningSchema
+>;
+
+export const ImportPreviewSummarySchema = z.object({
+  id: UuidSchema,
+  data_import_run_id: UuidSchema,
+  record_count: z.number(),
+  valid_record_count: z.number(),
+  warning_count: z.number(),
+  error_count: z.number(),
+  official_application_ready: z.boolean(),
+  disclaimers: z.array(z.string()),
+  summary_payload: z.record(z.string(), z.unknown()),
+  created_at: DateTimeSchema,
+});
+
+export type ImportPreviewSummary = z.infer<typeof ImportPreviewSummarySchema>;
+
 export class ApiRequestError extends Error {
   constructor(message: string) {
     super(message);
@@ -974,6 +1113,28 @@ export type CreateScheduleOptimizationRequest = {
 
 export type CompareScheduleOptimizationsRequest = {
   schedule_optimization_run_ids: string[];
+};
+
+export type CreateDataImportRequest = {
+  student_profile_id: string;
+  import_type:
+    | "UNOFFICIAL_TRANSCRIPT"
+    | "DEGREE_AUDIT_EXPORT"
+    | "COURSE_CATALOG"
+    | "SECTION_SCHEDULE"
+    | "GENERIC_CSV"
+    | "GENERIC_JSON"
+    | "UNKNOWN";
+  file_name: string;
+  file_mime_type: string;
+  content: string;
+  source_type?:
+    | "MOCK"
+    | "IMPORTED"
+    | "STUDENT_PROVIDED"
+    | "INFERRED"
+    | "OFFICIAL";
+  source_reference?: string | null;
 };
 
 const DEFAULT_TIMEOUT_MS = 5_000;
@@ -1711,6 +1872,171 @@ export async function compareScheduleOptimizations(
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Schedule optimization comparison response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function createDataImport(
+  apiBaseUrl: string,
+  request: CreateDataImportRequest,
+  options: FetchHealthOptions = {},
+): Promise<DataImportRun> {
+  const parsed = DataImportRunSchema.safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/data-imports", {
+      ...options,
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(request),
+    }),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Data import response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchDataImport(
+  apiBaseUrl: string,
+  runId: string,
+  options: FetchHealthOptions = {},
+): Promise<DataImportRun> {
+  const parsed = DataImportRunSchema.safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/data-imports/${runId}`, options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Data import detail response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchDataImportRecords(
+  apiBaseUrl: string,
+  runId: string,
+  options: FetchHealthOptions = {},
+): Promise<ImportedRecord[]> {
+  const parsed = z
+    .array(ImportedRecordSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/data-imports/${runId}/records`,
+        options,
+      ),
+    );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Data import records response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchDataImportMappingCandidates(
+  apiBaseUrl: string,
+  runId: string,
+  options: FetchHealthOptions = {},
+): Promise<ImportMappingCandidate[]> {
+  const parsed = z
+    .array(ImportMappingCandidateSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/data-imports/${runId}/mapping-candidates`,
+        options,
+      ),
+    );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Data import mapping candidates response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchDataImportWarnings(
+  apiBaseUrl: string,
+  runId: string,
+  options: FetchHealthOptions = {},
+): Promise<ImportValidationWarning[]> {
+  const parsed = z
+    .array(ImportValidationWarningSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/data-imports/${runId}/warnings`,
+        options,
+      ),
+    );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Data import warnings response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchDataImportPreview(
+  apiBaseUrl: string,
+  runId: string,
+  options: FetchHealthOptions = {},
+): Promise<ImportPreviewSummary> {
+  const parsed = ImportPreviewSummarySchema.safeParse(
+    await fetchJson(
+      apiBaseUrl,
+      `/api/v1/data-imports/${runId}/preview`,
+      options,
+    ),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Data import preview response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function validateDataImport(
+  apiBaseUrl: string,
+  runId: string,
+  options: FetchHealthOptions = {},
+): Promise<ImportPreviewSummary> {
+  const parsed = ImportPreviewSummarySchema.safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/data-imports/${runId}/validate`, {
+      ...options,
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    }),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Data import validation response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchStudentDataImports(
+  apiBaseUrl: string,
+  studentId: string,
+  options: FetchHealthOptions = {},
+): Promise<DataImportRun[]> {
+  const parsed = z
+    .array(DataImportRunSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/students/${studentId}/data-imports`,
+        options,
+      ),
+    );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Student data imports response did not match the expected schema",
     );
   }
   return parsed.data;

@@ -8,6 +8,7 @@ import {
   compareScheduleOptimizations,
   createAcademicPlan,
   createAcademicScenario,
+  createDataImport,
   createCourseEligibilityCheck,
   createDegreeAudit,
   createScheduleOptimization,
@@ -16,20 +17,31 @@ import {
   fetchAcademicScenarioComparison,
   fetchAcademicScenarioPrograms,
   fetchAcademicScenarioWarnings,
+  fetchDataImportMappingCandidates,
+  fetchDataImportPreview,
+  fetchDataImportRecords,
+  fetchDataImportWarnings,
   fetchDegreeAuditRequirements,
   fetchHealth,
   fetchLatestDegreeAudit,
+  fetchStudentDataImports,
   fetchStudentScheduleOptimizations,
   fetchStudentAcademicPlans,
   fetchStudentEligibilityChecks,
   fetchStudentAcademicScenarios,
+  validateDataImport,
   type AcademicPlanComparison,
   type AcademicPlanDetail,
   type AcademicPlanRun,
   type AcademicScenario,
   type CourseEligibilityCheck,
+  type DataImportRun,
   type DegreeAuditRun,
   type HealthResponse,
+  type ImportedRecord,
+  type ImportMappingCandidate,
+  type ImportPreviewSummary,
+  type ImportValidationWarning,
   type RequirementEvaluation,
   type ScheduleOptimizationComparison,
   type ScheduleOptimizationDetail,
@@ -131,6 +143,22 @@ type ScheduleState =
   | { status: "offline"; message: string }
   | { status: "failed"; message: string }
   | { status: "schema-error"; message: string };
+type DataImportPreviewState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | {
+      status: "ready";
+      run: DataImportRun;
+      records: ImportedRecord[];
+      candidates: ImportMappingCandidate[];
+      warnings: ImportValidationWarning[];
+      preview: ImportPreviewSummary;
+      savedImports: DataImportRun[];
+    }
+  | { status: "empty"; message: string }
+  | { status: "offline"; message: string }
+  | { status: "failed"; message: string }
+  | { status: "schema-error"; message: string };
 type CandidateCourse = {
   id: string;
   label: string;
@@ -156,6 +184,20 @@ type ScheduleSectionChoice = {
   id: string;
   label: string;
   sectionId: string;
+};
+type DataImportSample = {
+  id: string;
+  label: string;
+  importType:
+    | "UNOFFICIAL_TRANSCRIPT"
+    | "DEGREE_AUDIT_EXPORT"
+    | "COURSE_CATALOG"
+    | "SECTION_SCHEDULE"
+    | "GENERIC_CSV"
+    | "GENERIC_JSON";
+  fileName: string;
+  fileMimeType: string;
+  content: string;
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -308,6 +350,45 @@ const scheduleSectionChoices: ScheduleSectionChoice[] = [
     sectionId: "2c2da55d-20aa-521c-938d-f35caee39eba",
   },
 ];
+const dataImportSamples: DataImportSample[] = [
+  {
+    id: "mock-transcript-csv",
+    label: "Mock transcript CSV",
+    importType: "UNOFFICIAL_TRANSCRIPT",
+    fileName: "mock-transcript.csv",
+    fileMimeType: "text/csv",
+    content: [
+      "term,course_code,title,grade,credits,status",
+      "2024FA,FIN 300,Mock Managerial Finance,B,3.0,COMPLETED",
+      "2024FA,FIN 999,Unreviewed Special Topic,A,3.0,COMPLETED",
+    ].join("\n"),
+  },
+  {
+    id: "mock-degree-audit-json",
+    label: "Mock degree audit JSON",
+    importType: "DEGREE_AUDIT_EXPORT",
+    fileName: "mock-degree-audit.json",
+    fileMimeType: "application/json",
+    content: JSON.stringify({
+      records: [
+        {
+          term: "2024FA",
+          course_code: "FIN 300",
+          title: "Mock Managerial Finance",
+          credits: "3.0",
+          status: "SATISFIED",
+        },
+        {
+          term: "2025SP",
+          course_code: "FIN 999",
+          title: "Unreviewed Elective Placeholder",
+          credits: "3.0",
+          status: "MANUAL_REVIEW_REQUIRED",
+        },
+      ],
+    }),
+  },
+];
 
 function describeHealthError(error: unknown): string {
   if (error instanceof ApiResponseSchemaError) {
@@ -375,6 +456,16 @@ function describeScheduleError(error: unknown): string {
   return error instanceof Error
     ? error.message
     : "Unknown schedule optimizer error";
+}
+
+function describeDataImportError(error: unknown): string {
+  if (error instanceof ApiResponseSchemaError) {
+    return "API returned an unexpected data import response shape.";
+  }
+  if (error instanceof ApiRequestError) {
+    return error.message;
+  }
+  return error instanceof Error ? error.message : "Unknown data import error";
 }
 
 function isNotFound(error: unknown): boolean {
@@ -476,6 +567,18 @@ export default function Home() {
           message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
         },
   );
+  const [selectedDataImportSampleId, setSelectedDataImportSampleId] = useState(
+    dataImportSamples[0].id,
+  );
+  const [dataImportState, setDataImportState] =
+    useState<DataImportPreviewState>(() =>
+      apiBaseUrl
+        ? { status: "idle" }
+        : {
+            status: "offline",
+            message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+          },
+    );
 
   useEffect(() => {
     let cancelled = false;
@@ -664,6 +767,13 @@ export default function Home() {
           setScheduleAllowPartialOptions={setScheduleAllowPartialOptions}
           scheduleState={scheduleState}
           setScheduleState={setScheduleState}
+        />
+
+        <DataImportPreviewPanel
+          selectedDataImportSampleId={selectedDataImportSampleId}
+          setSelectedDataImportSampleId={setSelectedDataImportSampleId}
+          dataImportState={dataImportState}
+          setDataImportState={setDataImportState}
         />
       </section>
     </main>
@@ -2457,6 +2567,332 @@ function ScheduleResultView({
       ) : null}
     </div>
   );
+}
+
+function DataImportPreviewPanel({
+  selectedDataImportSampleId,
+  setSelectedDataImportSampleId,
+  dataImportState,
+  setDataImportState,
+}: {
+  selectedDataImportSampleId: string;
+  setSelectedDataImportSampleId: (value: string) => void;
+  dataImportState: DataImportPreviewState;
+  setDataImportState: Dispatch<SetStateAction<DataImportPreviewState>>;
+}) {
+  const selectedSample =
+    dataImportSamples.find(
+      (sample) => sample.id === selectedDataImportSampleId,
+    ) ?? dataImportSamples[0];
+
+  async function handlePreviewImport(): Promise<void> {
+    if (!apiBaseUrl) {
+      setDataImportState({
+        status: "offline",
+        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+      });
+      return;
+    }
+    setDataImportState({ status: "loading" });
+    try {
+      const run = await createDataImport(
+        apiBaseUrl,
+        {
+          student_profile_id: mockStudentId,
+          import_type: selectedSample.importType,
+          file_name: selectedSample.fileName,
+          file_mime_type: selectedSample.fileMimeType,
+          content: selectedSample.content,
+          source_type: "STUDENT_PROVIDED",
+          source_reference: `Built-in Phase 7A fixture: ${selectedSample.label}`,
+        },
+        { timeoutMs: 8_000 },
+      );
+      const [records, candidates, warnings, preview, savedImports] =
+        await Promise.all([
+          fetchDataImportRecords(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
+          fetchDataImportMappingCandidates(apiBaseUrl, run.id, {
+            timeoutMs: 5_000,
+          }),
+          fetchDataImportWarnings(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
+          validateDataImport(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
+          fetchStudentDataImports(apiBaseUrl, mockStudentId, {
+            timeoutMs: 5_000,
+          }),
+        ]);
+      setDataImportState({
+        status: "ready",
+        run,
+        records,
+        candidates,
+        warnings,
+        preview,
+        savedImports,
+      });
+    } catch (error: unknown) {
+      setDataImportState({
+        status:
+          error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        message: describeDataImportError(error),
+      });
+    }
+  }
+
+  async function handleLoadSavedImports(): Promise<void> {
+    if (!apiBaseUrl) {
+      setDataImportState({
+        status: "offline",
+        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+      });
+      return;
+    }
+    setDataImportState({ status: "loading" });
+    try {
+      const savedImports = await fetchStudentDataImports(
+        apiBaseUrl,
+        mockStudentId,
+        { timeoutMs: 5_000 },
+      );
+      if (savedImports.length === 0) {
+        setDataImportState({
+          status: "empty",
+          message: "No saved staging imports are available.",
+        });
+        return;
+      }
+      const run = savedImports[0];
+      const [records, candidates, warnings, preview] = await Promise.all([
+        fetchDataImportRecords(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
+        fetchDataImportMappingCandidates(apiBaseUrl, run.id, {
+          timeoutMs: 5_000,
+        }),
+        fetchDataImportWarnings(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
+        fetchDataImportPreview(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
+      ]);
+      setDataImportState({
+        status: "ready",
+        run,
+        records,
+        candidates,
+        warnings,
+        preview,
+        savedImports,
+      });
+    } catch (error: unknown) {
+      setDataImportState({
+        status:
+          error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        message: describeDataImportError(error),
+      });
+    }
+  }
+
+  return (
+    <section className="data-import-panel" aria-label="Data Import Preview">
+      <div className="section-heading">
+        <div>
+          <h2>Data Import Preview</h2>
+          <p className="subtle">
+            Staged records stay separate from official academic records.
+          </p>
+        </div>
+        <p className="notice compact">Read-only staging boundary.</p>
+      </div>
+
+      <ul className="disclaimer-list" aria-label="Data import disclaimers">
+        <li>Imported preview data is not official school policy.</li>
+        <li>
+          No transcript, catalog, section, registration, seat, or waitlist
+          records are changed.
+        </li>
+        <li>
+          Advisor or school confirmation is required before using imported
+          records for high-impact guidance.
+        </li>
+      </ul>
+
+      <div className="scenario-controls data-import-controls">
+        <label>
+          Sample import
+          <select
+            value={selectedDataImportSampleId}
+            onChange={(event) =>
+              setSelectedDataImportSampleId(event.target.value)
+            }
+          >
+            {dataImportSamples.map((sample) => (
+              <option key={sample.id} value={sample.id}>
+                {sample.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" onClick={() => void handlePreviewImport()}>
+          Preview import
+        </button>
+        <button type="button" onClick={() => void handleLoadSavedImports()}>
+          Load saved imports
+        </button>
+      </div>
+
+      {dataImportState.status === "loading" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Parsing import</h2>
+          <p>
+            Creating a staging preview with mapping candidates and warnings.
+          </p>
+        </section>
+      ) : null}
+
+      {dataImportState.status === "offline" ||
+      dataImportState.status === "failed" ||
+      dataImportState.status === "schema-error" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>
+            {dataImportState.status === "schema-error"
+              ? "Data import schema error"
+              : "Data import unavailable"}
+          </h2>
+          <p>{dataImportState.message}</p>
+        </section>
+      ) : null}
+
+      {dataImportState.status === "empty" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>No staging imports</h2>
+          <p>{dataImportState.message}</p>
+        </section>
+      ) : null}
+
+      {dataImportState.status === "ready" ? (
+        <DataImportResultView state={dataImportState} />
+      ) : null}
+    </section>
+  );
+}
+
+function DataImportResultView({
+  state,
+}: {
+  state: Extract<DataImportPreviewState, { status: "ready" }>;
+}) {
+  const selectedCandidateCount = state.candidates.filter(
+    (candidate) => candidate.is_selected,
+  ).length;
+  return (
+    <div className="data-import-result">
+      <section
+        className="summary-grid"
+        aria-label="Data import preview summary"
+      >
+        <SummaryMetric
+          label="Import Status"
+          value={statusLabel(state.run.status)}
+        />
+        <SummaryMetric label="Records" value={String(state.run.record_count)} />
+        <SummaryMetric
+          label="Mapped Candidates"
+          value={String(selectedCandidateCount)}
+        />
+        <SummaryMetric label="Warnings" value={String(state.warnings.length)} />
+        <SummaryMetric
+          label="Official Application"
+          value={
+            state.preview.official_application_ready ? "Ready" : "Disabled"
+          }
+        />
+        <SummaryMetric
+          label="Saved Imports"
+          value={String(state.savedImports.length)}
+        />
+      </section>
+
+      <section
+        className="comparison-table"
+        aria-label="Import preview disclaimers"
+      >
+        <h2>Preview Boundary</h2>
+        <ul className="compact-list">
+          {state.preview.disclaimers.map((disclaimer) => (
+            <li key={disclaimer}>
+              <strong>Review</strong>
+              <span>{disclaimer}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="data-import-grid">
+        <section aria-label="Data import records">
+          <h2>Imported Records</h2>
+          <div className="comparison-rows">
+            {state.records.map((record) => (
+              <div key={record.id} className="comparison-row">
+                <strong>
+                  {payloadValue(record.normalized_payload, "course_code") ??
+                    record.raw_label}
+                </strong>
+                <span>
+                  Row {record.row_number} · {statusLabel(record.status)} ·{" "}
+                  {payloadValue(record.normalized_payload, "credits") ?? "0.0"}{" "}
+                  credits
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+        <section aria-label="Data import mapping candidates">
+          <h2>Mapping Candidates</h2>
+          <div className="comparison-rows">
+            {state.candidates.map((candidate) => (
+              <div key={candidate.id} className="comparison-row">
+                <strong>{candidate.reason_code}</strong>
+                <span>
+                  {statusLabel(candidate.target_entity_type)} · confidence{" "}
+                  {candidate.confidence_score} · {candidate.explanation}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </section>
+
+      <section className="comparison-table" aria-label="Data import warnings">
+        <h2>Warnings</h2>
+        {state.warnings.length > 0 ? (
+          <div className="comparison-rows">
+            {state.warnings.map((warning) => (
+              <div key={warning.id} className="comparison-row">
+                <strong>{warning.warning_code}</strong>
+                <span>
+                  {warning.message}{" "}
+                  {warning.requires_advisor_confirmation
+                    ? "Advisor confirmation required."
+                    : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="subtle">No import warnings.</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function payloadValue(
+  payload: Record<string, unknown>,
+  key: string,
+): string | null {
+  const value = payload[key];
+  if (typeof value === "string" && value.length > 0) {
+    return value;
+  }
+  if (typeof value === "number") {
+    return String(value);
+  }
+  return null;
 }
 
 function formatMeetingList(

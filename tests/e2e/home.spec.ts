@@ -734,6 +734,137 @@ const mockScheduleRunSummary = {
   updated_at: mockScheduleOptimization.updated_at,
 };
 
+const mockDataImportRun = {
+  id: "00000000-0000-4000-8000-000000000701",
+  student_profile_id: "74874476-4024-5e2d-807a-fbb4ab620249",
+  import_type: "UNOFFICIAL_TRANSCRIPT",
+  status: "PARSED_WITH_WARNINGS",
+  storage_strategy: "METADATA_ONLY",
+  file_name: "mock-transcript.csv",
+  file_mime_type: "text/csv",
+  file_size_bytes: 148,
+  file_sha256:
+    "7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a",
+  parser_version: "phase7a-data-import-v1",
+  record_count: 2,
+  valid_record_count: 1,
+  warning_count: 2,
+  error_count: 0,
+  official_application_ready: false,
+  started_at: "2026-06-30T00:00:00Z",
+  completed_at: "2026-06-30T00:00:01Z",
+  source: { source_type: "STUDENT_PROVIDED", is_official: false },
+  created_at: "2026-06-30T00:00:00Z",
+  updated_at: "2026-06-30T00:00:01Z",
+};
+
+const mockDataImportRecords = [
+  {
+    id: "00000000-0000-4000-8000-000000000702",
+    data_import_run_id: mockDataImportRun.id,
+    record_type: "COURSE_ATTEMPT",
+    row_number: 2,
+    status: "VALID_WITH_WARNINGS",
+    external_identifier: "FIN 300",
+    raw_label: "FIN 300 Mock Managerial Finance",
+    normalized_payload: {
+      term: "2024FA",
+      course_code: "FIN 300",
+      title: "Mock Managerial Finance",
+      grade: "B",
+      credits: "3.0",
+      status: "COMPLETED",
+    },
+    confidence_score: "0.80",
+    created_at: "2026-06-30T00:00:00Z",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000703",
+    data_import_run_id: mockDataImportRun.id,
+    record_type: "COURSE_ATTEMPT",
+    row_number: 3,
+    status: "AMBIGUOUS",
+    external_identifier: "FIN 999",
+    raw_label: "FIN 999 Unreviewed Special Topic",
+    normalized_payload: {
+      term: "2024FA",
+      course_code: "FIN 999",
+      title: "Unreviewed Special Topic",
+      grade: "A",
+      credits: "3.0",
+      status: "COMPLETED",
+    },
+    confidence_score: "0.35",
+    created_at: "2026-06-30T00:00:00Z",
+  },
+];
+
+const mockDataImportCandidates = [
+  {
+    id: "00000000-0000-4000-8000-000000000704",
+    imported_record_id: mockDataImportRecords[0].id,
+    target_entity_type: "COURSE",
+    target_entity_id: "e6ab2a34-d85a-5446-875e-83fd36d5b08e",
+    match_type: "EXACT_CODE",
+    confidence_score: "1.00",
+    is_selected: true,
+    reason_code: "EXACT_COURSE_CODE",
+    explanation: "FIN 300 exactly matches mock catalog course FIN 300.",
+    created_at: "2026-06-30T00:00:00Z",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000705",
+    imported_record_id: mockDataImportRecords[1].id,
+    target_entity_type: "UNKNOWN",
+    target_entity_id: null,
+    match_type: "NO_MATCH",
+    confidence_score: "0.00",
+    is_selected: false,
+    reason_code: "UNMATCHED_COURSE_CODE",
+    explanation: "FIN 999 requires manual review before academic use.",
+    created_at: "2026-06-30T00:00:00Z",
+  },
+];
+
+const mockDataImportWarnings = [
+  {
+    id: "00000000-0000-4000-8000-000000000706",
+    data_import_run_id: mockDataImportRun.id,
+    imported_record_id: null,
+    warning_code: "STAGING_ONLY_NOT_OFFICIAL",
+    severity: "WARNING",
+    message: "Phase 7A imports are preview-only staging records.",
+    requires_advisor_confirmation: true,
+    created_at: "2026-06-30T00:00:00Z",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000707",
+    data_import_run_id: mockDataImportRun.id,
+    imported_record_id: mockDataImportRecords[1].id,
+    warning_code: "UNMATCHED_COURSE_CODE",
+    severity: "WARNING",
+    message: "FIN 999 is staged but not matched to a reviewed course.",
+    requires_advisor_confirmation: true,
+    created_at: "2026-06-30T00:00:00Z",
+  },
+];
+
+const mockDataImportPreview = {
+  id: "00000000-0000-4000-8000-000000000708",
+  data_import_run_id: mockDataImportRun.id,
+  record_count: 2,
+  valid_record_count: 1,
+  warning_count: 2,
+  error_count: 0,
+  official_application_ready: false,
+  disclaimers: [
+    "This import preview is staging-only and is not official school policy.",
+    "Phase 7A does not change official transcript, catalog, section, registration, seat, or waitlist records.",
+  ],
+  summary_payload: { staging_only: true },
+  created_at: "2026-06-30T00:00:00Z",
+};
+
 async function mockSuccessfulAuditApis(page: Page) {
   await page.route(
     "http://localhost:8000/api/v1/students/*/degree-audits/latest",
@@ -983,6 +1114,84 @@ async function mockSuccessfulScheduleApis(page: Page) {
             best_score: "74.00",
             best_total_credits: "3.0",
             completed_at: "2026-06-29T00:00:01Z",
+          },
+        ]),
+      });
+    },
+  );
+}
+
+async function mockSuccessfulDataImportApis(page: Page) {
+  await page.route(
+    "http://localhost:8000/api/v1/data-imports",
+    async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify(mockDataImportRun),
+        });
+        return;
+      }
+      await route.continue();
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-imports/*/records",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(mockDataImportRecords),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-imports/*/mapping-candidates",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(mockDataImportCandidates),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-imports/*/warnings",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(mockDataImportWarnings),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-imports/*/preview",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(mockDataImportPreview),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-imports/*/validate",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(mockDataImportPreview),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/students/*/data-imports",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([
+          mockDataImportRun,
+          {
+            ...mockDataImportRun,
+            id: "00000000-0000-4000-8000-000000000709",
+            file_name: "saved-degree-audit.json",
+            import_type: "DEGREE_AUDIT_EXPORT",
           },
         ]),
       });
@@ -1294,6 +1503,66 @@ test("home page builds and compares semester schedules", async ({ page }) => {
   await expect(
     page.getByLabel("Saved schedule comparison").getByText("CUSTOM_COURSE_SET"),
   ).toHaveCount(2);
+});
+
+test("home page previews read-only data imports", async ({ page }) => {
+  await mockSuccessfulAuditApis(page);
+  await mockSuccessfulDataImportApis(page);
+
+  await page.goto("/");
+
+  await expect(
+    page.getByRole("heading", { name: /Data Import Preview/ }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Data import disclaimers")
+      .getByText("Imported preview data is not official school policy."),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Data import disclaimers")
+      .getByText(
+        "No transcript, catalog, section, registration, seat, or waitlist records are changed.",
+      ),
+  ).toBeVisible();
+
+  await page.getByLabel("Sample import").selectOption("mock-transcript-csv");
+  await page.getByRole("button", { name: /Preview import/ }).click();
+
+  const importSummary = page.getByLabel("Data import preview summary");
+  await expect(importSummary.getByText(/parsed with warnings/i)).toBeVisible();
+  await expect(importSummary.getByText("Mapped Candidates")).toBeVisible();
+  await expect(importSummary.getByText("Disabled")).toBeVisible();
+
+  await expect(
+    page.getByLabel("Data import records").getByText("FIN 300", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Data import records").getByText("FIN 999", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Data import mapping candidates")
+      .getByText("EXACT_COURSE_CODE"),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Data import mapping candidates")
+      .getByText("UNMATCHED_COURSE_CODE"),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Import preview disclaimers")
+      .getByText(/not official school policy/i),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: /Load saved imports/ }).click();
+  await expect(importSummary.getByText("Saved Imports")).toBeVisible();
 });
 
 test("home page reports schedule optimizer schema failures", async ({

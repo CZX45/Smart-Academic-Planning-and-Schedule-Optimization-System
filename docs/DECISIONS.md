@@ -231,3 +231,18 @@ Consequences:
 - High-diversity mode can provide meaningfully different options while preserving deterministic ordering.
 - Repair suggestions are explanatory only and do not automate registration, add/drop, swaps, waitlists, seat monitoring, portal scraping, or authentication bypass.
 - OR-Tools, richer minimal-relaxation search, instructor preferences, commute optimization, and live official section imports remain future work.
+
+## ADR-0017: Implement Phase 7A imports as read-only staging previews
+
+Status: Accepted
+
+Context: Students may have mock or self-provided transcript, degree-audit, catalog, or section-schedule data before an official reviewed import workflow exists. Applying that data directly to transcript, catalog, requirement, section, seat, waitlist, or registration tables would blur source authority and could create high-impact academic errors.
+
+Decision: Implement Phase 7A as a separate read-only data import staging boundary. Persist `DataImportRun`, `DataImportFile`, `ImportedRecord`, `ImportMappingCandidate`, `ImportValidationWarning`, and `ImportPreviewSummary` rows. Parse bounded CSV/JSON content, normalize generic course-code fields, propose mapping candidates, and emit warnings and preview disclaimers. Keep `official_application_ready = false`, reject official-source imports, and do not mutate academic-domain or registration tables.
+
+Consequences:
+
+- Users and advisors can inspect imported mock/student-provided data without confusing it with official school policy.
+- API, shared TypeScript schemas, and the web app can render records, mapping candidates, warnings, and previews without duplicating parser logic.
+- Future reviewed import/application workflows can build on a traceable staging model.
+- Phase 7A deliberately does not implement browser extension import, real school login, SAML/MFA/CAPTCHA handling, scraping, OCR-heavy extraction, advisor approval queues, official data application, seat monitoring, waitlist handling, add/drop/swap, or automatic registration.

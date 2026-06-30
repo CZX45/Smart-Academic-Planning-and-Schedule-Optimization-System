@@ -86,6 +86,15 @@ Phase 6B extends schedule optimizer snapshots with:
 - score-component and diversity fields on `schedule_options`
 - `schedule_repair_suggestions`
 
+Phase 7A adds read-only data import staging storage:
+
+- `data_import_runs`
+- `data_import_files`
+- `imported_records`
+- `import_mapping_candidates`
+- `import_validation_warnings`
+- `import_preview_summaries`
+
 Every Phase 2A academic-domain table includes `source_type`, `is_official`, source reference fields, and timestamps. The development seed uses only `source_type = MOCK` and `is_official = false`.
 
 Phase 2B also source-tags offering patterns, sections, meetings, rules, and rule expressions. Mock data remains non-official and cannot be used as authoritative school policy.
@@ -99,6 +108,8 @@ Phase 4 eligibility rows are generated snapshots. They do not modify `student_ac
 Phase 5A academic plan rows are generated snapshots. They do not modify `student_academic_programs`, `student_course_attempts`, `sections`, section meetings, or registration data. They reference stored degree-audit, course, requirement, term, scenario, eligibility, and offering-pattern inputs where available, and every planned course stores a source, status, reason code, and explanation.
 
 Phase 6A and 6B schedule rows are generated snapshots. They do not modify `student_academic_programs`, `student_course_attempts`, `sections`, section meetings, seat counts, waitlists, or registration data. They reference stored course, term, section, meeting, and eligibility inputs where available, and every option, selected section, conflict, repair suggestion, and warning is explainable.
+
+Phase 7A data import rows are staging-only previews. They do not modify `student_academic_programs`, `student_course_attempts`, `courses`, `sections`, `requirement_nodes`, seat counts, waitlists, or registration data. Every run is non-official, stores bounded file metadata rather than durable raw upload content, preserves normalized record payload snippets, and includes mapping candidates, validation warnings, preview disclaimers, and advisor-confirmation flags.
 
 Important Phase 2A constraints include:
 
@@ -143,6 +154,12 @@ Important Phase 2A constraints include:
 - Schedule conflicts reference the run and optional option/sections, include a typed conflict reason, optional time window, and message.
 - Schedule repair suggestions reference the run and optionally the course/section/conflict they repair; each suggestion includes a typed suggestion, reason code, explanation, impact estimate, and optional payload.
 - Schedule warnings must include a warning code, severity, message, and advisor-confirmation flag.
+- A data import run references a student, import type, status, parser version, storage strategy, file metadata, source metadata, counts, and `official_application_ready = false`.
+- A data import file stores metadata, checksum, optional preview text, and storage strategy; Phase 7A uses metadata-only storage for mock or student-provided content.
+- Imported records are unique by run/row number and store record type, status, external identifier, raw label, normalized payload, and confidence score.
+- Import mapping candidates attach to imported records and include target entity type, optional target ID, match type, confidence score, selection flag, reason code, and explanation.
+- Import validation warnings include warning code, severity, message, optional imported-record link, and advisor-confirmation flag.
+- Import preview summaries are unique per run, repeat nonnegative counts, keep `official_application_ready = false`, and preserve preview disclaimers in structured payload.
 
 ### Institution and Versioning
 

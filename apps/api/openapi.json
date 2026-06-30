@@ -2350,6 +2350,454 @@
         }
       }
     },
+    "/api/v1/data-imports": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Create Data Import",
+        "operationId": "create_data_import_api_v1_data_imports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataImportCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataImportRunResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-imports/{run_id}": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Data Import",
+        "operationId": "get_data_import_api_v1_data_imports__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataImportRunResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-imports/{run_id}/records": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Data Import Records",
+        "operationId": "get_data_import_records_api_v1_data_imports__run_id__records_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImportedRecordResponse"
+                  },
+                  "title": "Response Get Data Import Records Api V1 Data Imports  Run Id  Records Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-imports/{run_id}/mapping-candidates": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Data Import Mapping Candidates",
+        "operationId": "get_data_import_mapping_candidates_api_v1_data_imports__run_id__mapping_candidates_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImportMappingCandidateResponse"
+                  },
+                  "title": "Response Get Data Import Mapping Candidates Api V1 Data Imports  Run Id  Mapping Candidates Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-imports/{run_id}/warnings": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Data Import Warnings",
+        "operationId": "get_data_import_warnings_api_v1_data_imports__run_id__warnings_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImportValidationWarningResponse"
+                  },
+                  "title": "Response Get Data Import Warnings Api V1 Data Imports  Run Id  Warnings Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-imports/{run_id}/preview": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Data Import Preview",
+        "operationId": "get_data_import_preview_api_v1_data_imports__run_id__preview_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportPreviewSummaryResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-imports/{run_id}/validate": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Validate Data Import",
+        "operationId": "validate_data_import_api_v1_data_imports__run_id__validate_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportPreviewSummaryResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/students/{student_id}/data-imports": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "List Student Data Imports",
+        "operationId": "list_student_data_imports_api_v1_students__student_id__data_imports_get",
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DataImportRunResponse"
+                  },
+                  "title": "Response List Student Data Imports Api V1 Students  Student Id  Data Imports Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/academic-scenarios": {
       "post": {
         "tags": [
@@ -4945,6 +5393,222 @@
         ],
         "title": "CourseRuleResponse"
       },
+      "DataImportCreateRequest": {
+        "properties": {
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "import_type": {
+            "type": "string",
+            "enum": [
+              "UNOFFICIAL_TRANSCRIPT",
+              "DEGREE_AUDIT_EXPORT",
+              "COURSE_CATALOG",
+              "SECTION_SCHEDULE",
+              "GENERIC_CSV",
+              "GENERIC_JSON",
+              "UNKNOWN"
+            ],
+            "title": "Import Type"
+          },
+          "file_name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "File Name"
+          },
+          "file_mime_type": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "File Mime Type"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 65536,
+            "minLength": 1,
+            "title": "Content"
+          },
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "MOCK",
+              "IMPORTED",
+              "STUDENT_PROVIDED",
+              "INFERRED",
+              "OFFICIAL"
+            ],
+            "title": "Source Type",
+            "default": "STUDENT_PROVIDED"
+          },
+          "source_reference": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Reference"
+          }
+        },
+        "type": "object",
+        "required": [
+          "student_profile_id",
+          "import_type",
+          "file_name",
+          "file_mime_type",
+          "content"
+        ],
+        "title": "DataImportCreateRequest"
+      },
+      "DataImportRunResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "import_type": {
+            "type": "string",
+            "enum": [
+              "UNOFFICIAL_TRANSCRIPT",
+              "DEGREE_AUDIT_EXPORT",
+              "COURSE_CATALOG",
+              "SECTION_SCHEDULE",
+              "GENERIC_CSV",
+              "GENERIC_JSON",
+              "UNKNOWN"
+            ],
+            "title": "Import Type"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PARSING",
+              "PARSED",
+              "PARSED_WITH_WARNINGS",
+              "FAILED",
+              "REVIEW_REQUIRED",
+              "ARCHIVED"
+            ],
+            "title": "Status"
+          },
+          "storage_strategy": {
+            "type": "string",
+            "enum": [
+              "METADATA_ONLY",
+              "LOCAL_DEV_FIXTURE",
+              "EXTERNAL_OBJECT_REFERENCE",
+              "NOT_STORED"
+            ],
+            "title": "Storage Strategy"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "File Name"
+          },
+          "file_mime_type": {
+            "type": "string",
+            "title": "File Mime Type"
+          },
+          "file_size_bytes": {
+            "type": "integer",
+            "title": "File Size Bytes"
+          },
+          "file_sha256": {
+            "type": "string",
+            "title": "File Sha256"
+          },
+          "parser_version": {
+            "type": "string",
+            "title": "Parser Version"
+          },
+          "record_count": {
+            "type": "integer",
+            "title": "Record Count"
+          },
+          "valid_record_count": {
+            "type": "integer",
+            "title": "Valid Record Count"
+          },
+          "warning_count": {
+            "type": "integer",
+            "title": "Warning Count"
+          },
+          "error_count": {
+            "type": "integer",
+            "title": "Error Count"
+          },
+          "official_application_ready": {
+            "type": "boolean",
+            "title": "Official Application Ready"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "student_profile_id",
+          "import_type",
+          "status",
+          "storage_strategy",
+          "file_name",
+          "file_mime_type",
+          "file_size_bytes",
+          "file_sha256",
+          "parser_version",
+          "record_count",
+          "valid_record_count",
+          "warning_count",
+          "error_count",
+          "official_application_ready",
+          "started_at",
+          "source",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DataImportRunResponse"
+      },
       "DegreeAuditCreateRequest": {
         "properties": {
           "student_profile_id": {
@@ -5384,6 +6048,307 @@
           "database_configured"
         ],
         "title": "HealthResponse"
+      },
+      "ImportMappingCandidateResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "imported_record_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Imported Record Id"
+          },
+          "target_entity_type": {
+            "type": "string",
+            "enum": [
+              "COURSE",
+              "SECTION",
+              "ACADEMIC_TERM",
+              "REQUIREMENT_NODE",
+              "PROGRAM_VERSION",
+              "STUDENT_COURSE_ATTEMPT",
+              "UNKNOWN"
+            ],
+            "title": "Target Entity Type"
+          },
+          "target_entity_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Entity Id"
+          },
+          "match_type": {
+            "type": "string",
+            "enum": [
+              "EXACT_CODE",
+              "NORMALIZED_CODE",
+              "TITLE_SIMILARITY",
+              "TERM_MATCH",
+              "MANUAL_REQUIRED",
+              "NO_MATCH"
+            ],
+            "title": "Match Type"
+          },
+          "confidence_score": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Confidence Score"
+          },
+          "is_selected": {
+            "type": "boolean",
+            "title": "Is Selected"
+          },
+          "reason_code": {
+            "type": "string",
+            "title": "Reason Code"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "imported_record_id",
+          "target_entity_type",
+          "match_type",
+          "confidence_score",
+          "is_selected",
+          "reason_code",
+          "explanation",
+          "created_at"
+        ],
+        "title": "ImportMappingCandidateResponse"
+      },
+      "ImportPreviewSummaryResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "data_import_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Data Import Run Id"
+          },
+          "record_count": {
+            "type": "integer",
+            "title": "Record Count"
+          },
+          "valid_record_count": {
+            "type": "integer",
+            "title": "Valid Record Count"
+          },
+          "warning_count": {
+            "type": "integer",
+            "title": "Warning Count"
+          },
+          "error_count": {
+            "type": "integer",
+            "title": "Error Count"
+          },
+          "official_application_ready": {
+            "type": "boolean",
+            "title": "Official Application Ready"
+          },
+          "disclaimers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Disclaimers"
+          },
+          "summary_payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Summary Payload"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "data_import_run_id",
+          "record_count",
+          "valid_record_count",
+          "warning_count",
+          "error_count",
+          "official_application_ready",
+          "disclaimers",
+          "summary_payload",
+          "created_at"
+        ],
+        "title": "ImportPreviewSummaryResponse"
+      },
+      "ImportValidationWarningResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "data_import_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Data Import Run Id"
+          },
+          "imported_record_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imported Record Id"
+          },
+          "warning_code": {
+            "type": "string",
+            "title": "Warning Code"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "INFO",
+              "WARNING",
+              "ERROR"
+            ],
+            "title": "Severity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "requires_advisor_confirmation": {
+            "type": "boolean",
+            "title": "Requires Advisor Confirmation"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "data_import_run_id",
+          "warning_code",
+          "severity",
+          "message",
+          "requires_advisor_confirmation",
+          "created_at"
+        ],
+        "title": "ImportValidationWarningResponse"
+      },
+      "ImportedRecordResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "data_import_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Data Import Run Id"
+          },
+          "record_type": {
+            "type": "string",
+            "enum": [
+              "COURSE_ATTEMPT",
+              "TRANSFER_CREDIT",
+              "REQUIREMENT",
+              "COURSE",
+              "SECTION",
+              "SECTION_MEETING",
+              "PROGRAM",
+              "UNKNOWN"
+            ],
+            "title": "Record Type"
+          },
+          "row_number": {
+            "type": "integer",
+            "title": "Row Number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "VALID",
+              "VALID_WITH_WARNINGS",
+              "AMBIGUOUS",
+              "DUPLICATE",
+              "INVALID",
+              "UNSUPPORTED"
+            ],
+            "title": "Status"
+          },
+          "external_identifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Identifier"
+          },
+          "raw_label": {
+            "type": "string",
+            "title": "Raw Label"
+          },
+          "normalized_payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Normalized Payload"
+          },
+          "confidence_score": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Confidence Score"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "data_import_run_id",
+          "record_type",
+          "row_number",
+          "status",
+          "raw_label",
+          "normalized_payload",
+          "confidence_score",
+          "created_at"
+        ],
+        "title": "ImportedRecordResponse"
       },
       "InstitutionResponse": {
         "properties": {

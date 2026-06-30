@@ -56,6 +56,7 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Phase 4 adds synchronous course eligibility endpoints under `/api/v1/eligibility-checks`. The eligibility service evaluates stored course-rule expression trees against student records, persists check snapshots, and reports rule/expression evidence without mutating student academic programs or registration data.
 - Phase 5A adds synchronous long-term academic planner endpoints under `/api/v1/academic-plans`. The planner reuses Degree Audit and Course Eligibility, persists course-level term plans and warnings, and does not mutate official student records or registration data.
 - Phase 6B adds advanced synchronous semester schedule optimizer endpoints under `/api/v1/schedule-optimizations`. The optimizer ranks bounded single-term section combinations, persists constraint/option/conflict/repair/warning snapshots, and does not mutate student records, section data, seats, waitlists, or registration data.
+- Phase 7A adds synchronous read-only data import preview endpoints under `/api/v1/data-imports`. The import service parses bounded mock or student-provided CSV/JSON content into staging tables, proposes mapping candidates, emits warnings, and does not mutate catalog, transcript, requirement, section, seat, waitlist, or registration tables.
 
 ### Browser Extension
 - Later-phase optional data capture tool.
@@ -162,6 +163,19 @@ Phase 6B implements this boundary with:
 
 The Phase 6B scheduler is deterministic and bounded. It can use Course Eligibility in `REGISTRATION` mode, but section availability remains informational and registration actions are out of scope. It rejects overlapping required meetings, unavailable blocks, excluded days, invalid required/excluded sections, hard eligibility blocks, duplicate-course choices, and credit overloads. It scores feasible or partial options by preferred credits, compactness, fewer days, gap minutes, modality preference, morning/afternoon preferences, course/section priority weights, and early/late penalties. High-diversity mode uses deterministic greedy selection to reduce repeated section overlap across returned options after feasibility scoring. It does not use OR-Tools, poll seats, join waitlists, add, drop, swap, or register.
 
+### Data Import Preview Boundary
+Stages mock or student-provided academic data for review without applying it.
+
+Phase 7A implements this boundary with:
+
+- `DataImportRun` as the staging root for one student, import type, parser version, file metadata, source metadata, status, counts, and preview readiness flag.
+- `DataImportFile` for metadata-only file tracking, checksum, storage strategy, and bounded content preview.
+- `ImportedRecord` for normalized row payloads, record type, row number, status, external identifier, and confidence score.
+- `ImportMappingCandidate` for target entity suggestions with match type, confidence, reason code, and explanation.
+- `ImportValidationWarning` and `ImportPreviewSummary` for advisor-confirmation warnings and preview disclaimers.
+
+The Phase 7A importer accepts small CSV/JSON payloads for unofficial transcript, degree audit export, catalog, section schedule, and generic records. It may match normalized course codes to existing mock catalog rows, but it never writes to `StudentCourseAttempt`, `Course`, `Section`, `RequirementNode`, seat, waitlist, or registration tables. Official-source imports are rejected in this phase; all results remain preview-only and require advisor or school confirmation before academic use.
+
 ### Advising and Risk Boundary
 Produces risk flags, advisor review items, confidence levels, and high-risk recommendation warnings.
 
@@ -176,8 +190,9 @@ Produces risk flags, advisor review items, confidence levels, and high-risk reco
 7. Phase 4 Course Eligibility Checks evaluate stored mock course rules and optional section rules for a selected course/term.
 8. Phase 5A Academic Planner proposes course-level future terms and persists requirement coverage and warnings.
 9. Phase 6B Schedule Optimizer ranks concrete mock section schedules for a selected term and persists options, score breakdowns, diversity metadata, conflicts, repair suggestions, and warnings.
-10. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
-11. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
+10. Phase 7A Data Import Preview stages mock or student-provided CSV/JSON rows, mapping candidates, warnings, and preview disclaimers without applying records to official domain tables.
+11. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
+12. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
 
 ## 6. API Design Principles
 
