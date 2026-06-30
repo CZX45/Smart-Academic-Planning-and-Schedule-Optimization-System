@@ -20,6 +20,7 @@ from app.models.academic import (
     CourseRuleType,
     CourseSubstitution,
     CourseWaiver,
+    DataImportFile,
     DataImportRun,
     DayOfWeek,
     DegreeAuditRun,
@@ -308,6 +309,16 @@ def test_mock_phase_6b_schedule_seed_cases_are_available(session: Session) -> No
     assert seed_marker.payload["source_type"] == "MOCK"
     assert seed_marker.payload["is_official"] is False
     assert "near-duplicate sections for diversity ranking" in seed_marker.payload["schedule_cases"]
+
+
+def test_mock_seed_does_not_depend_on_merge_autoflush_for_data_import_rows(
+    session: Session,
+) -> None:
+    with session.no_autoflush:
+        seed_mock_data(session)
+
+    assert session.get(DataImportRun, seed_uuid("data-import-run:mock-phase-7a-transcript"))
+    assert session.get(DataImportFile, seed_uuid("data-import-file:mock-phase-7a-transcript"))
 
 
 def test_mock_phase_7a_data_import_seed_is_staging_only(session: Session) -> None:

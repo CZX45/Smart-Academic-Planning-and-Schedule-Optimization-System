@@ -2023,17 +2023,11 @@ def seed_mock_data(session: Session) -> None:
             ],
         },
     )
-    merge_all(
-        session,
-        [
-            phase7a_import_run,
-            phase7a_import_file,
-            *phase7a_import_records,
-            *phase7a_mapping_candidates,
-            *phase7a_warnings,
-            phase7a_preview,
-        ],
-    )
+    merge_all(session, [phase7a_import_run])
+    session.flush()
+    merge_all(session, [phase7a_import_file, *phase7a_import_records])
+    session.flush()
+    merge_all(session, [*phase7a_mapping_candidates, *phase7a_warnings, phase7a_preview])
     session.flush()
 
     merge_all(
