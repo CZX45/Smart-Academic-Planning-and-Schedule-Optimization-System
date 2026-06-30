@@ -246,3 +246,18 @@ Consequences:
 - API, shared TypeScript schemas, and the web app can render records, mapping candidates, warnings, and previews without duplicating parser logic.
 - Future reviewed import/application workflows can build on a traceable staging model.
 - Phase 7A deliberately does not implement browser extension import, real school login, SAML/MFA/CAPTCHA handling, scraping, OCR-heavy extraction, advisor approval queues, official data application, seat monitoring, waitlist handling, add/drop/swap, or automatic registration.
+
+## ADR-0018: Require explicit review before applying imported data
+
+Status: Accepted
+
+Context: Phase 7A staging data can be mock, student-provided, ambiguous, unsupported, or unmatched. Automatically applying those records would create planning state that appears more authoritative than its source. At the same time, students need a controlled way to turn reviewed unofficial transcript rows into internal planning records for estimates.
+
+Decision: Implement Phase 7B as an explicit Data Review & Confirmation workflow. Persist `DataImportReviewSession`, `ImportedRecordReview`, `DataApplicationRun`, `AppliedImportedRecord`, and `DataReviewWarning`. Require per-record decisions and apply only through `POST /data-import-reviews/{review_id}/apply`; GET endpoints remain read-only. Support dry-run with no domain writes. Limit real application to confirmed unofficial transcript course attempts that map to a known course and term, create non-official internal `StudentCourseAttempt` records with source metadata, and audit every applied or skipped record with action, status, reason code, and message.
+
+Consequences:
+
+- Imported records remain distinguishable from official school data even after review.
+- Duplicate prevention and application logs make re-apply behavior explainable.
+- Unsupported catalog, section, requirement, unknown-course, rejected, deferred, advisor-review, and unsupported-grade records are skipped rather than silently applied.
+- Phase 7B deliberately does not implement browser extension import, real school login, scraping, OCR-heavy extraction, official data ingestion, seat monitoring, waitlist handling, add/drop/swap, or automatic registration.

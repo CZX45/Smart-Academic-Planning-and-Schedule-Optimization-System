@@ -994,6 +994,136 @@ export const ImportPreviewSummarySchema = z.object({
 
 export type ImportPreviewSummary = z.infer<typeof ImportPreviewSummarySchema>;
 
+export const DataImportReviewSessionSchema = z.object({
+  id: UuidSchema,
+  data_import_run_id: UuidSchema,
+  student_profile_id: UuidSchema,
+  status: z.enum([
+    "DRAFT",
+    "IN_REVIEW",
+    "READY_TO_APPLY",
+    "APPLYING",
+    "APPLIED",
+    "APPLIED_WITH_WARNINGS",
+    "FAILED",
+    "ARCHIVED",
+  ]),
+  reviewer_label: z.string(),
+  started_at: DateTimeSchema,
+  completed_at: DateTimeSchema.nullable(),
+  created_at: DateTimeSchema,
+  updated_at: DateTimeSchema,
+});
+
+export type DataImportReviewSession = z.infer<
+  typeof DataImportReviewSessionSchema
+>;
+
+export const ImportedRecordReviewSchema = z.object({
+  id: UuidSchema,
+  review_session_id: UuidSchema,
+  imported_record_id: UuidSchema,
+  selected_mapping_candidate_id: UuidSchema.nullable(),
+  decision: z.enum([
+    "UNREVIEWED",
+    "CONFIRMED",
+    "REJECTED",
+    "NEEDS_ADVISOR_REVIEW",
+    "EDITED_AND_CONFIRMED",
+    "DEFERRED",
+  ]),
+  edited_normalized_payload: z.record(z.string(), z.unknown()).nullable(),
+  review_note: z.string().nullable(),
+  requires_advisor_confirmation: z.boolean(),
+  imported_record: ImportedRecordSchema,
+  selected_mapping_candidate: ImportMappingCandidateSchema.nullable(),
+  created_at: DateTimeSchema,
+  updated_at: DateTimeSchema,
+});
+
+export type ImportedRecordReview = z.infer<typeof ImportedRecordReviewSchema>;
+
+export const DataApplicationRunSchema = z.object({
+  id: UuidSchema,
+  review_session_id: UuidSchema,
+  status: z.enum([
+    "PENDING",
+    "APPLYING",
+    "APPLIED",
+    "APPLIED_WITH_WARNINGS",
+    "FAILED",
+    "ROLLED_BACK",
+  ]),
+  applied_count: z.number(),
+  skipped_count: z.number(),
+  warning_count: z.number(),
+  error_count: z.number(),
+  started_at: DateTimeSchema,
+  completed_at: DateTimeSchema.nullable(),
+  created_at: DateTimeSchema,
+  updated_at: DateTimeSchema,
+});
+
+export type DataApplicationRun = z.infer<typeof DataApplicationRunSchema>;
+
+export const AppliedImportedRecordSchema = z.object({
+  id: UuidSchema.nullable(),
+  data_application_run_id: UuidSchema.nullable(),
+  imported_record_review_id: UuidSchema,
+  imported_record_id: UuidSchema,
+  target_entity_type: z.enum([
+    "STUDENT_COURSE_ATTEMPT",
+    "TRANSFER_CREDIT",
+    "COURSE",
+    "SECTION",
+    "SECTION_MEETING",
+    "COURSE_OFFERING_PATTERN",
+    "UNKNOWN",
+  ]),
+  target_entity_id: UuidSchema.nullable(),
+  action: z.enum([
+    "CREATED",
+    "UPDATED",
+    "SKIPPED_DUPLICATE",
+    "SKIPPED_REJECTED",
+    "SKIPPED_DEFERRED",
+    "SKIPPED_ADVISOR_REVIEW",
+    "SKIPPED_UNSUPPORTED",
+  ]),
+  status: z.enum(["SUCCESS", "WARNING", "FAILED", "SKIPPED"]),
+  reason_code: z.string(),
+  message: z.string(),
+  created_at: DateTimeSchema.nullable(),
+});
+
+export type AppliedImportedRecord = z.infer<typeof AppliedImportedRecordSchema>;
+
+export const DataReviewWarningSchema = z.object({
+  id: UuidSchema,
+  review_session_id: UuidSchema,
+  imported_record_review_id: UuidSchema.nullable(),
+  data_application_run_id: UuidSchema.nullable(),
+  warning_code: z.string(),
+  severity: z.enum(["INFO", "WARNING", "ERROR"]),
+  message: z.string(),
+  requires_advisor_confirmation: z.boolean(),
+  created_at: DateTimeSchema,
+});
+
+export type DataReviewWarning = z.infer<typeof DataReviewWarningSchema>;
+
+export const DataReviewApplicationResultSchema = z.object({
+  review_session: DataImportReviewSessionSchema,
+  dry_run: z.boolean(),
+  application: DataApplicationRunSchema.nullable(),
+  applied_records: z.array(AppliedImportedRecordSchema),
+  warnings: z.array(DataReviewWarningSchema),
+});
+
+export type DataReviewApplicationResult = z.infer<
+  typeof DataReviewApplicationResultSchema
+>;
+
 export class ApiRequestError extends Error {
   constructor(message: string) {
     super(message);
@@ -1135,6 +1265,30 @@ export type CreateDataImportRequest = {
     | "INFERRED"
     | "OFFICIAL";
   source_reference?: string | null;
+};
+
+export type CreateDataImportReviewRequest = {
+  data_import_run_id: string;
+  reviewer_label: string;
+};
+
+export type UpdateImportedRecordReviewRequest = {
+  decision:
+    | "UNREVIEWED"
+    | "CONFIRMED"
+    | "REJECTED"
+    | "NEEDS_ADVISOR_REVIEW"
+    | "EDITED_AND_CONFIRMED"
+    | "DEFERRED";
+  selected_mapping_candidate_id?: string | null;
+  edited_normalized_payload?: Record<string, unknown> | null;
+  review_note?: string | null;
+  requires_advisor_confirmation?: boolean | null;
+};
+
+export type ApplyDataImportReviewRequest = {
+  allow_advisor_review_records?: boolean;
+  dry_run?: boolean;
 };
 
 const DEFAULT_TIMEOUT_MS = 5_000;
@@ -2037,6 +2191,208 @@ export async function fetchStudentDataImports(
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Student data imports response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function createDataImportReview(
+  apiBaseUrl: string,
+  request: CreateDataImportReviewRequest,
+  options: FetchHealthOptions = {},
+): Promise<DataImportReviewSession> {
+  const parsed = DataImportReviewSessionSchema.safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/data-import-reviews", {
+      ...options,
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(request),
+    }),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Data import review response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchDataImportReview(
+  apiBaseUrl: string,
+  reviewId: string,
+  options: FetchHealthOptions = {},
+): Promise<DataImportReviewSession> {
+  const parsed = DataImportReviewSessionSchema.safeParse(
+    await fetchJson(
+      apiBaseUrl,
+      `/api/v1/data-import-reviews/${reviewId}`,
+      options,
+    ),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Data import review detail response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchDataImportReviewRecords(
+  apiBaseUrl: string,
+  reviewId: string,
+  options: FetchHealthOptions = {},
+): Promise<ImportedRecordReview[]> {
+  const parsed = z
+    .array(ImportedRecordReviewSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/data-import-reviews/${reviewId}/records`,
+        options,
+      ),
+    );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Data import review records response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function updateImportedRecordReview(
+  apiBaseUrl: string,
+  reviewId: string,
+  recordReviewId: string,
+  request: UpdateImportedRecordReviewRequest,
+  options: FetchHealthOptions = {},
+): Promise<ImportedRecordReview> {
+  const parsed = ImportedRecordReviewSchema.safeParse(
+    await fetchJson(
+      apiBaseUrl,
+      `/api/v1/data-import-reviews/${reviewId}/records/${recordReviewId}`,
+      {
+        ...options,
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(request),
+      },
+    ),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Imported record review response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function applyDataImportReview(
+  apiBaseUrl: string,
+  reviewId: string,
+  request: ApplyDataImportReviewRequest = {},
+  options: FetchHealthOptions = {},
+): Promise<DataReviewApplicationResult> {
+  const parsed = DataReviewApplicationResultSchema.safeParse(
+    await fetchJson(
+      apiBaseUrl,
+      `/api/v1/data-import-reviews/${reviewId}/apply`,
+      {
+        ...options,
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(request),
+      },
+    ),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Data import review application response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchDataImportReviewApplications(
+  apiBaseUrl: string,
+  reviewId: string,
+  options: FetchHealthOptions = {},
+): Promise<DataApplicationRun[]> {
+  const parsed = z
+    .array(DataApplicationRunSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/data-import-reviews/${reviewId}/applications`,
+        options,
+      ),
+    );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Data import review applications response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchDataImportReviewWarnings(
+  apiBaseUrl: string,
+  reviewId: string,
+  options: FetchHealthOptions = {},
+): Promise<DataReviewWarning[]> {
+  const parsed = z
+    .array(DataReviewWarningSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/data-import-reviews/${reviewId}/warnings`,
+        options,
+      ),
+    );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Data import review warnings response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchDataApplication(
+  apiBaseUrl: string,
+  applicationId: string,
+  options: FetchHealthOptions = {},
+): Promise<DataReviewApplicationResult> {
+  const parsed = DataReviewApplicationResultSchema.safeParse(
+    await fetchJson(
+      apiBaseUrl,
+      `/api/v1/data-applications/${applicationId}`,
+      options,
+    ),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Data application response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchStudentDataImportReviews(
+  apiBaseUrl: string,
+  studentId: string,
+  options: FetchHealthOptions = {},
+): Promise<DataImportReviewSession[]> {
+  const parsed = z
+    .array(DataImportReviewSessionSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/students/${studentId}/data-import-reviews`,
+        options,
+      ),
+    );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Student data import reviews response did not match the expected schema",
     );
   }
   return parsed.data;

@@ -170,6 +170,13 @@ h2 {
   gap: 16px;
 }
 
+.data-review-panel {
+  border-top: 1px solid #d7dde7;
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+}
+
 .section-heading {
   align-items: flex-start;
   display: flex;
@@ -309,6 +316,59 @@ h2 {
 .compact-list span,
 .comparison-row span {
   color: #4b5563;
+}
+
+.record-review-actions {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.record-review-actions button,
+.review-edit-field input {
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  font: inherit;
+  min-height: 36px;
+}
+
+.record-review-actions button {
+  background: #1f2937;
+  color: white;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
+.record-review-actions button:nth-of-type(2) {
+  background: #991b1b;
+}
+
+.record-review-actions button:nth-of-type(3) {
+  background: #92400e;
+}
+
+.record-review-actions button:nth-of-type(4) {
+  background: #075985;
+}
+
+.record-review-actions button:nth-of-type(5) {
+  background: #0f766e;
+}
+
+.review-edit-field {
+  color: #344054;
+  display: grid;
+  font-size: 0.78rem;
+  font-weight: 800;
+  gap: 5px;
+}
+
+.review-edit-field input {
+  max-width: 88px;
+  padding: 0 9px;
 }
 
 .disclaimer-list {

@@ -865,6 +865,124 @@ const mockDataImportPreview = {
   created_at: "2026-06-30T00:00:00Z",
 };
 
+const mockDataImportReview = {
+  id: "00000000-0000-4000-8000-000000000731",
+  data_import_run_id: mockDataImportRun.id,
+  student_profile_id: mockDataImportRun.student_profile_id,
+  status: "IN_REVIEW",
+  reviewer_label: "Mock student self-review",
+  started_at: "2026-06-30T00:00:00Z",
+  completed_at: null,
+  created_at: "2026-06-30T00:00:00Z",
+  updated_at: "2026-06-30T00:00:00Z",
+};
+
+const mockImportedRecordReviews = [
+  {
+    id: "00000000-0000-4000-8000-000000000732",
+    review_session_id: mockDataImportReview.id,
+    imported_record_id: mockDataImportRecords[0].id,
+    selected_mapping_candidate_id: mockDataImportCandidates[0].id,
+    decision: "UNREVIEWED",
+    edited_normalized_payload: null,
+    review_note: null,
+    requires_advisor_confirmation: false,
+    imported_record: mockDataImportRecords[0],
+    selected_mapping_candidate: mockDataImportCandidates[0],
+    created_at: "2026-06-30T00:00:00Z",
+    updated_at: "2026-06-30T00:00:00Z",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000733",
+    review_session_id: mockDataImportReview.id,
+    imported_record_id: mockDataImportRecords[1].id,
+    selected_mapping_candidate_id: mockDataImportCandidates[1].id,
+    decision: "UNREVIEWED",
+    edited_normalized_payload: null,
+    review_note: null,
+    requires_advisor_confirmation: true,
+    imported_record: mockDataImportRecords[1],
+    selected_mapping_candidate: mockDataImportCandidates[1],
+    created_at: "2026-06-30T00:00:00Z",
+    updated_at: "2026-06-30T00:00:00Z",
+  },
+];
+
+const mockDataReviewWarnings = [
+  {
+    id: "00000000-0000-4000-8000-000000000734",
+    review_session_id: mockDataImportReview.id,
+    imported_record_review_id: null,
+    data_application_run_id: null,
+    warning_code: "STAGING_ONLY_NOT_OFFICIAL",
+    severity: "WARNING",
+    message: "Review remains unofficial until advisor or school confirmation.",
+    requires_advisor_confirmation: true,
+    created_at: "2026-06-30T00:00:00Z",
+  },
+];
+
+const mockDataApplicationRun = {
+  id: "00000000-0000-4000-8000-000000000735",
+  review_session_id: mockDataImportReview.id,
+  status: "APPLIED_WITH_WARNINGS",
+  applied_count: 1,
+  skipped_count: 1,
+  warning_count: 1,
+  error_count: 0,
+  started_at: "2026-06-30T00:00:02Z",
+  completed_at: "2026-06-30T00:00:03Z",
+  created_at: "2026-06-30T00:00:02Z",
+  updated_at: "2026-06-30T00:00:03Z",
+};
+
+function mockApplicationResult(dryRun: boolean) {
+  return {
+    review_session: {
+      ...mockDataImportReview,
+      status: dryRun ? "IN_REVIEW" : "APPLIED_WITH_WARNINGS",
+      completed_at: dryRun ? null : "2026-06-30T00:00:03Z",
+    },
+    dry_run: dryRun,
+    application: dryRun ? null : mockDataApplicationRun,
+    applied_records: [
+      {
+        id: dryRun ? null : "00000000-0000-4000-8000-000000000736",
+        data_application_run_id: dryRun ? null : mockDataApplicationRun.id,
+        imported_record_review_id: mockImportedRecordReviews[0].id,
+        imported_record_id: mockDataImportRecords[0].id,
+        target_entity_type: "STUDENT_COURSE_ATTEMPT",
+        target_entity_id: dryRun
+          ? null
+          : "00000000-0000-4000-8000-000000000737",
+        action: "CREATED",
+        status: "SUCCESS",
+        reason_code: dryRun
+          ? "WOULD_CREATE_STUDENT_COURSE_ATTEMPT"
+          : "CREATED_STUDENT_COURSE_ATTEMPT",
+        message: dryRun
+          ? "Dry run would create an internal student course attempt."
+          : "Created an internal student course attempt from a confirmed imported record.",
+        created_at: dryRun ? null : "2026-06-30T00:00:03Z",
+      },
+      {
+        id: dryRun ? null : "00000000-0000-4000-8000-000000000738",
+        data_application_run_id: dryRun ? null : mockDataApplicationRun.id,
+        imported_record_review_id: mockImportedRecordReviews[1].id,
+        imported_record_id: mockDataImportRecords[1].id,
+        target_entity_type: "UNKNOWN",
+        target_entity_id: null,
+        action: "SKIPPED_ADVISOR_REVIEW",
+        status: "SKIPPED",
+        reason_code: "ADVISOR_REVIEW_REQUIRED",
+        message: "Imported record requires advisor review before it can be applied.",
+        created_at: dryRun ? null : "2026-06-30T00:00:03Z",
+      },
+    ],
+    warnings: mockDataReviewWarnings,
+  };
+}
+
 async function mockSuccessfulAuditApis(page: Page) {
   await page.route(
     "http://localhost:8000/api/v1/students/*/degree-audits/latest",
@@ -1122,6 +1240,11 @@ async function mockSuccessfulScheduleApis(page: Page) {
 }
 
 async function mockSuccessfulDataImportApis(page: Page) {
+  let reviewRecords = mockImportedRecordReviews.map((record) => ({
+    ...record,
+  }));
+  let applications = [] as Array<typeof mockDataApplicationRun>;
+
   await page.route(
     "http://localhost:8000/api/v1/data-imports",
     async (route) => {
@@ -1194,6 +1317,118 @@ async function mockSuccessfulDataImportApis(page: Page) {
             import_type: "DEGREE_AUDIT_EXPORT",
           },
         ]),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-import-reviews",
+    async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify(mockDataImportReview),
+        });
+        return;
+      }
+      await route.continue();
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-import-reviews/*/records/*",
+    async (route) => {
+      const body = route.request().postDataJSON() as {
+        decision?: string;
+        edited_normalized_payload?: Record<string, unknown> | null;
+        review_note?: string | null;
+      };
+      const recordReviewId = route.request().url().split("/").at(-1);
+      const updatedRecords = reviewRecords.map((record) =>
+        record.id === recordReviewId
+          ? {
+              ...record,
+              decision: body.decision ?? record.decision,
+              edited_normalized_payload:
+                body.edited_normalized_payload ??
+                record.edited_normalized_payload,
+              review_note: body.review_note ?? record.review_note,
+              updated_at: "2026-06-30T00:00:02Z",
+            }
+          : record,
+      );
+      reviewRecords = updatedRecords;
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(
+          reviewRecords.find((record) => record.id === recordReviewId),
+        ),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-import-reviews/*/records",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(reviewRecords),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-import-reviews/*/warnings",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(mockDataReviewWarnings),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-import-reviews/*/applications",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(applications),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-import-reviews/*/apply",
+    async (route) => {
+      const body = route.request().postDataJSON() as { dry_run?: boolean };
+      const dryRun = body.dry_run ?? false;
+      if (!dryRun) {
+        applications = [mockDataApplicationRun];
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(mockApplicationResult(dryRun)),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-import-reviews/*",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(mockDataImportReview),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-applications/*",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(mockApplicationResult(false)),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/students/*/data-import-reviews",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([mockDataImportReview]),
       });
     },
   );
@@ -1563,6 +1798,56 @@ test("home page previews read-only data imports", async ({ page }) => {
 
   await page.getByRole("button", { name: /Load saved imports/ }).click();
   await expect(importSummary.getByText("Saved Imports")).toBeVisible();
+});
+
+test("home page reviews and applies confirmed data import records", async ({
+  page,
+}) => {
+  await mockSuccessfulAuditApis(page);
+  await mockSuccessfulDataImportApis(page);
+
+  await page.goto("/");
+  await page.getByLabel("Sample import").selectOption("mock-transcript-csv");
+  await page.getByRole("button", { name: /Preview import/ }).click();
+
+  await expect(
+    page.getByRole("heading", { name: /Data Review/ }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /^Create review$/ }).click();
+
+  const reviewSummary = page.getByLabel("Data review summary");
+  await expect(reviewSummary.getByText(/in review/i)).toBeVisible();
+  await expect(
+    page.getByLabel("Review records").getByText("FIN 300", { exact: true }),
+  ).toBeVisible();
+
+  await page
+    .getByLabel("Review records")
+    .getByRole("button", { name: /^Confirm$/ })
+    .first()
+    .click();
+  await expect(
+    page.getByLabel("Review records").getByText(/confirmed/i),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: /^Dry run$/ }).click();
+  await expect(
+    page
+      .getByLabel("Data application result")
+      .getByText("WOULD_CREATE_STUDENT_COURSE_ATTEMPT"),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: /^Apply confirmed$/ }).click();
+  await expect(
+    page
+      .getByLabel("Data application result")
+      .getByText("CREATED_STUDENT_COURSE_ATTEMPT"),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Data application result")
+      .getByText("ADVISOR_REVIEW_REQUIRED"),
+  ).toBeVisible();
 });
 
 test("home page reports schedule optimizer schema failures", async ({

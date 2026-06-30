@@ -321,6 +321,33 @@ Phase 7A forbidden behavior:
 - Automatic registration, add/drop, swap, seat polling, seat grabbing, waitlist handling, or advisor approval workflows.
 - Presenting imported, mock, inferred, or student-provided data as official school policy.
 
+## 12. Data Review And Confirmation Rules
+
+Phase 7B turns Phase 7A staging previews into reviewable decisions. A review session can confirm, reject, defer, mark advisor review, or edit-and-confirm each imported record.
+
+Phase 7B hard rules:
+
+- No GET endpoint may apply imported data or create domain records.
+- `dry_run = true` must return proposed application outcomes without writing domain records.
+- Real application requires explicit `POST /data-import-reviews/{review_id}/apply`.
+- Applied records must preserve source metadata and remain `is_official = false` unless a future official reviewed source workflow changes the rule.
+- Duplicate prevention must skip records that were already applied or match an existing internal course attempt.
+- Every applied or skipped record must include an action, status, reason code, and message.
+- Records rejected, deferred, needing advisor review, unsupported by Phase 7B, unmatched to a safe course, using unsupported grades, or lacking a known term are skipped with warnings.
+
+Phase 7B allowed behavior:
+
+- Create review sessions from Phase 7A import runs.
+- Store selected mapping candidates, edited normalized payloads, reviewer notes, and advisor-confirmation flags.
+- Apply confirmed unofficial transcript course attempts into internal `student_course_attempts` for planning, with source metadata and audit logs.
+- Render a review panel that supports decisions, simple field edits, dry-run, explicit apply, warnings, and application logs.
+
+Phase 7B forbidden behavior:
+
+- Applying course catalog, section, section-meeting, requirement, or unknown-course records unless a later phase implements and tests a safe target-specific application path.
+- Treating imported data as official policy, official transcript data, registration state, seat availability, or advisor approval.
+- Real school login, browser extension import, scraping, OCR-heavy extraction, automatic registration, add/drop/swap, waitlist handling, seat polling, or seat grabbing.
+
 ## 9. Phase 3A Requirement Status Semantics
 
 - `SATISFIED`: the requirement is completed by valid completed records or approved transfer/substitution records.

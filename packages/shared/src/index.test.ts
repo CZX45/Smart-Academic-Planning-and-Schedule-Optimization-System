@@ -3,8 +3,13 @@ import {
   ApiRequestError,
   ApiResponseSchemaError,
   AcademicPlanDetailSchema,
+  AppliedImportedRecordSchema,
   CourseEligibilityCheckSchema,
+  DataImportReviewSessionSchema,
   DataImportRunSchema,
+  DataReviewApplicationResultSchema,
+  DataReviewWarningSchema,
+  ImportedRecordReviewSchema,
   ImportMappingCandidateSchema,
   ImportPreviewSummarySchema,
   ImportValidationWarningSchema,
@@ -19,11 +24,14 @@ import {
   RequirementEvaluationSchema,
   DegreeAuditWarningSchema,
   ScheduleOptimizationDetailSchema,
+  applyDataImportReview,
   createAcademicPlan,
   createCourseEligibilityCheck,
   createDataImport,
+  createDataImportReview,
   createScheduleOptimization,
   fetchHealth,
+  updateImportedRecordReview,
 } from "./index.js";
 
 describe("HealthResponseSchema", () => {
@@ -296,6 +304,224 @@ describe("data import schemas", () => {
       status: "PARSED_WITH_WARNINGS",
       official_application_ready: false,
     });
+  });
+
+  it("validates review sessions, record decisions, warnings, and dry-run results", () => {
+    const review = DataImportReviewSessionSchema.parse({
+      id: "00000000-0000-4000-8000-000000000731",
+      data_import_run_id: "00000000-0000-4000-8000-000000000701",
+      student_profile_id: "00000000-0000-4000-8000-000000000702",
+      status: "IN_REVIEW",
+      reviewer_label: "Mock student self-review",
+      started_at: "2026-06-30T00:00:00Z",
+      completed_at: null,
+      created_at: "2026-06-30T00:00:00Z",
+      updated_at: "2026-06-30T00:00:00Z",
+    });
+    expect(review.status).toBe("IN_REVIEW");
+
+    const importedRecord = {
+      id: "00000000-0000-4000-8000-000000000704",
+      data_import_run_id: review.data_import_run_id,
+      record_type: "COURSE_ATTEMPT",
+      row_number: 2,
+      status: "VALID_WITH_WARNINGS",
+      external_identifier: "FIN 300",
+      raw_label: "FIN 300 Mock Managerial Finance",
+      normalized_payload: {
+        term: "2024FA",
+        course_code: "FIN 300",
+        grade: "B",
+        credits: "3.0",
+        status: "COMPLETED",
+      },
+      confidence_score: "0.80",
+      created_at: "2026-06-30T00:00:00Z",
+    };
+    const candidate = {
+      id: "00000000-0000-4000-8000-000000000703",
+      imported_record_id: importedRecord.id,
+      target_entity_type: "COURSE",
+      target_entity_id: "00000000-0000-4000-8000-000000000705",
+      match_type: "EXACT_CODE",
+      confidence_score: "1.00",
+      is_selected: true,
+      reason_code: "EXACT_COURSE_CODE",
+      explanation: "FIN 300 exactly matches mock catalog course FIN 300.",
+      created_at: "2026-06-30T00:00:00Z",
+    };
+
+    expect(
+      ImportedRecordReviewSchema.parse({
+        id: "00000000-0000-4000-8000-000000000732",
+        review_session_id: review.id,
+        imported_record_id: importedRecord.id,
+        selected_mapping_candidate_id: candidate.id,
+        decision: "CONFIRMED",
+        edited_normalized_payload: null,
+        review_note: "Matches student copy.",
+        requires_advisor_confirmation: false,
+        imported_record: importedRecord,
+        selected_mapping_candidate: candidate,
+        created_at: "2026-06-30T00:00:00Z",
+        updated_at: "2026-06-30T00:00:01Z",
+      }),
+    ).toMatchObject({ decision: "CONFIRMED" });
+
+    expect(
+      AppliedImportedRecordSchema.parse({
+        id: null,
+        data_application_run_id: null,
+        imported_record_review_id: "00000000-0000-4000-8000-000000000732",
+        imported_record_id: importedRecord.id,
+        target_entity_type: "STUDENT_COURSE_ATTEMPT",
+        target_entity_id: null,
+        action: "CREATED",
+        status: "SUCCESS",
+        reason_code: "WOULD_CREATE_STUDENT_COURSE_ATTEMPT",
+        message: "Dry run would create an internal student course attempt.",
+        created_at: null,
+      }),
+    ).toMatchObject({ action: "CREATED" });
+
+    const warning = DataReviewWarningSchema.parse({
+      id: "00000000-0000-4000-8000-000000000733",
+      review_session_id: review.id,
+      imported_record_review_id: null,
+      data_application_run_id: null,
+      warning_code: "STAGING_ONLY_NOT_OFFICIAL",
+      severity: "WARNING",
+      message: "Review remains unofficial.",
+      requires_advisor_confirmation: true,
+      created_at: "2026-06-30T00:00:00Z",
+    });
+    expect(warning.requires_advisor_confirmation).toBe(true);
+
+    expect(
+      DataReviewApplicationResultSchema.parse({
+        review_session: review,
+        dry_run: true,
+        application: null,
+        applied_records: [
+          {
+            id: null,
+            data_application_run_id: null,
+            imported_record_review_id: "00000000-0000-4000-8000-000000000732",
+            imported_record_id: importedRecord.id,
+            target_entity_type: "STUDENT_COURSE_ATTEMPT",
+            target_entity_id: null,
+            action: "CREATED",
+            status: "SUCCESS",
+            reason_code: "WOULD_CREATE_STUDENT_COURSE_ATTEMPT",
+            message: "Dry run would create an internal student course attempt.",
+            created_at: null,
+          },
+        ],
+        warnings: [warning],
+      }),
+    ).toMatchObject({ dry_run: true });
+  });
+
+  it("uses typed helpers for review creation, decisions, and dry-run apply", async () => {
+    const reviewPayload = {
+      id: "00000000-0000-4000-8000-000000000731",
+      data_import_run_id: "00000000-0000-4000-8000-000000000701",
+      student_profile_id: "00000000-0000-4000-8000-000000000702",
+      status: "IN_REVIEW",
+      reviewer_label: "Mock student self-review",
+      started_at: "2026-06-30T00:00:00Z",
+      completed_at: null,
+      created_at: "2026-06-30T00:00:00Z",
+      updated_at: "2026-06-30T00:00:00Z",
+    };
+    const recordReviewPayload = {
+      id: "00000000-0000-4000-8000-000000000732",
+      review_session_id: reviewPayload.id,
+      imported_record_id: "00000000-0000-4000-8000-000000000704",
+      selected_mapping_candidate_id: null,
+      decision: "CONFIRMED",
+      edited_normalized_payload: null,
+      review_note: "Matches student copy.",
+      requires_advisor_confirmation: false,
+      imported_record: {
+        id: "00000000-0000-4000-8000-000000000704",
+        data_import_run_id: reviewPayload.data_import_run_id,
+        record_type: "COURSE_ATTEMPT",
+        row_number: 2,
+        status: "VALID_WITH_WARNINGS",
+        external_identifier: "FIN 300",
+        raw_label: "FIN 300 Mock Managerial Finance",
+        normalized_payload: { course_code: "FIN 300" },
+        confidence_score: "0.80",
+        created_at: "2026-06-30T00:00:00Z",
+      },
+      selected_mapping_candidate: null,
+      created_at: "2026-06-30T00:00:00Z",
+      updated_at: "2026-06-30T00:00:01Z",
+    };
+
+    const fetchFn = async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PATCH") {
+        return new Response(JSON.stringify(recordReviewPayload));
+      }
+      if (init?.method === "POST" && String(init.body).includes("dry_run")) {
+        return new Response(
+          JSON.stringify({
+            review_session: reviewPayload,
+            dry_run: true,
+            application: null,
+            applied_records: [
+              {
+                id: null,
+                data_application_run_id: null,
+                imported_record_review_id: recordReviewPayload.id,
+                imported_record_id: recordReviewPayload.imported_record_id,
+                target_entity_type: "STUDENT_COURSE_ATTEMPT",
+                target_entity_id: null,
+                action: "CREATED",
+                status: "SUCCESS",
+                reason_code: "WOULD_CREATE_STUDENT_COURSE_ATTEMPT",
+                message:
+                  "Dry run would create an internal student course attempt.",
+                created_at: null,
+              },
+            ],
+            warnings: [],
+          }),
+        );
+      }
+      return new Response(JSON.stringify(reviewPayload));
+    };
+
+    await expect(
+      createDataImportReview(
+        "http://api.test",
+        {
+          data_import_run_id: reviewPayload.data_import_run_id,
+          reviewer_label: reviewPayload.reviewer_label,
+        },
+        { fetchFn },
+      ),
+    ).resolves.toMatchObject({ status: "IN_REVIEW" });
+
+    await expect(
+      updateImportedRecordReview(
+        "http://api.test",
+        reviewPayload.id,
+        recordReviewPayload.id,
+        { decision: "CONFIRMED" },
+        { fetchFn },
+      ),
+    ).resolves.toMatchObject({ decision: "CONFIRMED" });
+
+    await expect(
+      applyDataImportReview(
+        "http://api.test",
+        reviewPayload.id,
+        { dry_run: true, allow_advisor_review_records: false },
+        { fetchFn },
+      ),
+    ).resolves.toMatchObject({ dry_run: true });
   });
 });
 

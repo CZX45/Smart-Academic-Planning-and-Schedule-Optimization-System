@@ -292,7 +292,7 @@ Testable outcomes:
 
 ## Phase 7A: Read-only Data Import Foundation
 
-Status: current phase.
+Status: complete.
 
 Deliverables:
 
@@ -319,22 +319,27 @@ Deferred from Phase 7A:
 - OCR-heavy document extraction.
 - Automatic registration, add/drop/swap, seat monitoring, and waitlist handling.
 
-## Phase 7B: Product UI MVP
+## Phase 7B: Data Review & Confirmation Workflow
+
+Status: current phase.
 
 Deliverables:
 
-- Student dashboard.
-- Degree progress visualization.
-- Course history editor/import draft UI built on top of the Phase 7A staging boundary.
-- Academic plan view.
-- Schedule preference form.
-- Schedule candidate comparison.
-- Advisor-confirmation warnings.
+- Review-session, imported-record-review, application-run, applied-record, and review-warning tables.
+- Explicit review decisions: unreviewed, confirmed, rejected, needs advisor review, edited and confirmed, and deferred.
+- `/api/v1/data-import-reviews` endpoint family for create, detail, records, decision updates, dry-run/apply, application logs, warnings, application detail, and student review history.
+- `DataReviewApplicationService.apply_review_session(...)` with dry-run support, duplicate prevention, source metadata preservation, and skipped-record reason codes.
+- Non-official internal `student_course_attempts` application for confirmed unofficial transcript course attempts only.
+- Shared TypeScript schemas/client helpers and Data Review & Confirmation UI panel.
+- Mock seed scenarios and tests for edited records, advisor review, unsupported data, duplicate skip, dry-run, and application logs.
 
 Testable outcomes:
 
-- User can complete an end-to-end mock planning workflow.
-- Playwright covers the happy path and common infeasibility path.
+- GET endpoints never apply data.
+- Dry-run does not write domain records.
+- Real apply requires explicit POST and audits every applied or skipped record.
+- Duplicate, rejected, deferred, unsupported, unknown-course, advisor-review, and unsupported-grade records are skipped with reason codes and warnings.
+- Browser extension import, real school login, scraping, seat monitoring, automatic registration, add/drop/swap, and waitlist handling remain out of scope.
 
 ## Phase 8: Browser Extension Import Assistant
 

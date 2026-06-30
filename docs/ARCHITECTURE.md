@@ -176,6 +176,15 @@ Phase 7A implements this boundary with:
 
 The Phase 7A importer accepts small CSV/JSON payloads for unofficial transcript, degree audit export, catalog, section schedule, and generic records. It may match normalized course codes to existing mock catalog rows, but it never writes to `StudentCourseAttempt`, `Course`, `Section`, `RequirementNode`, seat, waitlist, or registration tables. Official-source imports are rejected in this phase; all results remain preview-only and require advisor or school confirmation before academic use.
 
+Phase 7B adds an explicit review/application boundary on top of Phase 7A:
+
+- `DataImportReviewSession` groups one review for one import run and student.
+- `ImportedRecordReview` stores per-record decisions, selected mapping candidates, edited normalized payloads, notes, and advisor-confirmation flags.
+- `DataApplicationRun`, `AppliedImportedRecord`, and `DataReviewWarning` record dry-run/application outcomes, duplicate skips, unsupported records, and warnings.
+- `DataReviewApplicationService.apply_review_session(review_session_id, allow_advisor_review_records=False, dry_run=False)` is the only service entrypoint that can apply reviewed records.
+
+Dry-run application returns proposed outcomes without writing domain records. Real application is limited to explicit `POST /data-import-reviews/{review_id}/apply`; GET endpoints never apply data. Confirmed unofficial transcript course attempts can create non-official internal `StudentCourseAttempt` records with source metadata. Catalog, section, requirement, unknown-course, rejected, deferred, duplicate, unsupported-grade, and advisor-review records are logged and skipped unless a later phase implements a safe, tested application path.
+
 ### Advising and Risk Boundary
 Produces risk flags, advisor review items, confidence levels, and high-risk recommendation warnings.
 
@@ -191,8 +200,9 @@ Produces risk flags, advisor review items, confidence levels, and high-risk reco
 8. Phase 5A Academic Planner proposes course-level future terms and persists requirement coverage and warnings.
 9. Phase 6B Schedule Optimizer ranks concrete mock section schedules for a selected term and persists options, score breakdowns, diversity metadata, conflicts, repair suggestions, and warnings.
 10. Phase 7A Data Import Preview stages mock or student-provided CSV/JSON rows, mapping candidates, warnings, and preview disclaimers without applying records to official domain tables.
-11. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
-12. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
+11. Phase 7B Data Review & Confirmation records human decisions, dry-run outcomes, application runs, duplicate skips, and internal non-official course-attempt applications.
+12. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
+13. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
 
 ## 6. API Design Principles
 

@@ -2,7 +2,7 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 7A adds a read-only Data Import Preview foundation on top of Degree Audit, What-if Scenarios, Course Eligibility, the Long-Term Academic Planner, and the Semester Schedule Optimizer. It parses small mock or student-provided CSV/JSON academic data into staging tables, proposes mapping candidates, emits validation warnings, and renders a preview panel. It does **not** apply imported rows to official domain tables, create registrations, add/drop/swap courses, join waitlists, poll seats, run OR-Tools, scrape portals, bypass school authentication, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 7B adds a Data Review & Confirmation workflow on top of the Phase 7A Data Import Preview foundation. Phase 7A parses small mock or student-provided CSV/JSON academic data into staging tables, proposes mapping candidates, emits validation warnings, and renders a preview panel. Phase 7B lets users review staged records, confirm/reject/defer/advisor-review them, dry-run an application, and explicitly apply confirmed unofficial transcript course attempts into internal planning records with audit logs and duplicate prevention. It does **not** create official transcript data, registrations, add/drop/swap courses, waitlists, seat polling, real school login, scraping, authentication bypass, or authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
@@ -275,6 +275,24 @@ Supported endpoint family:
 
 Import types include unofficial transcript CSV, degree audit JSON, catalog CSV, section schedule CSV, and generic CSV/JSON. Phase 7A intentionally keeps `official_application_ready = false`; it never writes imported records into `student_course_attempts`, `courses`, `sections`, requirement tables, registration state, seat counts, or waitlists. The web app includes a Data Import Preview panel with required non-official and advisor-confirmation disclaimers.
 
+## Phase 7B data review and confirmation API
+
+Phase 7B reviews Phase 7A staging rows before any internal planning write. Users create a review session, update each imported record decision, run a dry-run application, and then explicitly POST an apply request. GET endpoints only read review/application state.
+
+New endpoints include:
+
+- `POST /api/v1/data-import-reviews`
+- `GET /api/v1/data-import-reviews/{review_id}`
+- `GET /api/v1/data-import-reviews/{review_id}/records`
+- `PATCH /api/v1/data-import-reviews/{review_id}/records/{record_review_id}`
+- `POST /api/v1/data-import-reviews/{review_id}/apply`
+- `GET /api/v1/data-import-reviews/{review_id}/applications`
+- `GET /api/v1/data-import-reviews/{review_id}/warnings`
+- `GET /api/v1/data-applications/{application_id}`
+- `GET /api/v1/students/{student_id}/data-import-reviews`
+
+Review decisions are `UNREVIEWED`, `CONFIRMED`, `REJECTED`, `NEEDS_ADVISOR_REVIEW`, `EDITED_AND_CONFIRMED`, and `DEFERRED`. Confirmed unofficial transcript course attempts can create internal `student_course_attempts` rows with `is_official = false`, source metadata, application logs, and duplicate checks. Unsupported catalog, section, requirement, unknown-course, rejected, deferred, advisor-review, duplicate, and unsupported-grade records are skipped with reason codes and warnings rather than silently applied.
+
 ## Quality gates
 
 Run the following before opening a pull request:
@@ -316,6 +334,8 @@ Phase 5A adds `AcademicPlanRun`, `AcademicPlanTerm`, `AcademicPlanCourse`, `Acad
 Phase 6A adds `ScheduleOptimizationRun`, `ScheduleConstraintSet`, `ScheduleOption`, `ScheduleOptionSection`, `ScheduleConflict`, and `ScheduleWarning`. Phase 6B extends those snapshots with advanced preference fields, score components, diversity metadata, and `ScheduleRepairSuggestion`. It snapshots mock single-term section schedules without changing official student declarations, course attempts, sections, section meetings, seat records, waitlists, or registration records.
 
 Phase 7A adds `DataImportRun`, `DataImportFile`, `ImportedRecord`, `ImportMappingCandidate`, `ImportValidationWarning`, and `ImportPreviewSummary`. These tables are import staging and preview tables only; they preserve source metadata, warnings, reason codes, and mapping explanations without applying imported records to official academic-domain tables.
+
+Phase 7B adds `DataImportReviewSession`, `ImportedRecordReview`, `DataApplicationRun`, `AppliedImportedRecord`, and `DataReviewWarning`. These tables preserve review decisions, edited normalized payloads, dry-run/application outcomes, skipped duplicate/unsupported records, and warnings. Application is explicit and limited to internal planning records; it does not mark imported data official.
 
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 
