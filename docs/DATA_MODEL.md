@@ -80,6 +80,12 @@ Phase 6A adds semester schedule optimizer snapshot storage:
 - `schedule_conflicts`
 - `schedule_warnings`
 
+Phase 6B extends schedule optimizer snapshots with:
+
+- advanced preference fields on `schedule_constraint_sets`
+- score-component and diversity fields on `schedule_options`
+- `schedule_repair_suggestions`
+
 Every Phase 2A academic-domain table includes `source_type`, `is_official`, source reference fields, and timestamps. The development seed uses only `source_type = MOCK` and `is_official = false`.
 
 Phase 2B also source-tags offering patterns, sections, meetings, rules, and rule expressions. Mock data remains non-official and cannot be used as authoritative school policy.
@@ -92,7 +98,7 @@ Phase 4 eligibility rows are generated snapshots. They do not modify `student_ac
 
 Phase 5A academic plan rows are generated snapshots. They do not modify `student_academic_programs`, `student_course_attempts`, `sections`, section meetings, or registration data. They reference stored degree-audit, course, requirement, term, scenario, eligibility, and offering-pattern inputs where available, and every planned course stores a source, status, reason code, and explanation.
 
-Phase 6A schedule rows are generated snapshots. They do not modify `student_academic_programs`, `student_course_attempts`, `sections`, section meetings, seat counts, waitlists, or registration data. They reference stored course, term, section, meeting, and eligibility inputs where available, and every option, selected section, conflict, and warning is explainable.
+Phase 6A and 6B schedule rows are generated snapshots. They do not modify `student_academic_programs`, `student_course_attempts`, `sections`, section meetings, seat counts, waitlists, or registration data. They reference stored course, term, section, meeting, and eligibility inputs where available, and every option, selected section, conflict, repair suggestion, and warning is explainable.
 
 Important Phase 2A constraints include:
 
@@ -131,10 +137,11 @@ Important Phase 2A constraints include:
 - Academic plan requirement coverage links planned courses to requirement nodes and stores coverage type and credits.
 - Academic plan warnings must include a warning code, severity, message, and advisor-confirmation flag.
 - A schedule optimization run references a student, term, optional academic plan run, planning mode, engine version, credit policy, requested option count, status, and completion timestamp.
-- A schedule constraint set is unique per run and persists candidate course IDs, excluded days, unavailable time blocks, time windows, gap preferences, modality filters, required/excluded course and section IDs, and permission behavior.
-- Schedule options are unique by run/rank and store status, score, credit total, class-day count, time window, gap minutes, and explanation.
+- A schedule constraint set is unique per run and persists candidate course IDs, excluded days, unavailable time blocks, time windows, gap preferences, modality filters, required/excluded course and section IDs, preference weights, course priority weights, section priority weights, no-gap/morning/afternoon preferences, diversity mode, partial-option policy, search bound, and permission behavior.
+- Schedule options are unique by run/rank and store status, score, score components, score explanation, diversity rank, difference summary, shared-section count, credit total, class-day count, time window, gap minutes, and explanation.
 - Schedule option sections are unique by option/course and option/section and store selected course, section, credits, eligibility result, and selection reason.
 - Schedule conflicts reference the run and optional option/sections, include a typed conflict reason, optional time window, and message.
+- Schedule repair suggestions reference the run and optionally the course/section/conflict they repair; each suggestion includes a typed suggestion, reason code, explanation, impact estimate, and optional payload.
 - Schedule warnings must include a warning code, severity, message, and advisor-confirmation flag.
 
 ### Institution and Versioning

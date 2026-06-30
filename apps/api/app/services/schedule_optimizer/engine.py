@@ -4,6 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, time
 from decimal import Decimal
+from typing import Protocol, TypedDict
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -32,6 +33,7 @@ from app.models.academic import (
     ScheduleOptionSection,
     ScheduleOptionStatus,
     SchedulePlanningMode,
+    ScheduleRepairSuggestion,
     ScheduleRunStatus,
     ScheduleWarning,
     Section,
@@ -48,11 +50,12 @@ from app.services.course_eligibility.result import EligibilityResult
 from app.services.degree_audit.engine import DegreeAuditEngine, quantize_credits
 from app.services.schedule_optimizer.exceptions import ScheduleOptimizerValidationError
 
-ENGINE_VERSION = "phase-6a-schedule-optimizer-v1"
+ENGINE_VERSION = "phase-6b-schedule-optimizer-v1"
 ZERO = Decimal("0.0")
 MAX_CANDIDATE_COURSES = 6
 MAX_SECTIONS_PER_COURSE = 8
 MAX_COMBINATIONS_EVALUATED = 500
+DEFAULT_PREFERENCE_WEIGHT = Decimal("1.0")
 
 SATISFIED_REQUIREMENT_STATUSES = {
     RequirementEvaluationStatus.SATISFIED,
@@ -126,8 +129,74 @@ class OptionDraft:
     latest_end_time: time | None
     total_gap_minutes: int
     score: Decimal
+    credit_score: Decimal
+    compactness_score: Decimal
+    days_score: Decimal
+    gap_score: Decimal
+    modality_score: Decimal
+    time_preference_score: Decimal
+    priority_score: Decimal
+    penalty_score: Decimal
+    score_explanation: list[dict[str, str]]
     explanation: str
+    diversity_rank: int = 1
+    difference_summary: str = "Top ranked option."
+    shared_section_count_with_previous_option: int = 0
     warnings: list[WarningDraft] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class RepairSuggestionDraft:
+    suggestion_type: str
+    affected_constraint: str | None
+    affected_course_id: UUID | None
+    affected_section_id: UUID | None
+    estimated_impact: str
+    message: str
+    requires_advisor_confirmation: bool
+
+
+class ScoreValues(TypedDict):
+    total_score: Decimal
+    credit_score: Decimal
+    compactness_score: Decimal
+    days_score: Decimal
+    gap_score: Decimal
+    modality_score: Decimal
+    time_preference_score: Decimal
+    priority_score: Decimal
+    penalty_score: Decimal
+    score_explanation: list[dict[str, str]]
+    explanation: str
+
+
+class ScheduleOptimizer(Protocol):
+    def generate_options(
+        self,
+        *,
+        candidates: list[CandidateCourse],
+        section_groups: dict[UUID, list[SectionCandidate]],
+        minimum_credits: Decimal,
+        maximum_credits: Decimal,
+        preferred_credits: Decimal,
+        requested_option_count: int,
+        prefer_online: bool,
+        prefer_compact_schedule: bool,
+        prefer_fewer_days: bool,
+        prefer_in_person: bool,
+        avoid_early_start: bool,
+        avoid_late_end: bool,
+        preference_weights: dict[str, Decimal],
+        course_priority_weights: dict[UUID, Decimal],
+        section_priority_weights: dict[UUID, Decimal],
+        prefer_no_gaps: bool,
+        prefer_morning: bool,
+        prefer_afternoon: bool,
+        diversity_mode: str,
+        allow_partial_options: bool,
+        max_combinations: int,
+        warnings: list[WarningDraft],
+    ) -> tuple[list[OptionDraft], list[ConflictDraft]]: ...
 
 
 class ScheduleOptimizerApplicationService:
@@ -166,12 +235,31 @@ class ScheduleOptimizerApplicationService:
         allow_permission_required: bool,
         minimum_gap_minutes: int | None = None,
         maximum_gap_minutes: int | None = None,
+        preference_weights: dict[str, Decimal] | None = None,
+        course_priority_weights: dict[UUID, Decimal] | None = None,
+        section_priority_weights: dict[UUID, Decimal] | None = None,
+        prefer_no_gaps: bool = False,
+        prefer_morning: bool = False,
+        prefer_afternoon: bool = False,
+        diversity_mode: str = "STANDARD",
+        allow_partial_options: bool = True,
+        max_combinations: int = MAX_COMBINATIONS_EVALUATED,
     ) -> ScheduleOptimizationRun:
+        preference_weights = preference_weights or {}
+        course_priority_weights = course_priority_weights or {}
+        section_priority_weights = section_priority_weights or {}
         self._validate_credit_inputs(
             minimum_credits=minimum_credits,
             maximum_credits=maximum_credits,
             preferred_credits=preferred_credits,
             requested_option_count=requested_option_count,
+        )
+        self._validate_phase_6b_inputs(
+            preference_weights=preference_weights,
+            course_priority_weights=course_priority_weights,
+            section_priority_weights=section_priority_weights,
+            diversity_mode=diversity_mode,
+            max_combinations=max_combinations,
         )
         student = self._validate_student(student_profile_id)
         term = self._validate_term(term_id, student)
@@ -182,6 +270,11 @@ class ScheduleOptimizerApplicationService:
             planning_mode=planning_mode,
         )
         blocks = self._parse_unavailable_blocks(unavailable_time_blocks)
+        self._validate_section_ids(
+            section_ids=[*required_section_ids, *excluded_section_ids],
+            term=term,
+            student=student,
+        )
 
         run_id = uuid4()
         run = ScheduleOptimizationRun(
@@ -221,6 +314,15 @@ class ScheduleOptimizerApplicationService:
             avoid_early_start=avoid_early_start,
             avoid_late_end=avoid_late_end,
             allow_permission_required=allow_permission_required,
+            preference_weights=preference_weights,
+            course_priority_weights=course_priority_weights,
+            section_priority_weights=section_priority_weights,
+            prefer_no_gaps=prefer_no_gaps,
+            prefer_morning=prefer_morning,
+            prefer_afternoon=prefer_afternoon,
+            diversity_mode=diversity_mode,
+            allow_partial_options=allow_partial_options,
+            max_combinations=max_combinations,
         )
 
         warnings: list[WarningDraft] = [
@@ -262,7 +364,8 @@ class ScheduleOptimizerApplicationService:
                 warnings=warnings,
                 conflicts=conflicts,
             )
-            options, optionless_conflicts = self._build_options(
+            optimizer: ScheduleOptimizer = BoundedSearchScheduleOptimizer(self)
+            options, optionless_conflicts = optimizer.generate_options(
                 candidates=candidates,
                 section_groups=section_groups,
                 minimum_credits=quantize_credits(minimum_credits),
@@ -275,9 +378,26 @@ class ScheduleOptimizerApplicationService:
                 prefer_in_person=prefer_in_person,
                 avoid_early_start=avoid_early_start,
                 avoid_late_end=avoid_late_end,
+                preference_weights=preference_weights,
+                course_priority_weights=course_priority_weights,
+                section_priority_weights=section_priority_weights,
+                prefer_no_gaps=prefer_no_gaps,
+                prefer_morning=prefer_morning,
+                prefer_afternoon=prefer_afternoon,
+                diversity_mode=diversity_mode,
+                allow_partial_options=allow_partial_options,
+                max_combinations=max_combinations,
                 warnings=warnings,
             )
             conflicts.extend(optionless_conflicts)
+            repair_suggestions = self._repair_suggestions(
+                conflicts=conflicts,
+                excluded_days=set(excluded_days),
+                required_section_ids=set(required_section_ids),
+                minimum_credits=quantize_credits(minimum_credits),
+                maximum_credits=quantize_credits(maximum_credits),
+                allow_permission_required=allow_permission_required,
+            )
             if not options:
                 warnings.append(
                     WarningDraft(
@@ -300,6 +420,21 @@ class ScheduleOptimizerApplicationService:
                         latest_end_time=None,
                         total_gap_minutes=0,
                         score=Decimal("0.00"),
+                        credit_score=Decimal("0.00"),
+                        compactness_score=Decimal("0.00"),
+                        days_score=Decimal("0.00"),
+                        gap_score=Decimal("0.00"),
+                        modality_score=Decimal("0.00"),
+                        time_preference_score=Decimal("0.00"),
+                        priority_score=Decimal("0.00"),
+                        penalty_score=Decimal("0.00"),
+                        score_explanation=[
+                            {
+                                "reason_code": "NO_FEASIBLE_SCHEDULE",
+                                "score": "0.00",
+                                "explanation": "No schedule satisfied the hard constraints.",
+                            }
+                        ],
                         explanation=(
                             "No sections could be selected under the hard constraints; "
                             "score is zero because no schedule exists."
@@ -309,6 +444,7 @@ class ScheduleOptimizerApplicationService:
             self._persist_conflicts(run.id, conflicts)
             option_warning_count = self._persist_options(run.id, options)
             self._persist_warnings(run.id, warnings)
+            self._persist_repair_suggestions(run.id, repair_suggestions)
             run.status = (
                 ScheduleRunStatus.COMPLETED_WITH_WARNINGS
                 if warnings or option_warning_count > 0
@@ -368,6 +504,36 @@ class ScheduleOptimizerApplicationService:
                 "requested_option_count must be between 1 and 20.",
             )
 
+    def _validate_phase_6b_inputs(
+        self,
+        *,
+        preference_weights: dict[str, Decimal],
+        course_priority_weights: dict[UUID, Decimal],
+        section_priority_weights: dict[UUID, Decimal],
+        diversity_mode: str,
+        max_combinations: int,
+    ) -> None:
+        all_weights = [
+            *preference_weights.values(),
+            *course_priority_weights.values(),
+            *section_priority_weights.values(),
+        ]
+        if any(weight < ZERO for weight in all_weights):
+            raise ScheduleOptimizerValidationError(
+                "invalid_preference_weight",
+                "Schedule preference and priority weights cannot be negative.",
+            )
+        if diversity_mode not in {"STANDARD", "HIGH"}:
+            raise ScheduleOptimizerValidationError(
+                "invalid_diversity_mode",
+                "diversity_mode must be STANDARD or HIGH.",
+            )
+        if max_combinations <= 0 or max_combinations > 5000:
+            raise ScheduleOptimizerValidationError(
+                "invalid_search_limit",
+                "max_combinations must be between 1 and 5000.",
+            )
+
     def _validate_student(self, student_profile_id: UUID) -> StudentProfile:
         student = self._db.get(StudentProfile, student_profile_id)
         if student is None:
@@ -390,6 +556,26 @@ class ScheduleOptimizerApplicationService:
                 "Student and target term must belong to the same institution.",
             )
         return term
+
+    def _validate_section_ids(
+        self,
+        *,
+        section_ids: list[UUID],
+        term: AcademicTerm,
+        student: StudentProfile,
+    ) -> None:
+        for section_id in dict.fromkeys(section_ids):
+            section = self._db.get(Section, section_id)
+            if section is None:
+                raise ScheduleOptimizerValidationError(
+                    "invalid_section",
+                    f"Section {section_id} was not found.",
+                )
+            if section.institution_id != student.home_institution_id or section.term_id != term.id:
+                raise ScheduleOptimizerValidationError(
+                    "invalid_section",
+                    "Required or excluded sections must belong to the target term and institution.",
+                )
 
     def _validate_plan(
         self,
@@ -480,6 +666,15 @@ class ScheduleOptimizerApplicationService:
         avoid_early_start: bool,
         avoid_late_end: bool,
         allow_permission_required: bool,
+        preference_weights: dict[str, Decimal],
+        course_priority_weights: dict[UUID, Decimal],
+        section_priority_weights: dict[UUID, Decimal],
+        prefer_no_gaps: bool,
+        prefer_morning: bool,
+        prefer_afternoon: bool,
+        diversity_mode: str,
+        allow_partial_options: bool,
+        max_combinations: int,
     ) -> None:
         self._db.add(
             ScheduleConstraintSet(
@@ -505,6 +700,27 @@ class ScheduleOptimizerApplicationService:
                 avoid_early_start=avoid_early_start,
                 avoid_late_end=avoid_late_end,
                 allow_permission_required=allow_permission_required,
+                preference_weights={
+                    key: str(value) for key, value in sorted(preference_weights.items())
+                },
+                course_priority_weights={
+                    str(key): str(value)
+                    for key, value in sorted(
+                        course_priority_weights.items(), key=lambda item: str(item[0])
+                    )
+                },
+                section_priority_weights={
+                    str(key): str(value)
+                    for key, value in sorted(
+                        section_priority_weights.items(), key=lambda item: str(item[0])
+                    )
+                },
+                prefer_no_gaps=prefer_no_gaps,
+                prefer_morning=prefer_morning,
+                prefer_afternoon=prefer_afternoon,
+                diversity_mode=diversity_mode,
+                allow_partial_options=allow_partial_options,
+                max_combinations=max_combinations,
             )
         )
         self._db.flush()
@@ -1033,6 +1249,15 @@ class ScheduleOptimizerApplicationService:
         prefer_in_person: bool,
         avoid_early_start: bool,
         avoid_late_end: bool,
+        preference_weights: dict[str, Decimal],
+        course_priority_weights: dict[UUID, Decimal],
+        section_priority_weights: dict[UUID, Decimal],
+        prefer_no_gaps: bool,
+        prefer_morning: bool,
+        prefer_afternoon: bool,
+        diversity_mode: str,
+        allow_partial_options: bool,
+        max_combinations: int,
         warnings: list[WarningDraft],
     ) -> tuple[list[OptionDraft], list[ConflictDraft]]:
         groups = [
@@ -1049,7 +1274,7 @@ class ScheduleOptimizerApplicationService:
 
         def backtrack(index: int, selected: list[SectionCandidate]) -> None:
             nonlocal evaluated
-            if evaluated >= MAX_COMBINATIONS_EVALUATED:
+            if evaluated >= max_combinations:
                 return
             if index == len(groups):
                 evaluated += 1
@@ -1061,7 +1286,7 @@ class ScheduleOptimizerApplicationService:
                 selected.pop()
 
         backtrack(0, [])
-        if evaluated >= MAX_COMBINATIONS_EVALUATED:
+        if evaluated >= max_combinations:
             warnings.append(
                 WarningDraft(
                     warning_code="SCHEDULE_SEARCH_LIMIT_REACHED",
@@ -1109,11 +1334,15 @@ class ScheduleOptimizerApplicationService:
                             requires_advisor_confirmation=False,
                         )
                     )
+                if not allow_partial_options:
+                    continue
             elif option_warnings:
                 status = ScheduleOptionStatus.FEASIBLE_WITH_WARNINGS
             else:
                 status = ScheduleOptionStatus.FEASIBLE
-            score, explanation = self._score(
+            if not allow_partial_options and status is ScheduleOptionStatus.PARTIAL:
+                continue
+            score_values = self._score(
                 combination=combination,
                 total_credits=total_credits,
                 class_days_count=stats[0],
@@ -1127,6 +1356,12 @@ class ScheduleOptimizerApplicationService:
                 prefer_in_person=prefer_in_person,
                 avoid_early_start=avoid_early_start,
                 avoid_late_end=avoid_late_end,
+                preference_weights=preference_weights,
+                course_priority_weights=course_priority_weights,
+                section_priority_weights=section_priority_weights,
+                prefer_no_gaps=prefer_no_gaps,
+                prefer_morning=prefer_morning,
+                prefer_afternoon=prefer_afternoon,
             )
             drafts.append(
                 OptionDraft(
@@ -1137,13 +1372,24 @@ class ScheduleOptimizerApplicationService:
                     earliest_start_time=stats[1],
                     latest_end_time=stats[2],
                     total_gap_minutes=stats[3],
-                    score=score,
-                    explanation=explanation,
+                    score=score_values["total_score"],
+                    credit_score=score_values["credit_score"],
+                    compactness_score=score_values["compactness_score"],
+                    days_score=score_values["days_score"],
+                    gap_score=score_values["gap_score"],
+                    modality_score=score_values["modality_score"],
+                    time_preference_score=score_values["time_preference_score"],
+                    priority_score=score_values["priority_score"],
+                    penalty_score=score_values["penalty_score"],
+                    score_explanation=score_values["score_explanation"],
+                    explanation=score_values["explanation"],
                     warnings=option_warnings,
                 )
             )
         drafts.sort(key=self._option_sort_key)
-        return drafts[:requested_option_count], conflicts
+        return self._select_ranked_options(
+            drafts, requested_option_count, diversity_mode
+        ), conflicts
 
     def _combination_conflict(
         self,
@@ -1282,22 +1528,75 @@ class ScheduleOptimizerApplicationService:
         prefer_in_person: bool,
         avoid_early_start: bool,
         avoid_late_end: bool,
-    ) -> tuple[Decimal, str]:
-        score = Decimal("100.00")
-        components: list[str] = []
-        credit_penalty = abs(total_credits - preferred_credits) * Decimal("3.0")
-        score -= credit_penalty
-        components.append(
-            f"credits {total_credits} vs preferred {preferred_credits}: -{credit_penalty}"
+        preference_weights: dict[str, Decimal],
+        course_priority_weights: dict[UUID, Decimal],
+        section_priority_weights: dict[UUID, Decimal],
+        prefer_no_gaps: bool,
+        prefer_morning: bool,
+        prefer_afternoon: bool,
+    ) -> ScoreValues:
+        explanations: list[dict[str, str]] = []
+
+        def weight(name: str) -> Decimal:
+            return preference_weights.get(name, DEFAULT_PREFERENCE_WEIGHT)
+
+        credit_score = max(
+            ZERO,
+            Decimal("30.00") - (abs(total_credits - preferred_credits) * Decimal("6.00")),
+        ) * weight("credit")
+        explanations.append(
+            {
+                "reason_code": "PREFERRED_CREDITS",
+                "score": str(credit_score.quantize(Decimal("0.01"))),
+                "explanation": (
+                    f"{total_credits} credits compared with preferred {preferred_credits}."
+                ),
+            }
         )
+
+        compactness_score = Decimal("0.00")
         if prefer_fewer_days:
-            day_penalty = Decimal(class_days_count)
-            score -= day_penalty
-            components.append(f"class days {class_days_count}: -{day_penalty}")
+            days_score = max(ZERO, Decimal("18.00") - Decimal(class_days_count * 3)) * weight(
+                "days"
+            )
+        else:
+            days_score = Decimal("0.00")
+        if prefer_fewer_days:
+            explanations.append(
+                {
+                    "reason_code": "FEWER_DAYS",
+                    "score": str(days_score.quantize(Decimal("0.01"))),
+                    "explanation": f"{class_days_count} class days in the option.",
+                }
+            )
+
         if prefer_compact_schedule:
-            gap_penalty = Decimal(total_gap_minutes) / Decimal("30")
-            score -= gap_penalty
-            components.append(f"gap minutes {total_gap_minutes}: -{gap_penalty:.2f}")
+            compactness_score = max(
+                ZERO,
+                Decimal("20.00") - (Decimal(total_gap_minutes) / Decimal("15")),
+            ) * weight("compactness")
+            explanations.append(
+                {
+                    "reason_code": "COMPACT_SCHEDULE",
+                    "score": str(compactness_score.quantize(Decimal("0.01"))),
+                    "explanation": f"{total_gap_minutes} total gap minutes.",
+                }
+            )
+
+        gap_score = Decimal("0.00")
+        if prefer_no_gaps:
+            gap_score = max(
+                ZERO,
+                Decimal("15.00") - (Decimal(total_gap_minutes) / Decimal("10")),
+            ) * weight("gap")
+            explanations.append(
+                {
+                    "reason_code": "NO_GAPS",
+                    "score": str(gap_score.quantize(Decimal("0.01"))),
+                    "explanation": f"{total_gap_minutes} total gap minutes.",
+                }
+            )
+
         online_count = sum(
             1
             for selected in combination
@@ -1307,27 +1606,144 @@ class ScheduleOptimizerApplicationService:
         in_person_count = sum(
             1 for selected in combination if selected.section.modality is SectionModality.IN_PERSON
         )
+        modality_score = Decimal("0.00")
         if prefer_online:
-            bonus = Decimal(online_count * 4)
-            score += bonus
-            components.append(f"online sections {online_count}: +{bonus}")
+            modality_score += Decimal(online_count * 6)
+            explanations.append(
+                {
+                    "reason_code": "PREFER_ONLINE",
+                    "score": str(Decimal(online_count * 6).quantize(Decimal("0.01"))),
+                    "explanation": f"{online_count} online sections selected.",
+                }
+            )
         if prefer_in_person:
-            bonus = Decimal(in_person_count * 2)
-            score += bonus
-            components.append(f"in-person sections {in_person_count}: +{bonus}")
+            modality_score += Decimal(in_person_count * 4)
+            explanations.append(
+                {
+                    "reason_code": "PREFER_IN_PERSON",
+                    "score": str(Decimal(in_person_count * 4).quantize(Decimal("0.01"))),
+                    "explanation": f"{in_person_count} in-person sections selected.",
+                }
+            )
+        modality_score *= weight("modality")
+
+        time_preference_score = Decimal("0.00")
+        fixed_start_times: list[time] = []
+        for selected in combination:
+            for meeting in selected.meetings:
+                if self._is_floating_meeting(meeting) or meeting.start_time is None:
+                    continue
+                fixed_start_times.append(meeting.start_time)
+        if prefer_morning:
+            morning_count = sum(1 for start_time in fixed_start_times if start_time < time(12, 0))
+            morning_score = Decimal(morning_count * 3)
+            time_preference_score += morning_score
+            explanations.append(
+                {
+                    "reason_code": "PREFER_MORNING",
+                    "score": str(morning_score.quantize(Decimal("0.01"))),
+                    "explanation": f"{morning_count} fixed meetings start before noon.",
+                }
+            )
+        if prefer_afternoon:
+            afternoon_count = sum(
+                1 for start_time in fixed_start_times if time(12, 0) <= start_time < time(17, 0)
+            )
+            afternoon_score = Decimal(afternoon_count * 3)
+            time_preference_score += afternoon_score
+            explanations.append(
+                {
+                    "reason_code": "PREFER_AFTERNOON",
+                    "score": str(afternoon_score.quantize(Decimal("0.01"))),
+                    "explanation": f"{afternoon_count} fixed meetings start in the afternoon.",
+                }
+            )
+        time_preference_score *= weight("time")
+
+        priority_score = Decimal("0.00")
+        for selected in combination:
+            course_weight = course_priority_weights.get(selected.course.id, ZERO)
+            section_weight = section_priority_weights.get(selected.section.id, ZERO)
+            if course_weight > ZERO:
+                course_score = course_weight * Decimal("4.00")
+                priority_score += course_score
+                explanations.append(
+                    {
+                        "reason_code": "COURSE_PRIORITY_WEIGHT",
+                        "score": str(course_score.quantize(Decimal("0.01"))),
+                        "explanation": (
+                            f"{selected.course.subject_code} {selected.course.course_number} "
+                            "has a course priority weight."
+                        ),
+                    }
+                )
+            if section_weight > ZERO:
+                section_score = section_weight * Decimal("4.00")
+                priority_score += section_score
+                explanations.append(
+                    {
+                        "reason_code": "SECTION_PRIORITY_WEIGHT",
+                        "score": str(section_score.quantize(Decimal("0.01"))),
+                        "explanation": (
+                            f"{selected.course.subject_code} {selected.course.course_number} "
+                            f"{selected.section.section_code} has a section priority weight."
+                        ),
+                    }
+                )
+        priority_score *= weight("priority")
+
+        penalty_score = Decimal("0.00")
         if (
             avoid_early_start
             and earliest_start_time is not None
             and earliest_start_time < time(9, 0)
         ):
-            score -= Decimal("4.0")
-            components.append("early start before 09:00: -4.0")
+            penalty_score -= Decimal("5.00") * weight("time")
+            explanations.append(
+                {
+                    "reason_code": "EARLY_START_PENALTY",
+                    "score": str((-Decimal("5.00") * weight("time")).quantize(Decimal("0.01"))),
+                    "explanation": "Earliest fixed meeting starts before 09:00.",
+                }
+            )
         if avoid_late_end and latest_end_time is not None and latest_end_time > time(17, 0):
-            score -= Decimal("4.0")
-            components.append("late end after 17:00: -4.0")
-        if score < ZERO:
-            score = ZERO
-        return score.quantize(Decimal("0.01")), "Score components: " + "; ".join(components)
+            penalty_score -= Decimal("5.00") * weight("time")
+            explanations.append(
+                {
+                    "reason_code": "LATE_END_PENALTY",
+                    "score": str((-Decimal("5.00") * weight("time")).quantize(Decimal("0.01"))),
+                    "explanation": "Latest fixed meeting ends after 17:00.",
+                }
+            )
+
+        total_score = (
+            credit_score
+            + compactness_score
+            + days_score
+            + gap_score
+            + modality_score
+            + time_preference_score
+            + priority_score
+            + penalty_score
+        )
+        if total_score < ZERO:
+            total_score = ZERO
+        component_text = "; ".join(
+            f"{item['reason_code']} {item['score']}" for item in explanations
+        )
+        return {
+            "total_score": total_score.quantize(Decimal("0.01")),
+            "credit_score": credit_score.quantize(Decimal("0.01")),
+            "compactness_score": compactness_score.quantize(Decimal("0.01")),
+            "days_score": days_score.quantize(Decimal("0.01")),
+            "gap_score": gap_score.quantize(Decimal("0.01")),
+            "modality_score": modality_score.quantize(Decimal("0.01")),
+            "time_preference_score": time_preference_score.quantize(Decimal("0.01")),
+            "priority_score": priority_score.quantize(Decimal("0.01")),
+            "penalty_score": penalty_score.quantize(Decimal("0.01")),
+            "score_explanation": explanations,
+            "explanation": f"Score components: {component_text}",
+        }
 
     def _option_sort_key(self, option: OptionDraft) -> tuple[int, Decimal, Decimal, str]:
         status_rank = {
@@ -1341,6 +1757,188 @@ class ScheduleOptimizerApplicationService:
             for selected in option.selected_sections
         )
         return (status_rank, -option.score, -option.total_credits, section_key)
+
+    def _select_ranked_options(
+        self,
+        drafts: list[OptionDraft],
+        requested_option_count: int,
+        diversity_mode: str,
+    ) -> list[OptionDraft]:
+        remaining = list(drafts)
+        selected: list[OptionDraft] = []
+        while remaining and len(selected) < requested_option_count:
+            if not selected or diversity_mode != "HIGH":
+                next_option = remaining.pop(0)
+            else:
+                previous = selected[-1]
+                best_index = min(
+                    range(len(remaining)),
+                    key=lambda index: (
+                        self._shared_section_count(previous, remaining[index]),
+                        self._option_sort_key(remaining[index]),
+                    ),
+                )
+                next_option = remaining.pop(best_index)
+            if selected:
+                previous = selected[-1]
+                next_option.shared_section_count_with_previous_option = self._shared_section_count(
+                    previous, next_option
+                )
+                next_option.difference_summary = self._difference_summary(previous, next_option)
+            else:
+                next_option.shared_section_count_with_previous_option = 0
+                next_option.difference_summary = "Top ranked option."
+            next_option.diversity_rank = len(selected) + 1
+            selected.append(next_option)
+        return selected
+
+    def _shared_section_count(self, left: OptionDraft, right: OptionDraft) -> int:
+        left_ids = {selected.section.id for selected in left.selected_sections}
+        right_ids = {selected.section.id for selected in right.selected_sections}
+        return len(left_ids & right_ids)
+
+    def _difference_summary(self, previous: OptionDraft, current: OptionDraft) -> str:
+        previous_sections = {
+            selected.course.id: selected for selected in previous.selected_sections
+        }
+        differences: list[str] = []
+        for selected in current.selected_sections:
+            previous_selected = previous_sections.get(selected.course.id)
+            if previous_selected is None:
+                differences.append(
+                    f"adds {selected.course.subject_code} {selected.course.course_number}"
+                )
+                continue
+            if previous_selected.section.id != selected.section.id:
+                differences.append(
+                    f"uses {selected.course.subject_code} {selected.course.course_number} "
+                    f"section {selected.section.section_code} instead of "
+                    f"{previous_selected.section.section_code}"
+                )
+            if previous_selected.section.modality is not selected.section.modality:
+                differences.append(f"changes modality to {selected.section.modality.value}")
+        if current.class_days_count != previous.class_days_count:
+            differences.append(
+                f"changes class days from {previous.class_days_count} to {current.class_days_count}"
+            )
+        return "; ".join(differences) if differences else "Similar section mix with score tie."
+
+    def _repair_suggestions(
+        self,
+        *,
+        conflicts: list[ConflictDraft],
+        excluded_days: set[DayOfWeek],
+        required_section_ids: set[UUID],
+        minimum_credits: Decimal,
+        maximum_credits: Decimal,
+        allow_permission_required: bool,
+    ) -> list[RepairSuggestionDraft]:
+        suggestions: list[RepairSuggestionDraft] = []
+        seen: set[tuple[str, str | None, UUID | None, UUID | None]] = set()
+
+        def add(suggestion: RepairSuggestionDraft) -> None:
+            key = (
+                suggestion.suggestion_type,
+                suggestion.affected_constraint,
+                suggestion.affected_course_id,
+                suggestion.affected_section_id,
+            )
+            if key not in seen:
+                seen.add(key)
+                suggestions.append(suggestion)
+
+        for conflict in conflicts:
+            if conflict.conflict_type is ScheduleConflictType.EXCLUDED_DAY:
+                day = conflict.day_of_week.value if conflict.day_of_week else "excluded day"
+                add(
+                    RepairSuggestionDraft(
+                        suggestion_type="RELAX_EXCLUDED_DAY",
+                        affected_constraint="excluded_days",
+                        affected_course_id=None,
+                        affected_section_id=conflict.section_id,
+                        estimated_impact="Could make a section on the excluded day selectable.",
+                        message=f"Relax the {day} hard constraint for this mock schedule.",
+                        requires_advisor_confirmation=True,
+                    )
+                )
+            if (
+                conflict.conflict_type is ScheduleConflictType.MANUAL_REVIEW_REQUIRED
+                and not allow_permission_required
+            ):
+                add(
+                    RepairSuggestionDraft(
+                        suggestion_type="ALLOW_PERMISSION_REQUIRED",
+                        affected_constraint="allow_permission_required",
+                        affected_course_id=None,
+                        affected_section_id=conflict.section_id,
+                        estimated_impact="Could include permission-required advisory sections.",
+                        message="Allow permission-required sections with advisor confirmation.",
+                        requires_advisor_confirmation=True,
+                    )
+                )
+            if conflict.conflict_type is ScheduleConflictType.CREDIT_LIMIT:
+                add(
+                    RepairSuggestionDraft(
+                        suggestion_type="INCREASE_MAX_CREDITS",
+                        affected_constraint="maximum_credits",
+                        affected_course_id=None,
+                        affected_section_id=None,
+                        estimated_impact=f"Could allow loads above {maximum_credits} credits.",
+                        message="Increase maximum credits if the load is realistic.",
+                        requires_advisor_confirmation=True,
+                    )
+                )
+            if conflict.conflict_type is ScheduleConflictType.UNAVAILABLE_TIME:
+                add(
+                    RepairSuggestionDraft(
+                        suggestion_type="RELAX_UNAVAILABLE_BLOCK",
+                        affected_constraint="unavailable_time_blocks",
+                        affected_course_id=None,
+                        affected_section_id=conflict.section_id,
+                        estimated_impact="Could make a time-blocked section selectable.",
+                        message="Relax or narrow the unavailable time block for this advisory run.",
+                        requires_advisor_confirmation=False,
+                    )
+                )
+
+        for section_id in sorted(required_section_ids, key=str):
+            add(
+                RepairSuggestionDraft(
+                    suggestion_type="REMOVE_REQUIRED_SECTION",
+                    affected_constraint="required_section_ids",
+                    affected_course_id=None,
+                    affected_section_id=section_id,
+                    estimated_impact="Could let the optimizer choose another section.",
+                    message="Remove the pinned section if it conflicts with hard rules.",
+                    requires_advisor_confirmation=True,
+                )
+            )
+        if minimum_credits > maximum_credits:
+            add(
+                RepairSuggestionDraft(
+                    suggestion_type="RELAX_CREDIT_RANGE",
+                    affected_constraint="minimum_credits",
+                    affected_course_id=None,
+                    affected_section_id=None,
+                    estimated_impact="Could make the requested credit range internally consistent.",
+                    message="Lower minimum credits or raise maximum credits.",
+                    requires_advisor_confirmation=True,
+                )
+            )
+        if excluded_days:
+            for day in sorted(excluded_days, key=lambda value: value.value):
+                add(
+                    RepairSuggestionDraft(
+                        suggestion_type="RELAX_EXCLUDED_DAY",
+                        affected_constraint="excluded_days",
+                        affected_course_id=None,
+                        affected_section_id=None,
+                        estimated_impact="Could expand the available section pool.",
+                        message=f"Allow {day.value.title()} sections if no full schedule exists.",
+                        requires_advisor_confirmation=False,
+                    )
+                )
+        return suggestions
 
     def _persist_conflicts(self, run_id: UUID, conflicts: list[ConflictDraft]) -> None:
         for conflict in conflicts:
@@ -1373,6 +1971,21 @@ class ScheduleOptimizerApplicationService:
                 latest_end_time=draft.latest_end_time,
                 total_gap_minutes=draft.total_gap_minutes,
                 score=draft.score,
+                total_score=draft.score,
+                credit_score=draft.credit_score,
+                compactness_score=draft.compactness_score,
+                days_score=draft.days_score,
+                gap_score=draft.gap_score,
+                modality_score=draft.modality_score,
+                time_preference_score=draft.time_preference_score,
+                priority_score=draft.priority_score,
+                penalty_score=draft.penalty_score,
+                score_explanation=draft.score_explanation,
+                diversity_rank=draft.diversity_rank,
+                difference_summary=draft.difference_summary,
+                shared_section_count_with_previous_option=(
+                    draft.shared_section_count_with_previous_option
+                ),
                 explanation=draft.explanation,
             )
             self._db.add(option)
@@ -1417,6 +2030,82 @@ class ScheduleOptimizerApplicationService:
                     requires_advisor_confirmation=warning.requires_advisor_confirmation,
                 )
             )
+
+    def _persist_repair_suggestions(
+        self,
+        run_id: UUID,
+        suggestions: list[RepairSuggestionDraft],
+    ) -> None:
+        for suggestion in suggestions:
+            self._db.add(
+                ScheduleRepairSuggestion(
+                    id=uuid4(),
+                    schedule_optimization_run_id=run_id,
+                    suggestion_type=suggestion.suggestion_type,
+                    affected_constraint=suggestion.affected_constraint,
+                    affected_course_id=suggestion.affected_course_id,
+                    affected_section_id=suggestion.affected_section_id,
+                    estimated_impact=suggestion.estimated_impact,
+                    message=suggestion.message,
+                    requires_advisor_confirmation=suggestion.requires_advisor_confirmation,
+                )
+            )
+
+
+class BoundedSearchScheduleOptimizer:
+    def __init__(self, service: ScheduleOptimizerApplicationService) -> None:
+        self._service = service
+
+    def generate_options(
+        self,
+        *,
+        candidates: list[CandidateCourse],
+        section_groups: dict[UUID, list[SectionCandidate]],
+        minimum_credits: Decimal,
+        maximum_credits: Decimal,
+        preferred_credits: Decimal,
+        requested_option_count: int,
+        prefer_online: bool,
+        prefer_compact_schedule: bool,
+        prefer_fewer_days: bool,
+        prefer_in_person: bool,
+        avoid_early_start: bool,
+        avoid_late_end: bool,
+        preference_weights: dict[str, Decimal],
+        course_priority_weights: dict[UUID, Decimal],
+        section_priority_weights: dict[UUID, Decimal],
+        prefer_no_gaps: bool,
+        prefer_morning: bool,
+        prefer_afternoon: bool,
+        diversity_mode: str,
+        allow_partial_options: bool,
+        max_combinations: int,
+        warnings: list[WarningDraft],
+    ) -> tuple[list[OptionDraft], list[ConflictDraft]]:
+        return self._service._build_options(
+            candidates=candidates,
+            section_groups=section_groups,
+            minimum_credits=minimum_credits,
+            maximum_credits=maximum_credits,
+            preferred_credits=preferred_credits,
+            requested_option_count=requested_option_count,
+            prefer_online=prefer_online,
+            prefer_compact_schedule=prefer_compact_schedule,
+            prefer_fewer_days=prefer_fewer_days,
+            prefer_in_person=prefer_in_person,
+            avoid_early_start=avoid_early_start,
+            avoid_late_end=avoid_late_end,
+            preference_weights=preference_weights,
+            course_priority_weights=course_priority_weights,
+            section_priority_weights=section_priority_weights,
+            prefer_no_gaps=prefer_no_gaps,
+            prefer_morning=prefer_morning,
+            prefer_afternoon=prefer_afternoon,
+            diversity_mode=diversity_mode,
+            allow_partial_options=allow_partial_options,
+            max_combinations=max_combinations,
+            warnings=warnings,
+        )
 
 
 def times_overlap(

@@ -254,7 +254,10 @@ h2 {
 .eligibility-columns {
   display: grid;
   gap: 14px;
-  grid-template-columns: minmax(220px, 0.9fr) minmax(300px, 1.3fr) minmax(220px, 0.9fr);
+  grid-template-columns: minmax(220px, 0.9fr) minmax(300px, 1.3fr) minmax(
+      220px,
+      0.9fr
+    );
 }
 
 .planner-columns {
@@ -339,6 +342,27 @@ h2 {
 .schedule-option {
   display: grid;
   gap: 10px;
+}
+
+.score-breakdown {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+}
+
+.score-breakdown span {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #344054;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 7px 8px;
+}
+
+.score-reasons {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 10px;
 }
 
 .toggle-row {

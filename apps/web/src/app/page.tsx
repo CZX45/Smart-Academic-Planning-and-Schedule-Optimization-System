@@ -50,7 +50,11 @@ type HealthState =
 type AuditState =
   | { status: "loading" }
   | { status: "empty"; message: string }
-  | { status: "ready"; audit: DegreeAuditRun; requirements: RequirementEvaluation[] }
+  | {
+      status: "ready";
+      audit: DegreeAuditRun;
+      requirements: RequirementEvaluation[];
+    }
   | { status: "failed"; message: string };
 type AuditFallbackState = Exclude<AuditState, { status: "ready" }>;
 type CandidateProgram = {
@@ -92,7 +96,11 @@ type ScenarioState =
 type EligibilityState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "ready"; result: CourseEligibilityCheck; history: CourseEligibilityCheck[] }
+  | {
+      status: "ready";
+      result: CourseEligibilityCheck;
+      history: CourseEligibilityCheck[];
+    }
   | { status: "empty"; message: string }
   | { status: "offline"; message: string }
   | { status: "failed"; message: string }
@@ -143,6 +151,11 @@ type SchedulePreset = {
   label: string;
   candidateCourseIds: string[];
   termId: string;
+};
+type ScheduleSectionChoice = {
+  id: string;
+  label: string;
+  sectionId: string;
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -268,6 +281,33 @@ const schedulePresets: SchedulePreset[] = [
     candidateCourseIds: ["e6ab2a34-d85a-5446-875e-83fd36d5b08e"],
   },
 ];
+const scheduleSectionChoices: ScheduleSectionChoice[] = [
+  {
+    id: "none",
+    label: "None",
+    sectionId: "",
+  },
+  {
+    id: "fin-403-002",
+    label: "Pin FIN 403 002",
+    sectionId: "b4af4050-6534-5112-8351-c572d43bec95",
+  },
+  {
+    id: "fin-403-friday",
+    label: "Pin FIN 403 Friday",
+    sectionId: "27e7ccdb-06ed-558d-972b-ec6dab0166de",
+  },
+  {
+    id: "fin-300-web",
+    label: "Exclude FIN 300 WEB",
+    sectionId: "d532bfdd-4f45-574c-87f6-900565e163ee",
+  },
+  {
+    id: "fin-300-afternoon",
+    label: "Exclude FIN 300 AFT",
+    sectionId: "2c2da55d-20aa-521c-938d-f35caee39eba",
+  },
+];
 
 function describeHealthError(error: unknown): string {
   if (error instanceof ApiResponseSchemaError) {
@@ -296,7 +336,9 @@ function describeScenarioError(error: unknown): string {
   if (error instanceof ApiRequestError) {
     return error.message;
   }
-  return error instanceof Error ? error.message : "Unknown what-if scenario error";
+  return error instanceof Error
+    ? error.message
+    : "Unknown what-if scenario error";
 }
 
 function describeEligibilityError(error: unknown): string {
@@ -306,7 +348,9 @@ function describeEligibilityError(error: unknown): string {
   if (error instanceof ApiRequestError) {
     return error.message;
   }
-  return error instanceof Error ? error.message : "Unknown course eligibility error";
+  return error instanceof Error
+    ? error.message
+    : "Unknown course eligibility error";
 }
 
 function describePlannerError(error: unknown): string {
@@ -316,7 +360,9 @@ function describePlannerError(error: unknown): string {
   if (error instanceof ApiRequestError) {
     return error.message;
   }
-  return error instanceof Error ? error.message : "Unknown academic planner error";
+  return error instanceof Error
+    ? error.message
+    : "Unknown academic planner error";
 }
 
 function describeScheduleError(error: unknown): string {
@@ -326,11 +372,15 @@ function describeScheduleError(error: unknown): string {
   if (error instanceof ApiRequestError) {
     return error.message;
   }
-  return error instanceof Error ? error.message : "Unknown schedule optimizer error";
+  return error instanceof Error
+    ? error.message
+    : "Unknown schedule optimizer error";
 }
 
 function isNotFound(error: unknown): boolean {
-  return error instanceof ApiRequestError && error.message.includes("status 404");
+  return (
+    error instanceof ApiRequestError && error.message.includes("status 404")
+  );
 }
 
 function formatCredits(value: string): string {
@@ -361,18 +411,27 @@ export default function Home() {
           message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
         },
   );
-  const [selectedCandidateId, setSelectedCandidateId] = useState(candidatePrograms[0].id);
-  const [scenarioState, setScenarioState] = useState<ScenarioState>({ status: "idle" });
-  const [selectedCourseId, setSelectedCourseId] = useState(candidateCourses[0].id);
-  const [eligibilityState, setEligibilityState] = useState<EligibilityState>(() =>
-    apiBaseUrl
-      ? { status: "idle" }
-      : {
-          status: "offline",
-          message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
-        },
+  const [selectedCandidateId, setSelectedCandidateId] = useState(
+    candidatePrograms[0].id,
   );
-  const [selectedPlannerScopeId, setSelectedPlannerScopeId] = useState(plannerScopes[0].id);
+  const [scenarioState, setScenarioState] = useState<ScenarioState>({
+    status: "idle",
+  });
+  const [selectedCourseId, setSelectedCourseId] = useState(
+    candidateCourses[0].id,
+  );
+  const [eligibilityState, setEligibilityState] = useState<EligibilityState>(
+    () =>
+      apiBaseUrl
+        ? { status: "idle" }
+        : {
+            status: "offline",
+            message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+          },
+  );
+  const [selectedPlannerScopeId, setSelectedPlannerScopeId] = useState(
+    plannerScopes[0].id,
+  );
   const [selectedPlannerStartTermId, setSelectedPlannerStartTermId] = useState(
     plannerStartTerms[0].id,
   );
@@ -392,10 +451,23 @@ export default function Home() {
     schedulePresets[0].id,
   );
   const [scheduleNoFriday, setScheduleNoFriday] = useState(true);
-  const [scheduleAvoidTuesdayBlock, setScheduleAvoidTuesdayBlock] = useState(true);
+  const [scheduleAvoidTuesdayBlock, setScheduleAvoidTuesdayBlock] =
+    useState(true);
   const [schedulePreferOnline, setSchedulePreferOnline] = useState(false);
   const [schedulePreferCompact, setSchedulePreferCompact] = useState(true);
   const [schedulePreferFewerDays, setSchedulePreferFewerDays] = useState(true);
+  const [schedulePreferNoGaps, setSchedulePreferNoGaps] = useState(true);
+  const [schedulePreferMorning, setSchedulePreferMorning] = useState(true);
+  const [schedulePreferAfternoon, setSchedulePreferAfternoon] = useState(false);
+  const [schedulePinnedSectionChoiceId, setSchedulePinnedSectionChoiceId] =
+    useState("fin-403-002");
+  const [scheduleExcludedSectionChoiceId, setScheduleExcludedSectionChoiceId] =
+    useState("none");
+  const [scheduleDiversityMode, setScheduleDiversityMode] = useState<
+    "STANDARD" | "HIGH"
+  >("HIGH");
+  const [scheduleAllowPartialOptions, setScheduleAllowPartialOptions] =
+    useState(true);
   const [scheduleState, setScheduleState] = useState<ScheduleState>(() =>
     apiBaseUrl
       ? { status: "idle" }
@@ -442,15 +514,20 @@ export default function Home() {
           );
         }
 
-        const requirements = await fetchDegreeAuditRequirements(baseUrl, audit.id, {
-          timeoutMs: 5_000,
-        });
+        const requirements = await fetchDegreeAuditRequirements(
+          baseUrl,
+          audit.id,
+          {
+            timeoutMs: 5_000,
+          },
+        );
         if (!cancelled) {
           setAuditState(
             requirements.length === 0
               ? {
                   status: "empty",
-                  message: "No degree audit snapshot results are available yet.",
+                  message:
+                    "No degree audit snapshot results are available yet.",
                 }
               : { status: "ready", audit, requirements },
           );
@@ -460,7 +537,10 @@ export default function Home() {
           const message = describeAuditError(error);
           setAuditState({ status: "failed", message });
           if (health.status !== "online") {
-            setHealth({ status: "offline", message: describeHealthError(error) });
+            setHealth({
+              status: "offline",
+              message: describeHealthError(error),
+            });
           }
         }
       }
@@ -489,7 +569,9 @@ export default function Home() {
                 ? "API connected"
                 : "API unavailable"}
           </p>
-          <p className="notice compact">Mock data — not official university policy.</p>
+          <p className="notice compact">
+            Mock data — not official university policy.
+          </p>
         </div>
 
         <h1>Degree Progress</h1>
@@ -498,7 +580,10 @@ export default function Home() {
         </p>
 
         {auditState.status === "ready" ? (
-          <DegreeProgress audit={auditState.audit} requirements={auditState.requirements} />
+          <DegreeProgress
+            audit={auditState.audit}
+            requirements={auditState.requirements}
+          />
         ) : (
           <AuditFallback state={auditState} health={health} />
         )}
@@ -561,6 +646,22 @@ export default function Home() {
           setSchedulePreferCompact={setSchedulePreferCompact}
           schedulePreferFewerDays={schedulePreferFewerDays}
           setSchedulePreferFewerDays={setSchedulePreferFewerDays}
+          schedulePreferNoGaps={schedulePreferNoGaps}
+          setSchedulePreferNoGaps={setSchedulePreferNoGaps}
+          schedulePreferMorning={schedulePreferMorning}
+          setSchedulePreferMorning={setSchedulePreferMorning}
+          schedulePreferAfternoon={schedulePreferAfternoon}
+          setSchedulePreferAfternoon={setSchedulePreferAfternoon}
+          schedulePinnedSectionChoiceId={schedulePinnedSectionChoiceId}
+          setSchedulePinnedSectionChoiceId={setSchedulePinnedSectionChoiceId}
+          scheduleExcludedSectionChoiceId={scheduleExcludedSectionChoiceId}
+          setScheduleExcludedSectionChoiceId={
+            setScheduleExcludedSectionChoiceId
+          }
+          scheduleDiversityMode={scheduleDiversityMode}
+          setScheduleDiversityMode={setScheduleDiversityMode}
+          scheduleAllowPartialOptions={scheduleAllowPartialOptions}
+          setScheduleAllowPartialOptions={setScheduleAllowPartialOptions}
           scheduleState={scheduleState}
           setScheduleState={setScheduleState}
         />
@@ -639,7 +740,9 @@ function DegreeProgress({
           <details key={requirement.id} className="requirement-row">
             <summary>
               <span>{requirement.requirement_name}</span>
-              <span className={`status-pill ${requirement.status.toLowerCase()}`}>
+              <span
+                className={`status-pill ${requirement.status.toLowerCase()}`}
+              >
                 {statusLabel(requirement.status)}
               </span>
             </summary>
@@ -675,11 +778,16 @@ function DegreeProgress({
                 <ul className="applications">
                   {requirement.applications.map((application) => (
                     <li key={application.id}>
-                      <strong>{application.course_code ?? application.application_type}</strong>
+                      <strong>
+                        {application.course_code ??
+                          application.application_type}
+                      </strong>
                       <span>
                         {statusLabel(application.application_type)} ·{" "}
                         {formatCredits(application.credit_amount)} credits
-                        {application.grade ? ` · grade ${application.grade}` : ""}
+                        {application.grade
+                          ? ` · grade ${application.grade}`
+                          : ""}
                       </span>
                     </li>
                   ))}
@@ -719,8 +827,9 @@ function WhatIfAnalysis({
   setScenarioState: Dispatch<SetStateAction<ScenarioState>>;
 }) {
   const selectedCandidate =
-    candidatePrograms.find((candidate) => candidate.id === selectedCandidateId) ??
-    candidatePrograms[0];
+    candidatePrograms.find(
+      (candidate) => candidate.id === selectedCandidateId,
+    ) ?? candidatePrograms[0];
 
   async function handleCreateScenario(): Promise<void> {
     if (!apiBaseUrl) {
@@ -796,7 +905,10 @@ function WhatIfAnalysis({
         { timeoutMs: 5_000 },
       );
       if (savedScenarios.length < 2) {
-        setScenarioState({ status: "empty", message: "At least two saved scenarios are needed." });
+        setScenarioState({
+          status: "empty",
+          message: "At least two saved scenarios are needed.",
+        });
         return;
       }
       const selectedScenarios = savedScenarios.slice(0, 2);
@@ -822,11 +934,16 @@ function WhatIfAnalysis({
   }
 
   return (
-    <section className="what-if-panel" aria-label="Explore Programs What-if Analysis">
+    <section
+      className="what-if-panel"
+      aria-label="Explore Programs What-if Analysis"
+    >
       <div className="section-heading">
         <div>
           <h2>Explore Programs / What-if Analysis</h2>
-          <p className="subtle">Estimated additional credits do not predict graduation timing.</p>
+          <p className="subtle">
+            Estimated additional credits do not predict graduation timing.
+          </p>
         </div>
         <p className="notice compact">Advisor confirmation may be required.</p>
       </div>
@@ -922,13 +1039,18 @@ function CourseEligibilityChecker({
         },
         { timeoutMs: 8_000 },
       );
-      const history = await fetchStudentEligibilityChecks(apiBaseUrl, mockStudentId, {
-        timeoutMs: 5_000,
-      });
+      const history = await fetchStudentEligibilityChecks(
+        apiBaseUrl,
+        mockStudentId,
+        {
+          timeoutMs: 5_000,
+        },
+      );
       setEligibilityState({ status: "ready", result, history });
     } catch (error: unknown) {
       setEligibilityState({
-        status: error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        status:
+          error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
         message: describeEligibilityError(error),
       });
     }
@@ -944,9 +1066,13 @@ function CourseEligibilityChecker({
     }
     setEligibilityState({ status: "loading" });
     try {
-      const history = await fetchStudentEligibilityChecks(apiBaseUrl, mockStudentId, {
-        timeoutMs: 5_000,
-      });
+      const history = await fetchStudentEligibilityChecks(
+        apiBaseUrl,
+        mockStudentId,
+        {
+          timeoutMs: 5_000,
+        },
+      );
       if (history.length === 0) {
         setEligibilityState({
           status: "empty",
@@ -961,22 +1087,29 @@ function CourseEligibilityChecker({
       });
     } catch (error: unknown) {
       setEligibilityState({
-        status: error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        status:
+          error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
         message: describeEligibilityError(error),
       });
     }
   }
 
   return (
-    <section className="eligibility-panel" aria-label="Course Eligibility Checker">
+    <section
+      className="eligibility-panel"
+      aria-label="Course Eligibility Checker"
+    >
       <div className="section-heading">
         <div>
           <h2>Course Eligibility</h2>
           <p className="subtle">
-            Mock estimate only; confirm official rules with the school or an advisor.
+            Mock estimate only; confirm official rules with the school or an
+            advisor.
           </p>
         </div>
-        <p className="notice compact">Section seats are separate from academic eligibility.</p>
+        <p className="notice compact">
+          Section seats are separate from academic eligibility.
+        </p>
       </div>
 
       <div className="scenario-controls">
@@ -1054,14 +1187,21 @@ function EligibilityResultView({
     <div className="eligibility-result">
       <section className="summary-grid" aria-label="Course eligibility summary">
         <SummaryMetric label="Mode" value={statusLabel(result.mode)} />
-        <SummaryMetric label="Result" value={statusLabel(result.overall_result)} />
+        <SummaryMetric
+          label="Result"
+          value={statusLabel(result.overall_result)}
+        />
         <SummaryMetric
           label="Academic Result"
           value={statusLabel(result.academic_eligibility_result)}
         />
         <SummaryMetric
           label="Section Status"
-          value={availability ? statusLabel(availability.section_status) : "Course only"}
+          value={
+            availability
+              ? statusLabel(availability.section_status)
+              : "Course only"
+          }
         />
         <SummaryMetric
           label="Available Seats"
@@ -1072,16 +1212,16 @@ function EligibilityResultView({
               : String(availability.available_seats)
           }
         />
-        <SummaryMetric label="Warnings" value={String(result.warnings.length)} />
+        <SummaryMetric
+          label="Warnings"
+          value={String(result.warnings.length)}
+        />
       </section>
 
       <section className="eligibility-columns">
         <div>
           <h2>Reasons</h2>
-          <ReasonList
-            title="Blocking"
-            reasons={result.blocking_reasons}
-          />
+          <ReasonList title="Blocking" reasons={result.blocking_reasons} />
           <ReasonList
             title="Conditional"
             reasons={result.conditional_reasons}
@@ -1118,7 +1258,9 @@ function EligibilityResultView({
               </details>
             ))
           ) : (
-            <p className="subtle">No stored rules were found for this course scope.</p>
+            <p className="subtle">
+              No stored rules were found for this course scope.
+            </p>
           )}
         </div>
         <div>
@@ -1146,7 +1288,8 @@ function EligibilityResultView({
               <div key={item.id} className="comparison-row">
                 <strong>{statusLabel(item.overall_result)}</strong>
                 <span>
-                  {statusLabel(item.mode)} · {new Date(item.created_at).toLocaleString()}
+                  {statusLabel(item.mode)} ·{" "}
+                  {new Date(item.created_at).toLocaleString()}
                 </span>
               </div>
             ))}
@@ -1172,7 +1315,9 @@ function ReasonList({
       <h3>{title}</h3>
       <ul className="compact-list">
         {reasons.map((reason) => (
-          <li key={`${title}-${reason.reason_code}-${reason.course_rule_expression_id ?? ""}`}>
+          <li
+            key={`${title}-${reason.reason_code}-${reason.course_rule_expression_id ?? ""}`}
+          >
             <strong>{reason.reason_code}</strong>
             <span>{reason.explanation}</span>
           </li>
@@ -1214,9 +1359,12 @@ function AcademicPlanner({
   setPlannerState: Dispatch<SetStateAction<PlannerState>>;
 }) {
   const selectedScope =
-    plannerScopes.find((scope) => scope.id === selectedPlannerScopeId) ?? plannerScopes[0];
+    plannerScopes.find((scope) => scope.id === selectedPlannerScopeId) ??
+    plannerScopes[0];
 
-  async function createScenarioForScope(scope: PlannerScope): Promise<string | null> {
+  async function createScenarioForScope(
+    scope: PlannerScope,
+  ): Promise<string | null> {
     if (scope.planningMode === "CURRENT_PROGRAM") {
       return null;
     }
@@ -1225,7 +1373,9 @@ function AcademicPlanner({
       (program) => program.id === scope.candidateProgramId,
     );
     if (!candidate) {
-      throw new ApiRequestError("Planner what-if candidate program is not configured.");
+      throw new ApiRequestError(
+        "Planner what-if candidate program is not configured.",
+      );
     }
 
     const scenario = await createAcademicScenario(
@@ -1275,7 +1425,8 @@ function AcademicPlanner({
     }
     setPlannerState({ status: "loading" });
     try {
-      const academicPlanScenarioId = await createScenarioForScope(selectedScope);
+      const academicPlanScenarioId =
+        await createScenarioForScope(selectedScope);
       const plan = await createAcademicPlan(
         apiBaseUrl,
         {
@@ -1299,7 +1450,8 @@ function AcademicPlanner({
       });
     } catch (error: unknown) {
       setPlannerState({
-        status: error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        status:
+          error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
         message: describePlannerError(error),
       });
     }
@@ -1314,9 +1466,13 @@ function AcademicPlanner({
       return;
     }
     try {
-      const savedPlans = await fetchStudentAcademicPlans(apiBaseUrl, mockStudentId, {
-        timeoutMs: 5_000,
-      });
+      const savedPlans = await fetchStudentAcademicPlans(
+        apiBaseUrl,
+        mockStudentId,
+        {
+          timeoutMs: 5_000,
+        },
+      );
       if (savedPlans.length < 2) {
         setPlannerState({
           status: "empty",
@@ -1339,7 +1495,8 @@ function AcademicPlanner({
       );
     } catch (error: unknown) {
       setPlannerState({
-        status: error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        status:
+          error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
         message: describePlannerError(error),
       });
     }
@@ -1384,7 +1541,9 @@ function AcademicPlanner({
           Start term
           <select
             value={selectedPlannerStartTermId}
-            onChange={(event) => setSelectedPlannerStartTermId(event.target.value)}
+            onChange={(event) =>
+              setSelectedPlannerStartTermId(event.target.value)
+            }
           >
             {plannerStartTerms.map((term) => (
               <option key={term.id} value={term.id}>
@@ -1418,7 +1577,9 @@ function AcademicPlanner({
             min={0}
             type="number"
             value={preferredCredits}
-            onChange={(event) => setPreferredCredits(Number(event.target.value))}
+            onChange={(event) =>
+              setPreferredCredits(Number(event.target.value))
+            }
           />
         </label>
         <label>
@@ -1441,7 +1602,10 @@ function AcademicPlanner({
       {plannerState.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
           <h2>Creating academic plan</h2>
-          <p>Evaluating degree audit gaps, prerequisite unlocks, and term capacity.</p>
+          <p>
+            Evaluating degree audit gaps, prerequisite unlocks, and term
+            capacity.
+          </p>
         </section>
       ) : null}
 
@@ -1495,9 +1659,15 @@ function AcademicPlanResultView({
     <div className="planner-result">
       <section className="summary-grid" aria-label="Academic plan summary">
         <SummaryMetric label="Plan Status" value={statusLabel(plan.status)} />
-        <SummaryMetric label="Planning Mode" value={statusLabel(plan.planning_mode)} />
+        <SummaryMetric
+          label="Planning Mode"
+          value={statusLabel(plan.planning_mode)}
+        />
         <SummaryMetric label="Terms" value={String(plan.terms.length)} />
-        <SummaryMetric label="Planned Courses" value={String(plan.planned_courses.length)} />
+        <SummaryMetric
+          label="Planned Courses"
+          value={String(plan.planned_courses.length)}
+        />
         <SummaryMetric
           label="Planned Credits"
           value={formatCredits(String(totalPlannedCredits))}
@@ -1505,10 +1675,15 @@ function AcademicPlanResultView({
         <SummaryMetric label="Warnings" value={String(plan.warnings.length)} />
       </section>
 
-      <section className="planner-term-grid" aria-label="Term-by-term academic plan">
+      <section
+        className="planner-term-grid"
+        aria-label="Term-by-term academic plan"
+      >
         <h2>Term-by-Term Plan</h2>
         {plan.planned_courses.length === 0 ? (
-          <p className="subtle">No planner courses were generated for the selected settings.</p>
+          <p className="subtle">
+            No planner courses were generated for the selected settings.
+          </p>
         ) : null}
         <div className="term-columns">
           {plan.terms.map((term) => {
@@ -1530,10 +1705,12 @@ function AcademicPlanResultView({
                       <li key={course.id}>
                         <strong>{course.course_code}</strong>
                         <span>
-                          {course.course_title} · {formatCredits(course.credits)} credits
+                          {course.course_title} ·{" "}
+                          {formatCredits(course.credits)} credits
                         </span>
                         <span>
-                          {statusLabel(course.planning_status)} · {course.reason_code}
+                          {statusLabel(course.planning_status)} ·{" "}
+                          {course.reason_code}
                         </span>
                       </li>
                     ))}
@@ -1556,7 +1733,8 @@ function AcademicPlanResultView({
                 <li key={coverage.id}>
                   <strong>{coverage.requirement_code}</strong>
                   <span>
-                    {statusLabel(coverage.coverage_type)} · {formatCredits(coverage.credits)}
+                    {statusLabel(coverage.coverage_type)} ·{" "}
+                    {formatCredits(coverage.credits)}
                     credits
                   </span>
                 </li>
@@ -1584,7 +1762,10 @@ function AcademicPlanResultView({
       </section>
 
       {state.comparisons.length > 0 ? (
-        <section className="comparison-table" aria-label="Saved academic plan comparison">
+        <section
+          className="comparison-table"
+          aria-label="Saved academic plan comparison"
+        >
           <h2>Saved Plan Comparison</h2>
           <div className="comparison-rows">
             {state.comparisons.map((comparison) => {
@@ -1592,11 +1773,17 @@ function AcademicPlanResultView({
                 (item) => item.id === comparison.academic_plan_run_id,
               );
               return (
-                <div key={comparison.academic_plan_run_id} className="comparison-row">
-                  <strong>{savedPlan?.planning_mode ?? comparison.academic_plan_run_id}</strong>
+                <div
+                  key={comparison.academic_plan_run_id}
+                  className="comparison-row"
+                >
+                  <strong>
+                    {savedPlan?.planning_mode ??
+                      comparison.academic_plan_run_id}
+                  </strong>
                   <span>
-                    {formatCredits(comparison.total_planned_credits)} planned credits ·{" "}
-                    {comparison.warning_count} warnings
+                    {formatCredits(comparison.total_planned_credits)} planned
+                    credits · {comparison.warning_count} warnings
                   </span>
                 </div>
               );
@@ -1621,6 +1808,20 @@ function SemesterScheduleBuilder({
   setSchedulePreferCompact,
   schedulePreferFewerDays,
   setSchedulePreferFewerDays,
+  schedulePreferNoGaps,
+  setSchedulePreferNoGaps,
+  schedulePreferMorning,
+  setSchedulePreferMorning,
+  schedulePreferAfternoon,
+  setSchedulePreferAfternoon,
+  schedulePinnedSectionChoiceId,
+  setSchedulePinnedSectionChoiceId,
+  scheduleExcludedSectionChoiceId,
+  setScheduleExcludedSectionChoiceId,
+  scheduleDiversityMode,
+  setScheduleDiversityMode,
+  scheduleAllowPartialOptions,
+  setScheduleAllowPartialOptions,
   scheduleState,
   setScheduleState,
 }: {
@@ -1636,12 +1837,32 @@ function SemesterScheduleBuilder({
   setSchedulePreferCompact: Dispatch<SetStateAction<boolean>>;
   schedulePreferFewerDays: boolean;
   setSchedulePreferFewerDays: Dispatch<SetStateAction<boolean>>;
+  schedulePreferNoGaps: boolean;
+  setSchedulePreferNoGaps: Dispatch<SetStateAction<boolean>>;
+  schedulePreferMorning: boolean;
+  setSchedulePreferMorning: Dispatch<SetStateAction<boolean>>;
+  schedulePreferAfternoon: boolean;
+  setSchedulePreferAfternoon: Dispatch<SetStateAction<boolean>>;
+  schedulePinnedSectionChoiceId: string;
+  setSchedulePinnedSectionChoiceId: (value: string) => void;
+  scheduleExcludedSectionChoiceId: string;
+  setScheduleExcludedSectionChoiceId: (value: string) => void;
+  scheduleDiversityMode: "STANDARD" | "HIGH";
+  setScheduleDiversityMode: (value: "STANDARD" | "HIGH") => void;
+  scheduleAllowPartialOptions: boolean;
+  setScheduleAllowPartialOptions: Dispatch<SetStateAction<boolean>>;
   scheduleState: ScheduleState;
   setScheduleState: Dispatch<SetStateAction<ScheduleState>>;
 }) {
   const selectedPreset =
     schedulePresets.find((preset) => preset.id === selectedSchedulePresetId) ??
     schedulePresets[0];
+  const pinnedSection = scheduleSectionChoices.find(
+    (choice) => choice.id === schedulePinnedSectionChoiceId,
+  );
+  const excludedSection = scheduleSectionChoices.find(
+    (choice) => choice.id === scheduleExcludedSectionChoiceId,
+  );
 
   async function handleCreateSchedule(): Promise<void> {
     if (!apiBaseUrl) {
@@ -1665,6 +1886,7 @@ function SemesterScheduleBuilder({
           maximum_credits: "6.0",
           preferred_credits: "6.0",
           requested_option_count: 3,
+          max_options: 3,
           excluded_days: scheduleNoFriday ? ["FRIDAY"] : [],
           unavailable_time_blocks: scheduleAvoidTuesdayBlock
             ? [
@@ -1681,15 +1903,48 @@ function SemesterScheduleBuilder({
           prefer_compact_schedule: schedulePreferCompact,
           prefer_fewer_days: schedulePreferFewerDays,
           prefer_in_person: !schedulePreferOnline,
+          preference_weights: {
+            gap: schedulePreferNoGaps ? "1.5" : "1.0",
+            priority: "2.0",
+            time:
+              schedulePreferMorning || schedulePreferAfternoon ? "1.25" : "1.0",
+          },
+          course_priority_weights: {
+            "9413e6c7-26a0-5acf-9de4-88b132dc802d": "2.0",
+          },
+          section_priority_weights:
+            pinnedSection?.sectionId && pinnedSection.id !== "none"
+              ? { [pinnedSection.sectionId]: "5.0" }
+              : {},
+          required_section_ids:
+            pinnedSection?.sectionId && pinnedSection.id !== "none"
+              ? [pinnedSection.sectionId]
+              : [],
+          excluded_section_ids:
+            excludedSection?.sectionId && excludedSection.id !== "none"
+              ? [excludedSection.sectionId]
+              : [],
+          prefer_no_gaps: schedulePreferNoGaps,
+          prefer_morning: schedulePreferMorning,
+          prefer_afternoon: schedulePreferAfternoon,
+          diversity_mode: scheduleDiversityMode,
+          allow_partial_options: scheduleAllowPartialOptions,
+          max_combinations: 500,
           avoid_late_end: true,
           allow_permission_required: false,
         },
         { timeoutMs: 10_000 },
       );
-      setScheduleState({ status: "ready", schedule, comparisons: [], savedRuns: [] });
+      setScheduleState({
+        status: "ready",
+        schedule,
+        comparisons: [],
+        savedRuns: [],
+      });
     } catch (error: unknown) {
       setScheduleState({
-        status: error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        status:
+          error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
         message: describeScheduleError(error),
       });
     }
@@ -1704,9 +1959,13 @@ function SemesterScheduleBuilder({
       return;
     }
     try {
-      const savedRuns = await fetchStudentScheduleOptimizations(apiBaseUrl, mockStudentId, {
-        timeoutMs: 5_000,
-      });
+      const savedRuns = await fetchStudentScheduleOptimizations(
+        apiBaseUrl,
+        mockStudentId,
+        {
+          timeoutMs: 5_000,
+        },
+      );
       if (savedRuns.length < 2) {
         setScheduleState({
           status: "empty",
@@ -1717,7 +1976,9 @@ function SemesterScheduleBuilder({
       const comparisons = await compareScheduleOptimizations(
         apiBaseUrl,
         {
-          schedule_optimization_run_ids: savedRuns.slice(0, 2).map((run) => run.id),
+          schedule_optimization_run_ids: savedRuns
+            .slice(0, 2)
+            .map((run) => run.id),
         },
         { timeoutMs: 5_000 },
       );
@@ -1726,12 +1987,14 @@ function SemesterScheduleBuilder({
           ? { ...current, comparisons, savedRuns }
           : {
               status: "empty",
-              message: "Create a schedule before comparing saved schedule runs.",
+              message:
+                "Create a schedule before comparing saved schedule runs.",
             },
       );
     } catch (error: unknown) {
       setScheduleState({
-        status: error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        status:
+          error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
         message: describeScheduleError(error),
       });
     }
@@ -1743,16 +2006,19 @@ function SemesterScheduleBuilder({
         <div>
           <h2>Semester Schedule Builder</h2>
           <p className="subtle">
-            Build explainable single-term section options from mock section data.
+            Build explainable single-term section options from mock section
+            data.
           </p>
         </div>
         <p className="notice compact">This is not registration.</p>
       </div>
 
       <ul className="disclaimer-list" aria-label="Schedule builder disclaimers">
-        <li>Mock data - not official university policy.</li>
-        <li>No add, drop, swap, waitlist, or registration action is performed.</li>
-        <li>High-impact schedule decisions need advisor or school confirmation.</li>
+        <li>Mock data — not official university policy.</li>
+        <li>Generated schedules are not registration.</li>
+        <li>Seat availability is separate from academic eligibility.</li>
+        <li>This tool does not perform add/drop or waitlist actions.</li>
+        <li>Advisor confirmation may be required.</li>
       </ul>
 
       <div className="scenario-controls schedule-controls">
@@ -1760,7 +2026,9 @@ function SemesterScheduleBuilder({
           Course set
           <select
             value={selectedSchedulePresetId}
-            onChange={(event) => setSelectedSchedulePresetId(event.target.value)}
+            onChange={(event) =>
+              setSelectedSchedulePresetId(event.target.value)
+            }
           >
             {schedulePresets.map((preset) => (
               <option key={preset.id} value={preset.id}>
@@ -1781,7 +2049,9 @@ function SemesterScheduleBuilder({
           <input
             checked={scheduleAvoidTuesdayBlock}
             type="checkbox"
-            onChange={(event) => setScheduleAvoidTuesdayBlock(event.target.checked)}
+            onChange={(event) =>
+              setScheduleAvoidTuesdayBlock(event.target.checked)
+            }
           />
           Tue 11:00 block
         </label>
@@ -1805,9 +2075,96 @@ function SemesterScheduleBuilder({
           <input
             checked={schedulePreferFewerDays}
             type="checkbox"
-            onChange={(event) => setSchedulePreferFewerDays(event.target.checked)}
+            onChange={(event) =>
+              setSchedulePreferFewerDays(event.target.checked)
+            }
           />
           Fewer days
+        </label>
+        <label className="toggle-row">
+          <input
+            checked={schedulePreferNoGaps}
+            type="checkbox"
+            onChange={(event) => setSchedulePreferNoGaps(event.target.checked)}
+          />
+          No gaps
+        </label>
+        <label className="toggle-row">
+          <input
+            checked={schedulePreferMorning}
+            type="checkbox"
+            onChange={(event) => setSchedulePreferMorning(event.target.checked)}
+          />
+          Morning
+        </label>
+        <label className="toggle-row">
+          <input
+            checked={schedulePreferAfternoon}
+            type="checkbox"
+            onChange={(event) =>
+              setSchedulePreferAfternoon(event.target.checked)
+            }
+          />
+          Afternoon
+        </label>
+        <label>
+          Pinned section
+          <select
+            value={schedulePinnedSectionChoiceId}
+            onChange={(event) =>
+              setSchedulePinnedSectionChoiceId(event.target.value)
+            }
+          >
+            {scheduleSectionChoices.slice(0, 3).map((choice) => (
+              <option key={choice.id} value={choice.id}>
+                {choice.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Excluded section
+          <select
+            value={scheduleExcludedSectionChoiceId}
+            onChange={(event) =>
+              setScheduleExcludedSectionChoiceId(event.target.value)
+            }
+          >
+            {scheduleSectionChoices
+              .filter(
+                (choice) =>
+                  choice.id === "none" || choice.id.startsWith("fin-300"),
+              )
+              .map((choice) => (
+                <option key={choice.id} value={choice.id}>
+                  {choice.label}
+                </option>
+              ))}
+          </select>
+        </label>
+        <label>
+          Diversity
+          <select
+            value={scheduleDiversityMode}
+            onChange={(event) =>
+              setScheduleDiversityMode(
+                event.target.value === "HIGH" ? "HIGH" : "STANDARD",
+              )
+            }
+          >
+            <option value="HIGH">High</option>
+            <option value="STANDARD">Standard</option>
+          </select>
+        </label>
+        <label className="toggle-row">
+          <input
+            checked={scheduleAllowPartialOptions}
+            type="checkbox"
+            onChange={(event) =>
+              setScheduleAllowPartialOptions(event.target.checked)
+            }
+          />
+          Partial options
         </label>
         <button type="button" onClick={() => void handleCreateSchedule()}>
           Build schedule
@@ -1820,7 +2177,10 @@ function SemesterScheduleBuilder({
       {scheduleState.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
           <h2>Building semester schedule</h2>
-          <p>Checking mock section meetings, eligibility, conflicts, and preferences.</p>
+          <p>
+            Checking mock section meetings, eligibility, conflicts, and
+            preferences.
+          </p>
         </section>
       ) : null}
 
@@ -1869,11 +2229,26 @@ function ScheduleResultView({
 
   return (
     <div className="schedule-result">
-      <section className="summary-grid" aria-label="Schedule optimization summary">
-        <SummaryMetric label="Run Status" value={statusLabel(schedule.status)} />
-        <SummaryMetric label="Options" value={String(schedule.options.length)} />
-        <SummaryMetric label="Conflicts" value={String(schedule.conflicts.length)} />
-        <SummaryMetric label="Warnings" value={String(schedule.warnings.length)} />
+      <section
+        className="summary-grid"
+        aria-label="Schedule optimization summary"
+      >
+        <SummaryMetric
+          label="Run Status"
+          value={statusLabel(schedule.status)}
+        />
+        <SummaryMetric
+          label="Options"
+          value={String(schedule.options.length)}
+        />
+        <SummaryMetric
+          label="Conflicts"
+          value={String(schedule.conflicts.length)}
+        />
+        <SummaryMetric
+          label="Warnings"
+          value={String(schedule.warnings.length)}
+        />
         <SummaryMetric
           label="Best Credits"
           value={bestOption ? formatCredits(bestOption.total_credits) : "0.0"}
@@ -1899,10 +2274,60 @@ function ScheduleResultView({
                 </span>
               </div>
               <p>
-                {formatCredits(option.total_credits)} credits - {option.class_days_count} class
-                days - score {Number(option.score).toFixed(2)}
+                {formatCredits(option.total_credits)} credits -{" "}
+                {option.class_days_count} class days - score{" "}
+                {Number(option.total_score).toFixed(2)}
               </p>
               <p className="subtle">{option.explanation}</p>
+              <p className="subtle">
+                Diversity {option.diversity_rank}: {option.difference_summary}
+              </p>
+              <div className="score-breakdown">
+                <span>
+                  Credits{" "}
+                  {Number(option.score_breakdown.credit_score).toFixed(2)}
+                </span>
+                <span>
+                  Compact{" "}
+                  {Number(option.score_breakdown.compactness_score).toFixed(2)}
+                </span>
+                <span>
+                  Days {Number(option.score_breakdown.days_score).toFixed(2)}
+                </span>
+                <span>
+                  Gaps {Number(option.score_breakdown.gap_score).toFixed(2)}
+                </span>
+                <span>
+                  Modality{" "}
+                  {Number(option.score_breakdown.modality_score).toFixed(2)}
+                </span>
+                <span>
+                  Time{" "}
+                  {Number(option.score_breakdown.time_preference_score).toFixed(
+                    2,
+                  )}
+                </span>
+                <span>
+                  Priority{" "}
+                  {Number(option.score_breakdown.priority_score).toFixed(2)}
+                </span>
+                <span>
+                  Penalty{" "}
+                  {Number(option.score_breakdown.penalty_score).toFixed(2)}
+                </span>
+              </div>
+              {option.score_explanation.length > 0 ? (
+                <ul className="compact-list score-reasons">
+                  {option.score_explanation.slice(0, 4).map((item, index) => (
+                    <li key={`${option.id}-score-${index}`}>
+                      <strong>{String(item.reason_code ?? "SCORE")}</strong>
+                      <span>
+                        {String(item.explanation ?? item.score ?? "")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               <ul className="compact-list">
                 {option.selected_sections.map((selected) => (
                   <li key={selected.id}>
@@ -1910,8 +2335,8 @@ function ScheduleResultView({
                       {selected.course_code} {selected.section_code}
                     </strong>
                     <span>
-                      {selected.course_title} - {statusLabel(selected.modality)} -{" "}
-                      {statusLabel(selected.eligibility_result)}
+                      {selected.course_title} - {statusLabel(selected.modality)}{" "}
+                      - {statusLabel(selected.eligibility_result)}
                     </span>
                     <span>{formatMeetingList(selected.meetings)}</span>
                   </li>
@@ -1921,6 +2346,27 @@ function ScheduleResultView({
           ))}
         </div>
       </section>
+
+      {schedule.options.length >= 2 ? (
+        <section
+          className="comparison-table"
+          aria-label="Top schedule option comparison"
+        >
+          <h2>Top Option Comparison</h2>
+          <div className="comparison-rows">
+            {schedule.options.slice(0, 2).map((option) => (
+              <div key={`${option.id}-top-compare`} className="comparison-row">
+                <strong>Option {option.option_rank}</strong>
+                <span>
+                  score {Number(option.total_score).toFixed(2)} -{" "}
+                  {option.shared_section_count_with_previous_option} shared with
+                  previous - {option.difference_summary}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="planner-columns">
         <div>
@@ -1955,8 +2401,33 @@ function ScheduleResultView({
         </div>
       </section>
 
+      {schedule.repair_suggestions.length > 0 ? (
+        <section
+          className="comparison-table"
+          aria-label="Schedule repair suggestions"
+        >
+          <h2>Repair Suggestions</h2>
+          <div className="comparison-rows">
+            {schedule.repair_suggestions.map((suggestion) => (
+              <div key={suggestion.id} className="comparison-row">
+                <strong>{statusLabel(suggestion.suggestion_type)}</strong>
+                <span>
+                  {suggestion.message}{" "}
+                  {suggestion.requires_advisor_confirmation
+                    ? "Advisor confirmation may be required."
+                    : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {state.comparisons.length > 0 ? (
-        <section className="comparison-table" aria-label="Saved schedule comparison">
+        <section
+          className="comparison-table"
+          aria-label="Saved schedule comparison"
+        >
           <h2>Saved Schedule Comparison</h2>
           <div className="comparison-rows">
             {state.comparisons.map((comparison) => {
@@ -1968,7 +2439,9 @@ function ScheduleResultView({
                   key={comparison.schedule_optimization_run_id}
                   className="comparison-row"
                 >
-                  <strong>{savedRun?.planning_mode ?? comparison.status}</strong>
+                  <strong>
+                    {savedRun?.planning_mode ?? comparison.status}
+                  </strong>
                   <span>
                     {comparison.option_count} options -{" "}
                     {comparison.best_total_credits
@@ -2009,13 +2482,18 @@ async function loadScenarioDetail(
   baseUrl: string,
   scenario: AcademicScenario,
 ): Promise<ScenarioDetail> {
-  const [programs, audits, allocations, warnings, comparison] = await Promise.all([
-    fetchAcademicScenarioPrograms(baseUrl, scenario.id, { timeoutMs: 5_000 }),
-    fetchAcademicScenarioAudits(baseUrl, scenario.id, { timeoutMs: 5_000 }),
-    fetchAcademicScenarioAllocations(baseUrl, scenario.id, { timeoutMs: 5_000 }),
-    fetchAcademicScenarioWarnings(baseUrl, scenario.id, { timeoutMs: 5_000 }),
-    fetchAcademicScenarioComparison(baseUrl, scenario.id, { timeoutMs: 5_000 }),
-  ]);
+  const [programs, audits, allocations, warnings, comparison] =
+    await Promise.all([
+      fetchAcademicScenarioPrograms(baseUrl, scenario.id, { timeoutMs: 5_000 }),
+      fetchAcademicScenarioAudits(baseUrl, scenario.id, { timeoutMs: 5_000 }),
+      fetchAcademicScenarioAllocations(baseUrl, scenario.id, {
+        timeoutMs: 5_000,
+      }),
+      fetchAcademicScenarioWarnings(baseUrl, scenario.id, { timeoutMs: 5_000 }),
+      fetchAcademicScenarioComparison(baseUrl, scenario.id, {
+        timeoutMs: 5_000,
+      }),
+    ]);
   return { scenario, programs, audits, allocations, warnings, comparison };
 }
 
@@ -2034,7 +2512,10 @@ function ScenarioResult({
     <div className="scenario-result">
       <section className="summary-grid" aria-label="What-if scenario summary">
         <SummaryMetric label="Candidate" value={selectedCandidate.label} />
-        <SummaryMetric label="Scenario Status" value={statusLabel(detail.scenario.status)} />
+        <SummaryMetric
+          label="Scenario Status"
+          value={statusLabel(detail.scenario.status)}
+        />
         <SummaryMetric
           label="Shared Credits"
           value={formatCredits(detail.comparison.shared_credits)}
@@ -2071,7 +2552,9 @@ function ScenarioResult({
             <ul className="compact-list">
               {selectedAllocations.map((allocation) => (
                 <li key={allocation.id}>
-                  <strong>{allocation.course_code ?? allocation.reason_code}</strong>
+                  <strong>
+                    {allocation.course_code ?? allocation.reason_code}
+                  </strong>
                   <span>
                     {statusLabel(allocation.allocation_type)} ·{" "}
                     {formatCredits(allocation.credit_amount)} credits
@@ -2101,7 +2584,10 @@ function ScenarioResult({
       </section>
 
       {state.comparisons.length > 0 ? (
-        <section className="comparison-table" aria-label="Saved scenario comparison">
+        <section
+          className="comparison-table"
+          aria-label="Saved scenario comparison"
+        >
           <h2>Saved Scenario Comparison</h2>
           <div className="comparison-rows">
             {state.comparisons.map((comparison) => {
@@ -2109,11 +2595,16 @@ function ScenarioResult({
                 (item) => item.id === comparison.academic_plan_scenario_id,
               );
               return (
-                <div key={comparison.academic_plan_scenario_id} className="comparison-row">
-                  <strong>{scenario?.name ?? comparison.academic_plan_scenario_id}</strong>
+                <div
+                  key={comparison.academic_plan_scenario_id}
+                  className="comparison-row"
+                >
+                  <strong>
+                    {scenario?.name ?? comparison.academic_plan_scenario_id}
+                  </strong>
                   <span>
-                    {formatCredits(comparison.estimated_additional_credits)} estimated
-                    additional credits
+                    {formatCredits(comparison.estimated_additional_credits)}{" "}
+                    estimated additional credits
                   </span>
                 </div>
               );

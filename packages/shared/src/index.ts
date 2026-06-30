@@ -130,9 +130,7 @@ export const RequirementEvaluationSchema = z.object({
   warnings: z.array(DegreeAuditWarningSchema),
 });
 
-export type RequirementEvaluation = z.infer<
-  typeof RequirementEvaluationSchema
->;
+export type RequirementEvaluation = z.infer<typeof RequirementEvaluationSchema>;
 
 export const AcademicScenarioSchema = z.object({
   id: UuidSchema,
@@ -611,6 +609,8 @@ const ScheduleOptionStatusSchema = z.enum([
   "INFEASIBLE",
 ]);
 
+const ScheduleDiversityModeSchema = z.enum(["STANDARD", "HIGH"]);
+
 const ScheduleConflictTypeSchema = z.enum([
   "TIME_OVERLAP",
   "UNAVAILABLE_TIME",
@@ -677,12 +677,19 @@ export const ScheduleConstraintSetSchema = z.object({
   avoid_early_start: z.boolean(),
   avoid_late_end: z.boolean(),
   allow_permission_required: z.boolean(),
+  preference_weights: z.record(z.string(), DecimalValueSchema),
+  course_priority_weights: z.record(UuidSchema, DecimalValueSchema),
+  section_priority_weights: z.record(UuidSchema, DecimalValueSchema),
+  prefer_no_gaps: z.boolean(),
+  prefer_morning: z.boolean(),
+  prefer_afternoon: z.boolean(),
+  diversity_mode: ScheduleDiversityModeSchema,
+  allow_partial_options: z.boolean(),
+  max_combinations: z.number(),
   created_at: DateTimeSchema,
 });
 
-export type ScheduleConstraintSet = z.infer<
-  typeof ScheduleConstraintSetSchema
->;
+export type ScheduleConstraintSet = z.infer<typeof ScheduleConstraintSetSchema>;
 
 export const ScheduleSectionMeetingSchema = z.object({
   id: UuidSchema,
@@ -722,8 +729,23 @@ export const ScheduleOptionSectionSchema = z.object({
   created_at: DateTimeSchema,
 });
 
-export type ScheduleOptionSection = z.infer<
-  typeof ScheduleOptionSectionSchema
+export type ScheduleOptionSection = z.infer<typeof ScheduleOptionSectionSchema>;
+
+export const ScheduleScoreBreakdownSchema = z.object({
+  total_score: DecimalValueSchema,
+  credit_score: DecimalValueSchema,
+  compactness_score: DecimalValueSchema,
+  days_score: DecimalValueSchema,
+  gap_score: DecimalValueSchema,
+  modality_score: DecimalValueSchema,
+  time_preference_score: DecimalValueSchema,
+  priority_score: DecimalValueSchema,
+  penalty_score: DecimalValueSchema,
+  score_explanation: z.array(z.record(z.string(), z.unknown())),
+});
+
+export type ScheduleScoreBreakdown = z.infer<
+  typeof ScheduleScoreBreakdownSchema
 >;
 
 export const ScheduleOptionSchema = z.object({
@@ -737,6 +759,20 @@ export const ScheduleOptionSchema = z.object({
   latest_end_time: z.string().nullable(),
   total_gap_minutes: z.number(),
   score: DecimalValueSchema,
+  total_score: DecimalValueSchema,
+  credit_score: DecimalValueSchema,
+  compactness_score: DecimalValueSchema,
+  days_score: DecimalValueSchema,
+  gap_score: DecimalValueSchema,
+  modality_score: DecimalValueSchema,
+  time_preference_score: DecimalValueSchema,
+  priority_score: DecimalValueSchema,
+  penalty_score: DecimalValueSchema,
+  score_explanation: z.array(z.record(z.string(), z.unknown())),
+  score_breakdown: ScheduleScoreBreakdownSchema,
+  diversity_rank: z.number(),
+  difference_summary: z.string(),
+  shared_section_count_with_previous_option: z.number(),
   explanation: z.string(),
   selected_sections: z.array(ScheduleOptionSectionSchema),
   created_at: DateTimeSchema,
@@ -773,12 +809,32 @@ export const ScheduleWarningSchema = z.object({
 
 export type ScheduleWarning = z.infer<typeof ScheduleWarningSchema>;
 
+export const ScheduleRepairSuggestionSchema = z.object({
+  id: UuidSchema,
+  schedule_optimization_run_id: UuidSchema,
+  suggestion_type: z.string(),
+  affected_constraint: z.string().nullable(),
+  affected_course_id: UuidSchema.nullable(),
+  affected_section_id: UuidSchema.nullable(),
+  estimated_impact: z.string(),
+  message: z.string(),
+  requires_advisor_confirmation: z.boolean(),
+  created_at: DateTimeSchema,
+});
+
+export type ScheduleRepairSuggestion = z.infer<
+  typeof ScheduleRepairSuggestionSchema
+>;
+
 export const ScheduleOptimizationDetailSchema =
   ScheduleOptimizationRunSchema.extend({
     constraint_set: ScheduleConstraintSetSchema.nullable(),
     options: z.array(ScheduleOptionSchema),
     conflicts: z.array(ScheduleConflictSchema),
     warnings: z.array(ScheduleWarningSchema),
+    repair_suggestions: z.array(ScheduleRepairSuggestionSchema),
+    hard_constraint_results: z.array(z.record(z.string(), z.unknown())),
+    soft_preference_results: z.array(z.record(z.string(), z.unknown())),
   });
 
 export type ScheduleOptimizationDetail = z.infer<
@@ -885,6 +941,7 @@ export type CreateScheduleOptimizationRequest = {
   maximum_credits: string | number;
   preferred_credits: string | number;
   requested_option_count: number;
+  max_options?: number | null;
   excluded_days?: Array<z.infer<typeof DayOfWeekSchema>>;
   unavailable_time_blocks?: ScheduleUnavailableTimeBlock[];
   earliest_start_time?: string | null;
@@ -904,6 +961,15 @@ export type CreateScheduleOptimizationRequest = {
   allow_permission_required?: boolean;
   minimum_gap_minutes?: number | null;
   maximum_gap_minutes?: number | null;
+  preference_weights?: Record<string, string | number>;
+  course_priority_weights?: Record<string, string | number>;
+  section_priority_weights?: Record<string, string | number>;
+  prefer_no_gaps?: boolean;
+  prefer_morning?: boolean;
+  prefer_afternoon?: boolean;
+  diversity_mode?: z.infer<typeof ScheduleDiversityModeSchema>;
+  allow_partial_options?: boolean;
+  max_combinations?: number;
 };
 
 export type CompareScheduleOptimizationsRequest = {
@@ -1041,7 +1107,11 @@ export async function fetchLatestDegreeAudit(
   options: FetchHealthOptions = {},
 ): Promise<DegreeAuditRun> {
   const parsed = DegreeAuditRunSchema.safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/students/${studentId}/degree-audits/latest`, options),
+    await fetchJson(
+      apiBaseUrl,
+      `/api/v1/students/${studentId}/degree-audits/latest`,
+      options,
+    ),
   );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
@@ -1077,9 +1147,15 @@ export async function fetchDegreeAuditRequirements(
   auditId: string,
   options: FetchHealthOptions = {},
 ): Promise<RequirementEvaluation[]> {
-  const parsed = z.array(RequirementEvaluationSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/degree-audits/${auditId}/requirements`, options),
-  );
+  const parsed = z
+    .array(RequirementEvaluationSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/degree-audits/${auditId}/requirements`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Degree audit requirements response did not match the expected schema",
@@ -1114,9 +1190,15 @@ export async function fetchAcademicScenarioPrograms(
   scenarioId: string,
   options: FetchHealthOptions = {},
 ): Promise<ScenarioProgram[]> {
-  const parsed = z.array(ScenarioProgramSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/academic-scenarios/${scenarioId}/programs`, options),
-  );
+  const parsed = z
+    .array(ScenarioProgramSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/academic-scenarios/${scenarioId}/programs`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Academic scenario programs response did not match the expected schema",
@@ -1130,9 +1212,15 @@ export async function fetchAcademicScenarioAudits(
   scenarioId: string,
   options: FetchHealthOptions = {},
 ): Promise<ScenarioProgramAudit[]> {
-  const parsed = z.array(ScenarioProgramAuditSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/academic-scenarios/${scenarioId}/audits`, options),
-  );
+  const parsed = z
+    .array(ScenarioProgramAuditSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/academic-scenarios/${scenarioId}/audits`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Academic scenario audits response did not match the expected schema",
@@ -1146,9 +1234,15 @@ export async function fetchAcademicScenarioAllocations(
   scenarioId: string,
   options: FetchHealthOptions = {},
 ): Promise<ScenarioCourseAllocation[]> {
-  const parsed = z.array(ScenarioCourseAllocationSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/academic-scenarios/${scenarioId}/allocations`, options),
-  );
+  const parsed = z
+    .array(ScenarioCourseAllocationSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/academic-scenarios/${scenarioId}/allocations`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Academic scenario allocations response did not match the expected schema",
@@ -1162,9 +1256,15 @@ export async function fetchAcademicScenarioWarnings(
   scenarioId: string,
   options: FetchHealthOptions = {},
 ): Promise<ScenarioWarning[]> {
-  const parsed = z.array(ScenarioWarningSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/academic-scenarios/${scenarioId}/warnings`, options),
-  );
+  const parsed = z
+    .array(ScenarioWarningSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/academic-scenarios/${scenarioId}/warnings`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Academic scenario warnings response did not match the expected schema",
@@ -1179,7 +1279,11 @@ export async function fetchAcademicScenarioComparison(
   options: FetchHealthOptions = {},
 ): Promise<ScenarioComparisonSnapshot> {
   const parsed = ScenarioComparisonSnapshotSchema.safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/academic-scenarios/${scenarioId}/comparison`, options),
+    await fetchJson(
+      apiBaseUrl,
+      `/api/v1/academic-scenarios/${scenarioId}/comparison`,
+      options,
+    ),
   );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
@@ -1194,9 +1298,15 @@ export async function fetchStudentAcademicScenarios(
   studentId: string,
   options: FetchHealthOptions = {},
 ): Promise<AcademicScenario[]> {
-  const parsed = z.array(AcademicScenarioSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/students/${studentId}/academic-scenarios`, options),
-  );
+  const parsed = z
+    .array(AcademicScenarioSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/students/${studentId}/academic-scenarios`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Student academic scenarios response did not match the expected schema",
@@ -1274,7 +1384,11 @@ export async function fetchCourseEligibilityCheck(
   options: FetchHealthOptions = {},
 ): Promise<CourseEligibilityCheck> {
   const parsed = CourseEligibilityCheckSchema.safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/eligibility-checks/${checkId}`, options),
+    await fetchJson(
+      apiBaseUrl,
+      `/api/v1/eligibility-checks/${checkId}`,
+      options,
+    ),
   );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
@@ -1289,9 +1403,15 @@ export async function fetchStudentEligibilityChecks(
   studentId: string,
   options: FetchHealthOptions = {},
 ): Promise<CourseEligibilityCheck[]> {
-  const parsed = z.array(CourseEligibilityCheckSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/students/${studentId}/eligibility-checks`, options),
-  );
+  const parsed = z
+    .array(CourseEligibilityCheckSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/students/${studentId}/eligibility-checks`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Student eligibility checks response did not match the expected schema",
@@ -1342,9 +1462,15 @@ export async function fetchAcademicPlanTerms(
   planId: string,
   options: FetchHealthOptions = {},
 ): Promise<AcademicPlanTerm[]> {
-  const parsed = z.array(AcademicPlanTermSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/academic-plans/${planId}/terms`, options),
-  );
+  const parsed = z
+    .array(AcademicPlanTermSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/academic-plans/${planId}/terms`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Academic plan terms response did not match the expected schema",
@@ -1358,9 +1484,15 @@ export async function fetchAcademicPlanCourses(
   planId: string,
   options: FetchHealthOptions = {},
 ): Promise<AcademicPlanCourse[]> {
-  const parsed = z.array(AcademicPlanCourseSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/academic-plans/${planId}/courses`, options),
-  );
+  const parsed = z
+    .array(AcademicPlanCourseSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/academic-plans/${planId}/courses`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Academic plan courses response did not match the expected schema",
@@ -1374,9 +1506,15 @@ export async function fetchAcademicPlanWarnings(
   planId: string,
   options: FetchHealthOptions = {},
 ): Promise<AcademicPlanWarning[]> {
-  const parsed = z.array(AcademicPlanWarningSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/academic-plans/${planId}/warnings`, options),
-  );
+  const parsed = z
+    .array(AcademicPlanWarningSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/academic-plans/${planId}/warnings`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Academic plan warnings response did not match the expected schema",
@@ -1390,9 +1528,15 @@ export async function fetchStudentAcademicPlans(
   studentId: string,
   options: FetchHealthOptions = {},
 ): Promise<AcademicPlanRun[]> {
-  const parsed = z.array(AcademicPlanRunSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/students/${studentId}/academic-plans`, options),
-  );
+  const parsed = z
+    .array(AcademicPlanRunSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/students/${studentId}/academic-plans`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Student academic plans response did not match the expected schema",
@@ -1449,7 +1593,11 @@ export async function fetchScheduleOptimization(
   options: FetchHealthOptions = {},
 ): Promise<ScheduleOptimizationDetail> {
   const parsed = ScheduleOptimizationDetailSchema.safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/schedule-optimizations/${runId}`, options),
+    await fetchJson(
+      apiBaseUrl,
+      `/api/v1/schedule-optimizations/${runId}`,
+      options,
+    ),
   );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
@@ -1464,9 +1612,15 @@ export async function fetchScheduleOptimizationOptions(
   runId: string,
   options: FetchHealthOptions = {},
 ): Promise<ScheduleOption[]> {
-  const parsed = z.array(ScheduleOptionSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/schedule-optimizations/${runId}/options`, options),
-  );
+  const parsed = z
+    .array(ScheduleOptionSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/schedule-optimizations/${runId}/options`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Schedule optimization options response did not match the expected schema",
@@ -1480,9 +1634,15 @@ export async function fetchScheduleOptimizationConflicts(
   runId: string,
   options: FetchHealthOptions = {},
 ): Promise<ScheduleConflict[]> {
-  const parsed = z.array(ScheduleConflictSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/schedule-optimizations/${runId}/conflicts`, options),
-  );
+  const parsed = z
+    .array(ScheduleConflictSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/schedule-optimizations/${runId}/conflicts`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Schedule optimization conflicts response did not match the expected schema",
@@ -1496,9 +1656,15 @@ export async function fetchScheduleOptimizationWarnings(
   runId: string,
   options: FetchHealthOptions = {},
 ): Promise<ScheduleWarning[]> {
-  const parsed = z.array(ScheduleWarningSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/schedule-optimizations/${runId}/warnings`, options),
-  );
+  const parsed = z
+    .array(ScheduleWarningSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/schedule-optimizations/${runId}/warnings`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Schedule optimization warnings response did not match the expected schema",
@@ -1512,9 +1678,15 @@ export async function fetchStudentScheduleOptimizations(
   studentId: string,
   options: FetchHealthOptions = {},
 ): Promise<ScheduleOptimizationRun[]> {
-  const parsed = z.array(ScheduleOptimizationRunSchema).safeParse(
-    await fetchJson(apiBaseUrl, `/api/v1/students/${studentId}/schedule-optimizations`, options),
-  );
+  const parsed = z
+    .array(ScheduleOptimizationRunSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/students/${studentId}/schedule-optimizations`,
+        options,
+      ),
+    );
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Student schedule optimizations response did not match the expected schema",

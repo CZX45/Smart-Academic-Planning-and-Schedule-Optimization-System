@@ -79,6 +79,14 @@ Phase 6A adds deterministic semester schedule optimizer coverage:
 - Shared TypeScript schema tests for schedule run, constraint set, option, selected section, meeting, conflict, warning, detail, comparison, and schema-error responses.
 - Playwright tests for Semester Schedule Builder UI success, required disclaimers, ranked options, conflicts, warnings, saved-schedule comparison, API offline/failure/empty/schema-error states, and the absence of registration or waitlist actions.
 
+Phase 6B extends deterministic semester schedule optimizer coverage:
+
+- Engine tests for preference weights, course priorities, section priorities, no-gap scoring, morning/afternoon scoring, high-diversity option selection, required/excluded section validation, partial-option behavior, and repair suggestions.
+- API tests for persisted advanced constraint fields, score breakdowns, diversity metadata, hard-constraint summaries, soft-preference summaries, repair suggestions, and invalid weight/search-bound validation.
+- Seed tests for mock near-duplicate sections, morning versus afternoon options, online versus in-person alternatives, required/excluded section examples, infeasible hard-constraint cases, and partial repair demonstrations.
+- Shared TypeScript schema tests for advanced schedule request fields, score breakdowns, repair suggestions, hard-constraint summaries, and soft-preference summaries.
+- Playwright tests for advanced schedule controls, mock-data disclaimers, score breakdown rendering, option comparison, diversity metadata, repair suggestions, and the absence of registration, add/drop, or waitlist actions.
+
 ### End-to-End Tests
 
 Playwright tests for:
@@ -188,6 +196,14 @@ Phase 6A covers semester schedule optimizer behavior:
 - Partial results and infeasibility produce structured conflicts, warnings, and explanations.
 - Preference scoring is deterministic and explainable.
 - Scheduler output remains section-level and does not poll seats, join waitlists, add, drop, swap, or register.
+
+Phase 6B covers advanced schedule optimizer behavior:
+
+- Required sections and excluded sections are hard constraints with institution/term validation.
+- Preference weights, priorities, no-gap, morning, afternoon, modality, compactness, and class-day preferences are soft scoring inputs with persisted explanations.
+- Score breakdowns sum to deterministic ranking inputs and expose penalties separately from positive preference components.
+- High-diversity mode changes returned option selection only through deterministic section-overlap comparison.
+- Repair suggestions explain feasible constraint relaxations without automating registration, seat monitoring, add/drop, swap, or waitlist behavior.
 
 ## 5. Property and Constraint Tests
 

@@ -345,7 +345,9 @@ describe("course eligibility schemas", () => {
   };
 
   it("validates eligibility check snapshots with expression evidence", () => {
-    expect(CourseEligibilityCheckSchema.parse(eligibilityPayload)).toMatchObject({
+    expect(
+      CourseEligibilityCheckSchema.parse(eligibilityPayload),
+    ).toMatchObject({
       overall_result: "PERMISSION_REQUIRED",
       registration_availability: { section_status: "WAITLIST" },
     });
@@ -503,7 +505,7 @@ describe("schedule optimizer schemas", () => {
     academic_plan_run_id: null,
     planning_mode: "CUSTOM_COURSE_SET",
     status: "COMPLETED_WITH_WARNINGS",
-    engine_version: "phase-6a-schedule-optimizer-v1",
+    engine_version: "phase-6b-schedule-optimizer-v1",
     minimum_credits: "3.0",
     maximum_credits: "6.0",
     preferred_credits: "6.0",
@@ -536,6 +538,17 @@ describe("schedule optimizer schemas", () => {
       avoid_early_start: false,
       avoid_late_end: true,
       allow_permission_required: false,
+      preference_weights: { priority: "2.0" },
+      course_priority_weights: {},
+      section_priority_weights: {
+        "00000000-0000-4000-8000-000000000505": "5.0",
+      },
+      prefer_no_gaps: true,
+      prefer_morning: true,
+      prefer_afternoon: false,
+      diversity_mode: "HIGH",
+      allow_partial_options: true,
+      max_combinations: 500,
       created_at: "2026-06-29T00:00:00Z",
     },
     options: [
@@ -550,7 +563,45 @@ describe("schedule optimizer schemas", () => {
         latest_end_time: "12:15",
         total_gap_minutes: 45,
         score: "86.00",
-        explanation: "Selected deterministic mock sections with traceable warnings.",
+        total_score: "86.00",
+        credit_score: "30.00",
+        compactness_score: "17.00",
+        days_score: "12.00",
+        gap_score: "10.50",
+        modality_score: "8.00",
+        time_preference_score: "3.00",
+        priority_score: "20.00",
+        penalty_score: "-5.00",
+        score_explanation: [
+          {
+            reason_code: "SECTION_PRIORITY_WEIGHT",
+            score: "20.00",
+            explanation: "Pinned mock section is preferred.",
+          },
+        ],
+        score_breakdown: {
+          total_score: "86.00",
+          credit_score: "30.00",
+          compactness_score: "17.00",
+          days_score: "12.00",
+          gap_score: "10.50",
+          modality_score: "8.00",
+          time_preference_score: "3.00",
+          priority_score: "20.00",
+          penalty_score: "-5.00",
+          score_explanation: [
+            {
+              reason_code: "SECTION_PRIORITY_WEIGHT",
+              score: "20.00",
+              explanation: "Pinned mock section is preferred.",
+            },
+          ],
+        },
+        diversity_rank: 1,
+        difference_summary: "Top ranked option.",
+        shared_section_count_with_previous_option: 0,
+        explanation:
+          "Selected deterministic mock sections with traceable warnings.",
         selected_sections: [
           {
             id: "00000000-0000-4000-8000-000000000504",
@@ -616,13 +667,35 @@ describe("schedule optimizer schemas", () => {
         created_at: "2026-06-29T00:00:00Z",
       },
     ],
+    repair_suggestions: [
+      {
+        id: "00000000-0000-4000-8000-000000000509",
+        schedule_optimization_run_id: "00000000-0000-4000-8000-000000000501",
+        suggestion_type: "RELAX_UNAVAILABLE_BLOCK",
+        affected_constraint: "unavailable_time_blocks",
+        affected_course_id: null,
+        affected_section_id: "00000000-0000-4000-8000-000000000505",
+        estimated_impact: "Could make a blocked section selectable.",
+        message: "Relax the unavailable time block.",
+        requires_advisor_confirmation: false,
+        created_at: "2026-06-29T00:00:00Z",
+      },
+    ],
+    hard_constraint_results: [
+      { constraint: "excluded_days", result: "APPLIED", value: ["FRIDAY"] },
+    ],
+    soft_preference_results: [{ preference: "prefer_no_gaps", value: true }],
   };
 
   it("validates schedule optimizer snapshots with options, conflicts, and warnings", () => {
-    expect(ScheduleOptimizationDetailSchema.parse(schedulePayload)).toMatchObject({
+    expect(
+      ScheduleOptimizationDetailSchema.parse(schedulePayload),
+    ).toMatchObject({
       planning_mode: "CUSTOM_COURSE_SET",
       options: [{ selected_sections: [{ course_code: "FIN 300" }] }],
       conflicts: [{ conflict_type: "UNAVAILABLE_TIME" }],
+      repair_suggestions: [{ suggestion_type: "RELAX_UNAVAILABLE_BLOCK" }],
+      soft_preference_results: [{ preference: "prefer_no_gaps" }],
     });
   });
 
@@ -631,7 +704,9 @@ describe("schedule optimizer schemas", () => {
       new Response(
         JSON.stringify({
           ...schedulePayload,
-          options: [{ ...schedulePayload.options[0], status: "AUTO_REGISTERED" }],
+          options: [
+            { ...schedulePayload.options[0], status: "AUTO_REGISTERED" },
+          ],
         }),
       );
 
@@ -643,7 +718,8 @@ describe("schedule optimizer schemas", () => {
           term_id: schedulePayload.term_id,
           academic_plan_run_id: null,
           planning_mode: "CUSTOM_COURSE_SET",
-          candidate_course_ids: schedulePayload.constraint_set.candidate_course_ids,
+          candidate_course_ids:
+            schedulePayload.constraint_set.candidate_course_ids,
           minimum_credits: "3.0",
           maximum_credits: "6.0",
           preferred_credits: "6.0",

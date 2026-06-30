@@ -1,6 +1,6 @@
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -369,6 +369,7 @@ ScheduleConflictTypeValue = Literal[
     "NO_SECTION_AVAILABLE",
     "MANUAL_REVIEW_REQUIRED",
 ]
+ScheduleDiversityModeValue = Literal["STANDARD", "HIGH"]
 DayOfWeekValue = Literal[
     "MONDAY",
     "TUESDAY",
@@ -817,7 +818,8 @@ class ScheduleOptimizationCreateRequest(BaseModel):
     minimum_credits: Decimal = Field(ge=0)
     maximum_credits: Decimal = Field(ge=0)
     preferred_credits: Decimal = Field(ge=0)
-    requested_option_count: int = Field(gt=0, le=20)
+    requested_option_count: int = Field(default=3, gt=0, le=20)
+    max_options: int | None = Field(default=None, gt=0, le=20)
     excluded_days: list[DayOfWeekValue] = Field(default_factory=list)
     unavailable_time_blocks: list[ScheduleUnavailableTimeBlockRequest] = Field(default_factory=list)
     earliest_start_time: time | None = None
@@ -837,6 +839,15 @@ class ScheduleOptimizationCreateRequest(BaseModel):
     allow_permission_required: bool = False
     minimum_gap_minutes: int | None = Field(default=None, ge=0)
     maximum_gap_minutes: int | None = Field(default=None, ge=0)
+    preference_weights: dict[str, Decimal] = Field(default_factory=dict)
+    course_priority_weights: dict[UUID, Decimal] = Field(default_factory=dict)
+    section_priority_weights: dict[UUID, Decimal] = Field(default_factory=dict)
+    prefer_no_gaps: bool = False
+    prefer_morning: bool = False
+    prefer_afternoon: bool = False
+    diversity_mode: ScheduleDiversityModeValue = "STANDARD"
+    allow_partial_options: bool = True
+    max_combinations: int = Field(default=500, gt=0, le=5000)
 
 
 class ScheduleOptimizationCompareRequest(BaseModel):
@@ -883,6 +894,15 @@ class ScheduleConstraintSetResponse(BaseModel):
     avoid_early_start: bool
     avoid_late_end: bool
     allow_permission_required: bool
+    preference_weights: dict[str, str]
+    course_priority_weights: dict[str, str]
+    section_priority_weights: dict[str, str]
+    prefer_no_gaps: bool
+    prefer_morning: bool
+    prefer_afternoon: bool
+    diversity_mode: str
+    allow_partial_options: bool
+    max_combinations: int
     created_at: datetime
 
 
@@ -903,6 +923,19 @@ class ScheduleOptionSectionResponse(BaseModel):
     created_at: datetime
 
 
+class ScheduleScoreBreakdownResponse(BaseModel):
+    total_score: Decimal
+    credit_score: Decimal
+    compactness_score: Decimal
+    days_score: Decimal
+    gap_score: Decimal
+    modality_score: Decimal
+    time_preference_score: Decimal
+    priority_score: Decimal
+    penalty_score: Decimal
+    score_explanation: list[dict[str, Any]]
+
+
 class ScheduleOptionResponse(BaseModel):
     id: UUID
     schedule_optimization_run_id: UUID
@@ -914,6 +947,20 @@ class ScheduleOptionResponse(BaseModel):
     latest_end_time: str | None = None
     total_gap_minutes: int
     score: Decimal
+    total_score: Decimal
+    credit_score: Decimal
+    compactness_score: Decimal
+    days_score: Decimal
+    gap_score: Decimal
+    modality_score: Decimal
+    time_preference_score: Decimal
+    priority_score: Decimal
+    penalty_score: Decimal
+    score_explanation: list[dict[str, Any]]
+    score_breakdown: ScheduleScoreBreakdownResponse
+    diversity_rank: int
+    difference_summary: str
+    shared_section_count_with_previous_option: int
     explanation: str
     selected_sections: list[ScheduleOptionSectionResponse]
     created_at: datetime
@@ -944,11 +991,27 @@ class ScheduleWarningResponse(BaseModel):
     created_at: datetime
 
 
+class ScheduleRepairSuggestionResponse(BaseModel):
+    id: UUID
+    schedule_optimization_run_id: UUID
+    suggestion_type: str
+    affected_constraint: str | None = None
+    affected_course_id: UUID | None = None
+    affected_section_id: UUID | None = None
+    estimated_impact: str
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
 class ScheduleOptimizationDetailResponse(ScheduleOptimizationRunResponse):
     constraint_set: ScheduleConstraintSetResponse | None = None
     options: list[ScheduleOptionResponse]
     conflicts: list[ScheduleConflictResponse]
     warnings: list[ScheduleWarningResponse]
+    repair_suggestions: list[ScheduleRepairSuggestionResponse]
+    hard_constraint_results: list[dict[str, Any]]
+    soft_preference_results: list[dict[str, Any]]
 
 
 class ScheduleOptimizationComparisonResponse(BaseModel):

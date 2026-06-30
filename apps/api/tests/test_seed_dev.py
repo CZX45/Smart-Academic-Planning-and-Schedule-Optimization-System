@@ -20,6 +20,7 @@ from app.models.academic import (
     CourseRuleType,
     CourseSubstitution,
     CourseWaiver,
+    DayOfWeek,
     DegreeAuditRun,
     DegreeAuditWarning,
     Institution,
@@ -31,6 +32,7 @@ from app.models.academic import (
     RequirementNode,
     Section,
     SectionMeeting,
+    SectionModality,
     SectionStatus,
     SourceType,
     StudentAcademicProgram,
@@ -277,6 +279,61 @@ def test_mock_phase_2b_sections_rules_and_offering_patterns(session: Session) ->
         )
     )
     assert corequisite is not None
+
+
+def test_mock_phase_6b_schedule_seed_cases_are_available(session: Session) -> None:
+    seed_mock_data(session)
+
+    seed_marker = session.scalar(
+        select(DevSeedRecord).where(DevSeedRecord.seed_key == "mock-semester-schedule")
+    )
+    assert seed_marker is not None
+    assert seed_marker.payload["source_type"] == "MOCK"
+    assert seed_marker.payload["is_official"] is False
+    assert "near-duplicate sections for diversity ranking" in seed_marker.payload["schedule_cases"]
+
+    fin_300 = session.scalar(
+        select(Course).where(Course.subject_code == "FIN", Course.course_number == "300")
+    )
+    fin_403 = session.scalar(
+        select(Course).where(Course.subject_code == "FIN", Course.course_number == "403")
+    )
+    assert fin_300 is not None
+    assert fin_403 is not None
+
+    fin_300_sections = session.scalars(
+        select(Section).where(Section.course_id == fin_300.id).order_by(Section.section_code)
+    ).all()
+    assert {section.section_code for section in fin_300_sections}.issuperset(
+        {"001", "002", "AFT", "WEB"}
+    )
+    assert all(section.source_type is SourceType.MOCK for section in fin_300_sections)
+    assert all(section.is_official is False for section in fin_300_sections)
+
+    online_fin_403 = session.scalar(
+        select(Section).where(
+            Section.course_id == fin_403.id,
+            Section.modality == SectionModality.ONLINE_SYNCHRONOUS,
+        )
+    )
+    assert online_fin_403 is not None
+
+    afternoon_meetings = session.scalars(
+        select(SectionMeeting)
+        .join(Section, SectionMeeting.section_id == Section.id)
+        .where(
+            Section.course_id == fin_300.id,
+            Section.section_code == "AFT",
+        )
+    ).all()
+    assert {meeting.day_of_week for meeting in afternoon_meetings} == {
+        DayOfWeek.TUESDAY,
+        DayOfWeek.THURSDAY,
+    }
+    assert all(
+        meeting.start_time is not None and meeting.start_time.hour >= 13
+        for meeting in afternoon_meetings
+    )
 
 
 def test_mock_phase_5a_planner_seed_cases_are_available(session: Session) -> None:
