@@ -13,6 +13,7 @@ from app.models.academic import (
     AcademicProgram,
     AcademicTerm,
     ApprovalStatus,
+    AuditWarningSeverity,
     Campus,
     Course,
     CourseEquivalency,
@@ -23,9 +24,22 @@ from app.models.academic import (
     CourseRuleType,
     CourseSubstitution,
     CourseWaiver,
+    DataImportFile,
+    DataImportRun,
+    DataImportStatus,
+    DataImportStorageStrategy,
+    DataImportType,
     DayOfWeek,
     DegreeLevel,
     FrequencyType,
+    ImportedRecord,
+    ImportedRecordStatus,
+    ImportedRecordType,
+    ImportMappingCandidate,
+    ImportMatchType,
+    ImportPreviewSummary,
+    ImportTargetEntityType,
+    ImportValidationWarning,
     Institution,
     MeetingType,
     ProgramCombinationRule,
@@ -1868,6 +1882,160 @@ def seed_mock_data(session: Session) -> None:
     merge_all(session, combination_rules)
     session.flush()
 
+    phase7a_run_id = seed_uuid("data-import-run:mock-phase-7a-transcript")
+    phase7a_file_hash = "7a" * 32
+    phase7a_record_fin300_id = seed_uuid("imported-record:mock-phase-7a-fin-300")
+    phase7a_record_fin999_id = seed_uuid("imported-record:mock-phase-7a-fin-999")
+    phase7a_source = mock_source()
+    phase7a_source["source_reference"] = "Phase 7A deterministic mock data import seed"
+    phase7a_source["source_confidence"] = "mock"
+    phase7a_import_run = DataImportRun(
+        id=phase7a_run_id,
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        import_type=DataImportType.UNOFFICIAL_TRANSCRIPT,
+        status=DataImportStatus.PARSED_WITH_WARNINGS,
+        storage_strategy=DataImportStorageStrategy.METADATA_ONLY,
+        file_name="mock-transcript-phase-7a.csv",
+        file_mime_type="text/csv",
+        file_size_bytes=148,
+        file_sha256=phase7a_file_hash,
+        parser_version="phase7a-data-import-v1",
+        record_count=2,
+        valid_record_count=1,
+        warning_count=2,
+        error_count=0,
+        official_application_ready=False,
+        **phase7a_source,
+    )
+    phase7a_import_file = DataImportFile(
+        id=seed_uuid("data-import-file:mock-phase-7a-transcript"),
+        data_import_run_id=phase7a_run_id,
+        storage_strategy=DataImportStorageStrategy.METADATA_ONLY,
+        file_name=phase7a_import_run.file_name,
+        file_mime_type=phase7a_import_run.file_mime_type,
+        file_size_bytes=phase7a_import_run.file_size_bytes,
+        file_sha256=phase7a_file_hash,
+        content_preview="term,course_code,title,grade,credits,status",
+    )
+    phase7a_import_records = [
+        ImportedRecord(
+            id=phase7a_record_fin300_id,
+            data_import_run_id=phase7a_run_id,
+            record_type=ImportedRecordType.COURSE_ATTEMPT,
+            row_number=2,
+            status=ImportedRecordStatus.VALID_WITH_WARNINGS,
+            external_identifier="FIN 300",
+            raw_label="FIN 300 Mock Managerial Finance",
+            normalized_payload={
+                "term": "2024FA",
+                "course_code": "FIN 300",
+                "title": "Mock Managerial Finance",
+                "grade": "B",
+                "credits": "3.0",
+                "status": "COMPLETED",
+            },
+            confidence_score=Decimal("0.80"),
+        ),
+        ImportedRecord(
+            id=phase7a_record_fin999_id,
+            data_import_run_id=phase7a_run_id,
+            record_type=ImportedRecordType.COURSE_ATTEMPT,
+            row_number=3,
+            status=ImportedRecordStatus.AMBIGUOUS,
+            external_identifier="FIN 999",
+            raw_label="FIN 999 Unreviewed Special Topic",
+            normalized_payload={
+                "term": "2024FA",
+                "course_code": "FIN 999",
+                "title": "Unreviewed Special Topic",
+                "grade": "A",
+                "credits": "3.0",
+                "status": "COMPLETED",
+            },
+            confidence_score=Decimal("0.35"),
+        ),
+    ]
+    phase7a_mapping_candidates = [
+        ImportMappingCandidate(
+            id=seed_uuid("import-mapping-candidate:mock-phase-7a-fin-300"),
+            imported_record_id=phase7a_record_fin300_id,
+            target_entity_type=ImportTargetEntityType.COURSE,
+            target_entity_id=seed_uuid("course:FIN-300"),
+            match_type=ImportMatchType.EXACT_CODE,
+            confidence_score=Decimal("1.00"),
+            is_selected=True,
+            reason_code="EXACT_COURSE_CODE",
+            explanation="FIN 300 exactly matches mock catalog course FIN 300.",
+        ),
+        ImportMappingCandidate(
+            id=seed_uuid("import-mapping-candidate:mock-phase-7a-fin-999"),
+            imported_record_id=phase7a_record_fin999_id,
+            target_entity_type=ImportTargetEntityType.UNKNOWN,
+            target_entity_id=None,
+            match_type=ImportMatchType.NO_MATCH,
+            confidence_score=Decimal("0.00"),
+            is_selected=False,
+            reason_code="UNMATCHED_COURSE_CODE",
+            explanation=(
+                "FIN 999 did not match a reviewed mock catalog record and requires manual review "
+                "before academic use."
+            ),
+        ),
+    ]
+    phase7a_warnings = [
+        ImportValidationWarning(
+            id=seed_uuid("import-validation-warning:mock-phase-7a-staging"),
+            data_import_run_id=phase7a_run_id,
+            imported_record_id=None,
+            warning_code="STAGING_ONLY_NOT_OFFICIAL",
+            severity=AuditWarningSeverity.WARNING,
+            message="Phase 7A mock import seed is staging-only and not official school policy.",
+            requires_advisor_confirmation=True,
+        ),
+        ImportValidationWarning(
+            id=seed_uuid("import-validation-warning:mock-phase-7a-fin-999"),
+            data_import_run_id=phase7a_run_id,
+            imported_record_id=phase7a_record_fin999_id,
+            warning_code="UNMATCHED_COURSE_CODE",
+            severity=AuditWarningSeverity.WARNING,
+            message="FIN 999 is staged but not matched to a reviewed course.",
+            requires_advisor_confirmation=True,
+        ),
+    ]
+    phase7a_preview = ImportPreviewSummary(
+        id=seed_uuid("import-preview-summary:mock-phase-7a-transcript"),
+        data_import_run_id=phase7a_run_id,
+        record_count=2,
+        valid_record_count=1,
+        warning_count=2,
+        error_count=0,
+        official_application_ready=False,
+        summary_payload={
+            "staging_only": True,
+            "source_type": SourceType.MOCK.value,
+            "disclaimers": [
+                "This import preview is staging-only and is not official school policy.",
+                "Imported records are mock until reviewed by a school or advisor.",
+                (
+                    "Phase 7A does not change official transcript, catalog, section, "
+                    "registration, seat, or waitlist records."
+                ),
+            ],
+        },
+    )
+    merge_all(
+        session,
+        [
+            phase7a_import_run,
+            phase7a_import_file,
+            *phase7a_import_records,
+            *phase7a_mapping_candidates,
+            *phase7a_warnings,
+            phase7a_preview,
+        ],
+    )
+    session.flush()
+
     merge_all(
         session,
         [
@@ -2015,6 +2183,23 @@ def seed_mock_data(session: Session) -> None:
                         "partial option repair demonstration",
                     ],
                     "registration_actions": "not implemented",
+                },
+            ),
+            DevSeedRecord(
+                id=seed_uuid("dev-seed-record:mock-data-import-preview"),
+                seed_key="mock-data-import-preview",
+                label="Phase 7A mock read-only data import staging seed marker",
+                payload={
+                    "source_type": SourceType.MOCK.value,
+                    "is_official": False,
+                    "staging_tables_only": True,
+                    "sample_imports": [
+                        "mock unofficial transcript CSV",
+                        "matched course mapping candidate",
+                        "unmatched course warning",
+                    ],
+                    "registration_actions": "not implemented",
+                    "official_domain_writes": "not implemented",
                 },
             ),
         ],

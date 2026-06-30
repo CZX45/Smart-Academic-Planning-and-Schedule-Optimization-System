@@ -293,6 +293,34 @@ Phase 5A additionally emits advisor-confirmation warnings for mock plan estimate
 
 Phase 6A additionally emits advisor-confirmation warnings for mock schedule data, missing or ambiguous section restrictions, eligibility estimates, permission-required sections, unavailable or conflicting sections, bounded-search limits, credit shortfalls, and any schedule recommendation based on non-official section snapshots. Phase 6B carries those warnings forward and adds structured repair suggestions when a hard constraint or preference set prevents a fully feasible schedule.
 
+## 11. Read-only Data Import Preview Rules
+
+Phase 7A stages mock or student-provided academic data for review. It supports bounded CSV/JSON previews for unofficial transcripts, degree-audit exports, course catalogs, section schedules, and generic records.
+
+Phase 7A hard rules:
+
+- Imported rows are staging records only.
+- Every import run must preserve source type, source reference where available, parser version, file metadata, checksum, import type, status, record counts, warnings, and preview disclaimers.
+- `official_application_ready` must remain false.
+- Official-source imports are rejected until a later reviewed import workflow exists.
+- Imported rows must not create, update, or delete `StudentCourseAttempt`, `TransferCredit`, `Course`, `Section`, `RequirementNode`, degree-audit, planner, schedule, registration, seat, or waitlist records.
+- Mapping candidates are suggestions with confidence, reason code, and explanation; they are not applied matches.
+- Unmatched, ambiguous, unsupported, or mock rows must produce warnings that require advisor or school confirmation for high-impact use.
+
+Phase 7A allowed behavior:
+
+- Normalize generic course-code fields such as `FIN 300` or `FIN-300`.
+- Store bounded normalized payload snippets for preview and testing.
+- Match staged course-like rows against existing mock catalog courses by exact normalized code.
+- Return records, mapping candidates, warnings, preview summaries, and student import history through API endpoints.
+- Render a web preview panel with non-official, staging-only, and advisor-confirmation disclaimers.
+
+Phase 7A forbidden behavior:
+
+- Real school login, SAML, MFA, CAPTCHA, portal scraping, browser extension import, OCR-heavy extraction, or official source ingestion.
+- Automatic registration, add/drop, swap, seat polling, seat grabbing, waitlist handling, or advisor approval workflows.
+- Presenting imported, mock, inferred, or student-provided data as official school policy.
+
 ## 9. Phase 3A Requirement Status Semantics
 
 - `SATISFIED`: the requirement is completed by valid completed records or approved transfer/substitution records.

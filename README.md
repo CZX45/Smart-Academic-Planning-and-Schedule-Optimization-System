@@ -2,7 +2,7 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 6B extends the mock-only Semester Schedule Optimizer on top of Degree Audit, What-if Scenarios, Course Eligibility, and the Long-Term Academic Planner. It creates persisted single-term section schedule snapshots with constraint sets, ranked options, selected option sections, conflicts, repair suggestions, warnings, deterministic score breakdowns, and diversity explanations. It does **not** create registrations, add/drop/swap courses, join waitlists, poll seats, run OR-Tools, scrape portals, bypass school authentication, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 7A adds a read-only Data Import Preview foundation on top of Degree Audit, What-if Scenarios, Course Eligibility, the Long-Term Academic Planner, and the Semester Schedule Optimizer. It parses small mock or student-provided CSV/JSON academic data into staging tables, proposes mapping candidates, emits validation warnings, and renders a preview panel. It does **not** apply imported rows to official domain tables, create registrations, add/drop/swap courses, join waitlists, poll seats, run OR-Tools, scrape portals, bypass school authentication, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
@@ -258,6 +258,23 @@ Phase 6B preference inputs include normalized preference weights, per-course pri
 
 The web app includes a Semester Schedule Builder panel for mock course sets, no-Friday and unavailable-time constraints, pinned/excluded section choices, online/compact/fewer-day/no-gap/morning/afternoon preferences, high-diversity ranking, partial-option controls, ranked option output, score breakdowns, repair suggestions, conflicts, warnings, saved-schedule comparison, and offline/failure/schema-error states.
 
+## Phase 7A read-only data import preview API
+
+Phase 7A creates staging-only import previews under `/api/v1/data-imports`. Imports are bounded, synchronous, mock or student-provided, and metadata-only for file storage. The service parses CSV or JSON content, normalizes generic course-code fields, stores raw normalized payload snippets in `imported_records`, creates mapping candidates, emits warnings, and returns preview disclaimers.
+
+Supported endpoint family:
+
+- `POST /api/v1/data-imports`
+- `GET /api/v1/data-imports/{run_id}`
+- `GET /api/v1/data-imports/{run_id}/records`
+- `GET /api/v1/data-imports/{run_id}/mapping-candidates`
+- `GET /api/v1/data-imports/{run_id}/warnings`
+- `GET /api/v1/data-imports/{run_id}/preview`
+- `POST /api/v1/data-imports/{run_id}/validate`
+- `GET /api/v1/students/{student_id}/data-imports`
+
+Import types include unofficial transcript CSV, degree audit JSON, catalog CSV, section schedule CSV, and generic CSV/JSON. Phase 7A intentionally keeps `official_application_ready = false`; it never writes imported records into `student_course_attempts`, `courses`, `sections`, requirement tables, registration state, seat counts, or waitlists. The web app includes a Data Import Preview panel with required non-official and advisor-confirmation disclaimers.
+
 ## Quality gates
 
 Run the following before opening a pull request:
@@ -297,6 +314,8 @@ Phase 4 adds `EligibilityCheckRun`, `RuleEvaluation`, `RuleExpressionEvaluation`
 Phase 5A adds `AcademicPlanRun`, `AcademicPlanTerm`, `AcademicPlanCourse`, `AcademicPlanRequirementCoverage`, and `AcademicPlanWarning`. It snapshots mock long-term course plans without changing official student declarations, course attempts, sections, section meetings, or registration records.
 
 Phase 6A adds `ScheduleOptimizationRun`, `ScheduleConstraintSet`, `ScheduleOption`, `ScheduleOptionSection`, `ScheduleConflict`, and `ScheduleWarning`. Phase 6B extends those snapshots with advanced preference fields, score components, diversity metadata, and `ScheduleRepairSuggestion`. It snapshots mock single-term section schedules without changing official student declarations, course attempts, sections, section meetings, seat records, waitlists, or registration records.
+
+Phase 7A adds `DataImportRun`, `DataImportFile`, `ImportedRecord`, `ImportMappingCandidate`, `ImportValidationWarning`, and `ImportPreviewSummary`. These tables are import staging and preview tables only; they preserve source metadata, warnings, reason codes, and mapping explanations without applying imported records to official academic-domain tables.
 
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 

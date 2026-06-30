@@ -4,6 +4,10 @@ import {
   ApiResponseSchemaError,
   AcademicPlanDetailSchema,
   CourseEligibilityCheckSchema,
+  DataImportRunSchema,
+  ImportMappingCandidateSchema,
+  ImportPreviewSummarySchema,
+  ImportValidationWarningSchema,
   HealthResponseSchema,
   ReadinessResponseSchema,
   AcademicScenarioSchema,
@@ -17,6 +21,7 @@ import {
   ScheduleOptimizationDetailSchema,
   createAcademicPlan,
   createCourseEligibilityCheck,
+  createDataImport,
   createScheduleOptimization,
   fetchHealth,
 } from "./index.js";
@@ -170,6 +175,127 @@ describe("degree audit schemas", () => {
         created_at: "2026-06-23T00:00:00Z",
       }),
     ).toMatchObject({ warning_code: "PENDING_TRANSFER" });
+  });
+});
+
+describe("data import schemas", () => {
+  it("validates staging-only import runs, mappings, warnings, and previews", () => {
+    const run = DataImportRunSchema.parse({
+      id: "00000000-0000-4000-8000-000000000701",
+      student_profile_id: "00000000-0000-4000-8000-000000000702",
+      import_type: "UNOFFICIAL_TRANSCRIPT",
+      status: "PARSED_WITH_WARNINGS",
+      storage_strategy: "METADATA_ONLY",
+      file_name: "mock-transcript.csv",
+      file_mime_type: "text/csv",
+      file_size_bytes: 148,
+      file_sha256:
+        "7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a",
+      parser_version: "phase7a-data-import-v1",
+      record_count: 2,
+      valid_record_count: 1,
+      warning_count: 2,
+      error_count: 0,
+      official_application_ready: false,
+      started_at: "2026-06-30T00:00:00Z",
+      completed_at: "2026-06-30T00:00:01Z",
+      source: { source_type: "STUDENT_PROVIDED", is_official: false },
+      created_at: "2026-06-30T00:00:00Z",
+      updated_at: "2026-06-30T00:00:01Z",
+    });
+    expect(run.official_application_ready).toBe(false);
+
+    expect(
+      ImportMappingCandidateSchema.parse({
+        id: "00000000-0000-4000-8000-000000000703",
+        imported_record_id: "00000000-0000-4000-8000-000000000704",
+        target_entity_type: "COURSE",
+        target_entity_id: "00000000-0000-4000-8000-000000000705",
+        match_type: "EXACT_CODE",
+        confidence_score: "1.00",
+        is_selected: true,
+        reason_code: "EXACT_COURSE_CODE",
+        explanation: "FIN 300 exactly matches mock catalog course FIN 300.",
+        created_at: "2026-06-30T00:00:00Z",
+      }),
+    ).toMatchObject({ target_entity_type: "COURSE" });
+
+    expect(
+      ImportValidationWarningSchema.parse({
+        id: "00000000-0000-4000-8000-000000000706",
+        data_import_run_id: run.id,
+        imported_record_id: null,
+        warning_code: "STAGING_ONLY_NOT_OFFICIAL",
+        severity: "WARNING",
+        message: "Preview only.",
+        requires_advisor_confirmation: true,
+        created_at: "2026-06-30T00:00:00Z",
+      }),
+    ).toMatchObject({ requires_advisor_confirmation: true });
+
+    expect(
+      ImportPreviewSummarySchema.parse({
+        id: "00000000-0000-4000-8000-000000000707",
+        data_import_run_id: run.id,
+        record_count: 2,
+        valid_record_count: 1,
+        warning_count: 2,
+        error_count: 0,
+        official_application_ready: false,
+        disclaimers: [
+          "This import preview is staging-only and is not official school policy.",
+        ],
+        summary_payload: { staging_only: true },
+        created_at: "2026-06-30T00:00:00Z",
+      }),
+    ).toMatchObject({ official_application_ready: false });
+  });
+
+  it("creates data import previews through the typed helper", async () => {
+    const fetchFn = async () =>
+      new Response(
+        JSON.stringify({
+          id: "00000000-0000-4000-8000-000000000701",
+          student_profile_id: "00000000-0000-4000-8000-000000000702",
+          import_type: "UNOFFICIAL_TRANSCRIPT",
+          status: "PARSED_WITH_WARNINGS",
+          storage_strategy: "METADATA_ONLY",
+          file_name: "mock-transcript.csv",
+          file_mime_type: "text/csv",
+          file_size_bytes: 148,
+          file_sha256:
+            "7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a",
+          parser_version: "phase7a-data-import-v1",
+          record_count: 2,
+          valid_record_count: 1,
+          warning_count: 2,
+          error_count: 0,
+          official_application_ready: false,
+          started_at: "2026-06-30T00:00:00Z",
+          completed_at: "2026-06-30T00:00:01Z",
+          source: { source_type: "STUDENT_PROVIDED", is_official: false },
+          created_at: "2026-06-30T00:00:00Z",
+          updated_at: "2026-06-30T00:00:01Z",
+        }),
+      );
+
+    await expect(
+      createDataImport(
+        "http://api.test",
+        {
+          student_profile_id: "00000000-0000-4000-8000-000000000702",
+          import_type: "UNOFFICIAL_TRANSCRIPT",
+          file_name: "mock-transcript.csv",
+          file_mime_type: "text/csv",
+          content: "term,course_code\n2024FA,FIN 300",
+          source_type: "STUDENT_PROVIDED",
+        },
+        { fetchFn },
+      ),
+    ).resolves.toMatchObject({
+      status: "PARSED_WITH_WARNINGS",
+      official_application_ready: false,
+    });
   });
 });
 

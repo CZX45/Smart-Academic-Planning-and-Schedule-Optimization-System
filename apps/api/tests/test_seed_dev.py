@@ -20,9 +20,14 @@ from app.models.academic import (
     CourseRuleType,
     CourseSubstitution,
     CourseWaiver,
+    DataImportRun,
     DayOfWeek,
     DegreeAuditRun,
     DegreeAuditWarning,
+    ImportedRecord,
+    ImportMappingCandidate,
+    ImportPreviewSummary,
+    ImportValidationWarning,
     Institution,
     ProgramCombinationRule,
     ProgramType,
@@ -40,7 +45,7 @@ from app.models.academic import (
     StudentProfile,
     TransferCredit,
 )
-from app.seed_dev import seed_mock_data
+from app.seed_dev import seed_mock_data, seed_uuid
 
 SEEDED_MODELS = [
     DevSeedRecord,
@@ -74,6 +79,14 @@ AUDIT_SNAPSHOT_MODELS = [
     DegreeAuditWarning,
 ]
 
+DATA_IMPORT_STAGING_MODELS = [
+    DataImportRun,
+    ImportedRecord,
+    ImportMappingCandidate,
+    ImportValidationWarning,
+    ImportPreviewSummary,
+]
+
 
 @pytest.fixture()
 def session() -> Generator[Session, None, None]:
@@ -97,6 +110,8 @@ def table_counts(session: Session) -> dict[str, int]:
         counts[model.__tablename__] = session.scalar(select(func.count()).select_from(model)) or 0
     for model in AUDIT_SNAPSHOT_MODELS:
         counts[model.__tablename__] = session.scalar(select(func.count()).select_from(model)) or 0
+    for model in DATA_IMPORT_STAGING_MODELS:
+        counts[model.__tablename__] = session.scalar(select(func.count()).select_from(model)) or 0
     return counts
 
 
@@ -113,6 +128,8 @@ def test_mock_seed_is_idempotent(session: Session) -> None:
     assert first_counts["sections"] >= 3
     assert first_counts["course_rules"] >= 4
     assert first_counts["degree_audit_runs"] == 0
+    assert first_counts["data_import_runs"] == 1
+    assert first_counts["imported_records"] == 2
 
 
 def test_seeded_academic_data_is_mock_and_not_official(session: Session) -> None:
@@ -291,6 +308,34 @@ def test_mock_phase_6b_schedule_seed_cases_are_available(session: Session) -> No
     assert seed_marker.payload["source_type"] == "MOCK"
     assert seed_marker.payload["is_official"] is False
     assert "near-duplicate sections for diversity ranking" in seed_marker.payload["schedule_cases"]
+
+
+def test_mock_phase_7a_data_import_seed_is_staging_only(session: Session) -> None:
+    seed_mock_data(session)
+
+    seed_marker = session.scalar(
+        select(DevSeedRecord).where(DevSeedRecord.seed_key == "mock-data-import-preview")
+    )
+    assert seed_marker is not None
+    assert seed_marker.payload["source_type"] == "MOCK"
+    assert seed_marker.payload["is_official"] is False
+    assert seed_marker.payload["staging_tables_only"] is True
+
+    run = session.get(DataImportRun, seed_uuid("data-import-run:mock-phase-7a-transcript"))
+    assert run is not None
+    assert run.source_type is SourceType.MOCK
+    assert run.is_official is False
+    assert run.official_application_ready is False
+    assert run.record_count == 2
+    assert run.warning_count == 2
+
+    preview = session.scalar(
+        select(ImportPreviewSummary).where(ImportPreviewSummary.data_import_run_id == run.id)
+    )
+    assert preview is not None
+    assert preview.official_application_ready is False
+    disclaimers = cast(list[str], preview.summary_payload["disclaimers"])
+    assert "not official school policy" in " ".join(disclaimers).lower()
 
     fin_300 = session.scalar(
         select(Course).where(Course.subject_code == "FIN", Course.course_number == "300")

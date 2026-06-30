@@ -1024,6 +1024,151 @@ class ScheduleOptimizationComparisonResponse(BaseModel):
     completed_at: datetime | None = None
 
 
+DataImportTypeValue = Literal[
+    "UNOFFICIAL_TRANSCRIPT",
+    "DEGREE_AUDIT_EXPORT",
+    "COURSE_CATALOG",
+    "SECTION_SCHEDULE",
+    "GENERIC_CSV",
+    "GENERIC_JSON",
+    "UNKNOWN",
+]
+DataImportStatusValue = Literal[
+    "PENDING",
+    "PARSING",
+    "PARSED",
+    "PARSED_WITH_WARNINGS",
+    "FAILED",
+    "REVIEW_REQUIRED",
+    "ARCHIVED",
+]
+DataImportStorageStrategyValue = Literal[
+    "METADATA_ONLY",
+    "LOCAL_DEV_FIXTURE",
+    "EXTERNAL_OBJECT_REFERENCE",
+    "NOT_STORED",
+]
+ImportedRecordTypeValue = Literal[
+    "COURSE_ATTEMPT",
+    "TRANSFER_CREDIT",
+    "REQUIREMENT",
+    "COURSE",
+    "SECTION",
+    "SECTION_MEETING",
+    "PROGRAM",
+    "UNKNOWN",
+]
+ImportedRecordStatusValue = Literal[
+    "VALID",
+    "VALID_WITH_WARNINGS",
+    "AMBIGUOUS",
+    "DUPLICATE",
+    "INVALID",
+    "UNSUPPORTED",
+]
+ImportTargetEntityTypeValue = Literal[
+    "COURSE",
+    "SECTION",
+    "ACADEMIC_TERM",
+    "REQUIREMENT_NODE",
+    "PROGRAM_VERSION",
+    "STUDENT_COURSE_ATTEMPT",
+    "UNKNOWN",
+]
+ImportMatchTypeValue = Literal[
+    "EXACT_CODE",
+    "NORMALIZED_CODE",
+    "TITLE_SIMILARITY",
+    "TERM_MATCH",
+    "MANUAL_REQUIRED",
+    "NO_MATCH",
+]
+DataImportSourceTypeValue = Literal["MOCK", "IMPORTED", "STUDENT_PROVIDED", "INFERRED", "OFFICIAL"]
+
+
+class DataImportCreateRequest(BaseModel):
+    student_profile_id: UUID
+    import_type: DataImportTypeValue
+    file_name: str = Field(min_length=1, max_length=255)
+    file_mime_type: str = Field(min_length=1, max_length=120)
+    content: str = Field(min_length=1, max_length=65536)
+    source_type: DataImportSourceTypeValue = "STUDENT_PROVIDED"
+    source_reference: str | None = Field(default=None, max_length=500)
+
+
+class DataImportRunResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    import_type: DataImportTypeValue
+    status: DataImportStatusValue
+    storage_strategy: DataImportStorageStrategyValue
+    file_name: str
+    file_mime_type: str
+    file_size_bytes: int
+    file_sha256: str
+    parser_version: str
+    record_count: int
+    valid_record_count: int
+    warning_count: int
+    error_count: int
+    official_application_ready: bool
+    started_at: datetime
+    completed_at: datetime | None = None
+    source: SourceMetadataResponse
+    created_at: datetime
+    updated_at: datetime
+
+
+class ImportedRecordResponse(BaseModel):
+    id: UUID
+    data_import_run_id: UUID
+    record_type: ImportedRecordTypeValue
+    row_number: int
+    status: ImportedRecordStatusValue
+    external_identifier: str | None = None
+    raw_label: str
+    normalized_payload: dict[str, Any]
+    confidence_score: Decimal
+    created_at: datetime
+
+
+class ImportMappingCandidateResponse(BaseModel):
+    id: UUID
+    imported_record_id: UUID
+    target_entity_type: ImportTargetEntityTypeValue
+    target_entity_id: UUID | None = None
+    match_type: ImportMatchTypeValue
+    confidence_score: Decimal
+    is_selected: bool
+    reason_code: str
+    explanation: str
+    created_at: datetime
+
+
+class ImportValidationWarningResponse(BaseModel):
+    id: UUID
+    data_import_run_id: UUID
+    imported_record_id: UUID | None = None
+    warning_code: str
+    severity: AuditWarningSeverityValue
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class ImportPreviewSummaryResponse(BaseModel):
+    id: UUID
+    data_import_run_id: UUID
+    record_count: int
+    valid_record_count: int
+    warning_count: int
+    error_count: int
+    official_application_ready: bool
+    disclaimers: list[str]
+    summary_payload: dict[str, Any]
+    created_at: datetime
+
+
 class ErrorDetailResponse(BaseModel):
     code: str
     message: str

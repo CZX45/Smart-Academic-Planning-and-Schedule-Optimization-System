@@ -259,6 +259,72 @@ class ScheduleConflictType(StrEnum):
     MANUAL_REVIEW_REQUIRED = "MANUAL_REVIEW_REQUIRED"
 
 
+class DataImportType(StrEnum):
+    UNOFFICIAL_TRANSCRIPT = "UNOFFICIAL_TRANSCRIPT"
+    DEGREE_AUDIT_EXPORT = "DEGREE_AUDIT_EXPORT"
+    COURSE_CATALOG = "COURSE_CATALOG"
+    SECTION_SCHEDULE = "SECTION_SCHEDULE"
+    GENERIC_CSV = "GENERIC_CSV"
+    GENERIC_JSON = "GENERIC_JSON"
+    UNKNOWN = "UNKNOWN"
+
+
+class DataImportStatus(StrEnum):
+    PENDING = "PENDING"
+    PARSING = "PARSING"
+    PARSED = "PARSED"
+    PARSED_WITH_WARNINGS = "PARSED_WITH_WARNINGS"
+    FAILED = "FAILED"
+    REVIEW_REQUIRED = "REVIEW_REQUIRED"
+    ARCHIVED = "ARCHIVED"
+
+
+class DataImportStorageStrategy(StrEnum):
+    METADATA_ONLY = "METADATA_ONLY"
+    LOCAL_DEV_FIXTURE = "LOCAL_DEV_FIXTURE"
+    EXTERNAL_OBJECT_REFERENCE = "EXTERNAL_OBJECT_REFERENCE"
+    NOT_STORED = "NOT_STORED"
+
+
+class ImportedRecordType(StrEnum):
+    COURSE_ATTEMPT = "COURSE_ATTEMPT"
+    TRANSFER_CREDIT = "TRANSFER_CREDIT"
+    REQUIREMENT = "REQUIREMENT"
+    COURSE = "COURSE"
+    SECTION = "SECTION"
+    SECTION_MEETING = "SECTION_MEETING"
+    PROGRAM = "PROGRAM"
+    UNKNOWN = "UNKNOWN"
+
+
+class ImportedRecordStatus(StrEnum):
+    VALID = "VALID"
+    VALID_WITH_WARNINGS = "VALID_WITH_WARNINGS"
+    AMBIGUOUS = "AMBIGUOUS"
+    DUPLICATE = "DUPLICATE"
+    INVALID = "INVALID"
+    UNSUPPORTED = "UNSUPPORTED"
+
+
+class ImportTargetEntityType(StrEnum):
+    COURSE = "COURSE"
+    SECTION = "SECTION"
+    ACADEMIC_TERM = "ACADEMIC_TERM"
+    REQUIREMENT_NODE = "REQUIREMENT_NODE"
+    PROGRAM_VERSION = "PROGRAM_VERSION"
+    STUDENT_COURSE_ATTEMPT = "STUDENT_COURSE_ATTEMPT"
+    UNKNOWN = "UNKNOWN"
+
+
+class ImportMatchType(StrEnum):
+    EXACT_CODE = "EXACT_CODE"
+    NORMALIZED_CODE = "NORMALIZED_CODE"
+    TITLE_SIMILARITY = "TITLE_SIMILARITY"
+    TERM_MATCH = "TERM_MATCH"
+    MANUAL_REQUIRED = "MANUAL_REQUIRED"
+    NO_MATCH = "NO_MATCH"
+
+
 class ScenarioRelationshipType(StrEnum):
     PRIMARY_MAJOR = "PRIMARY_MAJOR"
     MINOR = "MINOR"
@@ -558,6 +624,55 @@ schedule_option_status_enum = Enum(
 schedule_conflict_type_enum = Enum(
     ScheduleConflictType,
     name="schedule_conflict_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+data_import_type_enum = Enum(
+    DataImportType,
+    name="data_import_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+data_import_status_enum = Enum(
+    DataImportStatus,
+    name="data_import_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+data_import_storage_strategy_enum = Enum(
+    DataImportStorageStrategy,
+    name="data_import_storage_strategy",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+imported_record_type_enum = Enum(
+    ImportedRecordType,
+    name="imported_record_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+imported_record_status_enum = Enum(
+    ImportedRecordStatus,
+    name="imported_record_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+import_target_entity_type_enum = Enum(
+    ImportTargetEntityType,
+    name="import_target_entity_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+import_match_type_enum = Enum(
+    ImportMatchType,
+    name="import_match_type",
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
@@ -3434,6 +3549,274 @@ class ScheduleWarning(UuidPrimaryKeyMixin, Base):
     )
     message: Mapped[str] = mapped_column(Text, nullable=False)
     requires_advisor_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class DataImportRun(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixin, Base):
+    __tablename__ = "data_import_runs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["student_profile_id"],
+            ["student_profiles.id"],
+            name="fk_data_import_runs_student",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("is_official = false", name="ck_data_import_runs_never_official"),
+        CheckConstraint(
+            "source_type != 'OFFICIAL'",
+            name="ck_data_import_runs_no_official_source",
+        ),
+        CheckConstraint(
+            "official_application_ready = false",
+            name="ck_data_import_runs_preview_only",
+        ),
+        CheckConstraint("length(file_name) > 0", name="ck_data_import_runs_file_name"),
+        CheckConstraint("length(file_mime_type) > 0", name="ck_data_import_runs_mime"),
+        CheckConstraint("file_size_bytes >= 0", name="ck_data_import_runs_file_size"),
+        CheckConstraint("length(file_sha256) = 64", name="ck_data_import_runs_sha256"),
+        CheckConstraint("length(parser_version) > 0", name="ck_data_import_runs_parser"),
+        CheckConstraint("record_count >= 0", name="ck_data_import_runs_record_count"),
+        CheckConstraint("valid_record_count >= 0", name="ck_data_import_runs_valid_count"),
+        CheckConstraint("warning_count >= 0", name="ck_data_import_runs_warning_count"),
+        CheckConstraint("error_count >= 0", name="ck_data_import_runs_error_count"),
+        Index("ix_data_import_runs_student_created", "student_profile_id", "created_at"),
+        Index("ix_data_import_runs_status_type", "status", "import_type"),
+    )
+
+    student_profile_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    import_type: Mapped[DataImportType] = mapped_column(data_import_type_enum, nullable=False)
+    status: Mapped[DataImportStatus] = mapped_column(data_import_status_enum, nullable=False)
+    storage_strategy: Mapped[DataImportStorageStrategy] = mapped_column(
+        data_import_storage_strategy_enum,
+        nullable=False,
+        default=DataImportStorageStrategy.METADATA_ONLY,
+    )
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_mime_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    file_size_bytes: Mapped[int] = mapped_column(nullable=False, default=0)
+    file_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    parser_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    record_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    valid_record_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    warning_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    error_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    official_application_ready: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class DataImportFile(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "data_import_files"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["data_import_run_id"],
+            ["data_import_runs.id"],
+            name="fk_data_import_files_run",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("length(file_name) > 0", name="ck_data_import_files_file_name"),
+        CheckConstraint("length(file_mime_type) > 0", name="ck_data_import_files_mime"),
+        CheckConstraint("file_size_bytes >= 0", name="ck_data_import_files_file_size"),
+        CheckConstraint("length(file_sha256) = 64", name="ck_data_import_files_sha256"),
+        CheckConstraint(
+            "content_preview IS NULL OR length(content_preview) <= 500",
+            name="ck_data_import_files_preview_length",
+        ),
+        UniqueConstraint("data_import_run_id", name="uq_data_import_files_run"),
+    )
+
+    data_import_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    storage_strategy: Mapped[DataImportStorageStrategy] = mapped_column(
+        data_import_storage_strategy_enum,
+        nullable=False,
+    )
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_mime_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    file_size_bytes: Mapped[int] = mapped_column(nullable=False)
+    file_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    content_preview: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    external_object_reference: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ImportedRecord(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "imported_records"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["data_import_run_id"],
+            ["data_import_runs.id"],
+            name="fk_imported_records_run",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("row_number > 0", name="ck_imported_records_row_number"),
+        CheckConstraint("length(raw_label) > 0", name="ck_imported_records_raw_label"),
+        CheckConstraint(
+            "confidence_score >= 0 AND confidence_score <= 1",
+            name="ck_imported_records_confidence",
+        ),
+        UniqueConstraint(
+            "data_import_run_id",
+            "row_number",
+            name="uq_imported_records_run_row",
+        ),
+        Index("ix_imported_records_run_status", "data_import_run_id", "status"),
+    )
+
+    data_import_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    record_type: Mapped[ImportedRecordType] = mapped_column(
+        imported_record_type_enum,
+        nullable=False,
+    )
+    row_number: Mapped[int] = mapped_column(nullable=False)
+    status: Mapped[ImportedRecordStatus] = mapped_column(
+        imported_record_status_enum,
+        nullable=False,
+    )
+    external_identifier: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    raw_label: Mapped[str] = mapped_column(String(500), nullable=False)
+    normalized_payload: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    confidence_score: Mapped[Decimal] = mapped_column(
+        Numeric(4, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ImportMappingCandidate(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "import_mapping_candidates"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["imported_record_id"],
+            ["imported_records.id"],
+            name="fk_import_mapping_candidates_record",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint(
+            "confidence_score >= 0 AND confidence_score <= 1",
+            name="ck_import_mapping_candidates_confidence",
+        ),
+        CheckConstraint("length(reason_code) > 0", name="ck_import_mapping_candidates_reason"),
+        CheckConstraint(
+            "length(explanation) > 0",
+            name="ck_import_mapping_candidates_explained",
+        ),
+        Index(
+            "ix_import_mapping_candidates_record_score",
+            "imported_record_id",
+            "confidence_score",
+        ),
+    )
+
+    imported_record_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    target_entity_type: Mapped[ImportTargetEntityType] = mapped_column(
+        import_target_entity_type_enum,
+        nullable=False,
+    )
+    target_entity_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    match_type: Mapped[ImportMatchType] = mapped_column(import_match_type_enum, nullable=False)
+    confidence_score: Mapped[Decimal] = mapped_column(
+        Numeric(4, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    is_selected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    reason_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ImportValidationWarning(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "import_validation_warnings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["data_import_run_id"],
+            ["data_import_runs.id"],
+            name="fk_import_validation_warnings_run",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["imported_record_id"],
+            ["imported_records.id"],
+            name="fk_import_validation_warnings_record",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("length(warning_code) > 0", name="ck_import_warnings_code"),
+        CheckConstraint("length(message) > 0", name="ck_import_warnings_message"),
+        Index("ix_import_warnings_run_severity", "data_import_run_id", "severity"),
+    )
+
+    data_import_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    imported_record_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    warning_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    severity: Mapped[AuditWarningSeverity] = mapped_column(
+        audit_warning_severity_enum,
+        nullable=False,
+    )
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    requires_advisor_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ImportPreviewSummary(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "import_preview_summaries"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["data_import_run_id"],
+            ["data_import_runs.id"],
+            name="fk_import_preview_summaries_run",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("record_count >= 0", name="ck_import_previews_record_count"),
+        CheckConstraint("valid_record_count >= 0", name="ck_import_previews_valid_count"),
+        CheckConstraint("warning_count >= 0", name="ck_import_previews_warning_count"),
+        CheckConstraint("error_count >= 0", name="ck_import_previews_error_count"),
+        CheckConstraint(
+            "official_application_ready = false",
+            name="ck_import_previews_preview_only",
+        ),
+        UniqueConstraint("data_import_run_id", name="uq_import_previews_run"),
+    )
+
+    data_import_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    record_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    valid_record_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    warning_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    error_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    official_application_ready: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+    summary_payload: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

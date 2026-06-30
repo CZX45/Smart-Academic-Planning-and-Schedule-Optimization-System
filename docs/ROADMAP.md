@@ -236,7 +236,7 @@ Testable outcomes:
 
 ## Phase 6: Semester Schedule Optimizer
 
-Status: current phase, with Phase 6B advanced preference and diversity layer implemented.
+Status: implemented and CI-verified in Phase 6B.
 
 Phase 6A deliverables:
 
@@ -290,13 +290,42 @@ Testable outcomes:
 - Meeting conflicts and unavailable blocks are enforced.
 - Preference scores are explainable.
 
-## Phase 7: Product UI MVP
+## Phase 7A: Read-only Data Import Foundation
+
+Status: current phase.
+
+Deliverables:
+
+- Staging-only data import tables for runs, file metadata, imported records, mapping candidates, validation warnings, and preview summaries.
+- Bounded CSV/JSON parser support for unofficial transcript, degree audit export, catalog, section schedule, and generic mock/student-provided records.
+- Read-only `/api/v1/data-imports` endpoint family for create, detail, records, mapping candidates, warnings, preview, validation, and student import history.
+- Mock seed import preview fixture with non-official source metadata.
+- Shared TypeScript schemas/client helpers and Data Import Preview UI panel.
+- Documentation and tests proving imports do not apply records to official academic-domain tables.
+
+Testable outcomes:
+
+- Import previews preserve source metadata, checksum, parser version, normalized payload snippets, mapping explanations, warning codes, advisor-confirmation flags, and non-official disclaimers.
+- Official-source imports are rejected in Phase 7A.
+- No import flow writes to `student_course_attempts`, `courses`, `sections`, requirements, seat counts, waitlists, advisor approval, or registration data.
+- Browser extension import, real school login, SAML/MFA/CAPTCHA, scraping, OCR-heavy extraction, seat monitoring, automatic registration, and waitlist actions remain out of scope.
+
+Deferred from Phase 7A:
+
+- Applying reviewed imports to domain tables.
+- Real school data connectors.
+- Browser extension workflows.
+- Advisor approval queues.
+- OCR-heavy document extraction.
+- Automatic registration, add/drop/swap, seat monitoring, and waitlist handling.
+
+## Phase 7B: Product UI MVP
 
 Deliverables:
 
 - Student dashboard.
 - Degree progress visualization.
-- Course history editor/import draft UI.
+- Course history editor/import draft UI built on top of the Phase 7A staging boundary.
 - Academic plan view.
 - Schedule preference form.
 - Schedule candidate comparison.
