@@ -1,114 +1,114 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from "@playwright/test";
 
 const mockAuditRun = {
-  id: '00000000-0000-4000-8000-000000000001',
-  student_profile_id: '74874476-4024-5e2d-807a-fbb4ab620249',
-  program_version_id: 'f65bee76-6061-515f-a3df-cdf5567514af',
-  status: 'COMPLETED_WITH_WARNINGS',
-  engine_version: 'phase-3a-degree-audit-v1',
-  calculation_mode: 'PROJECTED',
-  started_at: '2026-06-23T00:00:00Z',
-  completed_at: '2026-06-23T00:00:01Z',
-  total_required_credits: '120.0',
-  completed_credits: '18.0',
-  in_progress_credits: '3.0',
-  planned_credits: '3.0',
-  remaining_credits: '96.0',
-  completion_percentage: '20.00',
-  source_snapshot_hash: 'e2e-fixture',
-  created_at: '2026-06-23T00:00:00Z',
-  updated_at: '2026-06-23T00:00:01Z',
+  id: "00000000-0000-4000-8000-000000000001",
+  student_profile_id: "74874476-4024-5e2d-807a-fbb4ab620249",
+  program_version_id: "f65bee76-6061-515f-a3df-cdf5567514af",
+  status: "COMPLETED_WITH_WARNINGS",
+  engine_version: "phase-3a-degree-audit-v1",
+  calculation_mode: "PROJECTED",
+  started_at: "2026-06-23T00:00:00Z",
+  completed_at: "2026-06-23T00:00:01Z",
+  total_required_credits: "120.0",
+  completed_credits: "18.0",
+  in_progress_credits: "3.0",
+  planned_credits: "3.0",
+  remaining_credits: "96.0",
+  completion_percentage: "20.00",
+  source_snapshot_hash: "e2e-fixture",
+  created_at: "2026-06-23T00:00:00Z",
+  updated_at: "2026-06-23T00:00:01Z",
 };
 
 const mockRequirements = [
   {
-    id: '00000000-0000-4000-8000-000000000011',
+    id: "00000000-0000-4000-8000-000000000011",
     degree_audit_run_id: mockAuditRun.id,
-    requirement_node_id: '00000000-0000-4000-8000-000000000012',
-    requirement_code: 'MOCK-REQ',
-    requirement_name: 'Mock Finance Foundations',
-    requirement_type: 'REQUIRED_COURSE',
-    status: 'SATISFIED',
-    required_credits: '3.0',
-    satisfied_credits: '3.0',
-    remaining_credits: '0.0',
+    requirement_node_id: "00000000-0000-4000-8000-000000000012",
+    requirement_code: "MOCK-REQ",
+    requirement_name: "Mock Finance Foundations",
+    requirement_type: "REQUIRED_COURSE",
+    status: "SATISFIED",
+    required_credits: "3.0",
+    satisfied_credits: "3.0",
+    remaining_credits: "0.0",
     required_courses: 1,
     satisfied_courses: 1,
     remaining_courses: 0,
-    minimum_grade: 'C',
-    explanation: 'Completed by mock coursework.',
+    minimum_grade: "C",
+    explanation: "Completed by mock coursework.",
     display_order: 10,
     applications: [
       {
-        id: '00000000-0000-4000-8000-000000000013',
-        course_id: '00000000-0000-4000-8000-000000000014',
-        course_code: 'FIN 301',
-        course_title: 'Mock Finance Foundations',
-        student_course_attempt_id: '00000000-0000-4000-8000-000000000015',
-        application_type: 'COURSE_ATTEMPT',
-        credit_amount: '3.0',
-        grade: 'B',
+        id: "00000000-0000-4000-8000-000000000013",
+        course_id: "00000000-0000-4000-8000-000000000014",
+        course_code: "FIN 301",
+        course_title: "Mock Finance Foundations",
+        student_course_attempt_id: "00000000-0000-4000-8000-000000000015",
+        application_type: "COURSE_ATTEMPT",
+        credit_amount: "3.0",
+        grade: "B",
         is_completed: true,
         is_in_progress: false,
         is_planned: false,
         is_shared: false,
-        explanation: 'Applied completed attempt.',
+        explanation: "Applied completed attempt.",
       },
     ],
     warnings: [
       {
-        id: '00000000-0000-4000-8000-000000000016',
+        id: "00000000-0000-4000-8000-000000000016",
         degree_audit_run_id: mockAuditRun.id,
-        requirement_evaluation_id: '00000000-0000-4000-8000-000000000011',
-        warning_code: 'PENDING_TRANSFER',
-        severity: 'WARNING',
-        message: 'Pending transfer credit is not applied.',
+        requirement_evaluation_id: "00000000-0000-4000-8000-000000000011",
+        warning_code: "PENDING_TRANSFER",
+        severity: "WARNING",
+        message: "Pending transfer credit is not applied.",
         requires_advisor_confirmation: true,
-        created_at: '2026-06-23T00:00:00Z',
+        created_at: "2026-06-23T00:00:00Z",
       },
     ],
   },
 ];
 
 const mockScenario = {
-  id: '00000000-0000-4000-8000-000000000101',
-  student_profile_id: '74874476-4024-5e2d-807a-fbb4ab620249',
-  name: 'Add Accounting Minor',
-  scenario_type: 'ADD_MINOR',
-  status: 'COMPLETED_WITH_WARNINGS',
-  base_program_version_id: 'f65bee76-6061-515f-a3df-cdf5567514af',
-  engine_version: 'phase-3b-academic-scenario-v1',
-  created_at: '2026-06-23T00:00:00Z',
-  updated_at: '2026-06-23T00:00:01Z',
-  completed_at: '2026-06-23T00:00:01Z',
+  id: "00000000-0000-4000-8000-000000000101",
+  student_profile_id: "74874476-4024-5e2d-807a-fbb4ab620249",
+  name: "Add Accounting Minor",
+  scenario_type: "ADD_MINOR",
+  status: "COMPLETED_WITH_WARNINGS",
+  base_program_version_id: "f65bee76-6061-515f-a3df-cdf5567514af",
+  engine_version: "phase-3b-academic-scenario-v1",
+  created_at: "2026-06-23T00:00:00Z",
+  updated_at: "2026-06-23T00:00:01Z",
+  completed_at: "2026-06-23T00:00:01Z",
 };
 
 const mockScenarioPrograms = [
   {
-    id: '00000000-0000-4000-8000-000000000111',
+    id: "00000000-0000-4000-8000-000000000111",
     academic_plan_scenario_id: mockScenario.id,
-    program_version_id: 'f65bee76-6061-515f-a3df-cdf5567514af',
-    relationship_type: 'PRIMARY_MAJOR',
+    program_version_id: "f65bee76-6061-515f-a3df-cdf5567514af",
+    relationship_type: "PRIMARY_MAJOR",
     is_existing_program: true,
     is_hypothetical: false,
     priority: 0,
-    program_code: 'BSFIN',
-    program_name: 'Mock BS Finance',
-    source: { source_type: 'MOCK', is_official: false },
-    created_at: '2026-06-23T00:00:00Z',
+    program_code: "BSFIN",
+    program_name: "Mock BS Finance",
+    source: { source_type: "MOCK", is_official: false },
+    created_at: "2026-06-23T00:00:00Z",
   },
   {
-    id: '00000000-0000-4000-8000-000000000112',
+    id: "00000000-0000-4000-8000-000000000112",
     academic_plan_scenario_id: mockScenario.id,
-    program_version_id: '00000000-0000-4000-8000-000000000113',
-    relationship_type: 'MINOR',
+    program_version_id: "00000000-0000-4000-8000-000000000113",
+    relationship_type: "MINOR",
     is_existing_program: false,
     is_hypothetical: true,
     priority: 10,
-    program_code: 'MINACCT',
-    program_name: 'Mock Accounting Minor',
-    source: { source_type: 'MOCK', is_official: false },
-    created_at: '2026-06-23T00:00:00Z',
+    program_code: "MINACCT",
+    program_name: "Mock Accounting Minor",
+    source: { source_type: "MOCK", is_official: false },
+    created_at: "2026-06-23T00:00:00Z",
   },
 ];
 
@@ -118,139 +118,143 @@ const mockScenarioAudits = [
     scenario_program: mockScenarioPrograms[1],
     degree_audit_run: {
       ...mockAuditRun,
-      id: '00000000-0000-4000-8000-000000000114',
+      id: "00000000-0000-4000-8000-000000000114",
       program_version_id: mockScenarioPrograms[1].program_version_id,
-      remaining_credits: '9.0',
+      remaining_credits: "9.0",
     },
   },
 ];
 
 const mockScenarioAllocations = [
   {
-    id: '00000000-0000-4000-8000-000000000121',
+    id: "00000000-0000-4000-8000-000000000121",
     academic_plan_scenario_id: mockScenario.id,
-    student_course_attempt_id: '00000000-0000-4000-8000-000000000122',
+    student_course_attempt_id: "00000000-0000-4000-8000-000000000122",
     transfer_credit_id: null,
-    course_id: '00000000-0000-4000-8000-000000000123',
-    course_code: 'ACCT 300',
-    course_title: 'Mock Accounting Analytics',
+    course_id: "00000000-0000-4000-8000-000000000123",
+    course_code: "ACCT 300",
+    course_title: "Mock Accounting Analytics",
     program_version_id: mockScenarioPrograms[1].program_version_id,
-    requirement_node_id: '00000000-0000-4000-8000-000000000124',
-    requirement_code: 'ACCT-MINOR-CORE',
-    allocation_type: 'SHARED',
-    credit_amount: '3.0',
+    requirement_node_id: "00000000-0000-4000-8000-000000000124",
+    requirement_code: "ACCT-MINOR-CORE",
+    allocation_type: "SHARED",
+    credit_amount: "3.0",
     is_shared: true,
     is_unique_to_program: false,
     allocation_rank: 1,
-    reason_code: 'SHARED_BY_RULE',
-    explanation: 'Shared because both requirements and the mock rule allow overlap.',
-    created_at: '2026-06-23T00:00:00Z',
+    reason_code: "SHARED_BY_RULE",
+    explanation:
+      "Shared because both requirements and the mock rule allow overlap.",
+    created_at: "2026-06-23T00:00:00Z",
   },
   {
-    id: '00000000-0000-4000-8000-000000000125',
+    id: "00000000-0000-4000-8000-000000000125",
     academic_plan_scenario_id: mockScenario.id,
-    student_course_attempt_id: '00000000-0000-4000-8000-000000000126',
+    student_course_attempt_id: "00000000-0000-4000-8000-000000000126",
     transfer_credit_id: null,
-    course_id: '00000000-0000-4000-8000-000000000127',
-    course_code: 'ECON 250',
-    course_title: 'Mock Managerial Economics',
+    course_id: "00000000-0000-4000-8000-000000000127",
+    course_code: "ECON 250",
+    course_title: "Mock Managerial Economics",
     program_version_id: mockScenarioPrograms[1].program_version_id,
-    requirement_node_id: '00000000-0000-4000-8000-000000000128',
-    requirement_code: 'ACCT-MINOR-UNIQUE',
-    allocation_type: 'UNIQUE_SECONDARY',
-    credit_amount: '3.0',
+    requirement_node_id: "00000000-0000-4000-8000-000000000128",
+    requirement_code: "ACCT-MINOR-UNIQUE",
+    allocation_type: "UNIQUE_SECONDARY",
+    credit_amount: "3.0",
     is_shared: false,
     is_unique_to_program: true,
     allocation_rank: 2,
-    reason_code: 'UNIQUE_SECONDARY_CREDIT',
-    explanation: 'Counts only toward the secondary program.',
-    created_at: '2026-06-23T00:00:00Z',
+    reason_code: "UNIQUE_SECONDARY_CREDIT",
+    explanation: "Counts only toward the secondary program.",
+    created_at: "2026-06-23T00:00:00Z",
   },
 ];
 
 const mockScenarioWarnings = [
   {
-    id: '00000000-0000-4000-8000-000000000131',
+    id: "00000000-0000-4000-8000-000000000131",
     academic_plan_scenario_id: mockScenario.id,
     scenario_program_id: mockScenarioPrograms[1].id,
-    warning_code: 'ESTIMATED_ADDITIONAL_CREDITS',
-    severity: 'WARNING',
-    message: 'Additional credits are an estimate and do not predict graduation timing.',
+    warning_code: "ESTIMATED_ADDITIONAL_CREDITS",
+    severity: "WARNING",
+    message:
+      "Additional credits are an estimate and do not predict graduation timing.",
     requires_advisor_confirmation: true,
-    created_at: '2026-06-23T00:00:00Z',
+    created_at: "2026-06-23T00:00:00Z",
   },
 ];
 
 const mockScenarioComparison = {
   academic_plan_scenario_id: mockScenario.id,
-  completed_credits: '18.0',
-  in_progress_credits: '3.0',
-  planned_credits: '3.0',
-  remaining_requirement_credits: '12.0',
-  shared_credits: '3.0',
-  unique_secondary_credits: '6.0',
-  estimated_additional_credits: '9.0',
+  completed_credits: "18.0",
+  in_progress_credits: "3.0",
+  planned_credits: "3.0",
+  remaining_requirement_credits: "12.0",
+  shared_credits: "3.0",
+  unique_secondary_credits: "6.0",
+  estimated_additional_credits: "9.0",
   unresolved_requirements: 4,
   manual_review_count: 1,
-  completion_percentage: '82.50',
+  completion_percentage: "82.50",
   is_estimate: true,
-  created_at: '2026-06-23T00:00:00Z',
+  created_at: "2026-06-23T00:00:00Z",
 };
 
 const mockEligibilityCheck = {
-  id: '00000000-0000-4000-8000-000000000301',
-  institution_id: '00000000-0000-4000-8000-000000000302',
-  student_profile_id: '74874476-4024-5e2d-807a-fbb4ab620249',
-  course_id: 'b59bb40b-e3d0-57e3-a424-0d9b8bd2f305',
-  section_id: '404cdd60-5eb4-5128-8ae3-ecbe6430f6d1',
-  target_term_id: 'fed14bfe-972b-5392-8c72-379ceb879e85',
-  mode: 'REGISTRATION',
-  status: 'COMPLETED_WITH_WARNINGS',
-  engine_version: 'phase-4-course-eligibility-v1',
-  overall_result: 'PERMISSION_REQUIRED',
-  academic_eligibility_result: 'PERMISSION_REQUIRED',
-  started_at: '2026-06-24T00:00:00Z',
-  completed_at: '2026-06-24T00:00:01Z',
-  source_snapshot_hash: 'e2e-eligibility-fixture',
+  id: "00000000-0000-4000-8000-000000000301",
+  institution_id: "00000000-0000-4000-8000-000000000302",
+  student_profile_id: "74874476-4024-5e2d-807a-fbb4ab620249",
+  course_id: "b59bb40b-e3d0-57e3-a424-0d9b8bd2f305",
+  section_id: "404cdd60-5eb4-5128-8ae3-ecbe6430f6d1",
+  target_term_id: "fed14bfe-972b-5392-8c72-379ceb879e85",
+  mode: "REGISTRATION",
+  status: "COMPLETED_WITH_WARNINGS",
+  engine_version: "phase-4-course-eligibility-v1",
+  overall_result: "PERMISSION_REQUIRED",
+  academic_eligibility_result: "PERMISSION_REQUIRED",
+  started_at: "2026-06-24T00:00:00Z",
+  completed_at: "2026-06-24T00:00:01Z",
+  source_snapshot_hash: "e2e-eligibility-fixture",
   rule_evaluations: [
     {
-      id: '00000000-0000-4000-8000-000000000307',
-      eligibility_check_run_id: '00000000-0000-4000-8000-000000000301',
-      course_rule_id: '00000000-0000-4000-8000-000000000308',
-      result: 'PERMISSION_REQUIRED',
-      rule_type: 'PERMISSION',
-      explanation: 'Permission rule evaluated as PERMISSION_REQUIRED.',
+      id: "00000000-0000-4000-8000-000000000307",
+      eligibility_check_run_id: "00000000-0000-4000-8000-000000000301",
+      course_rule_id: "00000000-0000-4000-8000-000000000308",
+      result: "PERMISSION_REQUIRED",
+      rule_type: "PERMISSION",
+      explanation: "Permission rule evaluated as PERMISSION_REQUIRED.",
       display_order: 0,
       expressions: [
         {
-          id: '00000000-0000-4000-8000-000000000309',
-          rule_evaluation_id: '00000000-0000-4000-8000-000000000307',
-          course_rule_expression_id: '00000000-0000-4000-8000-000000000310',
-          node_type: 'PERMISSION_REQUIRED',
-          result: 'PERMISSION_REQUIRED',
+          id: "00000000-0000-4000-8000-000000000309",
+          rule_evaluation_id: "00000000-0000-4000-8000-000000000307",
+          course_rule_expression_id: "00000000-0000-4000-8000-000000000310",
+          node_type: "PERMISSION_REQUIRED",
+          result: "PERMISSION_REQUIRED",
           actual_value: null,
-          expected_value: 'DEPARTMENT_APPROVAL',
+          expected_value: "DEPARTMENT_APPROVAL",
           matched_course_id: null,
           matched_attempt_id: null,
-          reason_code: 'PERMISSION_REQUIRED',
-          explanation: 'Permission is required before registration eligibility can be confirmed.',
-          created_at: '2026-06-24T00:00:01Z',
+          reason_code: "PERMISSION_REQUIRED",
+          explanation:
+            "Permission is required before registration eligibility can be confirmed.",
+          created_at: "2026-06-24T00:00:01Z",
         },
       ],
-      created_at: '2026-06-24T00:00:01Z',
+      created_at: "2026-06-24T00:00:01Z",
     },
   ],
   blocking_reasons: [],
   conditional_reasons: [],
   permissions_required: [
     {
-      reason_code: 'PERMISSION_REQUIRED',
-      explanation: 'Permission is required before registration eligibility can be confirmed.',
-      course_rule_id: '00000000-0000-4000-8000-000000000308',
-      course_rule_expression_id: '00000000-0000-4000-8000-000000000310',
+      reason_code: "PERMISSION_REQUIRED",
+      explanation:
+        "Permission is required before registration eligibility can be confirmed.",
+      course_rule_id: "00000000-0000-4000-8000-000000000308",
+      course_rule_expression_id: "00000000-0000-4000-8000-000000000310",
       referenced_entity_type: null,
       referenced_entity_id: null,
-      expected_value: 'DEPARTMENT_APPROVAL',
+      expected_value: "DEPARTMENT_APPROVAL",
       actual_value: null,
     },
   ],
@@ -258,173 +262,176 @@ const mockEligibilityCheck = {
   corequisites_to_add: [],
   corequisite_summary: null,
   registration_availability: {
-    section_status: 'WAITLIST',
+    section_status: "WAITLIST",
     available_seats: 0,
     waitlist_available: 4,
-    availability_note: 'Section availability is reported separately from academic eligibility.',
+    availability_note:
+      "Section availability is reported separately from academic eligibility.",
   },
   warnings: [
     {
-      id: '00000000-0000-4000-8000-000000000311',
-      eligibility_check_run_id: '00000000-0000-4000-8000-000000000301',
+      id: "00000000-0000-4000-8000-000000000311",
+      eligibility_check_run_id: "00000000-0000-4000-8000-000000000301",
       rule_evaluation_id: null,
-      warning_code: 'MOCK_ELIGIBILITY_ESTIMATE',
-      severity: 'INFO',
-      message: 'This eligibility result uses mock non-official rules.',
+      warning_code: "MOCK_ELIGIBILITY_ESTIMATE",
+      severity: "INFO",
+      message: "This eligibility result uses mock non-official rules.",
       requires_advisor_confirmation: true,
-      created_at: '2026-06-24T00:00:01Z',
+      created_at: "2026-06-24T00:00:01Z",
     },
   ],
-  created_at: '2026-06-24T00:00:00Z',
-  updated_at: '2026-06-24T00:00:01Z',
+  created_at: "2026-06-24T00:00:00Z",
+  updated_at: "2026-06-24T00:00:01Z",
 };
 
 const mockAcademicPlan = {
-  id: '00000000-0000-4000-8000-000000000401',
-  student_profile_id: '74874476-4024-5e2d-807a-fbb4ab620249',
-  program_version_id: 'f65bee76-6061-515f-a3df-cdf5567514af',
+  id: "00000000-0000-4000-8000-000000000401",
+  student_profile_id: "74874476-4024-5e2d-807a-fbb4ab620249",
+  program_version_id: "f65bee76-6061-515f-a3df-cdf5567514af",
   academic_plan_scenario_id: null,
-  planning_mode: 'CURRENT_PROGRAM',
-  status: 'COMPLETED_WITH_WARNINGS',
-  engine_version: 'phase-5a-academic-planner-v1',
-  start_term_id: 'f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec',
-  target_completion_term_id: 'fed14bfe-972b-5392-8c72-379ceb879e85',
-  minimum_credits_per_term: '3.0',
-  maximum_credits_per_term: '9.0',
-  preferred_credits_per_term: '6.0',
-  completed_at: '2026-06-29T00:00:01Z',
-  created_at: '2026-06-29T00:00:00Z',
-  updated_at: '2026-06-29T00:00:01Z',
+  planning_mode: "CURRENT_PROGRAM",
+  status: "COMPLETED_WITH_WARNINGS",
+  engine_version: "phase-5a-academic-planner-v1",
+  start_term_id: "f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec",
+  target_completion_term_id: "fed14bfe-972b-5392-8c72-379ceb879e85",
+  minimum_credits_per_term: "3.0",
+  maximum_credits_per_term: "9.0",
+  preferred_credits_per_term: "6.0",
+  completed_at: "2026-06-29T00:00:01Z",
+  created_at: "2026-06-29T00:00:00Z",
+  updated_at: "2026-06-29T00:00:01Z",
   terms: [
     {
-      id: '00000000-0000-4000-8000-000000000402',
-      academic_plan_run_id: '00000000-0000-4000-8000-000000000401',
-      term_id: 'f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec',
-      term_code: '2024FA',
+      id: "00000000-0000-4000-8000-000000000402",
+      academic_plan_run_id: "00000000-0000-4000-8000-000000000401",
+      term_id: "f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec",
+      term_code: "2024FA",
       sequence_index: 0,
-      planned_credits: '3.0',
-      status: 'PLANNED',
-      explanation: 'Term is planned with mock remaining coursework.',
-      created_at: '2026-06-29T00:00:00Z',
+      planned_credits: "3.0",
+      status: "PLANNED",
+      explanation: "Term is planned with mock remaining coursework.",
+      created_at: "2026-06-29T00:00:00Z",
     },
     {
-      id: '00000000-0000-4000-8000-000000000403',
-      academic_plan_run_id: '00000000-0000-4000-8000-000000000401',
-      term_id: 'fed14bfe-972b-5392-8c72-379ceb879e85',
-      term_code: '2025SP',
+      id: "00000000-0000-4000-8000-000000000403",
+      academic_plan_run_id: "00000000-0000-4000-8000-000000000401",
+      term_id: "fed14bfe-972b-5392-8c72-379ceb879e85",
+      term_code: "2025SP",
       sequence_index: 1,
-      planned_credits: '6.0',
-      status: 'PLANNED',
-      explanation: 'Term is planned with a prerequisite unlock.',
-      created_at: '2026-06-29T00:00:00Z',
+      planned_credits: "6.0",
+      status: "PLANNED",
+      explanation: "Term is planned with a prerequisite unlock.",
+      created_at: "2026-06-29T00:00:00Z",
     },
   ],
   planned_courses: [
     {
-      id: '00000000-0000-4000-8000-000000000404',
-      academic_plan_term_id: '00000000-0000-4000-8000-000000000402',
-      term_id: 'f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec',
-      term_code: '2024FA',
-      course_id: 'e6ab2a34-d85a-5446-875e-83fd36d5b08e',
-      course_code: 'FIN 300',
-      course_title: 'Mock Corporate Finance',
-      requirement_node_id: '00000000-0000-4000-8000-000000000501',
-      requirement_code: 'FIN-PREREQ',
-      source: 'PREREQUISITE_UNLOCK',
+      id: "00000000-0000-4000-8000-000000000404",
+      academic_plan_term_id: "00000000-0000-4000-8000-000000000402",
+      term_id: "f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec",
+      term_code: "2024FA",
+      course_id: "e6ab2a34-d85a-5446-875e-83fd36d5b08e",
+      course_code: "FIN 300",
+      course_title: "Mock Corporate Finance",
+      requirement_node_id: "00000000-0000-4000-8000-000000000501",
+      requirement_code: "FIN-PREREQ",
+      source: "PREREQUISITE_UNLOCK",
       priority_rank: 0,
-      credits: '3.0',
-      eligibility_result: 'ELIGIBLE',
-      planning_status: 'PLANNED',
-      reason_code: 'PREREQUISITE_PLANNED_EARLIER',
-      explanation: 'Placed before FIN 400 so the later course can become eligible.',
-      created_at: '2026-06-29T00:00:00Z',
+      credits: "3.0",
+      eligibility_result: "ELIGIBLE",
+      planning_status: "PLANNED",
+      reason_code: "PREREQUISITE_PLANNED_EARLIER",
+      explanation:
+        "Placed before FIN 400 so the later course can become eligible.",
+      created_at: "2026-06-29T00:00:00Z",
     },
     {
-      id: '00000000-0000-4000-8000-000000000405',
-      academic_plan_term_id: '00000000-0000-4000-8000-000000000403',
-      term_id: 'fed14bfe-972b-5392-8c72-379ceb879e85',
-      term_code: '2025SP',
-      course_id: 'b59bb40b-e3d0-57e3-a424-0d9b8bd2f305',
-      course_code: 'FIN 400',
-      course_title: 'Mock Advanced Finance',
-      requirement_node_id: '00000000-0000-4000-8000-000000000502',
-      requirement_code: 'FIN-CAPSTONE',
-      source: 'DEGREE_AUDIT_REMAINING',
+      id: "00000000-0000-4000-8000-000000000405",
+      academic_plan_term_id: "00000000-0000-4000-8000-000000000403",
+      term_id: "fed14bfe-972b-5392-8c72-379ceb879e85",
+      term_code: "2025SP",
+      course_id: "b59bb40b-e3d0-57e3-a424-0d9b8bd2f305",
+      course_code: "FIN 400",
+      course_title: "Mock Advanced Finance",
+      requirement_node_id: "00000000-0000-4000-8000-000000000502",
+      requirement_code: "FIN-CAPSTONE",
+      source: "DEGREE_AUDIT_REMAINING",
       priority_rank: 1,
-      credits: '3.0',
-      eligibility_result: 'CONDITIONALLY_ELIGIBLE',
-      planning_status: 'CONDITIONALLY_PLANNED',
-      reason_code: 'REQUIREMENT_REMAINING',
-      explanation: 'Placed for a remaining requirement after prerequisite planning.',
-      created_at: '2026-06-29T00:00:00Z',
+      credits: "3.0",
+      eligibility_result: "CONDITIONALLY_ELIGIBLE",
+      planning_status: "CONDITIONALLY_PLANNED",
+      reason_code: "REQUIREMENT_REMAINING",
+      explanation:
+        "Placed for a remaining requirement after prerequisite planning.",
+      created_at: "2026-06-29T00:00:00Z",
     },
   ],
   requirement_coverage: [
     {
-      id: '00000000-0000-4000-8000-000000000406',
-      academic_plan_run_id: '00000000-0000-4000-8000-000000000401',
-      academic_plan_course_id: '00000000-0000-4000-8000-000000000405',
-      requirement_node_id: '00000000-0000-4000-8000-000000000502',
-      requirement_code: 'FIN-CAPSTONE',
-      coverage_type: 'DIRECT_REQUIREMENT',
-      credits: '3.0',
-      created_at: '2026-06-29T00:00:00Z',
+      id: "00000000-0000-4000-8000-000000000406",
+      academic_plan_run_id: "00000000-0000-4000-8000-000000000401",
+      academic_plan_course_id: "00000000-0000-4000-8000-000000000405",
+      requirement_node_id: "00000000-0000-4000-8000-000000000502",
+      requirement_code: "FIN-CAPSTONE",
+      coverage_type: "DIRECT_REQUIREMENT",
+      credits: "3.0",
+      created_at: "2026-06-29T00:00:00Z",
     },
   ],
   warnings: [
     {
-      id: '00000000-0000-4000-8000-000000000407',
-      academic_plan_run_id: '00000000-0000-4000-8000-000000000401',
+      id: "00000000-0000-4000-8000-000000000407",
+      academic_plan_run_id: "00000000-0000-4000-8000-000000000401",
       academic_plan_term_id: null,
       academic_plan_course_id: null,
-      warning_code: 'MOCK_PLAN_NOT_OFFICIAL',
-      severity: 'INFO',
-      message: 'This plan uses mock non-official catalog and section data.',
+      warning_code: "MOCK_PLAN_NOT_OFFICIAL",
+      severity: "INFO",
+      message: "This plan uses mock non-official catalog and section data.",
       requires_advisor_confirmation: true,
-      created_at: '2026-06-29T00:00:00Z',
+      created_at: "2026-06-29T00:00:00Z",
     },
   ],
 };
 
 const mockAcademicPlanComparison = {
   academic_plan_run_id: mockAcademicPlan.id,
-  status: 'COMPLETED_WITH_WARNINGS',
-  total_planned_credits: '9.0',
+  status: "COMPLETED_WITH_WARNINGS",
+  total_planned_credits: "9.0",
   term_count: 2,
   planned_course_count: 2,
   warning_count: 1,
-  completed_at: '2026-06-29T00:00:01Z',
+  completed_at: "2026-06-29T00:00:01Z",
 };
 
 const mockScheduleOptimization = {
-  id: '00000000-0000-4000-8000-000000000601',
-  student_profile_id: '74874476-4024-5e2d-807a-fbb4ab620249',
-  term_id: 'f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec',
+  id: "00000000-0000-4000-8000-000000000601",
+  student_profile_id: "74874476-4024-5e2d-807a-fbb4ab620249",
+  term_id: "f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec",
   academic_plan_run_id: null,
-  planning_mode: 'CUSTOM_COURSE_SET',
-  status: 'COMPLETED_WITH_WARNINGS',
-  engine_version: 'phase-6a-schedule-optimizer-v1',
-  minimum_credits: '3.0',
-  maximum_credits: '6.0',
-  preferred_credits: '6.0',
+  planning_mode: "CUSTOM_COURSE_SET",
+  status: "COMPLETED_WITH_WARNINGS",
+  engine_version: "phase-6b-schedule-optimizer-v1",
+  minimum_credits: "3.0",
+  maximum_credits: "6.0",
+  preferred_credits: "6.0",
   requested_option_count: 3,
-  completed_at: '2026-06-29T00:00:01Z',
-  created_at: '2026-06-29T00:00:00Z',
-  updated_at: '2026-06-29T00:00:01Z',
+  completed_at: "2026-06-29T00:00:01Z",
+  created_at: "2026-06-29T00:00:00Z",
+  updated_at: "2026-06-29T00:00:01Z",
   constraint_set: {
-    id: '00000000-0000-4000-8000-000000000602',
-    schedule_optimization_run_id: '00000000-0000-4000-8000-000000000601',
-    excluded_days: ['FRIDAY'],
+    id: "00000000-0000-4000-8000-000000000602",
+    schedule_optimization_run_id: "00000000-0000-4000-8000-000000000601",
+    excluded_days: ["FRIDAY"],
     unavailable_time_blocks: [
-      { day_of_week: 'TUESDAY', start_time: '11:00', end_time: '11:30' },
+      { day_of_week: "TUESDAY", start_time: "11:00", end_time: "11:30" },
     ],
-    earliest_start_time: '08:00',
-    latest_end_time: '18:00',
+    earliest_start_time: "08:00",
+    latest_end_time: "18:00",
     minimum_gap_minutes: null,
     maximum_gap_minutes: null,
     candidate_course_ids: [
-      'e6ab2a34-d85a-5446-875e-83fd36d5b08e',
-      '9413e6c7-26a0-5acf-9de4-88b132dc802d',
+      "e6ab2a34-d85a-5446-875e-83fd36d5b08e",
+      "9413e6c7-26a0-5acf-9de4-88b132dc802d",
     ],
     allowed_modalities: [],
     excluded_modalities: [],
@@ -439,119 +446,275 @@ const mockScheduleOptimization = {
     avoid_early_start: false,
     avoid_late_end: true,
     allow_permission_required: false,
-    created_at: '2026-06-29T00:00:00Z',
+    preference_weights: { priority: "2.0", gap: "1.5" },
+    course_priority_weights: {
+      "9413e6c7-26a0-5acf-9de4-88b132dc802d": "2.0",
+    },
+    section_priority_weights: {
+      "b4af4050-6534-5112-8351-c572d43bec95": "5.0",
+    },
+    prefer_no_gaps: true,
+    prefer_morning: true,
+    prefer_afternoon: false,
+    diversity_mode: "HIGH",
+    allow_partial_options: true,
+    max_combinations: 500,
+    created_at: "2026-06-29T00:00:00Z",
   },
   options: [
     {
-      id: '00000000-0000-4000-8000-000000000603',
-      schedule_optimization_run_id: '00000000-0000-4000-8000-000000000601',
+      id: "00000000-0000-4000-8000-000000000603",
+      schedule_optimization_run_id: "00000000-0000-4000-8000-000000000601",
       option_rank: 1,
-      status: 'FEASIBLE_WITH_WARNINGS',
-      total_credits: '6.0',
+      status: "FEASIBLE_WITH_WARNINGS",
+      total_credits: "6.0",
       class_days_count: 2,
-      earliest_start_time: '09:00',
-      latest_end_time: '12:15',
+      earliest_start_time: "09:00",
+      latest_end_time: "12:15",
       total_gap_minutes: 45,
-      score: '88.00',
-      explanation: 'Selected deterministic mock sections after applying constraints.',
-      selected_sections: [
+      score: "88.00",
+      total_score: "88.00",
+      credit_score: "30.00",
+      compactness_score: "17.00",
+      days_score: "12.00",
+      gap_score: "10.50",
+      modality_score: "8.00",
+      time_preference_score: "3.00",
+      priority_score: "20.00",
+      penalty_score: "-5.00",
+      score_explanation: [
         {
-          id: '00000000-0000-4000-8000-000000000604',
-          schedule_option_id: '00000000-0000-4000-8000-000000000603',
-          section_id: 'c080de5c-b981-54b9-b699-cde089ecce4c',
-          course_id: 'e6ab2a34-d85a-5446-875e-83fd36d5b08e',
-          course_code: 'FIN 300',
-          course_title: 'Mock Managerial Finance',
-          section_code: '001',
-          section_status: 'OPEN',
-          modality: 'IN_PERSON',
-          credits: '3.0',
-          eligibility_result: 'ELIGIBLE',
-          selection_reason: 'MANUAL_CANDIDATE',
-          meetings: [
-            {
-              id: '00000000-0000-4000-8000-000000000605',
-              section_id: 'c080de5c-b981-54b9-b699-cde089ecce4c',
-              meeting_type: 'LECTURE',
-              day_of_week: 'MONDAY',
-              start_time: '09:00',
-              end_time: '10:15',
-              start_date: '2024-08-26',
-              end_date: '2024-12-13',
-              building: 'Mock Academic Building',
-              room: '101',
-              timezone: 'America/New_York',
-              is_arranged: false,
-              is_online: false,
-              display_order: 10,
-            },
-          ],
-          created_at: '2026-06-29T00:00:00Z',
-        },
-        {
-          id: '00000000-0000-4000-8000-000000000606',
-          schedule_option_id: '00000000-0000-4000-8000-000000000603',
-          section_id: 'b4af4050-6534-5112-8351-c572d43bec95',
-          course_id: '9413e6c7-26a0-5acf-9de4-88b132dc802d',
-          course_code: 'FIN 403',
-          course_title: 'Mock International Finance',
-          section_code: '002',
-          section_status: 'OPEN',
-          modality: 'IN_PERSON',
-          credits: '3.0',
-          eligibility_result: 'ELIGIBLE',
-          selection_reason: 'MANUAL_CANDIDATE',
-          meetings: [
-            {
-              id: '00000000-0000-4000-8000-000000000607',
-              section_id: 'b4af4050-6534-5112-8351-c572d43bec95',
-              meeting_type: 'LECTURE',
-              day_of_week: 'TUESDAY',
-              start_time: '11:00',
-              end_time: '12:15',
-              start_date: '2024-08-26',
-              end_date: '2024-12-13',
-              building: 'Mock Academic Building',
-              room: '204',
-              timezone: 'America/New_York',
-              is_arranged: false,
-              is_online: false,
-              display_order: 10,
-            },
-          ],
-          created_at: '2026-06-29T00:00:00Z',
+          reason_code: "SECTION_PRIORITY_WEIGHT",
+          score: "20.00",
+          explanation: "FIN 403 002 has a section priority weight.",
         },
       ],
-      created_at: '2026-06-29T00:00:00Z',
+      score_breakdown: {
+        total_score: "88.00",
+        credit_score: "30.00",
+        compactness_score: "17.00",
+        days_score: "12.00",
+        gap_score: "10.50",
+        modality_score: "8.00",
+        time_preference_score: "3.00",
+        priority_score: "20.00",
+        penalty_score: "-5.00",
+        score_explanation: [
+          {
+            reason_code: "SECTION_PRIORITY_WEIGHT",
+            score: "20.00",
+            explanation: "FIN 403 002 has a section priority weight.",
+          },
+        ],
+      },
+      diversity_rank: 1,
+      difference_summary: "Top ranked option.",
+      shared_section_count_with_previous_option: 0,
+      explanation:
+        "Selected deterministic mock sections after applying constraints.",
+      selected_sections: [
+        {
+          id: "00000000-0000-4000-8000-000000000604",
+          schedule_option_id: "00000000-0000-4000-8000-000000000603",
+          section_id: "c080de5c-b981-54b9-b699-cde089ecce4c",
+          course_id: "e6ab2a34-d85a-5446-875e-83fd36d5b08e",
+          course_code: "FIN 300",
+          course_title: "Mock Managerial Finance",
+          section_code: "001",
+          section_status: "OPEN",
+          modality: "IN_PERSON",
+          credits: "3.0",
+          eligibility_result: "ELIGIBLE",
+          selection_reason: "MANUAL_CANDIDATE",
+          meetings: [
+            {
+              id: "00000000-0000-4000-8000-000000000605",
+              section_id: "c080de5c-b981-54b9-b699-cde089ecce4c",
+              meeting_type: "LECTURE",
+              day_of_week: "MONDAY",
+              start_time: "09:00",
+              end_time: "10:15",
+              start_date: "2024-08-26",
+              end_date: "2024-12-13",
+              building: "Mock Academic Building",
+              room: "101",
+              timezone: "America/New_York",
+              is_arranged: false,
+              is_online: false,
+              display_order: 10,
+            },
+          ],
+          created_at: "2026-06-29T00:00:00Z",
+        },
+        {
+          id: "00000000-0000-4000-8000-000000000606",
+          schedule_option_id: "00000000-0000-4000-8000-000000000603",
+          section_id: "b4af4050-6534-5112-8351-c572d43bec95",
+          course_id: "9413e6c7-26a0-5acf-9de4-88b132dc802d",
+          course_code: "FIN 403",
+          course_title: "Mock International Finance",
+          section_code: "002",
+          section_status: "OPEN",
+          modality: "IN_PERSON",
+          credits: "3.0",
+          eligibility_result: "ELIGIBLE",
+          selection_reason: "MANUAL_CANDIDATE",
+          meetings: [
+            {
+              id: "00000000-0000-4000-8000-000000000607",
+              section_id: "b4af4050-6534-5112-8351-c572d43bec95",
+              meeting_type: "LECTURE",
+              day_of_week: "TUESDAY",
+              start_time: "11:00",
+              end_time: "12:15",
+              start_date: "2024-08-26",
+              end_date: "2024-12-13",
+              building: "Mock Academic Building",
+              room: "204",
+              timezone: "America/New_York",
+              is_arranged: false,
+              is_online: false,
+              display_order: 10,
+            },
+          ],
+          created_at: "2026-06-29T00:00:00Z",
+        },
+      ],
+      created_at: "2026-06-29T00:00:00Z",
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000611",
+      schedule_optimization_run_id: "00000000-0000-4000-8000-000000000601",
+      option_rank: 2,
+      status: "FEASIBLE_WITH_WARNINGS",
+      total_credits: "6.0",
+      class_days_count: 1,
+      earliest_start_time: "15:00",
+      latest_end_time: "16:15",
+      total_gap_minutes: 0,
+      score: "74.00",
+      total_score: "74.00",
+      credit_score: "30.00",
+      compactness_score: "20.00",
+      days_score: "15.00",
+      gap_score: "15.00",
+      modality_score: "6.00",
+      time_preference_score: "0.00",
+      priority_score: "0.00",
+      penalty_score: "0.00",
+      score_explanation: [
+        {
+          reason_code: "NO_GAPS",
+          score: "15.00",
+          explanation: "No fixed meeting gaps.",
+        },
+      ],
+      score_breakdown: {
+        total_score: "74.00",
+        credit_score: "30.00",
+        compactness_score: "20.00",
+        days_score: "15.00",
+        gap_score: "15.00",
+        modality_score: "6.00",
+        time_preference_score: "0.00",
+        priority_score: "0.00",
+        penalty_score: "0.00",
+        score_explanation: [
+          {
+            reason_code: "NO_GAPS",
+            score: "15.00",
+            explanation: "No fixed meeting gaps.",
+          },
+        ],
+      },
+      diversity_rank: 2,
+      difference_summary: "uses FIN 403 section ONL instead of 002",
+      shared_section_count_with_previous_option: 1,
+      explanation:
+        "Alternative keeps the same course set with a different modality.",
+      selected_sections: [
+        {
+          id: "00000000-0000-4000-8000-000000000612",
+          schedule_option_id: "00000000-0000-4000-8000-000000000611",
+          section_id: "3c836aa0-a147-5702-90c1-5a192554862c",
+          course_id: "9413e6c7-26a0-5acf-9de4-88b132dc802d",
+          course_code: "FIN 403",
+          course_title: "Mock International Finance",
+          section_code: "ONL",
+          section_status: "OPEN",
+          modality: "ONLINE_SYNCHRONOUS",
+          credits: "3.0",
+          eligibility_result: "ELIGIBLE",
+          selection_reason: "SECTION_SATISFIES_HARD_CONSTRAINTS",
+          meetings: [
+            {
+              id: "00000000-0000-4000-8000-000000000613",
+              section_id: "3c836aa0-a147-5702-90c1-5a192554862c",
+              meeting_type: "LECTURE",
+              day_of_week: "WEDNESDAY",
+              start_time: "15:00",
+              end_time: "16:15",
+              start_date: "2024-08-26",
+              end_date: "2024-12-13",
+              building: null,
+              room: null,
+              timezone: "America/New_York",
+              is_arranged: false,
+              is_online: true,
+              display_order: 10,
+            },
+          ],
+          created_at: "2026-06-29T00:00:00Z",
+        },
+      ],
+      created_at: "2026-06-29T00:00:00Z",
     },
   ],
   conflicts: [
     {
-      id: '00000000-0000-4000-8000-000000000608',
-      schedule_optimization_run_id: '00000000-0000-4000-8000-000000000601',
+      id: "00000000-0000-4000-8000-000000000608",
+      schedule_optimization_run_id: "00000000-0000-4000-8000-000000000601",
       schedule_option_id: null,
-      conflict_type: 'TIME_OVERLAP',
-      section_id: 'c080de5c-b981-54b9-b699-cde089ecce4c',
-      other_section_id: '96822dc7-d1c1-5f4c-93c4-bf6afddb981f',
-      day_of_week: 'MONDAY',
-      start_time: '09:30',
-      end_time: '10:15',
-      message: 'FIN 300 001 overlaps with FIN 403 001 in mock section data.',
-      created_at: '2026-06-29T00:00:00Z',
+      conflict_type: "TIME_OVERLAP",
+      section_id: "c080de5c-b981-54b9-b699-cde089ecce4c",
+      other_section_id: "96822dc7-d1c1-5f4c-93c4-bf6afddb981f",
+      day_of_week: "MONDAY",
+      start_time: "09:30",
+      end_time: "10:15",
+      message: "FIN 300 001 overlaps with FIN 403 001 in mock section data.",
+      created_at: "2026-06-29T00:00:00Z",
     },
   ],
   warnings: [
     {
-      id: '00000000-0000-4000-8000-000000000609',
-      schedule_optimization_run_id: '00000000-0000-4000-8000-000000000601',
+      id: "00000000-0000-4000-8000-000000000609",
+      schedule_optimization_run_id: "00000000-0000-4000-8000-000000000601",
       schedule_option_id: null,
-      warning_code: 'MOCK_SECTION_DATA_NOT_OFFICIAL',
-      severity: 'INFO',
-      message: 'This schedule uses mock non-official section data.',
+      warning_code: "MOCK_SECTION_DATA_NOT_OFFICIAL",
+      severity: "INFO",
+      message: "This schedule uses mock non-official section data.",
       requires_advisor_confirmation: true,
-      created_at: '2026-06-29T00:00:00Z',
+      created_at: "2026-06-29T00:00:00Z",
     },
   ],
+  repair_suggestions: [
+    {
+      id: "00000000-0000-4000-8000-000000000614",
+      schedule_optimization_run_id: "00000000-0000-4000-8000-000000000601",
+      suggestion_type: "RELAX_UNAVAILABLE_BLOCK",
+      affected_constraint: "unavailable_time_blocks",
+      affected_course_id: null,
+      affected_section_id: "b4af4050-6534-5112-8351-c572d43bec95",
+      estimated_impact: "Could make a blocked section selectable.",
+      message: "Relax the unavailable time block.",
+      requires_advisor_confirmation: false,
+      created_at: "2026-06-29T00:00:00Z",
+    },
+  ],
+  hard_constraint_results: [
+    { constraint: "excluded_days", result: "APPLIED", value: ["FRIDAY"] },
+  ],
+  soft_preference_results: [{ preference: "prefer_no_gaps", value: true }],
 };
 
 const mockScheduleRunSummary = {
@@ -573,19 +736,19 @@ const mockScheduleRunSummary = {
 
 async function mockSuccessfulAuditApis(page: Page) {
   await page.route(
-    'http://localhost:8000/api/v1/students/*/degree-audits/latest',
+    "http://localhost:8000/api/v1/students/*/degree-audits/latest",
     async (route) => {
       await route.fulfill({
-        contentType: 'application/json',
+        contentType: "application/json",
         body: JSON.stringify(mockAuditRun),
       });
     },
   );
   await page.route(
-    'http://localhost:8000/api/v1/degree-audits/*/requirements',
+    "http://localhost:8000/api/v1/degree-audits/*/requirements",
     async (route) => {
       await route.fulfill({
-        contentType: 'application/json',
+        contentType: "application/json",
         body: JSON.stringify(mockRequirements),
       });
     },
@@ -593,187 +756,274 @@ async function mockSuccessfulAuditApis(page: Page) {
 }
 
 async function mockSuccessfulScenarioApis(page: Page) {
-  await page.route('http://localhost:8000/api/v1/academic-scenarios', async (route) => {
-    if (route.request().method() === 'POST') {
+  await page.route(
+    "http://localhost:8000/api/v1/academic-scenarios",
+    async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify(mockScenario),
+        });
+        return;
+      }
+      await route.continue();
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/academic-scenarios/*/programs",
+    async (route) => {
       await route.fulfill({
-        contentType: 'application/json',
-        body: JSON.stringify(mockScenario),
+        contentType: "application/json",
+        body: JSON.stringify(mockScenarioPrograms),
       });
-      return;
-    }
-    await route.continue();
-  });
-  await page.route('http://localhost:8000/api/v1/academic-scenarios/*/programs', async (route) => {
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(mockScenarioPrograms) });
-  });
-  await page.route('http://localhost:8000/api/v1/academic-scenarios/*/audits', async (route) => {
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(mockScenarioAudits) });
-  });
-  await page.route('http://localhost:8000/api/v1/academic-scenarios/*/allocations', async (route) => {
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(mockScenarioAllocations) });
-  });
-  await page.route('http://localhost:8000/api/v1/academic-scenarios/*/warnings', async (route) => {
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(mockScenarioWarnings) });
-  });
-  await page.route('http://localhost:8000/api/v1/academic-scenarios/*/comparison', async (route) => {
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(mockScenarioComparison) });
-  });
-  await page.route('http://localhost:8000/api/v1/students/*/academic-scenarios', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify([mockScenario, { ...mockScenario, id: '00000000-0000-4000-8000-000000000201', name: 'Add Economics Minor' }]),
-    });
-  });
-  await page.route('http://localhost:8000/api/v1/academic-scenarios/compare', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify([
-        mockScenarioComparison,
-        { ...mockScenarioComparison, academic_plan_scenario_id: '00000000-0000-4000-8000-000000000201', estimated_additional_credits: '15.0' },
-      ]),
-    });
-  });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/academic-scenarios/*/audits",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(mockScenarioAudits),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/academic-scenarios/*/allocations",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(mockScenarioAllocations),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/academic-scenarios/*/warnings",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(mockScenarioWarnings),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/academic-scenarios/*/comparison",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(mockScenarioComparison),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/students/*/academic-scenarios",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([
+          mockScenario,
+          {
+            ...mockScenario,
+            id: "00000000-0000-4000-8000-000000000201",
+            name: "Add Economics Minor",
+          },
+        ]),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/academic-scenarios/compare",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([
+          mockScenarioComparison,
+          {
+            ...mockScenarioComparison,
+            academic_plan_scenario_id: "00000000-0000-4000-8000-000000000201",
+            estimated_additional_credits: "15.0",
+          },
+        ]),
+      });
+    },
+  );
 }
 
 async function mockSuccessfulEligibilityApis(page: Page) {
-  await page.route('http://localhost:8000/api/v1/eligibility-checks', async (route) => {
-    if (route.request().method() === 'POST') {
+  await page.route(
+    "http://localhost:8000/api/v1/eligibility-checks",
+    async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify(mockEligibilityCheck),
+        });
+        return;
+      }
+      await route.continue();
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/students/*/eligibility-checks",
+    async (route) => {
       await route.fulfill({
-        contentType: 'application/json',
-        body: JSON.stringify(mockEligibilityCheck),
+        contentType: "application/json",
+        body: JSON.stringify([mockEligibilityCheck]),
       });
-      return;
-    }
-    await route.continue();
-  });
-  await page.route('http://localhost:8000/api/v1/students/*/eligibility-checks', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify([mockEligibilityCheck]),
-    });
-  });
+    },
+  );
 }
 
 async function mockSuccessfulPlannerApis(page: Page) {
-  await page.route('http://localhost:8000/api/v1/academic-plans', async (route) => {
-    if (route.request().method() === 'POST') {
+  await page.route(
+    "http://localhost:8000/api/v1/academic-plans",
+    async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify(mockAcademicPlan),
+        });
+        return;
+      }
+      await route.continue();
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/students/*/academic-plans",
+    async (route) => {
+      const summary = {
+        ...mockAcademicPlan,
+        terms: undefined,
+        planned_courses: undefined,
+        requirement_coverage: undefined,
+        warnings: undefined,
+      };
       await route.fulfill({
-        contentType: 'application/json',
-        body: JSON.stringify(mockAcademicPlan),
+        contentType: "application/json",
+        body: JSON.stringify([
+          summary,
+          {
+            ...summary,
+            id: "00000000-0000-4000-8000-000000000408",
+            planning_mode: "WHAT_IF_SCENARIO",
+          },
+        ]),
       });
-      return;
-    }
-    await route.continue();
-  });
-  await page.route('http://localhost:8000/api/v1/students/*/academic-plans', async (route) => {
-    const summary = {
-      ...mockAcademicPlan,
-      terms: undefined,
-      planned_courses: undefined,
-      requirement_coverage: undefined,
-      warnings: undefined,
-    };
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify([
-        summary,
-        {
-          ...summary,
-          id: '00000000-0000-4000-8000-000000000408',
-          planning_mode: 'WHAT_IF_SCENARIO',
-        },
-      ]),
-    });
-  });
-  await page.route('http://localhost:8000/api/v1/academic-plans/compare', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify([
-        mockAcademicPlanComparison,
-        {
-          ...mockAcademicPlanComparison,
-          academic_plan_run_id: '00000000-0000-4000-8000-000000000408',
-          total_planned_credits: '15.0',
-          warning_count: 2,
-        },
-      ]),
-    });
-  });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/academic-plans/compare",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([
+          mockAcademicPlanComparison,
+          {
+            ...mockAcademicPlanComparison,
+            academic_plan_run_id: "00000000-0000-4000-8000-000000000408",
+            total_planned_credits: "15.0",
+            warning_count: 2,
+          },
+        ]),
+      });
+    },
+  );
 }
 
 async function mockSuccessfulScheduleApis(page: Page) {
-  await page.route('http://localhost:8000/api/v1/schedule-optimizations', async (route) => {
-    if (route.request().method() === 'POST') {
+  await page.route(
+    "http://localhost:8000/api/v1/schedule-optimizations",
+    async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify(mockScheduleOptimization),
+        });
+        return;
+      }
+      await route.continue();
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/students/*/schedule-optimizations",
+    async (route) => {
       await route.fulfill({
-        contentType: 'application/json',
-        body: JSON.stringify(mockScheduleOptimization),
+        contentType: "application/json",
+        body: JSON.stringify([
+          mockScheduleRunSummary,
+          {
+            ...mockScheduleRunSummary,
+            id: "00000000-0000-4000-8000-000000000610",
+            requested_option_count: 2,
+          },
+        ]),
       });
-      return;
-    }
-    await route.continue();
-  });
-  await page.route('http://localhost:8000/api/v1/students/*/schedule-optimizations', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify([
-        mockScheduleRunSummary,
-        {
-          ...mockScheduleRunSummary,
-          id: '00000000-0000-4000-8000-000000000610',
-          requested_option_count: 2,
-        },
-      ]),
-    });
-  });
-  await page.route('http://localhost:8000/api/v1/schedule-optimizations/compare', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify([
-        {
-          schedule_optimization_run_id: mockScheduleOptimization.id,
-          status: 'COMPLETED_WITH_WARNINGS',
-          option_count: 1,
-          warning_count: 1,
-          best_score: '88.00',
-          best_total_credits: '6.0',
-          completed_at: '2026-06-29T00:00:01Z',
-        },
-        {
-          schedule_optimization_run_id: '00000000-0000-4000-8000-000000000610',
-          status: 'COMPLETED_WITH_WARNINGS',
-          option_count: 2,
-          warning_count: 1,
-          best_score: '74.00',
-          best_total_credits: '3.0',
-          completed_at: '2026-06-29T00:00:01Z',
-        },
-      ]),
-    });
-  });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/schedule-optimizations/compare",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            schedule_optimization_run_id: mockScheduleOptimization.id,
+            status: "COMPLETED_WITH_WARNINGS",
+            option_count: 1,
+            warning_count: 1,
+            best_score: "88.00",
+            best_total_credits: "6.0",
+            completed_at: "2026-06-29T00:00:01Z",
+          },
+          {
+            schedule_optimization_run_id:
+              "00000000-0000-4000-8000-000000000610",
+            status: "COMPLETED_WITH_WARNINGS",
+            option_count: 2,
+            warning_count: 1,
+            best_score: "74.00",
+            best_total_credits: "3.0",
+            completed_at: "2026-06-29T00:00:01Z",
+          },
+        ]),
+      });
+    },
+  );
 }
 
-test('home page shows degree progress shell and required mock warnings', async ({ page }) => {
+test("home page shows degree progress shell and required mock warnings", async ({
+  page,
+}) => {
   await mockSuccessfulAuditApis(page);
 
-  await page.goto('/');
+  await page.goto("/");
 
-  await expect(page.getByRole('heading', { name: /Degree Progress/ })).toBeVisible();
-  await expect(page.getByText('API connected')).toBeVisible();
-  await expect(page.getByText('Mock data — not official university policy.').first()).toBeVisible();
-  await expect(page.getByText('Advisor confirmation is required for high-impact academic guidance.')).toBeVisible();
-  await expect(page.getByText('Audit Mode')).toBeVisible();
-  await expect(page.getByText('Mock Finance Foundations')).toBeVisible();
-  await expect(page.getByText('PENDING_TRANSFER')).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Degree Progress/ }),
+  ).toBeVisible();
+  await expect(page.getByText("API connected")).toBeVisible();
+  await expect(
+    page.getByText("Mock data — not official university policy.").first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Advisor confirmation is required for high-impact academic guidance.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByText("Audit Mode")).toBeVisible();
+  await expect(page.getByText("Mock Finance Foundations")).toBeVisible();
+  await expect(page.getByText("PENDING_TRANSFER")).toBeVisible();
 });
 
-test('home page reports when the API health request is unavailable', async ({ page }) => {
-  await page.route('http://localhost:8000/health', async (route) => {
-    await route.abort('failed');
+test("home page reports when the API health request is unavailable", async ({
+  page,
+}) => {
+  await page.route("http://localhost:8000/health", async (route) => {
+    await route.abort("failed");
   });
 
-  await page.goto('/');
+  await page.goto("/");
 
-  await expect(page.getByText('API unavailable')).toBeVisible();
+  await expect(page.getByText("API unavailable")).toBeVisible();
   await expect(
     page.locator("section[aria-live='polite'] > p").filter({
       hasText: /Health check request failed|Failed to fetch|NetworkError/,
@@ -781,188 +1031,290 @@ test('home page reports when the API health request is unavailable', async ({ pa
   ).toBeVisible();
 });
 
-test('home page reports when degree audit responses fail schema validation', async ({ page }) => {
-  await page.route('http://localhost:8000/api/v1/students/*/degree-audits/latest', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ unexpected: true }),
-    });
-  });
+test("home page reports when degree audit responses fail schema validation", async ({
+  page,
+}) => {
+  await page.route(
+    "http://localhost:8000/api/v1/students/*/degree-audits/latest",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ unexpected: true }),
+      });
+    },
+  );
 
-  await page.goto('/');
+  await page.goto("/");
 
-  await expect(page.getByText('Audit unavailable')).toBeVisible();
-  await expect(page.getByText(/unexpected degree audit response shape/i)).toBeVisible();
+  await expect(page.getByText("Audit unavailable")).toBeVisible();
+  await expect(
+    page.getByText(/unexpected degree audit response shape/i),
+  ).toBeVisible();
 });
 
-test('home page creates and compares what-if academic scenarios', async ({ page }) => {
+test("home page creates and compares what-if academic scenarios", async ({
+  page,
+}) => {
   await mockSuccessfulAuditApis(page);
   await mockSuccessfulScenarioApis(page);
 
-  await page.goto('/');
+  await page.goto("/");
 
-  await expect(page.getByRole('heading', { name: /Explore Programs \/ What-if Analysis/ })).toBeVisible();
-  await expect(page.getByText('Estimated additional credits do not predict graduation timing.')).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Explore Programs \/ What-if Analysis/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Estimated additional credits do not predict graduation timing.",
+    ),
+  ).toBeVisible();
 
-  await page.getByLabel('Candidate program').selectOption('accounting-minor');
-  await page.getByRole('button', { name: /Create scenario/ }).click();
+  await page.getByLabel("Candidate program").selectOption("accounting-minor");
+  await page.getByRole("button", { name: /Create scenario/ }).click();
 
-  const scenarioSummary = page.getByLabel('What-if scenario summary');
-  await expect(scenarioSummary.getByText('Mock Accounting Minor')).toBeVisible();
-  await expect(scenarioSummary.getByText('Shared Credits')).toBeVisible();
-  await expect(scenarioSummary.getByText('Unique Secondary Credits')).toBeVisible();
-  await expect(scenarioSummary.getByText('Estimated Additional Credits')).toBeVisible();
-  await expect(page.getByText('ACCT 300')).toBeVisible();
-  await expect(page.getByText('ESTIMATED_ADDITIONAL_CREDITS')).toBeVisible();
+  const scenarioSummary = page.getByLabel("What-if scenario summary");
+  await expect(
+    scenarioSummary.getByText("Mock Accounting Minor"),
+  ).toBeVisible();
+  await expect(scenarioSummary.getByText("Shared Credits")).toBeVisible();
+  await expect(
+    scenarioSummary.getByText("Unique Secondary Credits"),
+  ).toBeVisible();
+  await expect(
+    scenarioSummary.getByText("Estimated Additional Credits"),
+  ).toBeVisible();
+  await expect(page.getByText("ACCT 300")).toBeVisible();
+  await expect(page.getByText("ESTIMATED_ADDITIONAL_CREDITS")).toBeVisible();
 
-  await page.getByRole('button', { name: /Compare saved scenarios/ }).click();
-  await expect(page.getByText('Add Economics Minor')).toBeVisible();
+  await page.getByRole("button", { name: /Compare saved scenarios/ }).click();
+  await expect(page.getByText("Add Economics Minor")).toBeVisible();
 });
 
-test('home page reports what-if API and schema failures', async ({ page }) => {
+test("home page reports what-if API and schema failures", async ({ page }) => {
   await mockSuccessfulAuditApis(page);
-  await page.route('http://localhost:8000/api/v1/academic-scenarios', async (route) => {
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ unexpected: true }) });
-  });
+  await page.route(
+    "http://localhost:8000/api/v1/academic-scenarios",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ unexpected: true }),
+      });
+    },
+  );
 
-  await page.goto('/');
-  await page.getByRole('button', { name: /Create scenario/ }).click();
+  await page.goto("/");
+  await page.getByRole("button", { name: /Create scenario/ }).click();
 
-  await expect(page.getByText('What-if scenario unavailable')).toBeVisible();
-  await expect(page.getByText(/unexpected academic scenario response shape/i)).toBeVisible();
+  await expect(page.getByText("What-if scenario unavailable")).toBeVisible();
+  await expect(
+    page.getByText(/unexpected academic scenario response shape/i),
+  ).toBeVisible();
 });
 
-test('home page checks course eligibility without recalculating section seats', async ({ page }) => {
+test("home page checks course eligibility without recalculating section seats", async ({
+  page,
+}) => {
   await mockSuccessfulAuditApis(page);
   await mockSuccessfulEligibilityApis(page);
 
-  await page.goto('/');
+  await page.goto("/");
 
-  await expect(page.getByRole('heading', { name: /Course Eligibility/ })).toBeVisible();
-  await expect(page.getByText('Section seats are separate from academic eligibility.')).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Course Eligibility/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Section seats are separate from academic eligibility."),
+  ).toBeVisible();
 
-  await page.getByLabel('Course check').selectOption('fin-400-registration');
-  await page.getByRole('button', { name: /Check eligibility/ }).click();
+  await page.getByLabel("Course check").selectOption("fin-400-registration");
+  await page.getByRole("button", { name: /Check eligibility/ }).click();
 
-  const eligibilitySummary = page.getByLabel('Course eligibility summary');
-  await expect(eligibilitySummary.getByText(/permission required/i).first()).toBeVisible();
+  const eligibilitySummary = page.getByLabel("Course eligibility summary");
+  await expect(
+    eligibilitySummary.getByText(/permission required/i).first(),
+  ).toBeVisible();
   await expect(eligibilitySummary.getByText(/waitlist/i)).toBeVisible();
-  await expect(eligibilitySummary.getByText('Available Seats')).toBeVisible();
-  await expect(page.getByText('PERMISSION_REQUIRED')).toBeVisible();
-  await expect(page.getByText('MOCK_ELIGIBILITY_ESTIMATE')).toBeVisible();
+  await expect(eligibilitySummary.getByText("Available Seats")).toBeVisible();
+  await expect(page.getByText("PERMISSION_REQUIRED")).toBeVisible();
+  await expect(page.getByText("MOCK_ELIGIBILITY_ESTIMATE")).toBeVisible();
 });
 
-test('home page reports course eligibility schema failures', async ({ page }) => {
+test("home page reports course eligibility schema failures", async ({
+  page,
+}) => {
   await mockSuccessfulAuditApis(page);
-  await page.route('http://localhost:8000/api/v1/eligibility-checks', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ unexpected: true }),
-    });
-  });
+  await page.route(
+    "http://localhost:8000/api/v1/eligibility-checks",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ unexpected: true }),
+      });
+    },
+  );
 
-  await page.goto('/');
-  await page.getByRole('button', { name: /Check eligibility/ }).click();
+  await page.goto("/");
+  await page.getByRole("button", { name: /Check eligibility/ }).click();
 
-  await expect(page.getByText('Eligibility schema error')).toBeVisible();
-  await expect(page.getByText(/unexpected course eligibility response shape/i)).toBeVisible();
+  await expect(page.getByText("Eligibility schema error")).toBeVisible();
+  await expect(
+    page.getByText(/unexpected course eligibility response shape/i),
+  ).toBeVisible();
 });
 
-test('home page creates and compares long-term academic plans', async ({ page }) => {
+test("home page creates and compares long-term academic plans", async ({
+  page,
+}) => {
   await mockSuccessfulAuditApis(page);
   await mockSuccessfulPlannerApis(page);
 
-  await page.goto('/');
+  await page.goto("/");
 
-  await expect(page.getByRole('heading', { name: /Long-Term Academic Planner/ })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Long-Term Academic Planner/ }),
+  ).toBeVisible();
   await expect(
     page
-      .getByLabel('Academic planner disclaimers')
-      .getByText('Mock data — not official university policy.'),
+      .getByLabel("Academic planner disclaimers")
+      .getByText("Mock data — not official university policy."),
   ).toBeVisible();
-  await expect(page.getByText('This plan is not registration.').first()).toBeVisible();
   await expect(
-    page.getByText('This plan does not check weekly schedule conflicts.'),
+    page.getByText("This plan is not registration.").first(),
   ).toBeVisible();
-  await expect(page.getByText('Course offering predictions are estimates.')).toBeVisible();
-  await expect(page.getByText('Advisor confirmation may be required.').first()).toBeVisible();
+  await expect(
+    page.getByText("This plan does not check weekly schedule conflicts."),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Course offering predictions are estimates."),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Advisor confirmation may be required.").first(),
+  ).toBeVisible();
 
-  await page.getByLabel('Planning scope').selectOption('current-program');
-  await page.getByLabel('Terms').fill('2');
-  await page.getByLabel('Min credits').fill('3');
-  await page.getByLabel('Preferred credits').fill('6');
-  await page.getByLabel('Max credits').fill('9');
-  await page.getByRole('button', { name: /Create plan/ }).click();
+  await page.getByLabel("Planning scope").selectOption("current-program");
+  await page.getByLabel("Terms").fill("2");
+  await page.getByLabel("Min credits").fill("3");
+  await page.getByLabel("Preferred credits").fill("6");
+  await page.getByLabel("Max credits").fill("9");
+  await page.getByRole("button", { name: /Create plan/ }).click();
 
-  const planSummary = page.getByLabel('Academic plan summary');
+  const planSummary = page.getByLabel("Academic plan summary");
   await expect(planSummary.getByText(/completed with warnings/i)).toBeVisible();
-  await expect(planSummary.getByText('Planned Credits')).toBeVisible();
-  await expect(page.getByLabel('Term-by-term academic plan').getByText('FIN 400')).toBeVisible();
-  await expect(page.getByText('PREREQUISITE_PLANNED_EARLIER')).toBeVisible();
-  await expect(page.getByText('MOCK_PLAN_NOT_OFFICIAL')).toBeVisible();
+  await expect(planSummary.getByText("Planned Credits")).toBeVisible();
+  await expect(
+    page.getByLabel("Term-by-term academic plan").getByText("FIN 400"),
+  ).toBeVisible();
+  await expect(page.getByText("PREREQUISITE_PLANNED_EARLIER")).toBeVisible();
+  await expect(page.getByText("MOCK_PLAN_NOT_OFFICIAL")).toBeVisible();
 
-  await page.getByRole('button', { name: /Compare saved plans/ }).click();
-  await expect(page.getByText('WHAT_IF_SCENARIO')).toBeVisible();
+  await page.getByRole("button", { name: /Compare saved plans/ }).click();
+  await expect(page.getByText("WHAT_IF_SCENARIO")).toBeVisible();
 });
 
-test('home page reports academic planner schema failures', async ({ page }) => {
+test("home page reports academic planner schema failures", async ({ page }) => {
   await mockSuccessfulAuditApis(page);
-  await page.route('http://localhost:8000/api/v1/academic-plans', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ unexpected: true }),
-    });
-  });
+  await page.route(
+    "http://localhost:8000/api/v1/academic-plans",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ unexpected: true }),
+      });
+    },
+  );
 
-  await page.goto('/');
-  await page.getByRole('button', { name: /Create plan/ }).click();
+  await page.goto("/");
+  await page.getByRole("button", { name: /Create plan/ }).click();
 
-  await expect(page.getByText('Academic planner schema error')).toBeVisible();
-  await expect(page.getByText(/unexpected academic plan response shape/i)).toBeVisible();
+  await expect(page.getByText("Academic planner schema error")).toBeVisible();
+  await expect(
+    page.getByText(/unexpected academic plan response shape/i),
+  ).toBeVisible();
 });
 
-test('home page builds and compares semester schedules', async ({ page }) => {
+test("home page builds and compares semester schedules", async ({ page }) => {
   await mockSuccessfulAuditApis(page);
   await mockSuccessfulScheduleApis(page);
 
-  await page.goto('/');
+  await page.goto("/");
 
-  await expect(page.getByRole('heading', { name: /Semester Schedule Builder/ })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Semester Schedule Builder/ }),
+  ).toBeVisible();
   await expect(
     page
-      .getByLabel('Schedule builder disclaimers')
-      .getByText('No add, drop, swap, waitlist, or registration action is performed.'),
+      .getByLabel("Schedule builder disclaimers")
+      .getByText("Generated schedules are not registration."),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Schedule builder disclaimers")
+      .getByText("Seat availability is separate from academic eligibility."),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Schedule builder disclaimers")
+      .getByText("This tool does not perform add/drop or waitlist actions."),
   ).toBeVisible();
 
-  await page.getByLabel('Course set').selectOption('fall-fin-300-403');
-  await page.getByRole('button', { name: /Build schedule/ }).click();
+  await page.getByLabel("Course set").selectOption("fall-fin-300-403");
+  await page.getByLabel("Pinned section").selectOption("fin-403-002");
+  await page.getByLabel("Excluded section").selectOption("fin-300-web");
+  await page.getByLabel("Diversity").selectOption("HIGH");
+  await expect(page.getByLabel("No gaps")).toBeChecked();
+  await expect(page.getByLabel("Morning")).toBeChecked();
+  await page.getByRole("button", { name: /Build schedule/ }).click();
 
-  const scheduleSummary = page.getByLabel('Schedule optimization summary');
-  await expect(scheduleSummary.getByText(/completed with warnings/i)).toBeVisible();
-  await expect(scheduleSummary.getByText('Best Credits')).toBeVisible();
-  await expect(page.getByLabel('Schedule options').getByText('FIN 300 001')).toBeVisible();
-  await expect(page.getByLabel('Schedule options').getByText('FIN 403 002')).toBeVisible();
-  await expect(page.getByText('TIME_OVERLAP')).toBeVisible();
-  await expect(page.getByText('MOCK_SECTION_DATA_NOT_OFFICIAL')).toBeVisible();
-
-  await page.getByRole('button', { name: /Compare saved schedules/ }).click();
-  await expect(page.getByLabel('Saved schedule comparison').getByText('CUSTOM_COURSE_SET')).toHaveCount(
-    2,
+  const scheduleSummary = page.getByLabel("Schedule optimization summary");
+  await expect(
+    scheduleSummary.getByText(/completed with warnings/i),
+  ).toBeVisible();
+  await expect(scheduleSummary.getByText("Best Credits")).toBeVisible();
+  await expect(
+    page.getByLabel("Schedule options").getByText("FIN 300 001"),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Schedule options")
+      .getByText("FIN 403 002", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Priority 20.00")).toBeVisible();
+  await expect(page.getByText("SECTION_PRIORITY_WEIGHT")).toBeVisible();
+  await expect(
+    page.getByText("Diversity 2: uses FIN 403 section ONL instead of 002"),
+  ).toBeVisible();
+  await expect(page.getByLabel("Top schedule option comparison")).toBeVisible();
+  await expect(page.getByLabel("Schedule repair suggestions")).toContainText(
+    "RELAX UNAVAILABLE BLOCK",
   );
+  await expect(page.getByText("TIME_OVERLAP")).toBeVisible();
+  await expect(page.getByText("MOCK_SECTION_DATA_NOT_OFFICIAL")).toBeVisible();
+
+  await page.getByRole("button", { name: /Compare saved schedules/ }).click();
+  await expect(
+    page.getByLabel("Saved schedule comparison").getByText("CUSTOM_COURSE_SET"),
+  ).toHaveCount(2);
 });
 
-test('home page reports schedule optimizer schema failures', async ({ page }) => {
+test("home page reports schedule optimizer schema failures", async ({
+  page,
+}) => {
   await mockSuccessfulAuditApis(page);
-  await page.route('http://localhost:8000/api/v1/schedule-optimizations', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ unexpected: true }),
-    });
-  });
+  await page.route(
+    "http://localhost:8000/api/v1/schedule-optimizations",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ unexpected: true }),
+      });
+    },
+  );
 
-  await page.goto('/');
-  await page.getByRole('button', { name: /Build schedule/ }).click();
+  await page.goto("/");
+  await page.getByRole("button", { name: /Build schedule/ }).click();
 
-  await expect(page.getByText('Schedule optimizer schema error')).toBeVisible();
-  await expect(page.getByText(/unexpected schedule optimization response shape/i)).toBeVisible();
+  await expect(page.getByText("Schedule optimizer schema error")).toBeVisible();
+  await expect(
+    page.getByText(/unexpected schedule optimization response shape/i),
+  ).toBeVisible();
 });

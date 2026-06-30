@@ -215,3 +215,19 @@ Consequences:
 - Hard constraints and preference scoring are explainable and testable.
 - Search limits are explicit and warn rather than pretending to be exhaustive.
 - Phase 6A remains read-only and deliberately does not poll seats, join waitlists, add, drop, swap, register, scrape portals, or bypass school authentication.
+
+## ADR-0016: Extend Phase 6B scheduler with explainable scoring, diversity, and repair suggestions
+
+Status: Accepted
+
+Context: The Phase 6A scheduler can generate bounded section schedules, but students need more control over preferences, advisors need auditable score components, and infeasible runs need structured relaxation guidance. A full OR-Tools solver and live registration integrations remain outside the safety boundary.
+
+Decision: Implement Phase 6B as an extension of the persisted schedule snapshot model. Add advanced constraint inputs for preference weights, course and section priorities, no-gap, morning, afternoon, diversity mode, partial-option behavior, and search bounds. Persist score components and score explanations on each option, store deterministic diversity metadata, and create `ScheduleRepairSuggestion` rows for infeasible or partial schedules. Keep the implementation behind a `ScheduleOptimizer` protocol and use a deterministic bounded-search implementation for this phase.
+
+Consequences:
+
+- API, shared TypeScript schemas, and the web app can render scoring and repair details without duplicating optimizer logic.
+- Advanced preferences remain transparent soft inputs rather than hidden frontend ranking.
+- High-diversity mode can provide meaningfully different options while preserving deterministic ordering.
+- Repair suggestions are explanatory only and do not automate registration, add/drop, swaps, waitlists, seat monitoring, portal scraping, or authentication bypass.
+- OR-Tools, richer minimal-relaxation search, instructor preferences, commute optimization, and live official section imports remain future work.

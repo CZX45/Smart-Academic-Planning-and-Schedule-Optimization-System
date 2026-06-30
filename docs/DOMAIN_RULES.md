@@ -208,7 +208,7 @@ The Semester Schedule Optimizer works at section level. It should consider:
 - Instructor preferences.
 - Backup sections and backup schedules.
 
-Phase 6A implements a deterministic bounded baseline scheduler. A `Section` is a term-specific snapshot for a `Course`; a `SectionMeeting` stores one meeting component such as lecture, lab, seminar, exam, arranged, or online asynchronous work.
+Phase 6A implements a deterministic bounded baseline scheduler. Phase 6B extends that scheduler with advanced preference weights, course and section priorities, option diversity, and repair suggestions. A `Section` is a term-specific snapshot for a `Course`; a `SectionMeeting` stores one meeting component such as lecture, lab, seminar, exam, arranged, or online asynchronous work.
 
 Phase 6A hard rules:
 
@@ -218,6 +218,8 @@ Phase 6A hard rules:
 - Never select sections whose required meetings overlap.
 - Never select a section that intersects a hard unavailable block.
 - Never select a section on an excluded day.
+- Never select an excluded section.
+- Never ignore a required section; if the required section is invalid, unavailable, or conflicts with another hard rule, report infeasibility or a partial option with a repair suggestion.
 - Never exceed the hard maximum credit limit.
 - Treat closed, waitlisted, cancelled, or unknown seat data as warnings or conflicts, not as permission to perform registration actions.
 - Use Course Eligibility in `REGISTRATION` mode; `NOT_ELIGIBLE`, permission-required without explicit permission allowance, and manual-review results block automatic option selection.
@@ -228,13 +230,24 @@ Phase 6A preference rules:
 - Prefer schedules closer to the preferred credit target.
 - Prefer compact schedules when requested.
 - Prefer fewer class days when requested.
+- Prefer lower gap minutes when requested.
+- Prefer morning or afternoon schedules only as soft preferences.
 - Prefer online or in-person modalities only as scoring preferences unless the request supplies modality filters.
+- Apply course priority weights and section priority weights as soft score components; invalid, unknown, or negative weights are rejected at the API/service boundary.
 - Penalize early starts and late endings when requested.
+- Return a score breakdown with credit, compactness, day-count, gap, modality, time-of-day, priority, and penalty components.
+- In high-diversity mode, choose returned options with deterministic stable tie-breakers while reducing repeated selected sections across adjacent ranked options.
 - Use stable tie-breakers so identical inputs produce the same option order.
+
+Phase 6B repair suggestions:
+
+- Repair suggestions are structured explanations for how a user or advisor might relax constraints; they do not perform registration, add/drop, swap, waitlist, seat monitoring, or portal actions.
+- Suggestions may include relaxing an unavailable block, allowing an excluded day, removing a required section, allowing permission-required sections, reducing a credit target, or enabling partial options.
+- A repair suggestion must include a reason code, explanation, estimated impact, and source constraint or conflict when available.
 
 Phase 6A safety boundaries:
 
-- The optimizer does not use OR-Tools.
+- The optimizer uses a bounded deterministic implementation behind an optimizer interface. It does not use OR-Tools in Phase 6B.
 - The optimizer does not poll, refresh, reserve, or monitor seats.
 - The optimizer does not register, add, drop, swap, waitlist, or suggest automated portal actions.
 - Mock, inferred, ambiguous, or stale schedule data must require advisor or school confirmation for high-impact choices.
@@ -278,7 +291,7 @@ Phase 4 additionally emits advisor-confirmation warnings for mock eligibility es
 
 Phase 5A additionally emits advisor-confirmation warnings for mock plan estimates, broad requirements without concrete candidate courses, unplaced requirements, missing or uncertain offering patterns, credit-limit or horizon shortfalls, closed/cancelled section snapshots, and planner assumptions that could affect graduation timing.
 
-Phase 6A additionally emits advisor-confirmation warnings for mock schedule data, missing or ambiguous section restrictions, eligibility estimates, permission-required sections, unavailable or conflicting sections, bounded-search limits, credit shortfalls, and any schedule recommendation based on non-official section snapshots.
+Phase 6A additionally emits advisor-confirmation warnings for mock schedule data, missing or ambiguous section restrictions, eligibility estimates, permission-required sections, unavailable or conflicting sections, bounded-search limits, credit shortfalls, and any schedule recommendation based on non-official section snapshots. Phase 6B carries those warnings forward and adds structured repair suggestions when a hard constraint or preference set prevents a fully feasible schedule.
 
 ## 9. Phase 3A Requirement Status Semantics
 

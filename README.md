@@ -2,7 +2,7 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 6A adds a mock-only Semester Schedule Optimizer foundation on top of Degree Audit, What-if Scenarios, Course Eligibility, and the Long-Term Academic Planner. It creates persisted single-term section schedule snapshots with constraint sets, ranked options, selected option sections, conflicts, warnings, and deterministic explanations. It does **not** create registrations, add/drop/swap courses, join waitlists, poll seats, run OR-Tools, scrape portals, bypass school authentication, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 6B extends the mock-only Semester Schedule Optimizer on top of Degree Audit, What-if Scenarios, Course Eligibility, and the Long-Term Academic Planner. It creates persisted single-term section schedule snapshots with constraint sets, ranked options, selected option sections, conflicts, repair suggestions, warnings, deterministic score breakdowns, and diversity explanations. It does **not** create registrations, add/drop/swap courses, join waitlists, poll seats, run OR-Tools, scrape portals, bypass school authentication, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
@@ -238,9 +238,9 @@ Planning modes are `CURRENT_PROGRAM` and `WHAT_IF_SCENARIO`. A plan can complete
 
 The web app includes a Long-Term Academic Planner panel for current-program and what-if mock plans, credit-limit controls, term-by-term output, requirement coverage, warnings, saved-plan comparison, and offline/failure/schema-error states.
 
-## Phase 6A semester schedule optimizer API
+## Phase 6B semester schedule optimizer API
 
-Phase 6A creates semester schedule snapshots under `/api/v1/schedule-optimizations`. The optimizer evaluates concrete mock sections for one term, applies hard constraints such as time overlap, unavailable blocks, excluded days, modality filters, eligibility blocks, and credit limits, then ranks bounded options with deterministic preference scoring.
+Phase 6B creates semester schedule snapshots under `/api/v1/schedule-optimizations`. The optimizer evaluates concrete mock sections for one term, applies hard constraints such as time overlap, unavailable blocks, excluded days, required/excluded sections, modality filters, eligibility blocks, and credit limits, then ranks bounded options with deterministic preference scoring.
 
 New endpoints include:
 
@@ -252,9 +252,11 @@ New endpoints include:
 - `GET /api/v1/schedule-optimizations/{run_id}/warnings`
 - `GET /api/v1/students/{student_id}/schedule-optimizations`
 
-Planning modes are `FROM_DEGREE_AUDIT`, `FROM_LONG_TERM_PLAN`, and `CUSTOM_COURSE_SET`. Phase 6A is intentionally bounded and synchronous: it does not use OR-Tools, does not monitor seats, and does not perform registration, add/drop/swap, waitlist, or portal automation. Mock, inferred, or ambiguous schedule results require advisor or school confirmation for high-impact decisions.
+Planning modes are `FROM_DEGREE_AUDIT`, `FROM_LONG_TERM_PLAN`, and `CUSTOM_COURSE_SET`. Phase 6B is intentionally bounded and synchronous: it does not use OR-Tools, does not monitor seats, and does not perform registration, add/drop/swap, waitlist, or portal automation. Mock, inferred, or ambiguous schedule results require advisor or school confirmation for high-impact decisions.
 
-The web app includes a Semester Schedule Builder panel for mock course sets, no-Friday and unavailable-time constraints, online/compact/fewer-day preferences, ranked option output, conflicts, warnings, saved-schedule comparison, and offline/failure/schema-error states.
+Phase 6B preference inputs include normalized preference weights, per-course priority weights, per-section priority weights, no-gap, morning, afternoon, compactness, class-day, modality, early-start, and late-end preferences. Responses include a `score_breakdown`, `score_explanation`, `diversity_rank`, `difference_summary`, hard-constraint summaries, soft-preference summaries, and repair suggestions for infeasible or partial schedules.
+
+The web app includes a Semester Schedule Builder panel for mock course sets, no-Friday and unavailable-time constraints, pinned/excluded section choices, online/compact/fewer-day/no-gap/morning/afternoon preferences, high-diversity ranking, partial-option controls, ranked option output, score breakdowns, repair suggestions, conflicts, warnings, saved-schedule comparison, and offline/failure/schema-error states.
 
 ## Quality gates
 
@@ -280,7 +282,7 @@ pnpm exec playwright install --with-deps
 pnpm e2e
 ```
 
-## Phase 2A through 6A scope and data safety
+## Phase 2A through 6B scope and data safety
 
 Phase 2A is a domain-storage foundation. It models institutions, campuses, terms, academic programs, program versions, courses, course equivalencies, requirement trees, course options, mock student profiles, academic program declarations, course attempts, transfer credits, waivers, and substitutions.
 
@@ -294,7 +296,7 @@ Phase 4 adds `EligibilityCheckRun`, `RuleEvaluation`, `RuleExpressionEvaluation`
 
 Phase 5A adds `AcademicPlanRun`, `AcademicPlanTerm`, `AcademicPlanCourse`, `AcademicPlanRequirementCoverage`, and `AcademicPlanWarning`. It snapshots mock long-term course plans without changing official student declarations, course attempts, sections, section meetings, or registration records.
 
-Phase 6A adds `ScheduleOptimizationRun`, `ScheduleConstraintSet`, `ScheduleOption`, `ScheduleOptionSection`, `ScheduleConflict`, and `ScheduleWarning`. It snapshots mock single-term section schedules without changing official student declarations, course attempts, sections, section meetings, seat records, waitlists, or registration records.
+Phase 6A adds `ScheduleOptimizationRun`, `ScheduleConstraintSet`, `ScheduleOption`, `ScheduleOptionSection`, `ScheduleConflict`, and `ScheduleWarning`. Phase 6B extends those snapshots with advanced preference fields, score components, diversity metadata, and `ScheduleRepairSuggestion`. It snapshots mock single-term section schedules without changing official student declarations, course attempts, sections, section meetings, seat records, waitlists, or registration records.
 
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 

@@ -52,6 +52,7 @@ from app.models.academic import (
     ScheduleOption,
     ScheduleOptionSection,
     SchedulePlanningMode,
+    ScheduleRepairSuggestion,
     ScheduleWarning,
     Section,
     SectionMeeting,
@@ -118,6 +119,8 @@ from app.schemas.academic import (
     ScheduleOptimizationRunResponse,
     ScheduleOptionResponse,
     ScheduleOptionSectionResponse,
+    ScheduleRepairSuggestionResponse,
+    ScheduleScoreBreakdownResponse,
     ScheduleWarningResponse,
     SectionMeetingResponse,
     SectionResponse,
@@ -948,6 +951,15 @@ def schedule_constraint_response(
         avoid_early_start=constraint_set.avoid_early_start,
         avoid_late_end=constraint_set.avoid_late_end,
         allow_permission_required=constraint_set.allow_permission_required,
+        preference_weights=constraint_set.preference_weights,
+        course_priority_weights=constraint_set.course_priority_weights,
+        section_priority_weights=constraint_set.section_priority_weights,
+        prefer_no_gaps=constraint_set.prefer_no_gaps,
+        prefer_morning=constraint_set.prefer_morning,
+        prefer_afternoon=constraint_set.prefer_afternoon,
+        diversity_mode=constraint_set.diversity_mode,
+        allow_partial_options=constraint_set.allow_partial_options,
+        max_combinations=constraint_set.max_combinations,
         created_at=constraint_set.created_at,
     )
 
@@ -980,6 +992,18 @@ def schedule_option_response(
     option: ScheduleOption,
     selected_sections: list[ScheduleOptionSectionResponse],
 ) -> ScheduleOptionResponse:
+    score_breakdown = ScheduleScoreBreakdownResponse(
+        total_score=option.total_score,
+        credit_score=option.credit_score,
+        compactness_score=option.compactness_score,
+        days_score=option.days_score,
+        gap_score=option.gap_score,
+        modality_score=option.modality_score,
+        time_preference_score=option.time_preference_score,
+        priority_score=option.priority_score,
+        penalty_score=option.penalty_score,
+        score_explanation=option.score_explanation,
+    )
     return ScheduleOptionResponse(
         id=option.id,
         schedule_optimization_run_id=option.schedule_optimization_run_id,
@@ -997,6 +1021,22 @@ def schedule_option_response(
         ),
         total_gap_minutes=option.total_gap_minutes,
         score=option.score,
+        total_score=option.total_score,
+        credit_score=option.credit_score,
+        compactness_score=option.compactness_score,
+        days_score=option.days_score,
+        gap_score=option.gap_score,
+        modality_score=option.modality_score,
+        time_preference_score=option.time_preference_score,
+        priority_score=option.priority_score,
+        penalty_score=option.penalty_score,
+        score_explanation=option.score_explanation,
+        score_breakdown=score_breakdown,
+        diversity_rank=option.diversity_rank,
+        difference_summary=option.difference_summary,
+        shared_section_count_with_previous_option=(
+            option.shared_section_count_with_previous_option
+        ),
         explanation=option.explanation,
         selected_sections=selected_sections,
         created_at=option.created_at,
@@ -1031,6 +1071,23 @@ def schedule_warning_response(warning: ScheduleWarning) -> ScheduleWarningRespon
         message=warning.message,
         requires_advisor_confirmation=warning.requires_advisor_confirmation,
         created_at=warning.created_at,
+    )
+
+
+def schedule_repair_suggestion_response(
+    suggestion: ScheduleRepairSuggestion,
+) -> ScheduleRepairSuggestionResponse:
+    return ScheduleRepairSuggestionResponse(
+        id=suggestion.id,
+        schedule_optimization_run_id=suggestion.schedule_optimization_run_id,
+        suggestion_type=suggestion.suggestion_type,
+        affected_constraint=suggestion.affected_constraint,
+        affected_course_id=suggestion.affected_course_id,
+        affected_section_id=suggestion.affected_section_id,
+        estimated_impact=suggestion.estimated_impact,
+        message=suggestion.message,
+        requires_advisor_confirmation=suggestion.requires_advisor_confirmation,
+        created_at=suggestion.created_at,
     )
 
 
@@ -1104,6 +1161,76 @@ def schedule_warnings_response(
     return [schedule_warning_response(warning) for warning in warnings]
 
 
+def schedule_repair_suggestions_response(
+    run_id: UUID,
+    db: Session,
+) -> list[ScheduleRepairSuggestionResponse]:
+    suggestions = db.scalars(
+        select(ScheduleRepairSuggestion)
+        .where(ScheduleRepairSuggestion.schedule_optimization_run_id == run_id)
+        .order_by(
+            ScheduleRepairSuggestion.suggestion_type,
+            ScheduleRepairSuggestion.created_at,
+            ScheduleRepairSuggestion.id,
+        )
+    ).all()
+    return [schedule_repair_suggestion_response(suggestion) for suggestion in suggestions]
+
+
+def schedule_hard_constraint_results(
+    constraint_set: ScheduleConstraintSet | None,
+) -> list[dict[str, object]]:
+    if constraint_set is None:
+        return []
+    return [
+        {"constraint": "excluded_days", "result": "APPLIED", "value": constraint_set.excluded_days},
+        {
+            "constraint": "unavailable_time_blocks",
+            "result": "APPLIED",
+            "value": constraint_set.unavailable_time_blocks,
+        },
+        {
+            "constraint": "required_section_ids",
+            "result": "APPLIED",
+            "value": constraint_set.required_section_ids,
+        },
+        {
+            "constraint": "excluded_section_ids",
+            "result": "APPLIED",
+            "value": constraint_set.excluded_section_ids,
+        },
+        {
+            "constraint": "allowed_modalities",
+            "result": "APPLIED",
+            "value": constraint_set.allowed_modalities,
+        },
+        {
+            "constraint": "excluded_modalities",
+            "result": "APPLIED",
+            "value": constraint_set.excluded_modalities,
+        },
+    ]
+
+
+def schedule_soft_preference_results(
+    constraint_set: ScheduleConstraintSet | None,
+) -> list[dict[str, object]]:
+    if constraint_set is None:
+        return []
+    return [
+        {"preference": "preference_weights", "value": constraint_set.preference_weights},
+        {"preference": "course_priority_weights", "value": constraint_set.course_priority_weights},
+        {
+            "preference": "section_priority_weights",
+            "value": constraint_set.section_priority_weights,
+        },
+        {"preference": "prefer_no_gaps", "value": constraint_set.prefer_no_gaps},
+        {"preference": "prefer_morning", "value": constraint_set.prefer_morning},
+        {"preference": "prefer_afternoon", "value": constraint_set.prefer_afternoon},
+        {"preference": "diversity_mode", "value": constraint_set.diversity_mode},
+    ]
+
+
 def schedule_detail_response(
     run: ScheduleOptimizationRun,
     db: Session,
@@ -1122,6 +1249,9 @@ def schedule_detail_response(
         options=schedule_options_response(run.id, db),
         conflicts=schedule_conflicts_response(run.id, db),
         warnings=schedule_warnings_response(run.id, db),
+        repair_suggestions=schedule_repair_suggestions_response(run.id, db),
+        hard_constraint_results=schedule_hard_constraint_results(constraint_set),
+        soft_preference_results=schedule_soft_preference_results(constraint_set),
     )
 
 
@@ -1970,7 +2100,7 @@ def create_schedule_optimization(
             minimum_credits=request.minimum_credits,
             maximum_credits=request.maximum_credits,
             preferred_credits=request.preferred_credits,
-            requested_option_count=request.requested_option_count,
+            requested_option_count=request.max_options or request.requested_option_count,
             excluded_days=[DayOfWeek(day) for day in request.excluded_days],
             unavailable_time_blocks=[
                 {
@@ -2001,6 +2131,15 @@ def create_schedule_optimization(
             allow_permission_required=request.allow_permission_required,
             minimum_gap_minutes=request.minimum_gap_minutes,
             maximum_gap_minutes=request.maximum_gap_minutes,
+            preference_weights=request.preference_weights,
+            course_priority_weights=request.course_priority_weights,
+            section_priority_weights=request.section_priority_weights,
+            prefer_no_gaps=request.prefer_no_gaps,
+            prefer_morning=request.prefer_morning,
+            prefer_afternoon=request.prefer_afternoon,
+            diversity_mode=request.diversity_mode,
+            allow_partial_options=request.allow_partial_options,
+            max_combinations=request.max_combinations,
         )
     except ScheduleOptimizerValidationError as error:
         status_code = 404 if error.code == "not_found" else 400

@@ -3073,6 +3073,27 @@ class ScheduleConstraintSet(UuidPrimaryKeyMixin, Base):
     avoid_early_start: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     avoid_late_end: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     allow_permission_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    preference_weights: Mapped[dict[str, str]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
+    course_priority_weights: Mapped[dict[str, str]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
+    section_priority_weights: Mapped[dict[str, str]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
+    prefer_no_gaps: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    prefer_morning: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    prefer_afternoon: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    diversity_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="STANDARD")
+    allow_partial_options: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    max_combinations: Mapped[int] = mapped_column(nullable=False, default=500)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -3093,6 +3114,20 @@ class ScheduleOption(UuidPrimaryKeyMixin, Base):
         CheckConstraint("total_credits >= 0", name="ck_schedule_options_credits"),
         CheckConstraint("class_days_count >= 0", name="ck_schedule_options_days"),
         CheckConstraint("total_gap_minutes >= 0", name="ck_schedule_options_gap"),
+        CheckConstraint("total_score >= 0", name="ck_schedule_options_total_score"),
+        CheckConstraint("credit_score >= 0", name="ck_schedule_options_credit_score"),
+        CheckConstraint("compactness_score >= 0", name="ck_schedule_options_compact_score"),
+        CheckConstraint("days_score >= 0", name="ck_schedule_options_days_score"),
+        CheckConstraint("gap_score >= 0", name="ck_schedule_options_gap_score"),
+        CheckConstraint("modality_score >= 0", name="ck_schedule_options_modality_score"),
+        CheckConstraint("time_preference_score >= 0", name="ck_schedule_options_time_score"),
+        CheckConstraint("priority_score >= 0", name="ck_schedule_options_priority_score"),
+        CheckConstraint("penalty_score <= 0", name="ck_schedule_options_penalty_score"),
+        CheckConstraint("diversity_rank > 0", name="ck_schedule_options_diversity_rank"),
+        CheckConstraint(
+            "shared_section_count_with_previous_option >= 0",
+            name="ck_schedule_options_shared_sections",
+        ),
         CheckConstraint("length(explanation) > 0", name="ck_schedule_options_explained"),
         UniqueConstraint(
             "schedule_optimization_run_id",
@@ -3121,6 +3156,66 @@ class ScheduleOption(UuidPrimaryKeyMixin, Base):
     latest_end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     total_gap_minutes: Mapped[int] = mapped_column(nullable=False, default=0)
     score: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)
+    total_score: Mapped[Decimal] = mapped_column(
+        Numeric(8, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    credit_score: Mapped[Decimal] = mapped_column(
+        Numeric(8, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    compactness_score: Mapped[Decimal] = mapped_column(
+        Numeric(8, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    days_score: Mapped[Decimal] = mapped_column(
+        Numeric(8, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    gap_score: Mapped[Decimal] = mapped_column(
+        Numeric(8, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    modality_score: Mapped[Decimal] = mapped_column(
+        Numeric(8, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    time_preference_score: Mapped[Decimal] = mapped_column(
+        Numeric(8, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    priority_score: Mapped[Decimal] = mapped_column(
+        Numeric(8, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    penalty_score: Mapped[Decimal] = mapped_column(
+        Numeric(8, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    score_explanation: Mapped[list[dict[str, str]]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=list,
+    )
+    diversity_rank: Mapped[int] = mapped_column(nullable=False, default=1)
+    difference_summary: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="Top ranked option.",
+    )
+    shared_section_count_with_previous_option: Mapped[int] = mapped_column(
+        nullable=False,
+        default=0,
+    )
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -3181,6 +3276,64 @@ class ScheduleOptionSection(UuidPrimaryKeyMixin, Base):
         nullable=False,
     )
     selection_reason: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ScheduleRepairSuggestion(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "schedule_repair_suggestions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["schedule_optimization_run_id"],
+            ["schedule_optimization_runs.id"],
+            name="fk_schedule_repair_suggestions_run",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["affected_course_id"],
+            ["courses.id"],
+            name="fk_schedule_repair_suggestions_course",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["affected_section_id"],
+            ["sections.id"],
+            name="fk_schedule_repair_suggestions_section",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "length(suggestion_type) > 0",
+            name="ck_schedule_repair_suggestions_type",
+        ),
+        CheckConstraint(
+            "length(estimated_impact) > 0",
+            name="ck_schedule_repair_suggestions_impact",
+        ),
+        CheckConstraint(
+            "length(message) > 0",
+            name="ck_schedule_repair_suggestions_message",
+        ),
+        Index(
+            "ix_schedule_repair_suggestions_run",
+            "schedule_optimization_run_id",
+            "suggestion_type",
+        ),
+    )
+
+    schedule_optimization_run_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=False,
+    )
+    suggestion_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    affected_constraint: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    affected_course_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    affected_section_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    estimated_impact: Mapped[str] = mapped_column(String(255), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    requires_advisor_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

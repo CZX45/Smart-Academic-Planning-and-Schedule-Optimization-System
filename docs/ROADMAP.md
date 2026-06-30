@@ -236,7 +236,7 @@ Testable outcomes:
 
 ## Phase 6: Semester Schedule Optimizer
 
-Status: current phase, with Phase 6A foundation implemented.
+Status: current phase, with Phase 6B advanced preference and diversity layer implemented.
 
 Phase 6A deliverables:
 
@@ -248,6 +248,15 @@ Phase 6A deliverables:
 - Shared TypeScript schemas/client helpers and a Semester Schedule Builder UI panel.
 - Mock seed cases for section overlaps, Friday exclusion, online alternatives, and conditional/permission eligibility.
 
+Phase 6B deliverables:
+
+- Persisted advanced preference inputs, including preference weights, course priorities, section priorities, no-gap, morning, afternoon, high-diversity, partial-option, and bounded-search controls.
+- Deterministic score breakdowns for credit target, compactness, class days, gap minutes, modality, time-of-day, priorities, and penalties.
+- Required-section and excluded-section handling with validation against institution and term scope.
+- High-diversity option selection that reduces repeated selected sections while preserving stable ranking.
+- Structured repair suggestions for infeasible or partial schedules.
+- Shared TypeScript schemas, UI controls, and E2E coverage for advanced schedule preferences.
+
 Phase 6A testable outcomes:
 
 - Scheduler creates repeatable mock section options without mutating official student records, sections, seats, waitlists, or registration data.
@@ -255,7 +264,14 @@ Phase 6A testable outcomes:
 - Scheduler keeps OR-Tools, seat monitoring, waitlists, browser extension import, real school scraping, and registration automation out of scope.
 - Schedule responses include structured explanations, reason codes, warnings, and advisor-confirmation flags where appropriate.
 
-Deferred from Phase 6A:
+Phase 6B testable outcomes:
+
+- Advanced preferences affect ranking through explainable score components rather than hidden frontend logic.
+- High-diversity mode returns stable option differences for near-duplicate section sets.
+- Required/excluded section constraints are persisted, validated, and reflected in conflicts or repair suggestions.
+- Partial and infeasible results include repair suggestions without performing registration or waitlist actions.
+
+Deferred from Phase 6B:
 
 - OR-Tools CP-SAT or global mathematical schedule optimization.
 - Instructor preference data, commute/location optimization, backup schedules, and richer minimal-relaxation search.

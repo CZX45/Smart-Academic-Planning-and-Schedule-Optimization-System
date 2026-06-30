@@ -29,6 +29,7 @@ from app.models.academic import (
     ScheduleOptionSection,
     ScheduleOptionStatus,
     SchedulePlanningMode,
+    ScheduleRepairSuggestion,
     ScheduleRunStatus,
     ScheduleWarning,
     Section,
@@ -500,6 +501,150 @@ def test_schedule_engine_blocks_permission_required_sections_unless_allowed(
     assert selected.eligibility_result is EligibilityOverallResult.PERMISSION_REQUIRED
 
 
+def test_phase_6b_scores_priorities_and_diversifies_options(session: Session) -> None:
+    fin_403_id = course_id(session, "FIN", "403")
+    fin_403_section_id = section_id(session, "2024-fall-fin-403-002")
+
+    run = ScheduleOptimizerApplicationService(session).create_schedule(
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        term_id=seed_uuid("term:2024-fall"),
+        academic_plan_run_id=None,
+        planning_mode=SchedulePlanningMode.CUSTOM_COURSE_SET,
+        candidate_course_ids=[
+            course_id(session, "FIN", "300"),
+            fin_403_id,
+        ],
+        minimum_credits=Decimal("6.0"),
+        maximum_credits=Decimal("6.0"),
+        preferred_credits=Decimal("6.0"),
+        requested_option_count=3,
+        excluded_days=[],
+        unavailable_time_blocks=[],
+        earliest_start_time=time(8, 0),
+        latest_end_time=time(18, 0),
+        allowed_modalities=[],
+        excluded_modalities=[],
+        required_course_ids=[],
+        excluded_course_ids=[],
+        required_section_ids=[],
+        excluded_section_ids=[],
+        prefer_online=False,
+        prefer_compact_schedule=True,
+        prefer_fewer_days=True,
+        prefer_in_person=True,
+        avoid_early_start=True,
+        avoid_late_end=True,
+        allow_permission_required=False,
+        preference_weights={
+            "gap": Decimal("1.5"),
+            "priority": Decimal("2.0"),
+            "time": Decimal("1.0"),
+        },
+        course_priority_weights={fin_403_id: Decimal("3.0")},
+        section_priority_weights={fin_403_section_id: Decimal("5.0")},
+        prefer_no_gaps=True,
+        prefer_morning=True,
+        prefer_afternoon=False,
+        diversity_mode="HIGH",
+        allow_partial_options=True,
+        max_combinations=24,
+    )
+
+    constraint_set = session.scalar(
+        select(ScheduleConstraintSet).where(
+            ScheduleConstraintSet.schedule_optimization_run_id == run.id
+        )
+    )
+    options = session.scalars(
+        select(ScheduleOption)
+        .where(ScheduleOption.schedule_optimization_run_id == run.id)
+        .order_by(ScheduleOption.option_rank)
+    ).all()
+
+    assert constraint_set is not None
+    assert constraint_set.preference_weights["priority"] == "2.0"
+    assert constraint_set.course_priority_weights[str(fin_403_id)] == "3.0"
+    assert constraint_set.section_priority_weights[str(fin_403_section_id)] == "5.0"
+    assert constraint_set.prefer_no_gaps is True
+    assert constraint_set.prefer_morning is True
+    assert constraint_set.diversity_mode == "HIGH"
+    assert constraint_set.max_combinations == 24
+    assert len(options) >= 2
+    assert options[0].total_score == options[0].score
+    assert options[0].credit_score > Decimal("0.00")
+    assert options[0].priority_score > Decimal("0.00")
+    assert options[0].penalty_score <= Decimal("0.00")
+    assert any(
+        item["reason_code"] == "SECTION_PRIORITY_WEIGHT" for item in options[0].score_explanation
+    )
+    assert options[0].diversity_rank == 1
+    assert options[0].shared_section_count_with_previous_option == 0
+    assert options[1].diversity_rank == 2
+    assert options[1].difference_summary
+
+
+def test_phase_6b_repair_suggestions_when_hard_constraints_block_full_schedule(
+    session: Session,
+) -> None:
+    required_friday = section_id(session, "2024-fall-fin-403-friday")
+
+    run = ScheduleOptimizerApplicationService(session).create_schedule(
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        term_id=seed_uuid("term:2024-fall"),
+        academic_plan_run_id=None,
+        planning_mode=SchedulePlanningMode.CUSTOM_COURSE_SET,
+        candidate_course_ids=[course_id(session, "FIN", "403")],
+        minimum_credits=Decimal("3.0"),
+        maximum_credits=Decimal("3.0"),
+        preferred_credits=Decimal("3.0"),
+        requested_option_count=2,
+        excluded_days=[DayOfWeek.FRIDAY],
+        unavailable_time_blocks=[],
+        earliest_start_time=None,
+        latest_end_time=None,
+        allowed_modalities=[],
+        excluded_modalities=[],
+        required_course_ids=[],
+        excluded_course_ids=[],
+        required_section_ids=[required_friday],
+        excluded_section_ids=[],
+        prefer_online=False,
+        prefer_compact_schedule=False,
+        prefer_fewer_days=False,
+        prefer_in_person=False,
+        avoid_early_start=False,
+        avoid_late_end=False,
+        allow_permission_required=False,
+        preference_weights={},
+        course_priority_weights={},
+        section_priority_weights={},
+        prefer_no_gaps=False,
+        prefer_morning=False,
+        prefer_afternoon=False,
+        diversity_mode="STANDARD",
+        allow_partial_options=False,
+        max_combinations=10,
+    )
+
+    option = session.scalar(
+        select(ScheduleOption).where(ScheduleOption.schedule_optimization_run_id == run.id)
+    )
+    suggestions = session.scalars(
+        select(ScheduleRepairSuggestion)
+        .where(ScheduleRepairSuggestion.schedule_optimization_run_id == run.id)
+        .order_by(ScheduleRepairSuggestion.suggestion_type)
+    ).all()
+
+    assert option is not None
+    assert option.status is ScheduleOptionStatus.INFEASIBLE
+    assert {suggestion.suggestion_type for suggestion in suggestions} >= {
+        "RELAX_EXCLUDED_DAY",
+        "REMOVE_REQUIRED_SECTION",
+    }
+    assert all(suggestion.message for suggestion in suggestions)
+    assert any(suggestion.requires_advisor_confirmation for suggestion in suggestions)
+
+
 def test_schedule_api_create_retrieve_list_compare_and_validate(client: TestClient) -> None:
     student_id = str(seed_uuid("student-profile:mock-student"))
     response = client.post(
@@ -561,6 +706,75 @@ def test_schedule_api_create_retrieve_list_compare_and_validate(client: TestClie
     )
     assert compare.status_code == 200
     assert compare.json()[0]["schedule_optimization_run_id"] == run_id
+
+    advanced = client.post(
+        "/api/v1/schedule-optimizations",
+        json={
+            "student_profile_id": student_id,
+            "term_id": str(seed_uuid("term:2024-fall")),
+            "academic_plan_run_id": None,
+            "planning_mode": "CUSTOM_COURSE_SET",
+            "candidate_course_ids": [
+                str(seed_uuid("course:FIN-300")),
+                str(seed_uuid("course:FIN-403")),
+            ],
+            "minimum_credits": "6.0",
+            "maximum_credits": "6.0",
+            "preferred_credits": "6.0",
+            "requested_option_count": 3,
+            "max_options": 3,
+            "max_combinations": 24,
+            "excluded_days": [],
+            "unavailable_time_blocks": [],
+            "preference_weights": {"priority": "2.0", "gap": "1.5"},
+            "course_priority_weights": {str(seed_uuid("course:FIN-403")): "3.0"},
+            "section_priority_weights": {str(seed_uuid("section:2024-fall-fin-403-002")): "5.0"},
+            "prefer_no_gaps": True,
+            "prefer_morning": True,
+            "prefer_afternoon": False,
+            "diversity_mode": "HIGH",
+            "allow_partial_options": True,
+        },
+    )
+    assert advanced.status_code == 201
+    advanced_payload = advanced.json()
+    assert advanced_payload["options"][0]["score_breakdown"]["priority_score"] != "0.00"
+    assert advanced_payload["options"][0]["diversity_rank"] == 1
+    assert "hard_constraint_results" in advanced_payload
+    assert "soft_preference_results" in advanced_payload
+    assert "repair_suggestions" in advanced_payload
+
+    invalid_weight = client.post(
+        "/api/v1/schedule-optimizations",
+        json={
+            "student_profile_id": student_id,
+            "term_id": str(seed_uuid("term:2024-fall")),
+            "planning_mode": "CUSTOM_COURSE_SET",
+            "candidate_course_ids": [str(seed_uuid("course:FIN-300"))],
+            "minimum_credits": "3.0",
+            "maximum_credits": "3.0",
+            "preferred_credits": "3.0",
+            "requested_option_count": 1,
+            "preference_weights": {"priority": "-1.0"},
+        },
+    )
+    assert invalid_weight.status_code == 400
+
+    invalid_pinned_section = client.post(
+        "/api/v1/schedule-optimizations",
+        json={
+            "student_profile_id": student_id,
+            "term_id": str(seed_uuid("term:2024-fall")),
+            "planning_mode": "CUSTOM_COURSE_SET",
+            "candidate_course_ids": [str(seed_uuid("course:FIN-300"))],
+            "minimum_credits": "3.0",
+            "maximum_credits": "3.0",
+            "preferred_credits": "3.0",
+            "requested_option_count": 1,
+            "required_section_ids": [MISSING_ID],
+        },
+    )
+    assert invalid_pinned_section.status_code == 400
 
     invalid_limits = client.post(
         "/api/v1/schedule-optimizations",
