@@ -96,6 +96,13 @@ Phase 7A adds read-only data import preview coverage:
 - Shared TypeScript schema tests for import run, imported record, mapping candidate, warning, preview, and create helper responses.
 - Playwright tests for the Data Import Preview panel, required non-official disclaimers, staged records, mapping candidates, warnings, saved import loading, API failure, and schema-error states.
 
+Phase 7B adds data review and confirmation coverage:
+
+- Service/API tests for review creation, per-record decisions, dry-run application without domain writes, explicit apply into non-official internal course attempts, duplicate skips, warnings, and student review/application indexes.
+- Seed tests for review sessions, edited-and-confirmed records, advisor-review skips, duplicate application logs, unsupported-grade warnings, non-official status, and idempotency.
+- Shared TypeScript schema tests for review sessions, record reviews, application runs, applied-record logs, warnings, dry-run results, decision patching, and apply helpers.
+- Playwright tests for the Data Review & Confirmation panel, create review, confirm/reject/defer/advisor-review controls, simple grade edit, dry-run output, explicit apply output, warnings, and application logs.
+
 ### End-to-End Tests
 
 Playwright tests for:
@@ -222,6 +229,13 @@ Phase 7A covers read-only data import behavior:
 - Mapping candidates include target type, optional target ID, match type, confidence, selection flag, reason code, and explanation.
 - Validation warnings are emitted for staging-only use and ambiguous/unmatched data.
 - API and UI flows do not perform real school login, browser extension import, scraping, OCR-heavy extraction, registration, seat polling, waitlist handling, or official table writes.
+
+Phase 7B covers reviewed application behavior:
+
+- Dry-run application must not create `student_course_attempts` or application-run rows.
+- Real application must require explicit POST and must audit every applied or skipped record.
+- Confirmed unofficial transcript course attempts may create internal `student_course_attempts` only with `is_official = false` and source metadata.
+- Duplicate, rejected, deferred, unsupported, unknown-course, unsupported-grade, and advisor-review records must be skipped with reason codes and warnings.
 
 ## 5. Property and Constraint Tests
 

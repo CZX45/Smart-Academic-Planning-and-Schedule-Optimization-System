@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date, time
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -12,6 +12,10 @@ from app.db.session import SessionLocal
 from app.models.academic import (
     AcademicProgram,
     AcademicTerm,
+    AppliedImportAction,
+    AppliedImportedRecord,
+    AppliedImportStatus,
+    AppliedImportTargetEntityType,
     ApprovalStatus,
     AuditWarningSeverity,
     Campus,
@@ -24,15 +28,22 @@ from app.models.academic import (
     CourseRuleType,
     CourseSubstitution,
     CourseWaiver,
+    DataApplicationRun,
+    DataApplicationStatus,
     DataImportFile,
+    DataImportReviewSession,
+    DataImportReviewStatus,
     DataImportRun,
     DataImportStatus,
     DataImportStorageStrategy,
     DataImportType,
+    DataReviewWarning,
     DayOfWeek,
     DegreeLevel,
     FrequencyType,
     ImportedRecord,
+    ImportedRecordReview,
+    ImportedRecordReviewDecision,
     ImportedRecordStatus,
     ImportedRecordType,
     ImportMappingCandidate,
@@ -2028,6 +2039,182 @@ def seed_mock_data(session: Session) -> None:
     merge_all(session, [phase7a_import_file, *phase7a_import_records])
     session.flush()
     merge_all(session, [*phase7a_mapping_candidates, *phase7a_warnings, phase7a_preview])
+    session.flush()
+
+    phase7b_review_id = seed_uuid("data-import-review-session:mock-phase-7b")
+    phase7b_fin300_review_id = seed_uuid("imported-record-review:mock-phase-7b-fin-300")
+    phase7b_fin999_review_id = seed_uuid("imported-record-review:mock-phase-7b-fin-999")
+    phase7b_application_id = seed_uuid("data-application-run:mock-phase-7b-apply")
+    phase7b_duplicate_application_id = seed_uuid("data-application-run:mock-phase-7b-duplicate")
+    phase7b_completed_at = datetime(2026, 6, 30, tzinfo=UTC)
+    phase7b_review = DataImportReviewSession(
+        id=phase7b_review_id,
+        data_import_run_id=phase7a_run_id,
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        status=DataImportReviewStatus.APPLIED_WITH_WARNINGS,
+        reviewer_label="Mock student self-review",
+        completed_at=phase7b_completed_at,
+    )
+    phase7b_record_reviews = [
+        ImportedRecordReview(
+            id=phase7b_fin300_review_id,
+            review_session_id=phase7b_review_id,
+            imported_record_id=phase7a_record_fin300_id,
+            selected_mapping_candidate_id=seed_uuid(
+                "import-mapping-candidate:mock-phase-7a-fin-300"
+            ),
+            decision=ImportedRecordReviewDecision.EDITED_AND_CONFIRMED,
+            edited_normalized_payload={"grade": "B+"},
+            review_note="Mock reviewer corrected the grade before confirmation.",
+            requires_advisor_confirmation=False,
+        ),
+        ImportedRecordReview(
+            id=phase7b_fin999_review_id,
+            review_session_id=phase7b_review_id,
+            imported_record_id=phase7a_record_fin999_id,
+            selected_mapping_candidate_id=seed_uuid(
+                "import-mapping-candidate:mock-phase-7a-fin-999"
+            ),
+            decision=ImportedRecordReviewDecision.NEEDS_ADVISOR_REVIEW,
+            edited_normalized_payload=None,
+            review_note="Unknown course remains pending advisor review.",
+            requires_advisor_confirmation=True,
+        ),
+    ]
+    phase7b_applications = [
+        DataApplicationRun(
+            id=phase7b_application_id,
+            review_session_id=phase7b_review_id,
+            status=DataApplicationStatus.APPLIED_WITH_WARNINGS,
+            applied_count=1,
+            skipped_count=1,
+            warning_count=1,
+            error_count=0,
+            completed_at=phase7b_completed_at,
+        ),
+        DataApplicationRun(
+            id=phase7b_duplicate_application_id,
+            review_session_id=phase7b_review_id,
+            status=DataApplicationStatus.APPLIED_WITH_WARNINGS,
+            applied_count=0,
+            skipped_count=2,
+            warning_count=2,
+            error_count=0,
+            completed_at=phase7b_completed_at,
+        ),
+    ]
+    phase7b_applied_records = [
+        AppliedImportedRecord(
+            id=seed_uuid("applied-imported-record:mock-phase-7b-fin-300-created"),
+            data_application_run_id=phase7b_application_id,
+            imported_record_review_id=phase7b_fin300_review_id,
+            imported_record_id=phase7a_record_fin300_id,
+            target_entity_type=AppliedImportTargetEntityType.STUDENT_COURSE_ATTEMPT,
+            target_entity_id=seed_uuid("student-course-attempt:mock-phase-7b-fin-300"),
+            action=AppliedImportAction.CREATED,
+            status=AppliedImportStatus.SUCCESS,
+            reason_code="CREATED_STUDENT_COURSE_ATTEMPT",
+            message=(
+                "Mock Phase 7B seed records a confirmed internal planning application; "
+                "it is not an official transcript record."
+            ),
+        ),
+        AppliedImportedRecord(
+            id=seed_uuid("applied-imported-record:mock-phase-7b-fin-999-advisor"),
+            data_application_run_id=phase7b_application_id,
+            imported_record_review_id=phase7b_fin999_review_id,
+            imported_record_id=phase7a_record_fin999_id,
+            target_entity_type=AppliedImportTargetEntityType.UNKNOWN,
+            target_entity_id=None,
+            action=AppliedImportAction.SKIPPED_ADVISOR_REVIEW,
+            status=AppliedImportStatus.SKIPPED,
+            reason_code="ADVISOR_REVIEW_REQUIRED",
+            message="FIN 999 remains unapplied until advisor review resolves the unknown course.",
+        ),
+        AppliedImportedRecord(
+            id=seed_uuid("applied-imported-record:mock-phase-7b-fin-300-duplicate"),
+            data_application_run_id=phase7b_duplicate_application_id,
+            imported_record_review_id=phase7b_fin300_review_id,
+            imported_record_id=phase7a_record_fin300_id,
+            target_entity_type=AppliedImportTargetEntityType.STUDENT_COURSE_ATTEMPT,
+            target_entity_id=seed_uuid("student-course-attempt:mock-phase-7b-fin-300"),
+            action=AppliedImportAction.SKIPPED_DUPLICATE,
+            status=AppliedImportStatus.SKIPPED,
+            reason_code="ALREADY_APPLIED_IMPORTED_RECORD",
+            message="A later mock application run skipped FIN 300 as a duplicate.",
+        ),
+        AppliedImportedRecord(
+            id=seed_uuid("applied-imported-record:mock-phase-7b-fin-999-duplicate-advisor"),
+            data_application_run_id=phase7b_duplicate_application_id,
+            imported_record_review_id=phase7b_fin999_review_id,
+            imported_record_id=phase7a_record_fin999_id,
+            target_entity_type=AppliedImportTargetEntityType.UNKNOWN,
+            target_entity_id=None,
+            action=AppliedImportAction.SKIPPED_ADVISOR_REVIEW,
+            status=AppliedImportStatus.SKIPPED,
+            reason_code="ADVISOR_REVIEW_REQUIRED",
+            message="A later mock application run still skipped FIN 999 for advisor review.",
+        ),
+    ]
+    phase7b_warnings = [
+        DataReviewWarning(
+            id=seed_uuid("data-review-warning:mock-phase-7b-staging"),
+            review_session_id=phase7b_review_id,
+            imported_record_review_id=None,
+            data_application_run_id=None,
+            warning_code="STAGING_ONLY_NOT_OFFICIAL",
+            severity=AuditWarningSeverity.WARNING,
+            message="Phase 7B mock review seed remains unofficial and advisor-confirmable.",
+            requires_advisor_confirmation=True,
+        ),
+        DataReviewWarning(
+            id=seed_uuid("data-review-warning:mock-phase-7b-edited"),
+            review_session_id=phase7b_review_id,
+            imported_record_review_id=phase7b_fin300_review_id,
+            data_application_run_id=phase7b_application_id,
+            warning_code="EDITED_IMPORTED_RECORD",
+            severity=AuditWarningSeverity.WARNING,
+            message="FIN 300 grade was edited in the mock review before confirmation.",
+            requires_advisor_confirmation=True,
+        ),
+        DataReviewWarning(
+            id=seed_uuid("data-review-warning:mock-phase-7b-duplicate"),
+            review_session_id=phase7b_review_id,
+            imported_record_review_id=phase7b_fin300_review_id,
+            data_application_run_id=phase7b_duplicate_application_id,
+            warning_code="ALREADY_APPLIED_IMPORTED_RECORD",
+            severity=AuditWarningSeverity.WARNING,
+            message="Duplicate prevention skipped a repeated mock FIN 300 application.",
+            requires_advisor_confirmation=False,
+        ),
+        DataReviewWarning(
+            id=seed_uuid("data-review-warning:mock-phase-7b-unsupported-grade"),
+            review_session_id=phase7b_review_id,
+            imported_record_review_id=phase7b_fin999_review_id,
+            data_application_run_id=None,
+            warning_code="UNSUPPORTED_GRADE_FORMAT",
+            severity=AuditWarningSeverity.WARNING,
+            message="Mock seed includes an unsupported-grade warning scenario for review.",
+            requires_advisor_confirmation=True,
+        ),
+        DataReviewWarning(
+            id=seed_uuid("data-review-warning:mock-phase-7b-deferred-rejected"),
+            review_session_id=phase7b_review_id,
+            imported_record_review_id=phase7b_fin999_review_id,
+            data_application_run_id=None,
+            warning_code="REJECTED_OR_DEFERRED_RECORDS_REMAIN_UNAPPLIED",
+            severity=AuditWarningSeverity.INFO,
+            message="Rejected and deferred mock records are intentionally left unapplied.",
+            requires_advisor_confirmation=False,
+        ),
+    ]
+    merge_all(session, [phase7b_review])
+    session.flush()
+    merge_all(session, phase7b_record_reviews)
+    session.flush()
+    merge_all(session, phase7b_applications)
+    session.flush()
+    merge_all(session, [*phase7b_applied_records, *phase7b_warnings])
     session.flush()
 
     merge_all(

@@ -2798,6 +2798,557 @@
         }
       }
     },
+    "/api/v1/data-import-reviews": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Create Data Import Review",
+        "operationId": "create_data_import_review_api_v1_data_import_reviews_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataImportReviewCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataImportReviewSessionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-import-reviews/{review_id}": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Data Import Review",
+        "operationId": "get_data_import_review_api_v1_data_import_reviews__review_id__get",
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Review Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataImportReviewSessionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-import-reviews/{review_id}/records": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Data Import Review Records",
+        "operationId": "get_data_import_review_records_api_v1_data_import_reviews__review_id__records_get",
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Review Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImportedRecordReviewResponse"
+                  },
+                  "title": "Response Get Data Import Review Records Api V1 Data Import Reviews  Review Id  Records Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-import-reviews/{review_id}/records/{record_review_id}": {
+      "patch": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Update Data Import Review Record",
+        "operationId": "update_data_import_review_record_api_v1_data_import_reviews__review_id__records__record_review_id__patch",
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Review Id"
+            }
+          },
+          {
+            "name": "record_review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Record Review Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportedRecordReviewUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportedRecordReviewResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-import-reviews/{review_id}/apply": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Apply Data Import Review",
+        "operationId": "apply_data_import_review_api_v1_data_import_reviews__review_id__apply_post",
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Review Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataImportReviewApplyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataReviewApplicationResultResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-import-reviews/{review_id}/applications": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Data Import Review Applications",
+        "operationId": "get_data_import_review_applications_api_v1_data_import_reviews__review_id__applications_get",
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Review Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DataApplicationRunResponse"
+                  },
+                  "title": "Response Get Data Import Review Applications Api V1 Data Import Reviews  Review Id  Applications Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-import-reviews/{review_id}/warnings": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Data Import Review Warnings",
+        "operationId": "get_data_import_review_warnings_api_v1_data_import_reviews__review_id__warnings_get",
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Review Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DataReviewWarningResponse"
+                  },
+                  "title": "Response Get Data Import Review Warnings Api V1 Data Import Reviews  Review Id  Warnings Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-applications/{application_id}": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Data Application",
+        "operationId": "get_data_application_api_v1_data_applications__application_id__get",
+        "parameters": [
+          {
+            "name": "application_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Application Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataReviewApplicationResultResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/students/{student_id}/data-import-reviews": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "List Student Data Import Reviews",
+        "operationId": "list_student_data_import_reviews_api_v1_students__student_id__data_import_reviews_get",
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DataImportReviewSessionResponse"
+                  },
+                  "title": "Response List Student Data Import Reviews Api V1 Students  Student Id  Data Import Reviews Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/academic-scenarios": {
       "post": {
         "tags": [
@@ -4443,6 +4994,123 @@
         ],
         "title": "AcademicScenarioResponse"
       },
+      "AppliedImportedRecordResponse": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "data_application_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Application Run Id"
+          },
+          "imported_record_review_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Imported Record Review Id"
+          },
+          "imported_record_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Imported Record Id"
+          },
+          "target_entity_type": {
+            "type": "string",
+            "enum": [
+              "STUDENT_COURSE_ATTEMPT",
+              "TRANSFER_CREDIT",
+              "COURSE",
+              "SECTION",
+              "SECTION_MEETING",
+              "COURSE_OFFERING_PATTERN",
+              "UNKNOWN"
+            ],
+            "title": "Target Entity Type"
+          },
+          "target_entity_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Entity Id"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "CREATED",
+              "UPDATED",
+              "SKIPPED_DUPLICATE",
+              "SKIPPED_REJECTED",
+              "SKIPPED_DEFERRED",
+              "SKIPPED_ADVISOR_REVIEW",
+              "SKIPPED_UNSUPPORTED"
+            ],
+            "title": "Action"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SUCCESS",
+              "WARNING",
+              "FAILED",
+              "SKIPPED"
+            ],
+            "title": "Status"
+          },
+          "reason_code": {
+            "type": "string",
+            "title": "Reason Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "imported_record_review_id",
+          "imported_record_id",
+          "target_entity_type",
+          "action",
+          "status",
+          "reason_code",
+          "message"
+        ],
+        "title": "AppliedImportedRecordResponse"
+      },
       "AuditCourseApplicationResponse": {
         "properties": {
           "id": {
@@ -5393,6 +6061,89 @@
         ],
         "title": "CourseRuleResponse"
       },
+      "DataApplicationRunResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "review_session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Review Session Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPLYING",
+              "APPLIED",
+              "APPLIED_WITH_WARNINGS",
+              "FAILED",
+              "ROLLED_BACK"
+            ],
+            "title": "Status"
+          },
+          "applied_count": {
+            "type": "integer",
+            "title": "Applied Count"
+          },
+          "skipped_count": {
+            "type": "integer",
+            "title": "Skipped Count"
+          },
+          "warning_count": {
+            "type": "integer",
+            "title": "Warning Count"
+          },
+          "error_count": {
+            "type": "integer",
+            "title": "Error Count"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "review_session_id",
+          "status",
+          "applied_count",
+          "skipped_count",
+          "warning_count",
+          "error_count",
+          "started_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DataApplicationRunResponse"
+      },
       "DataImportCreateRequest": {
         "properties": {
           "student_profile_id": {
@@ -5465,6 +6216,119 @@
           "content"
         ],
         "title": "DataImportCreateRequest"
+      },
+      "DataImportReviewApplyRequest": {
+        "properties": {
+          "allow_advisor_review_records": {
+            "type": "boolean",
+            "title": "Allow Advisor Review Records",
+            "default": false
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "DataImportReviewApplyRequest"
+      },
+      "DataImportReviewCreateRequest": {
+        "properties": {
+          "data_import_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Data Import Run Id"
+          },
+          "reviewer_label": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Reviewer Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data_import_run_id",
+          "reviewer_label"
+        ],
+        "title": "DataImportReviewCreateRequest"
+      },
+      "DataImportReviewSessionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "data_import_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Data Import Run Id"
+          },
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "IN_REVIEW",
+              "READY_TO_APPLY",
+              "APPLYING",
+              "APPLIED",
+              "APPLIED_WITH_WARNINGS",
+              "FAILED",
+              "ARCHIVED"
+            ],
+            "title": "Status"
+          },
+          "reviewer_label": {
+            "type": "string",
+            "title": "Reviewer Label"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "data_import_run_id",
+          "student_profile_id",
+          "status",
+          "reviewer_label",
+          "started_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DataImportReviewSessionResponse"
       },
       "DataImportRunResponse": {
         "properties": {
@@ -5608,6 +6472,124 @@
           "updated_at"
         ],
         "title": "DataImportRunResponse"
+      },
+      "DataReviewApplicationResultResponse": {
+        "properties": {
+          "review_session": {
+            "$ref": "#/components/schemas/DataImportReviewSessionResponse"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run"
+          },
+          "application": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DataApplicationRunResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "applied_records": {
+            "items": {
+              "$ref": "#/components/schemas/AppliedImportedRecordResponse"
+            },
+            "type": "array",
+            "title": "Applied Records"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/DataReviewWarningResponse"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "review_session",
+          "dry_run",
+          "applied_records",
+          "warnings"
+        ],
+        "title": "DataReviewApplicationResultResponse"
+      },
+      "DataReviewWarningResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "review_session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Review Session Id"
+          },
+          "imported_record_review_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imported Record Review Id"
+          },
+          "data_application_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Application Run Id"
+          },
+          "warning_code": {
+            "type": "string",
+            "title": "Warning Code"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "INFO",
+              "WARNING",
+              "ERROR"
+            ],
+            "title": "Severity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "requires_advisor_confirmation": {
+            "type": "boolean",
+            "title": "Requires Advisor Confirmation"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "review_session_id",
+          "warning_code",
+          "severity",
+          "message",
+          "requires_advisor_confirmation",
+          "created_at"
+        ],
+        "title": "DataReviewWarningResponse"
       },
       "DegreeAuditCreateRequest": {
         "properties": {
@@ -6349,6 +7331,179 @@
           "created_at"
         ],
         "title": "ImportedRecordResponse"
+      },
+      "ImportedRecordReviewResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "review_session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Review Session Id"
+          },
+          "imported_record_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Imported Record Id"
+          },
+          "selected_mapping_candidate_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Mapping Candidate Id"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "UNREVIEWED",
+              "CONFIRMED",
+              "REJECTED",
+              "NEEDS_ADVISOR_REVIEW",
+              "EDITED_AND_CONFIRMED",
+              "DEFERRED"
+            ],
+            "title": "Decision"
+          },
+          "edited_normalized_payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edited Normalized Payload"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "requires_advisor_confirmation": {
+            "type": "boolean",
+            "title": "Requires Advisor Confirmation"
+          },
+          "imported_record": {
+            "$ref": "#/components/schemas/ImportedRecordResponse"
+          },
+          "selected_mapping_candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportMappingCandidateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "review_session_id",
+          "imported_record_id",
+          "decision",
+          "requires_advisor_confirmation",
+          "imported_record",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ImportedRecordReviewResponse"
+      },
+      "ImportedRecordReviewUpdateRequest": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "UNREVIEWED",
+              "CONFIRMED",
+              "REJECTED",
+              "NEEDS_ADVISOR_REVIEW",
+              "EDITED_AND_CONFIRMED",
+              "DEFERRED"
+            ],
+            "title": "Decision"
+          },
+          "selected_mapping_candidate_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Mapping Candidate Id"
+          },
+          "edited_normalized_payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edited Normalized Payload"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "requires_advisor_confirmation": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requires Advisor Confirmation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "title": "ImportedRecordReviewUpdateRequest"
       },
       "InstitutionResponse": {
         "properties": {

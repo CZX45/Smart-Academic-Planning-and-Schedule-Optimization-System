@@ -46,6 +46,7 @@ Academic requirements are high-impact. Incorrect results may delay graduation, a
 - Require advisor confirmation messaging for high-risk results.
 - Treat academic plans as advisory course-level snapshots; never convert them into add/drop/swap, waitlist, seat-grabbing, or registration actions.
 - Treat Phase 7A data imports as staging-only previews. Do not mark imported data official, and do not apply it to transcript, catalog, section, requirement, seat, waitlist, or registration tables.
+- Treat Phase 7B review applications as explicit, audited, non-official internal planning writes. Confirmed unofficial transcript course attempts may create `student_course_attempts` with `is_official = false`, source metadata, duplicate checks, and applied-record logs. Do not use Phase 7B to create official transcript, catalog, section, seat, waitlist, advisor-approval, or registration state.
 - Maintain regression fixtures for every catalog/program version.
 
 ## 6. Privacy Controls
@@ -72,7 +73,8 @@ Recommended controls:
 | Data leakage in logs | Structured logging with redaction. |
 | Prompt or fixture confusion | Clearly label mock data and never call it official. |
 | Excessive school-system requests | No high-frequency polling; backoff and user-controlled refresh. |
-| Imported data mistaken for official policy | Keep imports in staging tables, force `official_application_ready = false`, emit preview disclaimers, and require advisor/school confirmation. |
+| Imported data mistaken for official policy | Keep Phase 7A imports in staging tables, force `official_application_ready = false`, emit preview disclaimers, require Phase 7B review decisions, keep applied planning records non-official, and require advisor/school confirmation. |
+| Review application creates unsafe records | Allow application only through explicit POST, support dry-run with no domain writes, skip unsupported/duplicate/advisor-review records with reason codes, and audit every applied or skipped record. |
 
 ## 8. Compliance Considerations
 

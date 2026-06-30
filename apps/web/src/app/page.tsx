@@ -9,18 +9,24 @@ import {
   createAcademicPlan,
   createAcademicScenario,
   createDataImport,
+  createDataImportReview,
   createCourseEligibilityCheck,
   createDegreeAudit,
   createScheduleOptimization,
+  applyDataImportReview,
   fetchAcademicScenarioAllocations,
   fetchAcademicScenarioAudits,
   fetchAcademicScenarioComparison,
   fetchAcademicScenarioPrograms,
   fetchAcademicScenarioWarnings,
+  fetchDataImportReviewApplications,
+  fetchDataImportReviewRecords,
+  fetchDataImportReviewWarnings,
   fetchDataImportMappingCandidates,
   fetchDataImportPreview,
   fetchDataImportRecords,
   fetchDataImportWarnings,
+  fetchStudentDataImportReviews,
   fetchDegreeAuditRequirements,
   fetchHealth,
   fetchLatestDegreeAudit,
@@ -29,16 +35,22 @@ import {
   fetchStudentAcademicPlans,
   fetchStudentEligibilityChecks,
   fetchStudentAcademicScenarios,
+  updateImportedRecordReview,
   validateDataImport,
   type AcademicPlanComparison,
   type AcademicPlanDetail,
   type AcademicPlanRun,
   type AcademicScenario,
   type CourseEligibilityCheck,
+  type DataApplicationRun,
   type DataImportRun,
+  type DataImportReviewSession,
+  type DataReviewApplicationResult,
+  type DataReviewWarning,
   type DegreeAuditRun,
   type HealthResponse,
   type ImportedRecord,
+  type ImportedRecordReview,
   type ImportMappingCandidate,
   type ImportPreviewSummary,
   type ImportValidationWarning,
@@ -154,6 +166,21 @@ type DataImportPreviewState =
       warnings: ImportValidationWarning[];
       preview: ImportPreviewSummary;
       savedImports: DataImportRun[];
+    }
+  | { status: "empty"; message: string }
+  | { status: "offline"; message: string }
+  | { status: "failed"; message: string }
+  | { status: "schema-error"; message: string };
+type DataReviewState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | {
+      status: "ready";
+      review: DataImportReviewSession;
+      records: ImportedRecordReview[];
+      warnings: DataReviewWarning[];
+      applications: DataApplicationRun[];
+      applicationResult: DataReviewApplicationResult | null;
     }
   | { status: "empty"; message: string }
   | { status: "offline"; message: string }
@@ -579,6 +606,14 @@ export default function Home() {
             message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
           },
     );
+  const [dataReviewState, setDataReviewState] = useState<DataReviewState>(() =>
+    apiBaseUrl
+      ? { status: "idle" }
+      : {
+          status: "offline",
+          message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        },
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -774,6 +809,8 @@ export default function Home() {
           setSelectedDataImportSampleId={setSelectedDataImportSampleId}
           dataImportState={dataImportState}
           setDataImportState={setDataImportState}
+          dataReviewState={dataReviewState}
+          setDataReviewState={setDataReviewState}
         />
       </section>
     </main>
@@ -2574,11 +2611,15 @@ function DataImportPreviewPanel({
   setSelectedDataImportSampleId,
   dataImportState,
   setDataImportState,
+  dataReviewState,
+  setDataReviewState,
 }: {
   selectedDataImportSampleId: string;
   setSelectedDataImportSampleId: (value: string) => void;
   dataImportState: DataImportPreviewState;
   setDataImportState: Dispatch<SetStateAction<DataImportPreviewState>>;
+  dataReviewState: DataReviewState;
+  setDataReviewState: Dispatch<SetStateAction<DataReviewState>>;
 }) {
   const selectedSample =
     dataImportSamples.find(
@@ -2767,6 +2808,12 @@ function DataImportPreviewPanel({
       {dataImportState.status === "ready" ? (
         <DataImportResultView state={dataImportState} />
       ) : null}
+
+      <DataReviewPanel
+        dataImportState={dataImportState}
+        dataReviewState={dataReviewState}
+        setDataReviewState={setDataReviewState}
+      />
     </section>
   );
 }
@@ -2878,6 +2925,430 @@ function DataImportResultView({
         )}
       </section>
     </div>
+  );
+}
+
+function DataReviewPanel({
+  dataImportState,
+  dataReviewState,
+  setDataReviewState,
+}: {
+  dataImportState: DataImportPreviewState;
+  dataReviewState: DataReviewState;
+  setDataReviewState: Dispatch<SetStateAction<DataReviewState>>;
+}) {
+  const [gradeEdits, setGradeEdits] = useState<Record<string, string>>({});
+
+  async function loadReviewDetail(
+    review: DataImportReviewSession,
+    applicationResult: DataReviewApplicationResult | null = null,
+  ): Promise<void> {
+    if (!apiBaseUrl) {
+      setDataReviewState({
+        status: "offline",
+        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+      });
+      return;
+    }
+    const [records, warnings, applications] = await Promise.all([
+      fetchDataImportReviewRecords(apiBaseUrl, review.id, {
+        timeoutMs: 5_000,
+      }),
+      fetchDataImportReviewWarnings(apiBaseUrl, review.id, {
+        timeoutMs: 5_000,
+      }),
+      fetchDataImportReviewApplications(apiBaseUrl, review.id, {
+        timeoutMs: 5_000,
+      }),
+    ]);
+    setDataReviewState({
+      status: "ready",
+      review,
+      records,
+      warnings,
+      applications,
+      applicationResult,
+    });
+  }
+
+  async function handleCreateReview(): Promise<void> {
+    if (!apiBaseUrl) {
+      setDataReviewState({
+        status: "offline",
+        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+      });
+      return;
+    }
+    if (dataImportState.status !== "ready") {
+      setDataReviewState({
+        status: "empty",
+        message: "Preview or load a staging import before creating a review.",
+      });
+      return;
+    }
+    setDataReviewState({ status: "loading" });
+    try {
+      const review = await createDataImportReview(
+        apiBaseUrl,
+        {
+          data_import_run_id: dataImportState.run.id,
+          reviewer_label: "Mock student self-review",
+        },
+        { timeoutMs: 5_000 },
+      );
+      await loadReviewDetail(review);
+    } catch (error: unknown) {
+      setDataReviewState({
+        status:
+          error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        message: describeDataImportError(error),
+      });
+    }
+  }
+
+  async function handleLoadLatestReviews(): Promise<void> {
+    if (!apiBaseUrl) {
+      setDataReviewState({
+        status: "offline",
+        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+      });
+      return;
+    }
+    setDataReviewState({ status: "loading" });
+    try {
+      const reviews = await fetchStudentDataImportReviews(
+        apiBaseUrl,
+        mockStudentId,
+        { timeoutMs: 5_000 },
+      );
+      if (reviews.length === 0) {
+        setDataReviewState({
+          status: "empty",
+          message: "No data import reviews are available for the mock student.",
+        });
+        return;
+      }
+      await loadReviewDetail(reviews[0]);
+    } catch (error: unknown) {
+      setDataReviewState({
+        status:
+          error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        message: describeDataImportError(error),
+      });
+    }
+  }
+
+  async function handleDecision(
+    recordReview: ImportedRecordReview,
+    decision: ImportedRecordReview["decision"],
+  ): Promise<void> {
+    if (!apiBaseUrl || dataReviewState.status !== "ready") {
+      return;
+    }
+    const review = dataReviewState.review;
+    setDataReviewState({ status: "loading" });
+    try {
+      const editedGrade = gradeEdits[recordReview.id];
+      const request =
+        decision === "EDITED_AND_CONFIRMED"
+          ? {
+              decision,
+              edited_normalized_payload: {
+                grade:
+                  editedGrade ??
+                  payloadValue(
+                    recordReview.imported_record.normalized_payload,
+                    "grade",
+                  ) ??
+                  "",
+              },
+              review_note: "Reviewer edited a simple normalized field.",
+            }
+          : { decision };
+      await updateImportedRecordReview(
+        apiBaseUrl,
+        review.id,
+        recordReview.id,
+        request,
+        { timeoutMs: 5_000 },
+      );
+      await loadReviewDetail(review, dataReviewState.applicationResult);
+    } catch (error: unknown) {
+      setDataReviewState({
+        status:
+          error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        message: describeDataImportError(error),
+      });
+    }
+  }
+
+  async function handleApply(dryRun: boolean): Promise<void> {
+    if (!apiBaseUrl || dataReviewState.status !== "ready") {
+      return;
+    }
+    const review = dataReviewState.review;
+    setDataReviewState({ status: "loading" });
+    try {
+      const result = await applyDataImportReview(
+        apiBaseUrl,
+        review.id,
+        { dry_run: dryRun, allow_advisor_review_records: false },
+        { timeoutMs: 8_000 },
+      );
+      await loadReviewDetail(result.review_session, result);
+    } catch (error: unknown) {
+      setDataReviewState({
+        status:
+          error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        message: describeDataImportError(error),
+      });
+    }
+  }
+
+  return (
+    <section
+      className="data-review-panel"
+      aria-label="Data Review and Confirmation"
+    >
+      <div className="section-heading">
+        <div>
+          <h2>Data Review &amp; Confirmation</h2>
+          <p className="subtle">
+            Confirmed records apply only to internal planning data.
+          </p>
+        </div>
+        <p className="notice compact">Explicit apply required.</p>
+      </div>
+
+      <ul className="disclaimer-list" aria-label="Data review disclaimers">
+        <li>Review decisions do not create official transcript records.</li>
+        <li>Dry run shows proposed writes without creating domain records.</li>
+        <li>
+          Rejected, deferred, duplicate, and advisor-review records are logged.
+        </li>
+      </ul>
+
+      <div className="scenario-controls data-import-controls">
+        <button type="button" onClick={() => void handleCreateReview()}>
+          Create review
+        </button>
+        <button type="button" onClick={() => void handleLoadLatestReviews()}>
+          Load latest reviews
+        </button>
+        {dataReviewState.status === "ready" ? (
+          <>
+            <button type="button" onClick={() => void handleApply(true)}>
+              Dry run
+            </button>
+            <button type="button" onClick={() => void handleApply(false)}>
+              Apply confirmed
+            </button>
+          </>
+        ) : null}
+      </div>
+
+      {dataReviewState.status === "loading" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Loading review</h2>
+          <p>Retrieving review records, warnings, and application logs.</p>
+        </section>
+      ) : null}
+
+      {dataReviewState.status === "offline" ||
+      dataReviewState.status === "failed" ||
+      dataReviewState.status === "schema-error" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>
+            {dataReviewState.status === "schema-error"
+              ? "Data review schema error"
+              : "Data review unavailable"}
+          </h2>
+          <p>{dataReviewState.message}</p>
+        </section>
+      ) : null}
+
+      {dataReviewState.status === "empty" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>No review selected</h2>
+          <p>{dataReviewState.message}</p>
+        </section>
+      ) : null}
+
+      {dataReviewState.status === "ready" ? (
+        <div className="data-import-result">
+          <section className="summary-grid" aria-label="Data review summary">
+            <SummaryMetric
+              label="Review Status"
+              value={statusLabel(dataReviewState.review.status)}
+            />
+            <SummaryMetric
+              label="Records"
+              value={String(dataReviewState.records.length)}
+            />
+            <SummaryMetric
+              label="Warnings"
+              value={String(dataReviewState.warnings.length)}
+            />
+            <SummaryMetric
+              label="Applications"
+              value={String(dataReviewState.applications.length)}
+            />
+            <SummaryMetric
+              label="Last Result"
+              value={
+                dataReviewState.applicationResult?.dry_run
+                  ? "Dry run"
+                  : dataReviewState.applicationResult?.application?.status
+                    ? statusLabel(
+                        dataReviewState.applicationResult.application.status,
+                      )
+                    : "None"
+              }
+            />
+          </section>
+
+          <section className="comparison-table" aria-label="Review records">
+            <h2>Record Decisions</h2>
+            <div className="comparison-rows">
+              {dataReviewState.records.map((recordReview) => {
+                const courseCode =
+                  payloadValue(
+                    recordReview.imported_record.normalized_payload,
+                    "course_code",
+                  ) ?? recordReview.imported_record.raw_label;
+                const grade =
+                  gradeEdits[recordReview.id] ??
+                  payloadValue(
+                    recordReview.imported_record.normalized_payload,
+                    "grade",
+                  ) ??
+                  "";
+                return (
+                  <div key={recordReview.id} className="comparison-row">
+                    <strong>{courseCode}</strong>
+                    <span>
+                      {statusLabel(recordReview.decision)} ·{" "}
+                      {recordReview.requires_advisor_confirmation
+                        ? "advisor review flagged"
+                        : "student-reviewable"}
+                    </span>
+                    <span>
+                      {recordReview.selected_mapping_candidate?.explanation ??
+                        "No selected mapping candidate."}
+                    </span>
+                    <div className="record-review-actions">
+                      <label className="review-edit-field">
+                        Grade
+                        <input
+                          value={grade}
+                          onChange={(event) =>
+                            setGradeEdits((current) => ({
+                              ...current,
+                              [recordReview.id]: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleDecision(recordReview, "CONFIRMED")
+                        }
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleDecision(recordReview, "REJECTED")
+                        }
+                      >
+                        Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleDecision(recordReview, "DEFERRED")
+                        }
+                      >
+                        Defer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleDecision(
+                            recordReview,
+                            "NEEDS_ADVISOR_REVIEW",
+                          )
+                        }
+                      >
+                        Advisor review
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleDecision(
+                            recordReview,
+                            "EDITED_AND_CONFIRMED",
+                          )
+                        }
+                      >
+                        Edit + confirm
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {dataReviewState.applicationResult ? (
+            <section
+              className="comparison-table"
+              aria-label="Data application result"
+            >
+              <h2>Application Result</h2>
+              <div className="comparison-rows">
+                {dataReviewState.applicationResult.applied_records.map(
+                  (appliedRecord) => (
+                    <div
+                      key={`${appliedRecord.imported_record_id}-${appliedRecord.reason_code}`}
+                      className="comparison-row"
+                    >
+                      <strong>{statusLabel(appliedRecord.action)}</strong>
+                      <span>
+                        {appliedRecord.reason_code} · {appliedRecord.message}
+                      </span>
+                    </div>
+                  ),
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          <section className="comparison-table" aria-label="Review warnings">
+            <h2>Review Warnings</h2>
+            {dataReviewState.warnings.length > 0 ? (
+              <div className="comparison-rows">
+                {dataReviewState.warnings.map((warning) => (
+                  <div key={warning.id} className="comparison-row">
+                    <strong>{warning.warning_code}</strong>
+                    <span>
+                      {warning.message}{" "}
+                      {warning.requires_advisor_confirmation
+                        ? "Advisor confirmation required."
+                        : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="subtle">No review warnings.</p>
+            )}
+          </section>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

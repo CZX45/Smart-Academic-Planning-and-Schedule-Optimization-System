@@ -95,6 +95,14 @@ Phase 7A adds read-only data import staging storage:
 - `import_validation_warnings`
 - `import_preview_summaries`
 
+Phase 7B adds review and application audit storage:
+
+- `data_import_review_sessions`
+- `imported_record_reviews`
+- `data_application_runs`
+- `applied_imported_records`
+- `data_review_warnings`
+
 Every Phase 2A academic-domain table includes `source_type`, `is_official`, source reference fields, and timestamps. The development seed uses only `source_type = MOCK` and `is_official = false`.
 
 Phase 2B also source-tags offering patterns, sections, meetings, rules, and rule expressions. Mock data remains non-official and cannot be used as authoritative school policy.
@@ -110,6 +118,8 @@ Phase 5A academic plan rows are generated snapshots. They do not modify `student
 Phase 6A and 6B schedule rows are generated snapshots. They do not modify `student_academic_programs`, `student_course_attempts`, `sections`, section meetings, seat counts, waitlists, or registration data. They reference stored course, term, section, meeting, and eligibility inputs where available, and every option, selected section, conflict, repair suggestion, and warning is explainable.
 
 Phase 7A data import rows are staging-only previews. They do not modify `student_academic_programs`, `student_course_attempts`, `courses`, `sections`, `requirement_nodes`, seat counts, waitlists, or registration data. Every run is non-official, stores bounded file metadata rather than durable raw upload content, preserves normalized record payload snippets, and includes mapping candidates, validation warnings, preview disclaimers, and advisor-confirmation flags.
+
+Phase 7B review rows sit between staging data and internal planning records. A review session belongs to one import run and student. Per-record reviews store the selected mapping candidate, decision, optional edited normalized payload, reviewer note, and advisor-confirmation flag. Application runs record explicit apply attempts; applied-record logs preserve the action, status, target entity type/id, reason code, and message for created, duplicate, rejected, deferred, advisor-review, and unsupported outcomes. Confirmed unofficial transcript course attempts may create non-official internal `student_course_attempts`; unsupported catalog, section, requirement, unknown-course, rejected, deferred, duplicate, advisor-review, and unsupported-grade records are skipped with warnings.
 
 Important Phase 2A constraints include:
 
@@ -160,6 +170,11 @@ Important Phase 2A constraints include:
 - Import mapping candidates attach to imported records and include target entity type, optional target ID, match type, confidence score, selection flag, reason code, and explanation.
 - Import validation warnings include warning code, severity, message, optional imported-record link, and advisor-confirmation flag.
 - Import preview summaries are unique per run, repeat nonnegative counts, keep `official_application_ready = false`, and preserve preview disclaimers in structured payload.
+- A data import review session references one import run and student, stores status, reviewer label, start/completion timestamps, and is service-guarded so only one active review exists per run.
+- Imported record reviews are unique by review session and imported record. Decisions are explicit: unreviewed, confirmed, rejected, needs advisor review, edited and confirmed, or deferred.
+- A data application run references a review session, stores nonnegative applied/skipped/warning/error counts, and is created only by `POST /data-import-reviews/{review_id}/apply`.
+- Applied imported records are unique by application run and imported record. Each row includes action, status, reason code, target entity type/id, and an explanatory message.
+- Data review warnings include warning code, severity, message, optional record-review/application links, and advisor-confirmation flag.
 
 ### Institution and Versioning
 

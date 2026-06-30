@@ -1169,6 +1169,146 @@ class ImportPreviewSummaryResponse(BaseModel):
     created_at: datetime
 
 
+DataImportReviewStatusValue = Literal[
+    "DRAFT",
+    "IN_REVIEW",
+    "READY_TO_APPLY",
+    "APPLYING",
+    "APPLIED",
+    "APPLIED_WITH_WARNINGS",
+    "FAILED",
+    "ARCHIVED",
+]
+ImportedRecordReviewDecisionValue = Literal[
+    "UNREVIEWED",
+    "CONFIRMED",
+    "REJECTED",
+    "NEEDS_ADVISOR_REVIEW",
+    "EDITED_AND_CONFIRMED",
+    "DEFERRED",
+]
+DataApplicationStatusValue = Literal[
+    "PENDING",
+    "APPLYING",
+    "APPLIED",
+    "APPLIED_WITH_WARNINGS",
+    "FAILED",
+    "ROLLED_BACK",
+]
+AppliedImportTargetEntityTypeValue = Literal[
+    "STUDENT_COURSE_ATTEMPT",
+    "TRANSFER_CREDIT",
+    "COURSE",
+    "SECTION",
+    "SECTION_MEETING",
+    "COURSE_OFFERING_PATTERN",
+    "UNKNOWN",
+]
+AppliedImportActionValue = Literal[
+    "CREATED",
+    "UPDATED",
+    "SKIPPED_DUPLICATE",
+    "SKIPPED_REJECTED",
+    "SKIPPED_DEFERRED",
+    "SKIPPED_ADVISOR_REVIEW",
+    "SKIPPED_UNSUPPORTED",
+]
+AppliedImportStatusValue = Literal["SUCCESS", "WARNING", "FAILED", "SKIPPED"]
+
+
+class DataImportReviewCreateRequest(BaseModel):
+    data_import_run_id: UUID
+    reviewer_label: str = Field(min_length=1, max_length=255)
+
+
+class ImportedRecordReviewUpdateRequest(BaseModel):
+    decision: ImportedRecordReviewDecisionValue
+    selected_mapping_candidate_id: UUID | None = None
+    edited_normalized_payload: dict[str, Any] | None = None
+    review_note: str | None = Field(default=None, max_length=2000)
+    requires_advisor_confirmation: bool | None = None
+
+
+class DataImportReviewApplyRequest(BaseModel):
+    allow_advisor_review_records: bool = False
+    dry_run: bool = False
+
+
+class DataImportReviewSessionResponse(BaseModel):
+    id: UUID
+    data_import_run_id: UUID
+    student_profile_id: UUID
+    status: DataImportReviewStatusValue
+    reviewer_label: str
+    started_at: datetime
+    completed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ImportedRecordReviewResponse(BaseModel):
+    id: UUID
+    review_session_id: UUID
+    imported_record_id: UUID
+    selected_mapping_candidate_id: UUID | None = None
+    decision: ImportedRecordReviewDecisionValue
+    edited_normalized_payload: dict[str, Any] | None = None
+    review_note: str | None = None
+    requires_advisor_confirmation: bool
+    imported_record: ImportedRecordResponse
+    selected_mapping_candidate: ImportMappingCandidateResponse | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class DataApplicationRunResponse(BaseModel):
+    id: UUID
+    review_session_id: UUID
+    status: DataApplicationStatusValue
+    applied_count: int
+    skipped_count: int
+    warning_count: int
+    error_count: int
+    started_at: datetime
+    completed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AppliedImportedRecordResponse(BaseModel):
+    id: UUID | None = None
+    data_application_run_id: UUID | None = None
+    imported_record_review_id: UUID
+    imported_record_id: UUID
+    target_entity_type: AppliedImportTargetEntityTypeValue
+    target_entity_id: UUID | None = None
+    action: AppliedImportActionValue
+    status: AppliedImportStatusValue
+    reason_code: str
+    message: str
+    created_at: datetime | None = None
+
+
+class DataReviewWarningResponse(BaseModel):
+    id: UUID
+    review_session_id: UUID
+    imported_record_review_id: UUID | None = None
+    data_application_run_id: UUID | None = None
+    warning_code: str
+    severity: AuditWarningSeverityValue
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class DataReviewApplicationResultResponse(BaseModel):
+    review_session: DataImportReviewSessionResponse
+    dry_run: bool
+    application: DataApplicationRunResponse | None = None
+    applied_records: list[AppliedImportedRecordResponse]
+    warnings: list[DataReviewWarningResponse]
+
+
 class ErrorDetailResponse(BaseModel):
     code: str
     message: str

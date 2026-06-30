@@ -325,6 +325,62 @@ class ImportMatchType(StrEnum):
     NO_MATCH = "NO_MATCH"
 
 
+class DataImportReviewStatus(StrEnum):
+    DRAFT = "DRAFT"
+    IN_REVIEW = "IN_REVIEW"
+    READY_TO_APPLY = "READY_TO_APPLY"
+    APPLYING = "APPLYING"
+    APPLIED = "APPLIED"
+    APPLIED_WITH_WARNINGS = "APPLIED_WITH_WARNINGS"
+    FAILED = "FAILED"
+    ARCHIVED = "ARCHIVED"
+
+
+class ImportedRecordReviewDecision(StrEnum):
+    UNREVIEWED = "UNREVIEWED"
+    CONFIRMED = "CONFIRMED"
+    REJECTED = "REJECTED"
+    NEEDS_ADVISOR_REVIEW = "NEEDS_ADVISOR_REVIEW"
+    EDITED_AND_CONFIRMED = "EDITED_AND_CONFIRMED"
+    DEFERRED = "DEFERRED"
+
+
+class DataApplicationStatus(StrEnum):
+    PENDING = "PENDING"
+    APPLYING = "APPLYING"
+    APPLIED = "APPLIED"
+    APPLIED_WITH_WARNINGS = "APPLIED_WITH_WARNINGS"
+    FAILED = "FAILED"
+    ROLLED_BACK = "ROLLED_BACK"
+
+
+class AppliedImportTargetEntityType(StrEnum):
+    STUDENT_COURSE_ATTEMPT = "STUDENT_COURSE_ATTEMPT"
+    TRANSFER_CREDIT = "TRANSFER_CREDIT"
+    COURSE = "COURSE"
+    SECTION = "SECTION"
+    SECTION_MEETING = "SECTION_MEETING"
+    COURSE_OFFERING_PATTERN = "COURSE_OFFERING_PATTERN"
+    UNKNOWN = "UNKNOWN"
+
+
+class AppliedImportAction(StrEnum):
+    CREATED = "CREATED"
+    UPDATED = "UPDATED"
+    SKIPPED_DUPLICATE = "SKIPPED_DUPLICATE"
+    SKIPPED_REJECTED = "SKIPPED_REJECTED"
+    SKIPPED_DEFERRED = "SKIPPED_DEFERRED"
+    SKIPPED_ADVISOR_REVIEW = "SKIPPED_ADVISOR_REVIEW"
+    SKIPPED_UNSUPPORTED = "SKIPPED_UNSUPPORTED"
+
+
+class AppliedImportStatus(StrEnum):
+    SUCCESS = "SUCCESS"
+    WARNING = "WARNING"
+    FAILED = "FAILED"
+    SKIPPED = "SKIPPED"
+
+
 class ScenarioRelationshipType(StrEnum):
     PRIMARY_MAJOR = "PRIMARY_MAJOR"
     MINOR = "MINOR"
@@ -673,6 +729,48 @@ import_target_entity_type_enum = Enum(
 import_match_type_enum = Enum(
     ImportMatchType,
     name="import_match_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+data_import_review_status_enum = Enum(
+    DataImportReviewStatus,
+    name="data_import_review_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+imported_record_review_decision_enum = Enum(
+    ImportedRecordReviewDecision,
+    name="imported_record_review_decision",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+data_application_status_enum = Enum(
+    DataApplicationStatus,
+    name="data_application_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+applied_import_target_entity_type_enum = Enum(
+    AppliedImportTargetEntityType,
+    name="applied_import_target_entity_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+applied_import_action_enum = Enum(
+    AppliedImportAction,
+    name="applied_import_action",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+applied_import_status_enum = Enum(
+    AppliedImportStatus,
+    name="applied_import_status",
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
@@ -3817,6 +3915,252 @@ class ImportPreviewSummary(UuidPrimaryKeyMixin, Base):
         default=False,
     )
     summary_payload: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class DataImportReviewSession(UuidPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "data_import_review_sessions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["data_import_run_id"],
+            ["data_import_runs.id"],
+            name="fk_data_import_review_sessions_run",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["student_profile_id"],
+            ["student_profiles.id"],
+            name="fk_data_import_review_sessions_student",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("length(reviewer_label) > 0", name="ck_data_import_reviews_reviewer"),
+        Index(
+            "ix_data_import_reviews_run_status",
+            "data_import_run_id",
+            "status",
+        ),
+        Index(
+            "ix_data_import_reviews_student_created",
+            "student_profile_id",
+            "created_at",
+        ),
+    )
+
+    data_import_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    student_profile_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    status: Mapped[DataImportReviewStatus] = mapped_column(
+        data_import_review_status_enum,
+        nullable=False,
+    )
+    reviewer_label: Mapped[str] = mapped_column(String(255), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ImportedRecordReview(UuidPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "imported_record_reviews"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["review_session_id"],
+            ["data_import_review_sessions.id"],
+            name="fk_imported_record_reviews_session",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["imported_record_id"],
+            ["imported_records.id"],
+            name="fk_imported_record_reviews_record",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["selected_mapping_candidate_id"],
+            ["import_mapping_candidates.id"],
+            name="fk_imported_record_reviews_candidate",
+            ondelete="SET NULL",
+        ),
+        UniqueConstraint(
+            "review_session_id",
+            "imported_record_id",
+            name="uq_imported_record_reviews_session_record",
+        ),
+        Index(
+            "ix_imported_record_reviews_session_decision",
+            "review_session_id",
+            "decision",
+        ),
+    )
+
+    review_session_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    imported_record_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    selected_mapping_candidate_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=True,
+    )
+    decision: Mapped[ImportedRecordReviewDecision] = mapped_column(
+        imported_record_review_decision_enum,
+        nullable=False,
+        default=ImportedRecordReviewDecision.UNREVIEWED,
+    )
+    edited_normalized_payload: Mapped[dict[str, object] | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    requires_advisor_confirmation: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+
+
+class DataApplicationRun(UuidPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "data_application_runs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["review_session_id"],
+            ["data_import_review_sessions.id"],
+            name="fk_data_application_runs_review",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("applied_count >= 0", name="ck_data_applications_applied_count"),
+        CheckConstraint("skipped_count >= 0", name="ck_data_applications_skipped_count"),
+        CheckConstraint("warning_count >= 0", name="ck_data_applications_warning_count"),
+        CheckConstraint("error_count >= 0", name="ck_data_applications_error_count"),
+        Index(
+            "ix_data_applications_review_created",
+            "review_session_id",
+            "created_at",
+        ),
+    )
+
+    review_session_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    status: Mapped[DataApplicationStatus] = mapped_column(
+        data_application_status_enum,
+        nullable=False,
+    )
+    applied_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    skipped_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    warning_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    error_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AppliedImportedRecord(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "applied_imported_records"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["data_application_run_id"],
+            ["data_application_runs.id"],
+            name="fk_applied_imported_records_application",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["imported_record_review_id"],
+            ["imported_record_reviews.id"],
+            name="fk_applied_imported_records_review",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["imported_record_id"],
+            ["imported_records.id"],
+            name="fk_applied_imported_records_record",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint(
+            "length(reason_code) > 0",
+            name="ck_applied_imported_records_reason_code",
+        ),
+        CheckConstraint("length(message) > 0", name="ck_applied_imported_records_message"),
+        UniqueConstraint(
+            "data_application_run_id",
+            "imported_record_id",
+            name="uq_applied_imported_records_application_record",
+        ),
+        Index(
+            "ix_applied_imported_records_target",
+            "target_entity_type",
+            "target_entity_id",
+        ),
+    )
+
+    data_application_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    imported_record_review_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    imported_record_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    target_entity_type: Mapped[AppliedImportTargetEntityType] = mapped_column(
+        applied_import_target_entity_type_enum,
+        nullable=False,
+    )
+    target_entity_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    action: Mapped[AppliedImportAction] = mapped_column(applied_import_action_enum, nullable=False)
+    status: Mapped[AppliedImportStatus] = mapped_column(applied_import_status_enum, nullable=False)
+    reason_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class DataReviewWarning(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "data_review_warnings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["review_session_id"],
+            ["data_import_review_sessions.id"],
+            name="fk_data_review_warnings_session",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["imported_record_review_id"],
+            ["imported_record_reviews.id"],
+            name="fk_data_review_warnings_record_review",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["data_application_run_id"],
+            ["data_application_runs.id"],
+            name="fk_data_review_warnings_application",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("length(warning_code) > 0", name="ck_data_review_warnings_code"),
+        CheckConstraint("length(message) > 0", name="ck_data_review_warnings_message"),
+        Index(
+            "ix_data_review_warnings_session_severity",
+            "review_session_id",
+            "severity",
+        ),
+    )
+
+    review_session_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    imported_record_review_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=True,
+    )
+    data_application_run_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=True,
+    )
+    warning_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    severity: Mapped[AuditWarningSeverity] = mapped_column(
+        audit_warning_severity_enum,
+        nullable=False,
+    )
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    requires_advisor_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

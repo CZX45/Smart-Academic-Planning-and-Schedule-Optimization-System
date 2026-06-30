@@ -19,6 +19,7 @@ from app.models.academic import (
     AcademicPlanWarning,
     AcademicProgram,
     AcademicTerm,
+    AppliedImportedRecord,
     AuditCourseApplication,
     AuditMode,
     Campus,
@@ -26,8 +27,11 @@ from app.models.academic import (
     CourseOfferingPattern,
     CourseRule,
     CourseRuleExpression,
+    DataApplicationRun,
+    DataImportReviewSession,
     DataImportRun,
     DataImportType,
+    DataReviewWarning,
     DayOfWeek,
     DegreeAuditRun,
     DegreeAuditWarning,
@@ -35,6 +39,8 @@ from app.models.academic import (
     EligibilityMode,
     EligibilityWarning,
     ImportedRecord,
+    ImportedRecordReview,
+    ImportedRecordReviewDecision,
     ImportMappingCandidate,
     ImportPreviewSummary,
     ImportValidationWarning,
@@ -83,6 +89,7 @@ from app.schemas.academic import (
     AcademicScenarioCompareRequest,
     AcademicScenarioCreateRequest,
     AcademicScenarioResponse,
+    AppliedImportedRecordResponse,
     AuditCourseApplicationResponse,
     CampusResponse,
     CorequisiteSummaryResponse,
@@ -95,8 +102,14 @@ from app.schemas.academic import (
     CourseRuleExpressionNodeResponse,
     CourseRuleExpressionTreeResponse,
     CourseRuleResponse,
+    DataApplicationRunResponse,
     DataImportCreateRequest,
+    DataImportReviewApplyRequest,
+    DataImportReviewCreateRequest,
+    DataImportReviewSessionResponse,
     DataImportRunResponse,
+    DataReviewApplicationResultResponse,
+    DataReviewWarningResponse,
     DegreeAuditCreateRequest,
     DegreeAuditRunResponse,
     DegreeAuditWarningResponse,
@@ -104,6 +117,8 @@ from app.schemas.academic import (
     EligibilityWarningResponse,
     ErrorResponse,
     ImportedRecordResponse,
+    ImportedRecordReviewResponse,
+    ImportedRecordReviewUpdateRequest,
     ImportMappingCandidateResponse,
     ImportPreviewSummaryResponse,
     ImportValidationWarningResponse,
@@ -150,6 +165,9 @@ from app.services.course_eligibility.engine import CourseEligibilityApplicationS
 from app.services.course_eligibility.exceptions import CourseEligibilityValidationError
 from app.services.data_imports.engine import STAGING_DISCLAIMERS, DataImportApplicationService
 from app.services.data_imports.exceptions import DataImportValidationError
+from app.services.data_review.engine import DataReviewApplicationService
+from app.services.data_review.exceptions import DataReviewValidationError
+from app.services.data_review.result import AppliedImportedRecordResult, DataReviewApplicationResult
 from app.services.degree_audit.exceptions import DegreeAuditValidationError
 from app.services.degree_audit.persistence import DegreeAuditApplicationService
 from app.services.schedule_optimizer.engine import ScheduleOptimizerApplicationService
@@ -1364,6 +1382,150 @@ def import_preview_summary_response(
     )
 
 
+def data_import_review_session_response(
+    review: DataImportReviewSession,
+) -> DataImportReviewSessionResponse:
+    return DataImportReviewSessionResponse(
+        id=review.id,
+        data_import_run_id=review.data_import_run_id,
+        student_profile_id=review.student_profile_id,
+        status=review.status.value,
+        reviewer_label=review.reviewer_label,
+        started_at=review.started_at,
+        completed_at=review.completed_at,
+        created_at=review.created_at,
+        updated_at=review.updated_at,
+    )
+
+
+def imported_record_review_response(
+    record_review: ImportedRecordReview,
+    db: Session,
+) -> ImportedRecordReviewResponse:
+    record = db.get(ImportedRecord, record_review.imported_record_id)
+    if record is None:
+        raise not_found("ImportedRecord", record_review.imported_record_id)
+    candidate = (
+        db.get(ImportMappingCandidate, record_review.selected_mapping_candidate_id)
+        if record_review.selected_mapping_candidate_id is not None
+        else None
+    )
+    return ImportedRecordReviewResponse(
+        id=record_review.id,
+        review_session_id=record_review.review_session_id,
+        imported_record_id=record_review.imported_record_id,
+        selected_mapping_candidate_id=record_review.selected_mapping_candidate_id,
+        decision=record_review.decision.value,
+        edited_normalized_payload=record_review.edited_normalized_payload,
+        review_note=record_review.review_note,
+        requires_advisor_confirmation=record_review.requires_advisor_confirmation,
+        imported_record=imported_record_response(record),
+        selected_mapping_candidate=(
+            import_mapping_candidate_response(candidate) if candidate is not None else None
+        ),
+        created_at=record_review.created_at,
+        updated_at=record_review.updated_at,
+    )
+
+
+def data_application_run_response(application: DataApplicationRun) -> DataApplicationRunResponse:
+    return DataApplicationRunResponse(
+        id=application.id,
+        review_session_id=application.review_session_id,
+        status=application.status.value,
+        applied_count=application.applied_count,
+        skipped_count=application.skipped_count,
+        warning_count=application.warning_count,
+        error_count=application.error_count,
+        started_at=application.started_at,
+        completed_at=application.completed_at,
+        created_at=application.created_at,
+        updated_at=application.updated_at,
+    )
+
+
+def applied_imported_record_response(
+    applied: AppliedImportedRecord | AppliedImportedRecordResult,
+) -> AppliedImportedRecordResponse:
+    return AppliedImportedRecordResponse(
+        id=applied.id,
+        data_application_run_id=applied.data_application_run_id,
+        imported_record_review_id=applied.imported_record_review_id,
+        imported_record_id=applied.imported_record_id,
+        target_entity_type=applied.target_entity_type.value,
+        target_entity_id=applied.target_entity_id,
+        action=applied.action.value,
+        status=applied.status.value,
+        reason_code=applied.reason_code,
+        message=applied.message,
+        created_at=applied.created_at,
+    )
+
+
+def data_review_warning_response(warning: DataReviewWarning) -> DataReviewWarningResponse:
+    return DataReviewWarningResponse(
+        id=warning.id,
+        review_session_id=warning.review_session_id,
+        imported_record_review_id=warning.imported_record_review_id,
+        data_application_run_id=warning.data_application_run_id,
+        warning_code=warning.warning_code,
+        severity=warning.severity.value,
+        message=warning.message,
+        requires_advisor_confirmation=warning.requires_advisor_confirmation,
+        created_at=warning.created_at,
+    )
+
+
+def data_review_application_result_response(
+    result: DataReviewApplicationResult,
+) -> DataReviewApplicationResultResponse:
+    return DataReviewApplicationResultResponse(
+        review_session=data_import_review_session_response(result.review_session),
+        dry_run=result.dry_run,
+        application=(
+            data_application_run_response(result.application)
+            if result.application is not None
+            else None
+        ),
+        applied_records=[
+            applied_imported_record_response(applied) for applied in result.applied_records
+        ],
+        warnings=[data_review_warning_response(warning) for warning in result.warnings],
+    )
+
+
+def data_application_detail_response(
+    application: DataApplicationRun,
+    db: Session,
+) -> DataReviewApplicationResultResponse:
+    review = db.get(DataImportReviewSession, application.review_session_id)
+    if review is None:
+        raise not_found("DataImportReviewSession", application.review_session_id)
+    applied_records = db.scalars(
+        select(AppliedImportedRecord)
+        .where(AppliedImportedRecord.data_application_run_id == application.id)
+        .order_by(AppliedImportedRecord.created_at, AppliedImportedRecord.id)
+    ).all()
+    warnings = db.scalars(
+        select(DataReviewWarning)
+        .where(
+            DataReviewWarning.review_session_id == review.id,
+            (
+                (DataReviewWarning.data_application_run_id == application.id)
+                | (DataReviewWarning.data_application_run_id.is_(None))
+            ),
+        )
+        .order_by(DataReviewWarning.created_at, DataReviewWarning.id)
+    ).all()
+    return DataReviewApplicationResultResponse(
+        review_session=data_import_review_session_response(review),
+        dry_run=False,
+        application=data_application_run_response(application),
+        applied_records=[applied_imported_record_response(applied) for applied in applied_records],
+        warnings=[data_review_warning_response(warning) for warning in warnings],
+    )
+
+
 def program_summary_response(
     version: ProgramVersion,
     program: AcademicProgram,
@@ -2563,6 +2725,192 @@ def list_student_data_imports(
         .order_by(DataImportRun.created_at.desc(), DataImportRun.id.desc())
     ).all()
     return [data_import_run_response(run) for run in runs]
+
+
+@router.post(
+    "/data-import-reviews",
+    response_model=DataImportReviewSessionResponse,
+    status_code=201,
+    responses={404: not_found_response, 400: not_found_response},
+)
+def create_data_import_review(
+    request: DataImportReviewCreateRequest,
+    db: DatabaseSession,
+) -> DataImportReviewSessionResponse:
+    try:
+        review = DataReviewApplicationService(db).create_review_session(
+            data_import_run_id=request.data_import_run_id,
+            reviewer_label=request.reviewer_label,
+        )
+    except DataReviewValidationError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return data_import_review_session_response(review)
+
+
+@router.get(
+    "/data-import-reviews/{review_id}",
+    response_model=DataImportReviewSessionResponse,
+    responses={404: not_found_response},
+)
+def get_data_import_review(
+    review_id: UUID,
+    db: DatabaseSession,
+) -> DataImportReviewSessionResponse:
+    review = db.get(DataImportReviewSession, review_id)
+    if review is None:
+        raise not_found("DataImportReviewSession", review_id)
+    return data_import_review_session_response(review)
+
+
+@router.get(
+    "/data-import-reviews/{review_id}/records",
+    response_model=list[ImportedRecordReviewResponse],
+    responses={404: not_found_response},
+)
+def get_data_import_review_records(
+    review_id: UUID,
+    db: DatabaseSession,
+) -> list[ImportedRecordReviewResponse]:
+    if db.get(DataImportReviewSession, review_id) is None:
+        raise not_found("DataImportReviewSession", review_id)
+    record_reviews = db.scalars(
+        select(ImportedRecordReview)
+        .join(ImportedRecord, ImportedRecordReview.imported_record_id == ImportedRecord.id)
+        .where(ImportedRecordReview.review_session_id == review_id)
+        .order_by(ImportedRecord.row_number, ImportedRecordReview.id)
+    ).all()
+    return [imported_record_review_response(record_review, db) for record_review in record_reviews]
+
+
+@router.patch(
+    "/data-import-reviews/{review_id}/records/{record_review_id}",
+    response_model=ImportedRecordReviewResponse,
+    responses={404: not_found_response, 400: not_found_response},
+)
+def update_data_import_review_record(
+    review_id: UUID,
+    record_review_id: UUID,
+    request: ImportedRecordReviewUpdateRequest,
+    db: DatabaseSession,
+) -> ImportedRecordReviewResponse:
+    try:
+        record_review = DataReviewApplicationService(db).update_record_review(
+            review_session_id=review_id,
+            record_review_id=record_review_id,
+            decision=ImportedRecordReviewDecision(request.decision),
+            selected_mapping_candidate_id=request.selected_mapping_candidate_id,
+            edited_normalized_payload=request.edited_normalized_payload,
+            review_note=request.review_note,
+            requires_advisor_confirmation=request.requires_advisor_confirmation,
+        )
+    except DataReviewValidationError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return imported_record_review_response(record_review, db)
+
+
+@router.post(
+    "/data-import-reviews/{review_id}/apply",
+    response_model=DataReviewApplicationResultResponse,
+    responses={404: not_found_response, 400: not_found_response},
+)
+def apply_data_import_review(
+    review_id: UUID,
+    request: DataImportReviewApplyRequest,
+    db: DatabaseSession,
+) -> DataReviewApplicationResultResponse:
+    try:
+        result = DataReviewApplicationService(db).apply_review_session(
+            review_id,
+            allow_advisor_review_records=request.allow_advisor_review_records,
+            dry_run=request.dry_run,
+        )
+    except DataReviewValidationError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return data_review_application_result_response(result)
+
+
+@router.get(
+    "/data-import-reviews/{review_id}/applications",
+    response_model=list[DataApplicationRunResponse],
+    responses={404: not_found_response},
+)
+def get_data_import_review_applications(
+    review_id: UUID,
+    db: DatabaseSession,
+) -> list[DataApplicationRunResponse]:
+    if db.get(DataImportReviewSession, review_id) is None:
+        raise not_found("DataImportReviewSession", review_id)
+    applications = db.scalars(
+        select(DataApplicationRun)
+        .where(DataApplicationRun.review_session_id == review_id)
+        .order_by(DataApplicationRun.created_at.desc(), DataApplicationRun.id.desc())
+    ).all()
+    return [data_application_run_response(application) for application in applications]
+
+
+@router.get(
+    "/data-import-reviews/{review_id}/warnings",
+    response_model=list[DataReviewWarningResponse],
+    responses={404: not_found_response},
+)
+def get_data_import_review_warnings(
+    review_id: UUID,
+    db: DatabaseSession,
+) -> list[DataReviewWarningResponse]:
+    if db.get(DataImportReviewSession, review_id) is None:
+        raise not_found("DataImportReviewSession", review_id)
+    warnings = db.scalars(
+        select(DataReviewWarning)
+        .where(DataReviewWarning.review_session_id == review_id)
+        .order_by(DataReviewWarning.created_at, DataReviewWarning.id)
+    ).all()
+    return [data_review_warning_response(warning) for warning in warnings]
+
+
+@router.get(
+    "/data-applications/{application_id}",
+    response_model=DataReviewApplicationResultResponse,
+    responses={404: not_found_response},
+)
+def get_data_application(
+    application_id: UUID,
+    db: DatabaseSession,
+) -> DataReviewApplicationResultResponse:
+    application = db.get(DataApplicationRun, application_id)
+    if application is None:
+        raise not_found("DataApplicationRun", application_id)
+    return data_application_detail_response(application, db)
+
+
+@router.get(
+    "/students/{student_id}/data-import-reviews",
+    response_model=list[DataImportReviewSessionResponse],
+    responses={404: not_found_response},
+)
+def list_student_data_import_reviews(
+    student_id: UUID,
+    db: DatabaseSession,
+) -> list[DataImportReviewSessionResponse]:
+    if db.get(StudentProfile, student_id) is None:
+        raise not_found("StudentProfile", student_id)
+    reviews = db.scalars(
+        select(DataImportReviewSession)
+        .where(DataImportReviewSession.student_profile_id == student_id)
+        .order_by(DataImportReviewSession.created_at.desc(), DataImportReviewSession.id.desc())
+    ).all()
+    return [data_import_review_session_response(review) for review in reviews]
 
 
 @router.post(

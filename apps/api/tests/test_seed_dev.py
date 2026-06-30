@@ -9,6 +9,8 @@ from app.db.base import Base, DevSeedRecord
 from app.models.academic import (
     AcademicProgram,
     AcademicTerm,
+    AppliedImportAction,
+    AppliedImportedRecord,
     AuditCourseApplication,
     Campus,
     Course,
@@ -20,12 +22,18 @@ from app.models.academic import (
     CourseRuleType,
     CourseSubstitution,
     CourseWaiver,
+    DataApplicationRun,
     DataImportFile,
+    DataImportReviewSession,
+    DataImportReviewStatus,
     DataImportRun,
+    DataReviewWarning,
     DayOfWeek,
     DegreeAuditRun,
     DegreeAuditWarning,
     ImportedRecord,
+    ImportedRecordReview,
+    ImportedRecordReviewDecision,
     ImportMappingCandidate,
     ImportPreviewSummary,
     ImportValidationWarning,
@@ -86,6 +94,11 @@ DATA_IMPORT_STAGING_MODELS = [
     ImportMappingCandidate,
     ImportValidationWarning,
     ImportPreviewSummary,
+    DataImportReviewSession,
+    ImportedRecordReview,
+    DataApplicationRun,
+    AppliedImportedRecord,
+    DataReviewWarning,
 ]
 
 
@@ -131,6 +144,8 @@ def test_mock_seed_is_idempotent(session: Session) -> None:
     assert first_counts["degree_audit_runs"] == 0
     assert first_counts["data_import_runs"] == 1
     assert first_counts["imported_records"] == 2
+    assert first_counts["data_import_review_sessions"] == 1
+    assert first_counts["data_application_runs"] == 2
 
 
 def test_seeded_academic_data_is_mock_and_not_official(session: Session) -> None:
@@ -390,6 +405,61 @@ def test_mock_phase_7a_data_import_seed_is_staging_only(session: Session) -> Non
         meeting.start_time is not None and meeting.start_time.hour >= 13
         for meeting in afternoon_meetings
     )
+
+
+def test_mock_phase_7b_data_review_seed_has_application_audit_trail(
+    session: Session,
+) -> None:
+    seed_mock_data(session)
+
+    review = session.get(
+        DataImportReviewSession,
+        seed_uuid("data-import-review-session:mock-phase-7b"),
+    )
+    assert review is not None
+    assert review.status is DataImportReviewStatus.APPLIED_WITH_WARNINGS
+    assert review.student_profile_id == seed_uuid("student-profile:mock-student")
+
+    record_reviews = session.scalars(
+        select(ImportedRecordReview).where(ImportedRecordReview.review_session_id == review.id)
+    ).all()
+    assert {record_review.decision for record_review in record_reviews} == {
+        ImportedRecordReviewDecision.EDITED_AND_CONFIRMED,
+        ImportedRecordReviewDecision.NEEDS_ADVISOR_REVIEW,
+    }
+
+    applications = session.scalars(
+        select(DataApplicationRun)
+        .where(DataApplicationRun.review_session_id == review.id)
+        .order_by(DataApplicationRun.created_at, DataApplicationRun.id)
+    ).all()
+    assert len(applications) == 2
+    assert all(application.status.name == "APPLIED_WITH_WARNINGS" for application in applications)
+
+    applied_actions = {
+        applied.action
+        for applied in session.scalars(
+            select(AppliedImportedRecord).join(
+                DataApplicationRun,
+                AppliedImportedRecord.data_application_run_id == DataApplicationRun.id,
+            )
+        )
+    }
+    assert AppliedImportAction.CREATED in applied_actions
+    assert AppliedImportAction.SKIPPED_DUPLICATE in applied_actions
+
+    warning_codes = {
+        warning.warning_code
+        for warning in session.scalars(
+            select(DataReviewWarning).where(DataReviewWarning.review_session_id == review.id)
+        )
+    }
+    assert {
+        "STAGING_ONLY_NOT_OFFICIAL",
+        "EDITED_IMPORTED_RECORD",
+        "ALREADY_APPLIED_IMPORTED_RECORD",
+        "UNSUPPORTED_GRADE_FORMAT",
+    } <= warning_codes
 
 
 def test_mock_phase_5a_planner_seed_cases_are_available(session: Session) -> None:
