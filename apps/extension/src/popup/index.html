@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>SAPSOS Import</title>
+    <style>
+      body {
+        color: #111827;
+        font: 14px system-ui, sans-serif;
+        margin: 0;
+        min-width: 360px;
+        padding: 14px;
+      }
+
+      button,
+      input {
+        box-sizing: border-box;
+        font: inherit;
+        min-height: 36px;
+        width: 100%;
+      }
+
+      button {
+        background: #1f2937;
+        border: 0;
+        color: white;
+        cursor: pointer;
+        font-weight: 700;
+        margin-top: 8px;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      label,
+      section {
+        display: grid;
+        gap: 6px;
+        margin-top: 12px;
+      }
+
+      ul {
+        margin: 8px 0 0;
+        padding-left: 18px;
+      }
+
+      pre {
+        background: #f3f4f6;
+        max-height: 160px;
+        overflow: auto;
+        padding: 8px;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Browser Extension Import</h1>
+    <ul>
+      <li>Reads only the active visible page after you request it.</li>
+      <li>Sends staging import data only after confirmation.</li>
+      <li>No credential storage, portal writes, or registration automation.</li>
+    </ul>
+    <label>
+      API base URL
+      <input id="apiBaseUrlInput" value="http://localhost:8000" />
+    </label>
+    <label>
+      Student profile ID
+      <input id="studentProfileIdInput" />
+    </label>
+    <button id="extractCurrentPageButton" type="button">Extract current page</button>
+    <section aria-live="polite">
+      <strong id="statusText">Waiting for user action.</strong>
+      <pre id="previewText"></pre>
+    </section>
+    <button id="confirmImportButton" type="button" disabled>
+      Confirm staging import
+    </button>
+    <script type="module" src="../../dist/popup/popup.js"></script>
+  </body>
+</html>

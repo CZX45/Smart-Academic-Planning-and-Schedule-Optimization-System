@@ -1261,6 +1261,7 @@ export type CreateDataImportRequest = {
   source_type?:
     | "MOCK"
     | "IMPORTED"
+    | "BROWSER_EXTENSION"
     | "STUDENT_PROVIDED"
     | "INFERRED"
     | "OFFICIAL";

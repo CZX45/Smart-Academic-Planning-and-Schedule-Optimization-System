@@ -44,6 +44,20 @@ STAGING_DISCLAIMERS = [
         "transcript, registration, seat, waitlist, or advisor-approval records."
     ),
 ]
+BROWSER_EXTENSION_STAGING_DISCLAIMERS = [
+    (
+        "Browser extension imports are staging-only visible-page extracts and are not official "
+        "school policy."
+    ),
+    (
+        "Browser extension imports are user-triggered and cannot bypass Phase 7B review before "
+        "application."
+    ),
+    (
+        "Phase 7B review is required before any browser-extension import can update internal "
+        "planning records."
+    ),
+]
 
 
 def utc_now() -> datetime:
@@ -375,6 +389,9 @@ class DataImportApplicationService:
         )
 
     def _persist_preview(self, run: DataImportRun) -> ImportPreviewSummary:
+        disclaimers = list(STAGING_DISCLAIMERS)
+        if run.source_type is SourceType.BROWSER_EXTENSION:
+            disclaimers.extend(BROWSER_EXTENSION_STAGING_DISCLAIMERS)
         summary = ImportPreviewSummary(
             id=uuid4(),
             data_import_run_id=run.id,
@@ -384,7 +401,7 @@ class DataImportApplicationService:
             error_count=run.error_count,
             official_application_ready=False,
             summary_payload={
-                "disclaimers": STAGING_DISCLAIMERS,
+                "disclaimers": disclaimers,
                 "supported_import_type": run.import_type.value,
                 "storage_strategy": run.storage_strategy.value,
                 "source_type": run.source_type.value,

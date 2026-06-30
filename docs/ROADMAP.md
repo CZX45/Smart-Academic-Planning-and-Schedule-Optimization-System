@@ -321,7 +321,7 @@ Deferred from Phase 7A:
 
 ## Phase 7B: Data Review & Confirmation Workflow
 
-Status: current phase.
+Status: complete.
 
 Deliverables:
 
@@ -343,6 +343,25 @@ Testable outcomes:
 
 ## Phase 8: Browser Extension Import Assistant
 
+Status: current phase, with Phase 8A read-only browser extension import foundation implemented.
+
+Phase 8A deliverables:
+
+- `apps/extension` Manifest V3 local-development scaffold.
+- Minimal permissions: `activeTab`, `scripting`, and `storage`; no broad host permissions.
+- User-triggered extraction for visible transcript, degree-audit, catalog, and section-search tables.
+- Popup preview and explicit confirmation before sending.
+- `source_type = BROWSER_EXTENSION` staging handoff through the existing Phase 7A import API.
+- Existing web Data Import Preview status messaging for Browser Extension Import.
+- Mock HTML fixtures and tests for extraction, malformed rows, unknown columns, no-data pages, permission policy, no credential capture, no background scraping, and confirmation-gated send.
+
+Phase 8A testable outcomes:
+
+- Extension reads only active pages after user action.
+- Extracted data is non-official and enters staging import first.
+- Phase 7B review remains required before application.
+- No credentials, password fields, SAML/MFA bypass, background scraping, portal form submission, registration automation, add/drop/swap, waitlist automation, seat grabbing, live polling, or browser-store publishing are implemented.
+
 Deliverables:
 
 - Manifest V3 extension scaffold.
@@ -354,6 +373,14 @@ Testable outcomes:
 
 - Extension reads only active pages after user action.
 - Extracted data is marked as user-provided or imported draft until validated.
+
+Deferred from Phase 8A:
+
+- Read-only section-change alerts with explicit user refresh controls.
+- Any real school-specific connector requiring private credentials.
+- Production browser-store publishing.
+- Official data application without staged review.
+- Registration, add/drop/swap, waitlist, seat-grabbing, or high-frequency polling features.
 
 ## Phase 9: Real Data Onboarding and Advisor Workflow
 

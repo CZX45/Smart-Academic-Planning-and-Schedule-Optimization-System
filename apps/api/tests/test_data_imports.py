@@ -263,6 +263,46 @@ def test_data_import_service_parses_and_matches_without_writing_domain_records(
     assert all(warning.requires_advisor_confirmation for warning in warnings)
 
 
+def test_browser_extension_import_enters_staging_and_preserves_review_boundary(
+    session: Session,
+) -> None:
+    attempts_before = count_rows(session, StudentCourseAttempt)
+    service = DataImportApplicationService(session)
+
+    run = service.create_import(
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        import_type=DataImportType.SECTION_SCHEDULE,
+        file_name="browser-extension-section-schedule.csv",
+        file_mime_type="text/csv",
+        content="\n".join(
+            [
+                "term_code,course_code,section_code,modality,status,credits",
+                "2025FA,FIN 403,001,IN_PERSON,OPEN,3",
+            ]
+        ),
+        source_type=SourceType.BROWSER_EXTENSION,
+        source_reference=(
+            "Browser extension visible-page import: https://portal.example.edu/section-search"
+        ),
+    )
+
+    assert run.source_type is SourceType.BROWSER_EXTENSION
+    assert run.source_confidence == "browser_extension"
+    assert run.is_official is False
+    assert run.official_application_ready is False
+    assert count_rows(session, StudentCourseAttempt) == attempts_before
+
+    preview = session.scalar(
+        select(ImportPreviewSummary).where(ImportPreviewSummary.data_import_run_id == run.id)
+    )
+    assert preview is not None
+    disclaimer_items = preview.summary_payload["disclaimers"]
+    assert isinstance(disclaimer_items, list)
+    disclaimers = " ".join(str(item) for item in disclaimer_items)
+    assert "Browser extension imports are staging-only" in disclaimers
+    assert "Phase 7B review is required" in disclaimers
+
+
 def test_data_import_api_exposes_preview_records_candidates_warnings_and_validation(
     client: TestClient,
 ) -> None:
@@ -340,3 +380,42 @@ def test_data_import_api_exposes_preview_records_candidates_warnings_and_validat
     )
     assert blocked_official.status_code == 400
     assert "read-only" in blocked_official.json()["detail"]["message"].lower()
+
+
+def test_data_import_api_accepts_browser_extension_source_as_non_official_staging(
+    client: TestClient,
+) -> None:
+    student_id = str(seed_uuid("student-profile:mock-student"))
+    response = client.post(
+        "/api/v1/data-imports",
+        json={
+            "student_profile_id": student_id,
+            "import_type": "SECTION_SCHEDULE",
+            "file_name": "browser-extension-section-schedule.csv",
+            "file_mime_type": "text/csv",
+            "content": "\n".join(
+                [
+                    "term_code,course_code,section_code,modality,status,credits",
+                    "2025FA,FIN 403,001,IN_PERSON,OPEN,3",
+                ]
+            ),
+            "source_type": "BROWSER_EXTENSION",
+            "source_reference": (
+                "Browser extension visible-page import: https://portal.example.edu/section-search"
+            ),
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["source"]["source_type"] == "BROWSER_EXTENSION"
+    assert payload["source"]["is_official"] is False
+    assert payload["official_application_ready"] is False
+
+    preview = client.get(f"/api/v1/data-imports/{payload['id']}/preview")
+    assert preview.status_code == 200
+    assert preview.json()["official_application_ready"] is False
+    assert any(
+        "Browser extension imports are staging-only" in disclaimer
+        for disclaimer in preview.json()["disclaimers"]
+    )

@@ -103,6 +103,8 @@ Phase 7B adds review and application audit storage:
 - `applied_imported_records`
 - `data_review_warnings`
 
+Phase 8A does not add new data tables. It adds `BROWSER_EXTENSION` as a source type for staged `data_import_runs` so visible-page extension imports can be distinguished from mock, imported, inferred, official, and student-provided sources.
+
 Every Phase 2A academic-domain table includes `source_type`, `is_official`, source reference fields, and timestamps. The development seed uses only `source_type = MOCK` and `is_official = false`.
 
 Phase 2B also source-tags offering patterns, sections, meetings, rules, and rule expressions. Mock data remains non-official and cannot be used as authoritative school policy.
@@ -120,6 +122,8 @@ Phase 6A and 6B schedule rows are generated snapshots. They do not modify `stude
 Phase 7A data import rows are staging-only previews. They do not modify `student_academic_programs`, `student_course_attempts`, `courses`, `sections`, `requirement_nodes`, seat counts, waitlists, or registration data. Every run is non-official, stores bounded file metadata rather than durable raw upload content, preserves normalized record payload snippets, and includes mapping candidates, validation warnings, preview disclaimers, and advisor-confirmation flags.
 
 Phase 7B review rows sit between staging data and internal planning records. A review session belongs to one import run and student. Per-record reviews store the selected mapping candidate, decision, optional edited normalized payload, reviewer note, and advisor-confirmation flag. Application runs record explicit apply attempts; applied-record logs preserve the action, status, target entity type/id, reason code, and message for created, duplicate, rejected, deferred, advisor-review, and unsupported outcomes. Confirmed unofficial transcript course attempts may create non-official internal `student_course_attempts`; unsupported catalog, section, requirement, unknown-course, rejected, deferred, duplicate, advisor-review, and unsupported-grade records are skipped with warnings.
+
+Phase 8A browser-extension imports reuse Phase 7A staging rows. A browser-extension import run must keep `source_type = BROWSER_EXTENSION`, `is_official = false`, and `official_application_ready = false`. The source reference may preserve a safe visible-page URL, but raw page HTML is not stored by default. Phase 7B review rows remain required before application.
 
 Important Phase 2A constraints include:
 
@@ -456,6 +460,15 @@ Use relational tables for identities, relationships, student records, courses, s
 - `INFO`
 - `WARNING`
 - `ERROR`
+
+### Source Type
+
+- `MOCK`
+- `OFFICIAL`
+- `IMPORTED`
+- `BROWSER_EXTENSION`
+- `STUDENT_PROVIDED`
+- `INFERRED`
 
 ### Academic Scenario Type
 

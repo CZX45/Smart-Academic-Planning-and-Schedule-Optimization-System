@@ -59,9 +59,10 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Phase 7A adds synchronous read-only data import preview endpoints under `/api/v1/data-imports`. The import service parses bounded mock or student-provided CSV/JSON content into staging tables, proposes mapping candidates, emits warnings, and does not mutate catalog, transcript, requirement, section, seat, waitlist, or registration tables.
 
 ### Browser Extension
-- Later-phase optional data capture tool.
-- Reads only user-opened authenticated pages after user action.
-- Converts visible data into structured import drafts.
+- Phase 8A local-development Manifest V3 data capture tool.
+- Reads only active, user-opened pages after user action.
+- Converts visible transcript, degree-audit, catalog, or section-search tables into structured import drafts.
+- Shows a preview before sending and requires explicit confirmation.
 - Never stores school credentials.
 - Never performs registration actions.
 
@@ -185,6 +186,15 @@ Phase 7B adds an explicit review/application boundary on top of Phase 7A:
 
 Dry-run application returns proposed outcomes without writing domain records. Real application is limited to explicit `POST /data-import-reviews/{review_id}/apply`; GET endpoints never apply data. Confirmed unofficial transcript course attempts can create non-official internal `StudentCourseAttempt` records with source metadata. Catalog, section, requirement, unknown-course, rejected, deferred, duplicate, unsupported-grade, and advisor-review records are logged and skipped unless a later phase implements a safe, tested application path.
 
+Phase 8A adds a browser-extension handoff into the same staging boundary:
+
+- `apps/extension` provides a Manifest V3 shell with `activeTab`, `scripting`, and `storage` permissions only.
+- Content extraction uses DOM table reads on the active page only after the popup requests it.
+- Extracted rows are converted to Phase 7A-compatible CSV/JSON and sent to `POST /api/v1/data-imports` as `source_type = BROWSER_EXTENSION`.
+- Extension data is always `is_official = false` and `official_application_ready = false`.
+- Phase 7B review and explicit apply remain mandatory before internal planning records can be changed.
+- No extension code stores credentials, reads password fields, submits forms, polls portals, publishes production builds, or automates registration, add/drop, swap, waitlist, or seat-grabbing behavior.
+
 ### Advising and Risk Boundary
 Produces risk flags, advisor review items, confidence levels, and high-risk recommendation warnings.
 
@@ -201,8 +211,9 @@ Produces risk flags, advisor review items, confidence levels, and high-risk reco
 9. Phase 6B Schedule Optimizer ranks concrete mock section schedules for a selected term and persists options, score breakdowns, diversity metadata, conflicts, repair suggestions, and warnings.
 10. Phase 7A Data Import Preview stages mock or student-provided CSV/JSON rows, mapping candidates, warnings, and preview disclaimers without applying records to official domain tables.
 11. Phase 7B Data Review & Confirmation records human decisions, dry-run outcomes, application runs, duplicate skips, and internal non-official course-attempt applications.
-12. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
-13. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
+12. Phase 8A Browser Extension Import converts user-confirmed visible page tables into `BROWSER_EXTENSION` staging imports that still require Phase 7B review.
+13. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
+14. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
 
 ## 6. API Design Principles
 
