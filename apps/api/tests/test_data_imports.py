@@ -1,9 +1,10 @@
 from collections.abc import Generator
-from typing import Any
+from typing import Any, Protocol, cast
 from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
+from pytest import LogCaptureFixture
 from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
@@ -32,6 +33,14 @@ from app.models.academic import (
 )
 from app.seed_dev import seed_mock_data, seed_uuid
 from app.services.data_imports.engine import DataImportApplicationService
+
+
+class DataImportCreatedLogRecord(Protocol):
+    student_profile_id: str
+    source_type: str
+    import_type: str
+    record_count: int
+    warning_count: int
 
 
 def count_rows(session: Session, model: type[Any]) -> int:
@@ -261,6 +270,35 @@ def test_data_import_service_parses_and_matches_without_writing_domain_records(
     warning_codes = {warning.warning_code for warning in warnings}
     assert {"STAGING_ONLY_NOT_OFFICIAL", "UNMATCHED_COURSE_CODE"} <= warning_codes
     assert all(warning.requires_advisor_confirmation for warning in warnings)
+
+
+def test_data_import_service_logs_safe_metadata(
+    session: Session,
+    caplog: LogCaptureFixture,
+) -> None:
+    service = DataImportApplicationService(session)
+
+    with caplog.at_level("INFO", logger="app.services.data_imports.engine"):
+        service.create_import(
+            student_profile_id=seed_uuid("student-profile:mock-student"),
+            import_type=DataImportType.UNOFFICIAL_TRANSCRIPT,
+            file_name="mock-transcript.csv",
+            file_mime_type="text/csv",
+            content=transcript_csv(),
+        )
+
+    records = [record for record in caplog.records if record.message == "data_import.created"]
+    assert len(records) == 1
+    log_record = cast(DataImportCreatedLogRecord, records[0])
+    assert log_record.student_profile_id == str(seed_uuid("student-profile:mock-student"))
+    assert log_record.source_type == "STUDENT_PROVIDED"
+    assert log_record.import_type == "UNOFFICIAL_TRANSCRIPT"
+    assert log_record.record_count == 2
+    assert log_record.warning_count >= 1
+    log_text = "\n".join(record.getMessage() for record in caplog.records)
+    assert "Mock Managerial Finance" not in log_text
+    assert "FIN 999" not in log_text
+    assert "mock-transcript.csv" not in log_text
 
 
 def test_browser_extension_import_enters_staging_and_preserves_review_boundary(

@@ -1,18 +1,82 @@
+from typing import Self
+from urllib.parse import urlparse
+
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+LOCAL_DEVELOPMENT_DATABASE_URL = (
+    "postgresql+psycopg://sapsos:sapsos_dev_password@localhost:5432/sapsos"
+)
+LOCAL_DEVELOPMENT_CORS_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
+ALLOWED_ENVIRONMENTS = {"development", "test", "staging", "production"}
+LOCALHOST_NAMES = {"localhost", "127.0.0.1", "::1"}
+
+
+def parse_cors_origins(value: str) -> list[str]:
+    return [origin.strip().rstrip("/") for origin in value.split(",") if origin.strip()]
 
 
 class Settings(BaseSettings):
     app_name: str = "Smart Academic Planning API"
-    database_url: str = "postgresql+psycopg://sapsos:sapsos_dev_password@localhost:5432/sapsos"
-    database_connect_timeout_seconds: int = 3
+    database_url: str = LOCAL_DEVELOPMENT_DATABASE_URL
+    database_connect_timeout_seconds: int = Field(default=3, gt=0, le=60)
     environment: str = "development"
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cors_origins: str = LOCAL_DEVELOPMENT_CORS_ORIGINS
 
     model_config = SettingsConfigDict(env_file=("../../.env", ".env"), extra="ignore")
 
+    @field_validator("environment")
+    @classmethod
+    def validate_environment(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in ALLOWED_ENVIRONMENTS:
+            allowed = ", ".join(sorted(ALLOWED_ENVIRONMENTS))
+            raise ValueError(f"ENVIRONMENT must be one of: {allowed}")
+        return normalized
+
+    @field_validator("database_url")
+    @classmethod
+    def validate_database_url(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized.startswith("postgresql+psycopg://"):
+            raise ValueError("DATABASE_URL must use postgresql+psycopg://")
+        return normalized
+
+    @field_validator("cors_origins")
+    @classmethod
+    def validate_cors_origins(cls, value: str) -> str:
+        origins = parse_cors_origins(value)
+        if not origins:
+            raise ValueError("CORS_ORIGINS must include at least one explicit origin")
+        for origin in origins:
+            if "*" in origin:
+                raise ValueError("CORS_ORIGINS must not include wildcard origins")
+            parsed = urlparse(origin)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                raise ValueError("CORS_ORIGINS must contain http(s) origins")
+        return ",".join(origins)
+
+    @model_validator(mode="after")
+    def validate_production_defaults(self) -> Self:
+        if self.environment != "production":
+            return self
+        if self.database_url == LOCAL_DEVELOPMENT_DATABASE_URL:
+            raise ValueError("Production DATABASE_URL must not use the local development default")
+        for origin in self.cors_origin_list:
+            parsed = urlparse(origin)
+            if parsed.hostname in LOCALHOST_NAMES:
+                raise ValueError("Production CORS_ORIGINS must not include localhost origins")
+            if parsed.scheme != "https":
+                raise ValueError("Production CORS_ORIGINS must use https origins")
+        return self
+
     @property
     def cors_origin_list(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        return parse_cors_origins(self.cors_origins)
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment == "production"
 
 
 settings = Settings()

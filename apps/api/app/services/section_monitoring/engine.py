@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -34,6 +35,7 @@ SECTION_MONITORING_DISCLAIMERS = [
         "portal action."
     ),
 ]
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -179,6 +181,15 @@ class SectionMonitoringApplicationService:
             if previous is None or stored_snapshot.target_id is None:
                 continue
             alerts.extend(self._create_alerts(previous, stored_snapshot))
+        logger.info(
+            "section_monitoring.snapshots_compared",
+            extra={
+                "student_profile_id": str(student_profile_id),
+                "source_type": source_type.value,
+                "snapshot_count": len(stored_snapshots),
+                "alert_count": len(alerts),
+            },
+        )
         return SnapshotCompareResult(
             snapshots=stored_snapshots,
             alerts=alerts,

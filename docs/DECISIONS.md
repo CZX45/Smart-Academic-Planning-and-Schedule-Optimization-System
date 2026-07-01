@@ -306,3 +306,19 @@ Consequences:
 - Browser-extension imports, data import previews, reviewed imported data, section monitoring snapshots, and alerts consistently show non-official/advisory/manual-review labels.
 - UX tests now guard against misleading registration, seat guarantee, and official-availability claims.
 - Any future automation or official-source workflow still requires a separate architecture decision.
+
+## ADR-0022: Harden security and production readiness without expanding workflow authority
+
+Status: Accepted
+
+Context: After Phase 9A, the system has enough user-facing academic planning, import, review, schedule, and advisory monitoring surface that accidental misconfiguration or unsafe wording could create privacy and operational risk before any real deployment.
+
+Decision: Implement Phase 9B as hardening-only work. Add API environment validation for PostgreSQL URL, app environment, timeout, and CORS origins; validate the web public API base URL; add safe API response headers and explicit CORS request headers; add low-sensitivity structured audit logs for data-import creation and advisory section-monitoring comparisons; document privacy, retention, safe logging, and production readiness; and add safety regression tests. Do not add new product domains, official source ingestion, account/auth systems, telemetry, production deployment, registration automation, portal submission, polling, waitlist automation, seat-state changes, or credential handling.
+
+Consequences:
+
+- Production-like misconfiguration fails early with clearer errors.
+- API responses gain safe default browser-facing headers without relying on reverse-proxy-only behavior.
+- Auditability improves while raw imported academic content, HTML, credentials, tokens, and secrets stay out of logs.
+- The browser extension and section monitoring boundaries remain user-triggered, non-official, read-only, and advisory.
+- Real data onboarding, advisor workflow expansion, deletion/export controls, external telemetry, and production deployment remain future work requiring separate review.

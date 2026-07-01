@@ -76,6 +76,7 @@ import {
   type ScenarioWarning,
 } from "@sapsos/shared";
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
+import { parsePublicEnv } from "../lib/env";
 
 type HealthState =
   | { status: "loading" }
@@ -260,7 +261,17 @@ type ProductStatusCard = {
   advisoryLabels?: AdvisoryLabelKey[];
 };
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+function configuredApiBaseUrl(): string | undefined {
+  try {
+    return parsePublicEnv({
+      NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+    }).apiBaseUrl;
+  } catch {
+    return undefined;
+  }
+}
+
+const apiBaseUrl = configuredApiBaseUrl();
 const mockStudentId = "74874476-4024-5e2d-807a-fbb4ab620249";
 const mockProgramVersionId = "f65bee76-6061-515f-a3df-cdf5567514af";
 const fall2024TermId = "f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec";

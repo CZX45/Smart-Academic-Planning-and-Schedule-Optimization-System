@@ -279,6 +279,16 @@ Phase 9A covers product-hardening behavior:
 - Safety assertions scan rendered UI text for misleading registration, seat guarantee, and official-availability claims.
 - Phase 9A does not add registration automation, portal submission, polling, background scraping, credential capture, waitlist automation, or seat-state changes.
 
+Phase 9B covers security and production-readiness hardening:
+
+- API settings tests for allowed environments, PostgreSQL psycopg database URLs, production rejection of local database defaults, explicit CORS origins, wildcard rejection, and production rejection of localhost CORS origins.
+- API integration tests for safe default response headers and explicit CORS behavior.
+- API safety tests for prohibited endpoint/action names in OpenAPI paths and operation metadata.
+- Web Vitest tests for public API base URL validation, missing configuration errors, malformed URL errors, and credential-free URL requirements.
+- Extension policy tests for Manifest V3, minimal permissions, no broad host permissions, no credential-like extraction fields, no polling primitives, and no portal submission or registration automation code.
+- Logging tests proving data-import and section-monitoring comparison logs contain only safe metadata and do not include raw imported content, file names, visible table labels, credentials, or portal-derived row text.
+- Documentation review covers production readiness, data-retention principles, safe logging, no-secrets checks, and manual browser-extension permission verification.
+
 ## 5. Property and Constraint Tests
 
 For optimizers, add property-like tests:

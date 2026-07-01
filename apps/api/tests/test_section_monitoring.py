@@ -1,9 +1,10 @@
 from collections.abc import Generator
-from typing import Any
+from typing import Any, Protocol, cast
 from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
+from pytest import LogCaptureFixture
 from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
@@ -22,6 +23,13 @@ from app.models.academic import (
 from app.seed_dev import seed_mock_data, seed_uuid
 from app.services.section_monitoring.engine import SectionMonitoringApplicationService
 from app.services.section_monitoring.exceptions import SectionMonitoringValidationError
+
+
+class SnapshotComparisonLogRecord(Protocol):
+    student_profile_id: str
+    source_type: str
+    snapshot_count: int
+    alert_count: int
 
 
 @pytest.fixture()
@@ -420,3 +428,36 @@ def test_section_monitoring_api_does_not_introduce_registration_automation() -> 
     }
     for model in (SectionMonitorTarget, SectionMonitorSnapshot, SectionMonitorAlert):
         assert forbidden_model_fields.isdisjoint(model.__table__.columns.keys())
+
+
+def test_section_monitoring_logs_safe_comparison_metadata(
+    session: Session,
+    caplog: LogCaptureFixture,
+) -> None:
+    service = SectionMonitoringApplicationService(session)
+    student_id = seed_uuid("student-profile:mock-student")
+
+    with caplog.at_level("INFO", logger="app.services.section_monitoring.engine"):
+        result = service.compare_snapshots(
+            student_profile_id=student_id,
+            source_type=SourceType.BROWSER_EXTENSION,
+            snapshots=[
+                snapshot_payload(status="CLOSED", seats_available=0, waitlist_available=5),
+            ],
+        )
+
+    assert len(result.snapshots) == 1
+    records = [
+        record
+        for record in caplog.records
+        if record.message == "section_monitoring.snapshots_compared"
+    ]
+    assert len(records) == 1
+    log_record = cast(SnapshotComparisonLogRecord, records[0])
+    assert log_record.student_profile_id == str(student_id)
+    assert log_record.source_type == "BROWSER_EXTENSION"
+    assert log_record.snapshot_count == 1
+    assert log_record.alert_count == 0
+    log_text = "\n".join(record.getMessage() for record in caplog.records)
+    assert "FIN 403" not in log_text
+    assert "Visible section-search table" not in log_text

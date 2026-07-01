@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -58,6 +59,7 @@ BROWSER_EXTENSION_STAGING_DISCLAIMERS = [
         "planning records."
     ),
 ]
+logger = logging.getLogger(__name__)
 
 
 def utc_now() -> datetime:
@@ -183,6 +185,19 @@ class DataImportApplicationService:
         self._persist_preview(run)
         self._db.commit()
         self._db.refresh(run)
+        logger.info(
+            "data_import.created",
+            extra={
+                "data_import_run_id": str(run.id),
+                "student_profile_id": str(run.student_profile_id),
+                "source_type": run.source_type.value,
+                "import_type": run.import_type.value,
+                "record_count": run.record_count,
+                "warning_count": run.warning_count,
+                "error_count": run.error_count,
+                "file_size_bytes": run.file_size_bytes,
+            },
+        )
         return run
 
     def validate_import(self, data_import_run_id: UUID) -> ImportPreviewSummary:

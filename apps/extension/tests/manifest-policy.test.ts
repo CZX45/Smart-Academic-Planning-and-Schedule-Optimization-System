@@ -59,4 +59,18 @@ describe("browser extension safety policy", () => {
       /waitlist(_join|Join|Action|Automation)|joinWaitlist/i,
     );
   });
+
+  it("does not expose credential-like extraction fields or background polling primitives", () => {
+    const source = [
+      readProjectFile("src/content/content-script.ts"),
+      readProjectFile("src/content/extractors.ts"),
+      readProjectFile("src/shared/types.ts"),
+      readProjectFile("src/background/service-worker.ts"),
+    ].join("\n");
+
+    expect(source).not.toMatch(
+      /\b(password|portal_password|credential|session_cookie|saml|mfa|captcha)\b/i,
+    );
+    expect(source).not.toMatch(/\b(setInterval|setTimeout|chrome\.alarms)\b/);
+  });
 });
