@@ -9,6 +9,10 @@ import {
   DataImportRunSchema,
   DataReviewApplicationResultSchema,
   DataReviewWarningSchema,
+  SectionMonitorAlertSchema,
+  SectionMonitorSnapshotCompareResponseSchema,
+  SectionMonitorSnapshotSchema,
+  SectionMonitorTargetSchema,
   ImportedRecordReviewSchema,
   ImportMappingCandidateSchema,
   ImportPreviewSummarySchema,
@@ -29,8 +33,13 @@ import {
   createCourseEligibilityCheck,
   createDataImport,
   createDataImportReview,
+  createSectionMonitorTarget,
+  compareSectionMonitorSnapshots,
   createScheduleOptimization,
+  fetchSectionMonitorAlerts,
   fetchHealth,
+  updateSectionMonitorAlert,
+  updateSectionMonitorTarget,
   updateImportedRecordReview,
 } from "./index.js";
 
@@ -578,6 +587,192 @@ describe("data import schemas", () => {
         { fetchFn },
       ),
     ).resolves.toMatchObject({ dry_run: true });
+  });
+});
+
+describe("section monitoring schemas", () => {
+  const targetPayload = {
+    id: "00000000-0000-4000-8000-000000000801",
+    student_profile_id: "00000000-0000-4000-8000-000000000702",
+    course_code: "FIN 403",
+    section_code: "001",
+    term: "2025FA",
+    title: "Mock International Finance",
+    instructor: "Mock Instructor",
+    status: "OPEN",
+    is_active: true,
+    is_advisory: true,
+    is_official: false,
+    latest_snapshot_created_at: "2026-07-01T00:00:00Z",
+    created_at: "2026-07-01T00:00:00Z",
+    updated_at: "2026-07-01T00:00:00Z",
+  };
+  const snapshotPayload = {
+    id: "00000000-0000-4000-8000-000000000802",
+    target_id: targetPayload.id,
+    data_import_id: null,
+    course_code: "FIN 403",
+    section_code: "001",
+    term: "2025FA",
+    status: "OPEN",
+    seats_available: 4,
+    seats_capacity: 30,
+    waitlist_available: 2,
+    waitlist_capacity: 10,
+    meeting_days: "MONDAY",
+    meeting_time: "09:00-10:15",
+    location: "Mock Hall 101",
+    instructor: "Mock Instructor",
+    raw_payload: { source_label: "Visible section-search table" },
+    source_type: "BROWSER_EXTENSION",
+    is_official: false,
+    source_reference: "Browser extension visible-page import",
+    source_confidence: "browser_extension",
+    created_at: "2026-07-01T00:00:00Z",
+  };
+  const alertPayload = {
+    id: "00000000-0000-4000-8000-000000000803",
+    target_id: targetPayload.id,
+    previous_snapshot_id: "00000000-0000-4000-8000-000000000804",
+    current_snapshot_id: snapshotPayload.id,
+    alert_type: "SECTION_OPENED",
+    severity: "INFO",
+    field_name: "status",
+    previous_value: "CLOSED",
+    current_value: "OPEN",
+    message:
+      "FIN 403 001 appears to have opened in imported data; manually verify in the official portal.",
+    is_acknowledged: false,
+    acknowledged_at: null,
+    is_advisory: true,
+    requires_manual_review: true,
+    created_at: "2026-07-01T00:00:00Z",
+  };
+
+  it("validates advisory targets, non-official snapshots, and manual-review alerts", () => {
+    expect(SectionMonitorTargetSchema.parse(targetPayload)).toMatchObject({
+      is_active: true,
+      is_advisory: true,
+      is_official: false,
+    });
+    expect(SectionMonitorSnapshotSchema.parse(snapshotPayload)).toMatchObject({
+      source_type: "BROWSER_EXTENSION",
+      is_official: false,
+    });
+    expect(SectionMonitorAlertSchema.parse(alertPayload)).toMatchObject({
+      alert_type: "SECTION_OPENED",
+      is_advisory: true,
+      requires_manual_review: true,
+    });
+    expect(
+      SectionMonitorSnapshotCompareResponseSchema.parse({
+        snapshots: [snapshotPayload],
+        alerts: [alertPayload],
+        disclaimers: [
+          "Section monitoring is based on user-triggered imported data and is not official.",
+        ],
+      }),
+    ).toMatchObject({ alerts: [{ alert_type: "SECTION_OPENED" }] });
+  });
+
+  it("uses typed helpers for advisory target and alert workflows", async () => {
+    const seenRequests: Array<{ url: string; method: string | undefined }> = [];
+    const fetchFn = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      seenRequests.push({ url, method: init?.method });
+      if (url.endsWith("/targets") && init?.method === "POST") {
+        return new Response(JSON.stringify(targetPayload));
+      }
+      if (url.endsWith(`/targets/${targetPayload.id}`)) {
+        return new Response(
+          JSON.stringify({ ...targetPayload, is_active: false }),
+        );
+      }
+      if (url.endsWith("/snapshots/compare")) {
+        return new Response(
+          JSON.stringify({
+            snapshots: [snapshotPayload],
+            alerts: [alertPayload],
+            disclaimers: [
+              "This system does not register, drop, swap, waitlist, reserve seats, submit forms, or perform any portal action.",
+            ],
+          }),
+          { status: 201 },
+        );
+      }
+      if (url.includes("/alerts/") && init?.method === "PATCH") {
+        return new Response(
+          JSON.stringify({
+            ...alertPayload,
+            is_acknowledged: true,
+            acknowledged_at: "2026-07-01T00:00:01Z",
+          }),
+        );
+      }
+      return new Response(JSON.stringify([alertPayload]));
+    };
+
+    await expect(
+      createSectionMonitorTarget(
+        "http://api.test",
+        {
+          student_profile_id: targetPayload.student_profile_id,
+          course_code: "FIN 403",
+          section_code: "001",
+          term: "2025FA",
+          title: "Mock International Finance",
+        },
+        { fetchFn },
+      ),
+    ).resolves.toMatchObject({ is_advisory: true });
+    await expect(
+      updateSectionMonitorTarget(
+        "http://api.test",
+        targetPayload.id,
+        { is_active: false },
+        { fetchFn },
+      ),
+    ).resolves.toMatchObject({ is_active: false });
+    await expect(
+      compareSectionMonitorSnapshots(
+        "http://api.test",
+        {
+          student_profile_id: targetPayload.student_profile_id,
+          source_type: "BROWSER_EXTENSION",
+          snapshots: [
+            {
+              course_code: "FIN 403",
+              section_code: "001",
+              term: "2025FA",
+              status: "OPEN",
+              seats_available: 4,
+            },
+          ],
+        },
+        { fetchFn },
+      ),
+    ).resolves.toMatchObject({ alerts: [{ alert_type: "SECTION_OPENED" }] });
+    await expect(
+      fetchSectionMonitorAlerts(
+        "http://api.test",
+        targetPayload.student_profile_id,
+        {
+          fetchFn,
+        },
+      ),
+    ).resolves.toHaveLength(1);
+    await expect(
+      updateSectionMonitorAlert(
+        "http://api.test",
+        alertPayload.id,
+        { is_acknowledged: true },
+        { fetchFn },
+      ),
+    ).resolves.toMatchObject({ is_acknowledged: true });
+
+    expect(seenRequests.map((request) => request.url)).toContain(
+      "http://api.test/api/v1/section-monitoring/snapshots/compare",
+    );
   });
 });
 

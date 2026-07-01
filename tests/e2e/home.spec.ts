@@ -865,6 +865,42 @@ const mockDataImportPreview = {
   created_at: "2026-06-30T00:00:00Z",
 };
 
+const mockSectionMonitorTarget = {
+  id: "00000000-0000-4000-8000-000000000801",
+  student_profile_id: mockDataImportRun.student_profile_id,
+  course_code: "FIN 403",
+  section_code: "001",
+  term: "2025FA",
+  title: "Mock International Finance",
+  instructor: "Mock Instructor",
+  status: "OPEN",
+  is_active: true,
+  is_advisory: true,
+  is_official: false,
+  latest_snapshot_created_at: "2026-07-01T00:00:00Z",
+  created_at: "2026-07-01T00:00:00Z",
+  updated_at: "2026-07-01T00:00:00Z",
+};
+
+const mockSectionMonitorAlert = {
+  id: "00000000-0000-4000-8000-000000000803",
+  target_id: mockSectionMonitorTarget.id,
+  previous_snapshot_id: "00000000-0000-4000-8000-000000000804",
+  current_snapshot_id: "00000000-0000-4000-8000-000000000802",
+  alert_type: "SECTION_OPENED",
+  severity: "INFO",
+  field_name: "status",
+  previous_value: "CLOSED",
+  current_value: "OPEN",
+  message:
+    "FIN 403 001 appears to have opened in imported data; manually verify in the official portal.",
+  is_acknowledged: false,
+  acknowledged_at: null,
+  is_advisory: true,
+  requires_manual_review: true,
+  created_at: "2026-07-01T00:00:00Z",
+};
+
 const mockDataImportReview = {
   id: "00000000-0000-4000-8000-000000000731",
   data_import_run_id: mockDataImportRun.id,
@@ -975,7 +1011,8 @@ function mockApplicationResult(dryRun: boolean) {
         action: "SKIPPED_ADVISOR_REVIEW",
         status: "SKIPPED",
         reason_code: "ADVISOR_REVIEW_REQUIRED",
-        message: "Imported record requires advisor review before it can be applied.",
+        message:
+          "Imported record requires advisor review before it can be applied.",
         created_at: dryRun ? null : "2026-06-30T00:00:03Z",
       },
     ],
@@ -1432,7 +1469,71 @@ async function mockSuccessfulDataImportApis(page: Page) {
       });
     },
   );
+  await page.route(
+    "http://localhost:8000/api/v1/section-monitoring/targets*",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/section-monitoring/alerts*",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    },
+  );
 }
+
+async function mockSuccessfulSectionMonitoringApis(page: Page) {
+  await page.unroute(
+    "http://localhost:8000/api/v1/section-monitoring/targets*",
+  );
+  await page.unroute("http://localhost:8000/api/v1/section-monitoring/alerts*");
+  await page.route(
+    "http://localhost:8000/api/v1/section-monitoring/targets*",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([mockSectionMonitorTarget]),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/section-monitoring/alerts*",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([mockSectionMonitorAlert]),
+      });
+    },
+  );
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.route(
+    "http://localhost:8000/api/v1/section-monitoring/targets*",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/section-monitoring/alerts*",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    },
+  );
+});
 
 test("home page shows degree progress shell and required mock warnings", async ({
   page,
@@ -1764,18 +1865,18 @@ test("home page previews read-only data imports", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: /Browser Extension Import/ }),
   ).toBeVisible();
-  await expect(page.getByLabel("Browser extension import status")).toContainText(
-    "Experimental",
-  );
-  await expect(page.getByLabel("Browser extension import status")).toContainText(
-    "staging import first",
-  );
-  await expect(page.getByLabel("Browser extension import status")).toContainText(
-    "Phase 7B review is required",
-  );
-  await expect(page.getByLabel("Browser extension import status")).toContainText(
-    "No registration automation",
-  );
+  await expect(
+    page.getByLabel("Browser extension import status"),
+  ).toContainText("Experimental");
+  await expect(
+    page.getByLabel("Browser extension import status"),
+  ).toContainText("staging import first");
+  await expect(
+    page.getByLabel("Browser extension import status"),
+  ).toContainText("Phase 7B review is required");
+  await expect(
+    page.getByLabel("Browser extension import status"),
+  ).toContainText("No registration automation");
 
   await page.getByLabel("Sample import").selectOption("mock-transcript-csv");
   await page.getByRole("button", { name: /Preview import/ }).click();
@@ -1814,6 +1915,45 @@ test("home page previews read-only data imports", async ({ page }) => {
 
   await page.getByRole("button", { name: /Load saved imports/ }).click();
   await expect(importSummary.getByText("Saved Imports")).toBeVisible();
+});
+
+test("home page shows read-only section monitoring alerts and manual checklist", async ({
+  page,
+}) => {
+  await mockSuccessfulAuditApis(page);
+  await mockSuccessfulSectionMonitoringApis(page);
+
+  await page.goto("/");
+
+  await expect(
+    page.getByRole("heading", { name: /Section Monitoring/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Section monitoring is based on user-triggered imported data and may not reflect official real-time availability. Always verify information manually in the official registration portal.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "This system does not register, drop, swap, waitlist, reserve seats, submit forms, or perform any portal action.",
+    ),
+  ).toBeVisible();
+
+  await expect(
+    page.getByLabel("Monitored sections").getByText("FIN 403 001"),
+  ).toBeVisible();
+  await expect(page.getByLabel("Advisory alerts")).toContainText(
+    "SECTION OPENED",
+  );
+  await expect(page.getByLabel("Advisory alerts")).toContainText(
+    "CLOSED -> OPEN",
+  );
+  await expect(page.getByLabel("Manual registration checklist")).toContainText(
+    "Open the official registration portal manually.",
+  );
+  await expect(page.getByLabel("Manual registration checklist")).toContainText(
+    "Register manually through the official portal if appropriate.",
+  );
 });
 
 test("home page reviews and applies confirmed data import records", async ({

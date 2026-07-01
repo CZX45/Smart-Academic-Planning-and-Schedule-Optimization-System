@@ -276,3 +276,18 @@ Consequences:
 - Source metadata distinguishes browser-extension visible-page extracts from uploads, mock fixtures, inferred data, official data, and reviewed application logs.
 - The extension does not store credentials, read password fields, bypass school authentication, scrape in the background, submit portal forms, publish production browser-store builds, poll seats, join waitlists, add, drop, swap, register, or grab seats.
 - Read-only section-change alerts may be considered later, but they must remain advisory and unable to perform registration or seat-grabbing actions.
+
+## ADR-0020: Implement section monitoring as advisory snapshot comparison
+
+Status: Accepted
+
+Context: Students can benefit from noticing changes in section-search data they manually import, but live seat monitoring, portal polling, waitlist automation, and registration actions create accuracy, privacy, and operational risk.
+
+Decision: Implement Phase 8B section monitoring as a read-only advisory boundary. Persist student-scoped monitor targets, non-official imported snapshots, and manual-review alerts. Compare only user-triggered browser-extension snapshots, deduplicate identical snapshots by hash, and expose alerts through `/api/v1/section-monitoring`. Render advisory UI messaging and a manual registration checklist. Do not schedule background polling, refresh portals, reserve seats, join waitlists, submit forms, or mutate canonical section, seat, waitlist, student, plan, schedule, or registration state.
+
+Consequences:
+
+- Students can review status, seat, waitlist, meeting-time, instructor, and location changes without mistaking them for official real-time availability.
+- API, shared schemas, extension extraction, and web UI have an explicit non-official monitoring contract.
+- Future notification work must remain user-controlled and advisory unless a new reviewed architecture decision changes the boundary.
+- Registration automation, waitlist handling, seat grabbing, portal scraping, credential storage, and authentication bypass remain out of scope.

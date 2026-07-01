@@ -2798,6 +2798,386 @@
         }
       }
     },
+    "/api/v1/section-monitoring/targets": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "List Section Monitor Targets",
+        "operationId": "list_section_monitor_targets_api_v1_section_monitoring_targets_get",
+        "parameters": [
+          {
+            "name": "student_profile_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Profile Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SectionMonitorTargetResponse"
+                  },
+                  "title": "Response List Section Monitor Targets Api V1 Section Monitoring Targets Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Create Section Monitor Target",
+        "operationId": "create_section_monitor_target_api_v1_section_monitoring_targets_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SectionMonitorTargetCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionMonitorTargetResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/section-monitoring/targets/{target_id}": {
+      "patch": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Update Section Monitor Target",
+        "operationId": "update_section_monitor_target_api_v1_section_monitoring_targets__target_id__patch",
+        "parameters": [
+          {
+            "name": "target_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Target Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SectionMonitorTargetUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionMonitorTargetResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/section-monitoring/alerts": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "List Section Monitor Alerts",
+        "operationId": "list_section_monitor_alerts_api_v1_section_monitoring_alerts_get",
+        "parameters": [
+          {
+            "name": "student_profile_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Profile Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SectionMonitorAlertResponse"
+                  },
+                  "title": "Response List Section Monitor Alerts Api V1 Section Monitoring Alerts Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/section-monitoring/alerts/{alert_id}": {
+      "patch": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Update Section Monitor Alert",
+        "operationId": "update_section_monitor_alert_api_v1_section_monitoring_alerts__alert_id__patch",
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Alert Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SectionMonitorAlertUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionMonitorAlertResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/section-monitoring/snapshots/compare": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Compare Section Monitor Snapshots",
+        "operationId": "compare_section_monitor_snapshots_api_v1_section_monitoring_snapshots_compare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SectionMonitorSnapshotCompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionMonitorSnapshotCompareResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/data-import-reviews": {
       "post": {
         "tags": [
@@ -10500,6 +10880,808 @@
           "UNKNOWN"
         ],
         "title": "SectionModality"
+      },
+      "SectionMonitorAlertResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "target_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Id"
+          },
+          "previous_snapshot_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Previous Snapshot Id"
+          },
+          "current_snapshot_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Current Snapshot Id"
+          },
+          "alert_type": {
+            "type": "string",
+            "enum": [
+              "STATUS_CHANGED",
+              "SEATS_CHANGED",
+              "SECTION_OPENED",
+              "SECTION_CLOSED",
+              "WAITLIST_CHANGED",
+              "MEETING_TIME_CHANGED",
+              "INSTRUCTOR_CHANGED",
+              "LOCATION_CHANGED",
+              "UNKNOWN_CHANGE"
+            ],
+            "title": "Alert Type"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "INFO",
+              "WARNING",
+              "ERROR"
+            ],
+            "title": "Severity"
+          },
+          "field_name": {
+            "type": "string",
+            "title": "Field Name"
+          },
+          "previous_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Value"
+          },
+          "current_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Value"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "is_acknowledged": {
+            "type": "boolean",
+            "title": "Is Acknowledged"
+          },
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          },
+          "is_advisory": {
+            "type": "boolean",
+            "title": "Is Advisory"
+          },
+          "requires_manual_review": {
+            "type": "boolean",
+            "title": "Requires Manual Review"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "target_id",
+          "previous_snapshot_id",
+          "current_snapshot_id",
+          "alert_type",
+          "severity",
+          "field_name",
+          "message",
+          "is_acknowledged",
+          "is_advisory",
+          "requires_manual_review",
+          "created_at"
+        ],
+        "title": "SectionMonitorAlertResponse"
+      },
+      "SectionMonitorAlertUpdateRequest": {
+        "properties": {
+          "is_acknowledged": {
+            "type": "boolean",
+            "title": "Is Acknowledged"
+          }
+        },
+        "type": "object",
+        "required": [
+          "is_acknowledged"
+        ],
+        "title": "SectionMonitorAlertUpdateRequest"
+      },
+      "SectionMonitorSnapshotCompareRequest": {
+        "properties": {
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "source_type": {
+            "type": "string",
+            "const": "BROWSER_EXTENSION",
+            "title": "Source Type",
+            "default": "BROWSER_EXTENSION"
+          },
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/SectionMonitorSnapshotInput"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Snapshots"
+          }
+        },
+        "type": "object",
+        "required": [
+          "student_profile_id",
+          "snapshots"
+        ],
+        "title": "SectionMonitorSnapshotCompareRequest"
+      },
+      "SectionMonitorSnapshotCompareResponse": {
+        "properties": {
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/SectionMonitorSnapshotResponse"
+            },
+            "type": "array",
+            "title": "Snapshots"
+          },
+          "alerts": {
+            "items": {
+              "$ref": "#/components/schemas/SectionMonitorAlertResponse"
+            },
+            "type": "array",
+            "title": "Alerts"
+          },
+          "disclaimers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Disclaimers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "snapshots",
+          "alerts",
+          "disclaimers"
+        ],
+        "title": "SectionMonitorSnapshotCompareResponse"
+      },
+      "SectionMonitorSnapshotInput": {
+        "properties": {
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "data_import_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Import Id"
+          },
+          "course_code": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Course Code"
+          },
+          "section_code": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Section Code"
+          },
+          "term": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Term"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "seats_available": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seats Available"
+          },
+          "seats_capacity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seats Capacity"
+          },
+          "waitlist_available": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waitlist Available"
+          },
+          "waitlist_capacity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waitlist Capacity"
+          },
+          "meeting_days": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Days"
+          },
+          "meeting_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Time"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "instructor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructor"
+          },
+          "raw_payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Raw Payload"
+          },
+          "source_reference": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Reference"
+          }
+        },
+        "type": "object",
+        "required": [
+          "course_code",
+          "section_code",
+          "term"
+        ],
+        "title": "SectionMonitorSnapshotInput"
+      },
+      "SectionMonitorSnapshotResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "data_import_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Import Id"
+          },
+          "course_code": {
+            "type": "string",
+            "title": "Course Code"
+          },
+          "section_code": {
+            "type": "string",
+            "title": "Section Code"
+          },
+          "term": {
+            "type": "string",
+            "title": "Term"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "seats_available": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seats Available"
+          },
+          "seats_capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seats Capacity"
+          },
+          "waitlist_available": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waitlist Available"
+          },
+          "waitlist_capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waitlist Capacity"
+          },
+          "meeting_days": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Days"
+          },
+          "meeting_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Time"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "instructor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructor"
+          },
+          "raw_payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Raw Payload"
+          },
+          "source_type": {
+            "type": "string",
+            "title": "Source Type"
+          },
+          "is_official": {
+            "type": "boolean",
+            "title": "Is Official"
+          },
+          "source_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Reference"
+          },
+          "source_confidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Confidence"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "course_code",
+          "section_code",
+          "term",
+          "raw_payload",
+          "source_type",
+          "is_official",
+          "created_at"
+        ],
+        "title": "SectionMonitorSnapshotResponse"
+      },
+      "SectionMonitorTargetCreateRequest": {
+        "properties": {
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "course_code": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Course Code"
+          },
+          "section_code": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Section Code"
+          },
+          "term": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Term"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "instructor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructor"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "student_profile_id",
+          "course_code",
+          "section_code",
+          "term"
+        ],
+        "title": "SectionMonitorTargetCreateRequest"
+      },
+      "SectionMonitorTargetResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "course_code": {
+            "type": "string",
+            "title": "Course Code"
+          },
+          "section_code": {
+            "type": "string",
+            "title": "Section Code"
+          },
+          "term": {
+            "type": "string",
+            "title": "Term"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "instructor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructor"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "is_advisory": {
+            "type": "boolean",
+            "title": "Is Advisory"
+          },
+          "is_official": {
+            "type": "boolean",
+            "title": "Is Official"
+          },
+          "latest_snapshot_created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Snapshot Created At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "student_profile_id",
+          "course_code",
+          "section_code",
+          "term",
+          "is_active",
+          "is_advisory",
+          "is_official",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SectionMonitorTargetResponse"
+      },
+      "SectionMonitorTargetUpdateRequest": {
+        "properties": {
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "instructor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructor"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "title": "SectionMonitorTargetUpdateRequest"
       },
       "SectionResponse": {
         "properties": {

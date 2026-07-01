@@ -121,12 +121,17 @@ const SECTION_SPEC: ExtractionSpec = {
     "section_code",
     "modality",
     "status",
+    "seats_available",
+    "seats_capacity",
+    "waitlist_available",
+    "waitlist_capacity",
     "credits",
     "day_of_week",
     "start_time",
     "end_time",
-    "building",
-    "room",
+    "meeting_days",
+    "meeting_time",
+    "location",
     "instructor_display",
     "source_label",
   ],
@@ -136,12 +141,27 @@ const SECTION_SPEC: ExtractionSpec = {
     section_code: ["section", "section_code"],
     modality: ["modality", "instruction_mode"],
     status: ["status", "section_status"],
+    seats_available: [
+      "seats_available",
+      "available_seats",
+      "available",
+      "open_seats",
+    ],
+    seats_capacity: ["seats_capacity", "capacity", "total_seats"],
+    waitlist_available: [
+      "waitlist_available",
+      "waitlist",
+      "waitlist_open",
+      "waitlist_seats",
+    ],
+    waitlist_capacity: ["waitlist_capacity", "waitlist_total", "waitlist_cap"],
     credits: ["credits", "credit_hours"],
     day_of_week: ["day", "days", "day_of_week"],
     start_time: ["start", "start_time"],
     end_time: ["end", "end_time"],
-    building: ["building"],
-    room: ["room"],
+    meeting_days: ["meeting_days"],
+    meeting_time: ["meeting_time", "time"],
+    location: ["location", "building_room", "room", "building"],
     instructor_display: ["instructor", "instructor_display"],
   },
   requiredFields: ["term_code", "course_code", "section_code"],
@@ -277,6 +297,12 @@ function recordsFromTable(
           : normalizeValue(field, row[columnIndex] ?? "");
       return current;
     }, {});
+    if (spec.pageType === "SECTION_SEARCH_TABLE") {
+      record.meeting_days ||= record.day_of_week ?? "";
+      if (!record.meeting_time && record.start_time && record.end_time) {
+        record.meeting_time = `${record.start_time}-${record.end_time}`;
+      }
+    }
     record.source_label = table.caption || `visible table ${table.index + 1}`;
     if (!hasRequiredFields(spec, record)) {
       warnings.push({

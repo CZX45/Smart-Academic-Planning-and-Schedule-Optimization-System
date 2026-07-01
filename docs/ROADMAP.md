@@ -343,7 +343,7 @@ Testable outcomes:
 
 ## Phase 8: Browser Extension Import Assistant
 
-Status: current phase, with Phase 8A read-only browser extension import foundation implemented.
+Status: current phase, with Phase 8A read-only browser extension import foundation and Phase 8B read-only section monitoring implemented.
 
 Phase 8A deliverables:
 
@@ -362,6 +362,21 @@ Phase 8A testable outcomes:
 - Phase 7B review remains required before application.
 - No credentials, password fields, SAML/MFA bypass, background scraping, portal form submission, registration automation, add/drop/swap, waitlist automation, seat grabbing, live polling, or browser-store publishing are implemented.
 
+Phase 8B deliverables:
+
+- Advisory `SectionMonitorTarget`, `SectionMonitorSnapshot`, and `SectionMonitorAlert` persistence.
+- Read-only `/api/v1/section-monitoring` endpoints for target create/list/archive, snapshot comparison, alert listing, and alert acknowledgement.
+- Browser-extension section-search extraction fields for status, seats, waitlist counts, meeting time, location, and instructor.
+- Shared TypeScript schemas/client helpers and a Section Monitoring web panel with advisory disclaimers and a manual checklist.
+- Tests proving duplicate snapshots are deduplicated, alerts are structured/manual-review only, and no polling, registration, waitlist automation, seat grabbing, or portal-action behavior exists.
+
+Phase 8B testable outcomes:
+
+- Section monitoring compares user-triggered non-official snapshots only.
+- Alerts identify opened/closed sections, seat changes, waitlist changes, meeting-time changes, instructor changes, location changes, and unknown raw changes.
+- Monitor data does not update canonical `Section` rows, student records, plans, schedules, waitlists, seats, or registration state.
+- Students are told to verify manually in the official registration portal.
+
 Deliverables:
 
 - Manifest V3 extension scaffold.
@@ -374,9 +389,9 @@ Testable outcomes:
 - Extension reads only active pages after user action.
 - Extracted data is marked as user-provided or imported draft until validated.
 
-Deferred from Phase 8A:
+Deferred from Phase 8B:
 
-- Read-only section-change alerts with explicit user refresh controls.
+- Background notification scheduling or recurring refresh controls.
 - Any real school-specific connector requiring private credentials.
 - Production browser-store publishing.
 - Official data application without staged review.

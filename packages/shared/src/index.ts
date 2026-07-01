@@ -994,6 +994,95 @@ export const ImportPreviewSummarySchema = z.object({
 
 export type ImportPreviewSummary = z.infer<typeof ImportPreviewSummarySchema>;
 
+const SectionMonitorAlertTypeSchema = z.enum([
+  "STATUS_CHANGED",
+  "SEATS_CHANGED",
+  "SECTION_OPENED",
+  "SECTION_CLOSED",
+  "WAITLIST_CHANGED",
+  "MEETING_TIME_CHANGED",
+  "INSTRUCTOR_CHANGED",
+  "LOCATION_CHANGED",
+  "UNKNOWN_CHANGE",
+]);
+
+export const SectionMonitorTargetSchema = z.object({
+  id: UuidSchema,
+  student_profile_id: UuidSchema,
+  course_code: z.string(),
+  section_code: z.string(),
+  term: z.string(),
+  title: z.string().nullable(),
+  instructor: z.string().nullable(),
+  status: z.string().nullable(),
+  is_active: z.boolean(),
+  is_advisory: z.boolean(),
+  is_official: z.boolean(),
+  latest_snapshot_created_at: DateTimeSchema.nullable(),
+  created_at: DateTimeSchema,
+  updated_at: DateTimeSchema,
+});
+
+export type SectionMonitorTarget = z.infer<typeof SectionMonitorTargetSchema>;
+
+export const SectionMonitorSnapshotSchema = z.object({
+  id: UuidSchema,
+  target_id: UuidSchema.nullable(),
+  data_import_id: UuidSchema.nullable(),
+  course_code: z.string(),
+  section_code: z.string(),
+  term: z.string(),
+  status: z.string().nullable(),
+  seats_available: z.number().nullable(),
+  seats_capacity: z.number().nullable(),
+  waitlist_available: z.number().nullable(),
+  waitlist_capacity: z.number().nullable(),
+  meeting_days: z.string().nullable(),
+  meeting_time: z.string().nullable(),
+  location: z.string().nullable(),
+  instructor: z.string().nullable(),
+  raw_payload: z.record(z.string(), z.unknown()),
+  source_type: z.string(),
+  is_official: z.boolean(),
+  source_reference: z.string().nullable().optional(),
+  source_confidence: z.string().nullable().optional(),
+  created_at: DateTimeSchema,
+});
+
+export type SectionMonitorSnapshot = z.infer<
+  typeof SectionMonitorSnapshotSchema
+>;
+
+export const SectionMonitorAlertSchema = z.object({
+  id: UuidSchema,
+  target_id: UuidSchema,
+  previous_snapshot_id: UuidSchema,
+  current_snapshot_id: UuidSchema,
+  alert_type: SectionMonitorAlertTypeSchema,
+  severity: z.enum(["INFO", "WARNING", "ERROR"]),
+  field_name: z.string(),
+  previous_value: z.string().nullable(),
+  current_value: z.string().nullable(),
+  message: z.string(),
+  is_acknowledged: z.boolean(),
+  acknowledged_at: DateTimeSchema.nullable(),
+  is_advisory: z.boolean(),
+  requires_manual_review: z.boolean(),
+  created_at: DateTimeSchema,
+});
+
+export type SectionMonitorAlert = z.infer<typeof SectionMonitorAlertSchema>;
+
+export const SectionMonitorSnapshotCompareResponseSchema = z.object({
+  snapshots: z.array(SectionMonitorSnapshotSchema),
+  alerts: z.array(SectionMonitorAlertSchema),
+  disclaimers: z.array(z.string()),
+});
+
+export type SectionMonitorSnapshotCompareResponse = z.infer<
+  typeof SectionMonitorSnapshotCompareResponseSchema
+>;
+
 export const DataImportReviewSessionSchema = z.object({
   id: UuidSchema,
   data_import_run_id: UuidSchema,
@@ -1266,6 +1355,52 @@ export type CreateDataImportRequest = {
     | "INFERRED"
     | "OFFICIAL";
   source_reference?: string | null;
+};
+
+export type CreateSectionMonitorTargetRequest = {
+  student_profile_id: string;
+  course_code: string;
+  section_code: string;
+  term: string;
+  title?: string | null;
+  instructor?: string | null;
+  status?: string | null;
+};
+
+export type UpdateSectionMonitorTargetRequest = {
+  is_active?: boolean | null;
+  title?: string | null;
+  instructor?: string | null;
+  status?: string | null;
+};
+
+export type SectionMonitorSnapshotInput = {
+  target_id?: string | null;
+  data_import_id?: string | null;
+  course_code: string;
+  section_code: string;
+  term: string;
+  status?: string | null;
+  seats_available?: number | null;
+  seats_capacity?: number | null;
+  waitlist_available?: number | null;
+  waitlist_capacity?: number | null;
+  meeting_days?: string | null;
+  meeting_time?: string | null;
+  location?: string | null;
+  instructor?: string | null;
+  raw_payload?: Record<string, unknown>;
+  source_reference?: string | null;
+};
+
+export type CompareSectionMonitorSnapshotsRequest = {
+  student_profile_id: string;
+  source_type?: "BROWSER_EXTENSION";
+  snapshots: SectionMonitorSnapshotInput[];
+};
+
+export type UpdateSectionMonitorAlertRequest = {
+  is_acknowledged: boolean;
 };
 
 export type CreateDataImportReviewRequest = {
@@ -2192,6 +2327,148 @@ export async function fetchStudentDataImports(
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Student data imports response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchSectionMonitorTargets(
+  apiBaseUrl: string,
+  studentId: string,
+  options: FetchHealthOptions = {},
+): Promise<SectionMonitorTarget[]> {
+  const parsed = z
+    .array(SectionMonitorTargetSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/section-monitoring/targets?student_profile_id=${encodeURIComponent(studentId)}`,
+        options,
+      ),
+    );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Section monitor targets response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function createSectionMonitorTarget(
+  apiBaseUrl: string,
+  request: CreateSectionMonitorTargetRequest,
+  options: FetchHealthOptions = {},
+): Promise<SectionMonitorTarget> {
+  const parsed = SectionMonitorTargetSchema.safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/section-monitoring/targets", {
+      ...options,
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(request),
+    }),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Section monitor target response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function updateSectionMonitorTarget(
+  apiBaseUrl: string,
+  targetId: string,
+  request: UpdateSectionMonitorTargetRequest,
+  options: FetchHealthOptions = {},
+): Promise<SectionMonitorTarget> {
+  const parsed = SectionMonitorTargetSchema.safeParse(
+    await fetchJson(
+      apiBaseUrl,
+      `/api/v1/section-monitoring/targets/${targetId}`,
+      {
+        ...options,
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(request),
+      },
+    ),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Section monitor target response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchSectionMonitorAlerts(
+  apiBaseUrl: string,
+  studentId: string,
+  options: FetchHealthOptions = {},
+): Promise<SectionMonitorAlert[]> {
+  const parsed = z
+    .array(SectionMonitorAlertSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        `/api/v1/section-monitoring/alerts?student_profile_id=${encodeURIComponent(studentId)}`,
+        options,
+      ),
+    );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Section monitor alerts response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function updateSectionMonitorAlert(
+  apiBaseUrl: string,
+  alertId: string,
+  request: UpdateSectionMonitorAlertRequest,
+  options: FetchHealthOptions = {},
+): Promise<SectionMonitorAlert> {
+  const parsed = SectionMonitorAlertSchema.safeParse(
+    await fetchJson(
+      apiBaseUrl,
+      `/api/v1/section-monitoring/alerts/${alertId}`,
+      {
+        ...options,
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(request),
+      },
+    ),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Section monitor alert response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function compareSectionMonitorSnapshots(
+  apiBaseUrl: string,
+  request: CompareSectionMonitorSnapshotsRequest,
+  options: FetchHealthOptions = {},
+): Promise<SectionMonitorSnapshotCompareResponse> {
+  const parsed = SectionMonitorSnapshotCompareResponseSchema.safeParse(
+    await fetchJson(
+      apiBaseUrl,
+      "/api/v1/section-monitoring/snapshots/compare",
+      {
+        ...options,
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(request),
+      },
+    ),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Section monitor snapshot comparison response did not match the expected schema",
     );
   }
   return parsed.data;

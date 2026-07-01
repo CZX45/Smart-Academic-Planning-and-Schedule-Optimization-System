@@ -57,12 +57,14 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Phase 5A adds synchronous long-term academic planner endpoints under `/api/v1/academic-plans`. The planner reuses Degree Audit and Course Eligibility, persists course-level term plans and warnings, and does not mutate official student records or registration data.
 - Phase 6B adds advanced synchronous semester schedule optimizer endpoints under `/api/v1/schedule-optimizations`. The optimizer ranks bounded single-term section combinations, persists constraint/option/conflict/repair/warning snapshots, and does not mutate student records, section data, seats, waitlists, or registration data.
 - Phase 7A adds synchronous read-only data import preview endpoints under `/api/v1/data-imports`. The import service parses bounded mock or student-provided CSV/JSON content into staging tables, proposes mapping candidates, emits warnings, and does not mutate catalog, transcript, requirement, section, seat, waitlist, or registration tables.
+- Phase 8B adds read-only section monitoring endpoints under `/api/v1/section-monitoring`. The service stores user-selected advisory monitor targets, compares user-triggered non-official section-search snapshots, emits structured change alerts, and does not poll, refresh portals, reserve seats, join waitlists, or perform registration actions.
 
 ### Browser Extension
 - Phase 8A local-development Manifest V3 data capture tool.
 - Reads only active, user-opened pages after user action.
 - Converts visible transcript, degree-audit, catalog, or section-search tables into structured import drafts.
 - Shows a preview before sending and requires explicit confirmation.
+- Phase 8B extraction includes section availability, waitlist count, meeting-time, location, and instructor fields so user-triggered imports can feed advisory comparisons.
 - Never stores school credentials.
 - Never performs registration actions.
 
@@ -195,6 +197,17 @@ Phase 8A adds a browser-extension handoff into the same staging boundary:
 - Phase 7B review and explicit apply remain mandatory before internal planning records can be changed.
 - No extension code stores credentials, reads password fields, submits forms, polls portals, publishes production builds, or automates registration, add/drop, swap, waitlist, or seat-grabbing behavior.
 
+### Section Monitoring Boundary
+Compares user-triggered section-search snapshots and produces advisory alerts only.
+
+Phase 8B implements this boundary with:
+
+- `SectionMonitorTarget` for student-selected course/section/term watch targets.
+- `SectionMonitorSnapshot` for non-official imported section state.
+- `SectionMonitorAlert` for structured status, seat-count, waitlist-count, meeting-time, instructor, location, and unknown-change advisories.
+
+The service accepts non-official browser-extension snapshots, deduplicates identical snapshots by hash, and compares only against stored snapshots for the same student/course/section/term. Alerts include manual-review and advisory flags plus messages that tell students to verify in the official registration portal. The boundary deliberately does not schedule background jobs, poll portals, register, drop, swap, join waitlists, reserve seats, submit forms, store credentials, or bypass school authentication.
+
 ### Advising and Risk Boundary
 Produces risk flags, advisor review items, confidence levels, and high-risk recommendation warnings.
 
@@ -212,8 +225,9 @@ Produces risk flags, advisor review items, confidence levels, and high-risk reco
 10. Phase 7A Data Import Preview stages mock or student-provided CSV/JSON rows, mapping candidates, warnings, and preview disclaimers without applying records to official domain tables.
 11. Phase 7B Data Review & Confirmation records human decisions, dry-run outcomes, application runs, duplicate skips, and internal non-official course-attempt applications.
 12. Phase 8A Browser Extension Import converts user-confirmed visible page tables into `BROWSER_EXTENSION` staging imports that still require Phase 7B review.
-13. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
-14. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
+13. Phase 8B Section Monitoring stores user-selected advisory monitor targets and compares user-triggered section-search snapshots for manual-review alerts.
+14. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
+15. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
 
 ## 6. API Design Principles
 

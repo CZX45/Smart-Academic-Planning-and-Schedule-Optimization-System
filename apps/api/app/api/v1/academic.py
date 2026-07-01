@@ -69,6 +69,9 @@ from app.models.academic import (
     Section,
     SectionMeeting,
     SectionModality,
+    SectionMonitorAlert,
+    SectionMonitorSnapshot,
+    SectionMonitorTarget,
     SectionStatus,
     SourceType,
     StudentAcademicProgram,
@@ -150,6 +153,14 @@ from app.schemas.academic import (
     ScheduleScoreBreakdownResponse,
     ScheduleWarningResponse,
     SectionMeetingResponse,
+    SectionMonitorAlertResponse,
+    SectionMonitorAlertUpdateRequest,
+    SectionMonitorSnapshotCompareRequest,
+    SectionMonitorSnapshotCompareResponse,
+    SectionMonitorSnapshotResponse,
+    SectionMonitorTargetCreateRequest,
+    SectionMonitorTargetResponse,
+    SectionMonitorTargetUpdateRequest,
     SectionResponse,
     SourceMetadataResponse,
     StudentAcademicProgramResponse,
@@ -172,6 +183,11 @@ from app.services.degree_audit.exceptions import DegreeAuditValidationError
 from app.services.degree_audit.persistence import DegreeAuditApplicationService
 from app.services.schedule_optimizer.engine import ScheduleOptimizerApplicationService
 from app.services.schedule_optimizer.exceptions import ScheduleOptimizerValidationError
+from app.services.section_monitoring.engine import (
+    SectionMonitoringApplicationService,
+    SnapshotCompareResult,
+)
+from app.services.section_monitoring.exceptions import SectionMonitoringValidationError
 
 router = APIRouter(prefix="/api/v1", tags=["academic"])
 not_found_response = {"model": ErrorResponse}
@@ -1309,6 +1325,91 @@ def data_import_run_response(run: DataImportRun) -> DataImportRunResponse:
         source=source_response(run),
         created_at=run.created_at,
         updated_at=run.updated_at,
+    )
+
+
+def section_monitor_target_response(
+    target: SectionMonitorTarget,
+    db: Session,
+) -> SectionMonitorTargetResponse:
+    latest_snapshot_created_at = db.scalar(
+        select(func.max(SectionMonitorSnapshot.created_at)).where(
+            SectionMonitorSnapshot.target_id == target.id
+        )
+    )
+    return SectionMonitorTargetResponse(
+        id=target.id,
+        student_profile_id=target.student_profile_id,
+        course_code=target.course_code,
+        section_code=target.section_code,
+        term=target.term,
+        title=target.title,
+        instructor=target.instructor,
+        status=target.status,
+        is_active=target.is_active,
+        is_advisory=target.is_advisory,
+        is_official=target.is_official,
+        latest_snapshot_created_at=latest_snapshot_created_at,
+        created_at=target.created_at,
+        updated_at=target.updated_at,
+    )
+
+
+def section_monitor_snapshot_response(
+    snapshot: SectionMonitorSnapshot,
+) -> SectionMonitorSnapshotResponse:
+    return SectionMonitorSnapshotResponse(
+        id=snapshot.id,
+        target_id=snapshot.target_id,
+        data_import_id=snapshot.data_import_id,
+        course_code=snapshot.course_code,
+        section_code=snapshot.section_code,
+        term=snapshot.term,
+        status=snapshot.status,
+        seats_available=snapshot.seats_available,
+        seats_capacity=snapshot.seats_capacity,
+        waitlist_available=snapshot.waitlist_available,
+        waitlist_capacity=snapshot.waitlist_capacity,
+        meeting_days=snapshot.meeting_days,
+        meeting_time=snapshot.meeting_time,
+        location=snapshot.location,
+        instructor=snapshot.instructor,
+        raw_payload=snapshot.raw_payload,
+        source_type=snapshot.source_type.value,
+        is_official=snapshot.is_official,
+        source_reference=snapshot.source_reference,
+        source_confidence=snapshot.source_confidence,
+        created_at=snapshot.created_at,
+    )
+
+
+def section_monitor_alert_response(alert: SectionMonitorAlert) -> SectionMonitorAlertResponse:
+    return SectionMonitorAlertResponse(
+        id=alert.id,
+        target_id=alert.target_id,
+        previous_snapshot_id=alert.previous_snapshot_id,
+        current_snapshot_id=alert.current_snapshot_id,
+        alert_type=alert.alert_type.value,
+        severity=alert.severity.value,
+        field_name=alert.field_name,
+        previous_value=alert.previous_value,
+        current_value=alert.current_value,
+        message=alert.message,
+        is_acknowledged=alert.is_acknowledged,
+        acknowledged_at=alert.acknowledged_at,
+        is_advisory=alert.is_advisory,
+        requires_manual_review=alert.requires_manual_review,
+        created_at=alert.created_at,
+    )
+
+
+def section_monitor_compare_response(
+    result: SnapshotCompareResult,
+) -> SectionMonitorSnapshotCompareResponse:
+    return SectionMonitorSnapshotCompareResponse(
+        snapshots=[section_monitor_snapshot_response(snapshot) for snapshot in result.snapshots],
+        alerts=[section_monitor_alert_response(alert) for alert in result.alerts],
+        disclaimers=result.disclaimers,
     )
 
 
@@ -2725,6 +2826,153 @@ def list_student_data_imports(
         .order_by(DataImportRun.created_at.desc(), DataImportRun.id.desc())
     ).all()
     return [data_import_run_response(run) for run in runs]
+
+
+@router.get(
+    "/section-monitoring/targets",
+    response_model=list[SectionMonitorTargetResponse],
+    responses={404: not_found_response},
+)
+def list_section_monitor_targets(
+    db: DatabaseSession,
+    student_profile_id: Annotated[UUID, Query()],
+) -> list[SectionMonitorTargetResponse]:
+    try:
+        targets = SectionMonitoringApplicationService(db).list_targets(student_profile_id)
+    except SectionMonitoringValidationError as error:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return [section_monitor_target_response(target, db) for target in targets]
+
+
+@router.post(
+    "/section-monitoring/targets",
+    response_model=SectionMonitorTargetResponse,
+    status_code=201,
+    responses={404: not_found_response, 400: not_found_response},
+)
+def create_section_monitor_target(
+    request: SectionMonitorTargetCreateRequest,
+    db: DatabaseSession,
+) -> SectionMonitorTargetResponse:
+    try:
+        target = SectionMonitoringApplicationService(db).create_target(
+            student_profile_id=request.student_profile_id,
+            course_code=request.course_code,
+            section_code=request.section_code,
+            term=request.term,
+            title=request.title,
+            instructor=request.instructor,
+            status=request.status,
+        )
+        db.commit()
+    except SectionMonitoringValidationError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return section_monitor_target_response(target, db)
+
+
+@router.patch(
+    "/section-monitoring/targets/{target_id}",
+    response_model=SectionMonitorTargetResponse,
+    responses={404: not_found_response, 400: not_found_response},
+)
+def update_section_monitor_target(
+    target_id: UUID,
+    request: SectionMonitorTargetUpdateRequest,
+    db: DatabaseSession,
+) -> SectionMonitorTargetResponse:
+    try:
+        target = SectionMonitoringApplicationService(db).update_target(
+            target_id,
+            is_active=request.is_active,
+            title=request.title,
+            instructor=request.instructor,
+            status=request.status,
+        )
+        db.commit()
+    except SectionMonitoringValidationError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return section_monitor_target_response(target, db)
+
+
+@router.get(
+    "/section-monitoring/alerts",
+    response_model=list[SectionMonitorAlertResponse],
+    responses={404: not_found_response},
+)
+def list_section_monitor_alerts(
+    db: DatabaseSession,
+    student_profile_id: Annotated[UUID, Query()],
+) -> list[SectionMonitorAlertResponse]:
+    try:
+        alerts = SectionMonitoringApplicationService(db).list_alerts(student_profile_id)
+    except SectionMonitoringValidationError as error:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return [section_monitor_alert_response(alert) for alert in alerts]
+
+
+@router.patch(
+    "/section-monitoring/alerts/{alert_id}",
+    response_model=SectionMonitorAlertResponse,
+    responses={404: not_found_response, 400: not_found_response},
+)
+def update_section_monitor_alert(
+    alert_id: UUID,
+    request: SectionMonitorAlertUpdateRequest,
+    db: DatabaseSession,
+) -> SectionMonitorAlertResponse:
+    try:
+        alert = SectionMonitoringApplicationService(db).acknowledge_alert(
+            alert_id,
+            is_acknowledged=request.is_acknowledged,
+        )
+        db.commit()
+    except SectionMonitoringValidationError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return section_monitor_alert_response(alert)
+
+
+@router.post(
+    "/section-monitoring/snapshots/compare",
+    response_model=SectionMonitorSnapshotCompareResponse,
+    status_code=201,
+    responses={404: not_found_response, 400: not_found_response},
+)
+def compare_section_monitor_snapshots(
+    request: SectionMonitorSnapshotCompareRequest,
+    db: DatabaseSession,
+) -> SectionMonitorSnapshotCompareResponse:
+    try:
+        result = SectionMonitoringApplicationService(db).compare_snapshots(
+            student_profile_id=request.student_profile_id,
+            snapshots=[snapshot.model_dump() for snapshot in request.snapshots],
+            source_type=SourceType(request.source_type),
+        )
+        db.commit()
+    except SectionMonitoringValidationError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": error.code, "message": error.message},
+        ) from error
+    return section_monitor_compare_response(result)
 
 
 @router.post(
