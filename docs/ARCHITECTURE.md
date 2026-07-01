@@ -36,6 +36,7 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 ## 3. High-Level Components
 
 ### Web Application
+
 - Student dashboard.
 - Degree-progress viewer.
 - Program/minor simulation UI.
@@ -45,6 +46,7 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Advisor review screens in later versions.
 
 ### Backend API
+
 - Owns authoritative domain rules, student records, planning sessions, optimizer calls, and persistence.
 - Exposes OpenAPI endpoints.
 - Validates all input through Pydantic.
@@ -57,9 +59,11 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Phase 5A adds synchronous long-term academic planner endpoints under `/api/v1/academic-plans`. The planner reuses Degree Audit and Course Eligibility, persists course-level term plans and warnings, and does not mutate official student records or registration data.
 - Phase 6B adds advanced synchronous semester schedule optimizer endpoints under `/api/v1/schedule-optimizations`. The optimizer ranks bounded single-term section combinations, persists constraint/option/conflict/repair/warning snapshots, and does not mutate student records, section data, seats, waitlists, or registration data.
 - Phase 7A adds synchronous read-only data import preview endpoints under `/api/v1/data-imports`. The import service parses bounded mock or student-provided CSV/JSON content into staging tables, proposes mapping candidates, emits warnings, and does not mutate catalog, transcript, requirement, section, seat, waitlist, or registration tables.
-- Phase 8B adds read-only section monitoring endpoints under `/api/v1/section-monitoring`. The service stores user-selected advisory monitor targets, compares user-triggered non-official section-search snapshots, emits structured change alerts, and does not poll, refresh portals, reserve seats, join waitlists, or perform registration actions.
+- Phase 8B adds read-only section monitoring endpoints under `/api/v1/section-monitoring`. The service stores user-selected advisory monitor targets, compares user-triggered non-official section-search snapshots, emits structured change alerts, and does not poll, refresh portals, change seat or waitlist state, or perform registration actions.
+- Phase 9A adds product-hardening UI helpers and dashboard polish. It summarizes existing workflow status, empty states, manual next actions, and advisory labels without adding backend domains or changing the read-only/advisory boundary.
 
 ### Browser Extension
+
 - Phase 8A local-development Manifest V3 data capture tool.
 - Reads only active, user-opened pages after user action.
 - Converts visible transcript, degree-audit, catalog, or section-search tables into structured import drafts.
@@ -69,6 +73,7 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Never performs registration actions.
 
 ### Optimization Services
+
 Two separate optimizer boundaries are required:
 
 1. Academic Plan Optimizer
@@ -84,11 +89,13 @@ These optimizers may initially live in the FastAPI codebase as Python modules an
 ## 4. Domain Boundaries
 
 ### Institution Catalog Boundary
+
 Owns institutions, campuses, terms, subjects, courses, sections, instructors, rooms, modalities, and source metadata.
 
 Phase 2B stores section snapshots as `Section` rows and one-to-many `SectionMeeting` rows. Sections belong to a course, term, campus, and institution; meetings can represent lectures, labs, recitations, seminars, exams, arranged meetings, or online asynchronous records. Instructor data is limited to non-sensitive display text.
 
 ### Program Requirements Boundary
+
 Owns degree programs, minors, certificates, concentrations, catalog-year versions, requirement trees, overlap policies, residency rules, GPA rules, and upper-level requirements.
 
 Phase 2A stores program identity as `AcademicProgram` and catalog/campus/effective-term identity as `ProgramVersion`. Requirement trees are stored as relational adjacency-list `RequirementNode` rows with `RequirementCourseOption` rows for course-specific options.
@@ -96,11 +103,13 @@ Phase 2A stores program identity as `AcademicProgram` and catalog/campus/effecti
 Phase 2B does not add degree requirement evaluation. It adds `CourseRule` and `CourseRuleExpression` storage for prerequisites, corequisites, restrictions, repeat restrictions, and permission requirements. Course-level rules are scoped by `course_id`; section-level rules also carry `section_id` and are constrained to the same course and institution.
 
 ### Student Academic Record Boundary
+
 Owns student profile, academic standing, declared programs, course attempts, transfer credits, waivers, substitutions, in-progress courses, and planned courses.
 
 Phase 2A stores attempts without overwriting prior attempts. Transfer credits, waivers, and substitutions are state records only; pending and rejected records are not applied to any audit because no audit engine exists yet.
 
 ### Degree Audit Boundary
+
 Evaluates requirements against student records, performs baseline deterministic course allocation, and produces requirement statuses, applications, warnings, and explanations.
 
 Phase 3A implements this boundary for one `StudentProfile` plus one `ProgramVersion` at a time. It uses:
@@ -113,6 +122,7 @@ Phase 3A implements this boundary for one `StudentProfile` plus one `ProgramVers
 The baseline allocator is intentionally not a global optimizer. It reserves source records for non-overlap leaf requirements in deterministic requirement order and records `is_shared` only when overlap is allowed. Ambiguous or unsupported rule scope returns `MANUAL_REVIEW_REQUIRED` or a warning rather than a false satisfied result.
 
 ### What-if Scenario Boundary
+
 Simulates academic program combinations without mutating official student declarations.
 
 Phase 3B implements this boundary with:
@@ -127,6 +137,7 @@ Phase 3B implements this boundary with:
 The scenario service deliberately does not evaluate prerequisites, registration eligibility, future course offering probability, multi-term plans, or section schedules. Shared credit is allowed only when both the requirement application allows overlap and a directional combination rule allows double counting. Total earned credits are counted once even when a requirement application is shared.
 
 ### Eligibility Boundary
+
 Evaluates prerequisites, corequisites, grade minimums, restrictions, and registration eligibility.
 
 Phase 4 implements this boundary with:
@@ -140,6 +151,7 @@ Phase 4 implements this boundary with:
 Eligibility modes are explicit: `CURRENT`, `PROJECTED`, and `REGISTRATION`. In-progress, planned, and concurrent corequisite evidence can make a result conditional but is not relabeled as final completion. Section availability is returned as an availability snapshot and is not treated as academic eligibility. Phase 4 deliberately does not predict graduation terms, build multi-term plans, optimize schedules, call OR-Tools, poll seats, or perform registration actions.
 
 ### Planning Boundary
+
 Builds long-range course plans independent of section times.
 
 Phase 5A implements this boundary with:
@@ -153,6 +165,7 @@ Phase 5A implements this boundary with:
 The planner remains deterministic and course-level. It can use section and offering-pattern snapshots as availability signals, but it does not select sections, inspect weekly meeting conflicts, optimize schedules, poll seats, or automate registration. What-if plans reference `AcademicPlanScenario` snapshots instead of changing `StudentAcademicProgram`.
 
 ### Scheduling Boundary
+
 Builds section-level schedules for a single term.
 
 Phase 6B implements this boundary with:
@@ -167,6 +180,7 @@ Phase 6B implements this boundary with:
 The Phase 6B scheduler is deterministic and bounded. It can use Course Eligibility in `REGISTRATION` mode, but section availability remains informational and registration actions are out of scope. It rejects overlapping required meetings, unavailable blocks, excluded days, invalid required/excluded sections, hard eligibility blocks, duplicate-course choices, and credit overloads. It scores feasible or partial options by preferred credits, compactness, fewer days, gap minutes, modality preference, morning/afternoon preferences, course/section priority weights, and early/late penalties. High-diversity mode uses deterministic greedy selection to reduce repeated section overlap across returned options after feasibility scoring. It does not use OR-Tools, poll seats, join waitlists, add, drop, swap, or register.
 
 ### Data Import Preview Boundary
+
 Stages mock or student-provided academic data for review without applying it.
 
 Phase 7A implements this boundary with:
@@ -195,9 +209,10 @@ Phase 8A adds a browser-extension handoff into the same staging boundary:
 - Extracted rows are converted to Phase 7A-compatible CSV/JSON and sent to `POST /api/v1/data-imports` as `source_type = BROWSER_EXTENSION`.
 - Extension data is always `is_official = false` and `official_application_ready = false`.
 - Phase 7B review and explicit apply remain mandatory before internal planning records can be changed.
-- No extension code stores credentials, reads password fields, submits forms, polls portals, publishes production builds, or automates registration, add/drop, swap, waitlist, or seat-grabbing behavior.
+- No extension code stores credentials, reads password fields, submits forms, polls portals, publishes production builds, or automates registration, add/drop, swap, waitlist, or seat-state behavior.
 
 ### Section Monitoring Boundary
+
 Compares user-triggered section-search snapshots and produces advisory alerts only.
 
 Phase 8B implements this boundary with:
@@ -206,9 +221,10 @@ Phase 8B implements this boundary with:
 - `SectionMonitorSnapshot` for non-official imported section state.
 - `SectionMonitorAlert` for structured status, seat-count, waitlist-count, meeting-time, instructor, location, and unknown-change advisories.
 
-The service accepts non-official browser-extension snapshots, deduplicates identical snapshots by hash, and compares only against stored snapshots for the same student/course/section/term. Alerts include manual-review and advisory flags plus messages that tell students to verify in the official registration portal. The boundary deliberately does not schedule background jobs, poll portals, register, drop, swap, join waitlists, reserve seats, submit forms, store credentials, or bypass school authentication.
+The service accepts non-official browser-extension snapshots, deduplicates identical snapshots by hash, and compares only against stored snapshots for the same student/course/section/term. Alerts include manual-review and advisory flags plus messages that tell students to verify in the official registration portal. The boundary deliberately does not schedule background jobs, poll portals, register, drop, swap, alter waitlist or seat state, submit forms, store credentials, or bypass school authentication.
 
 ### Advising and Risk Boundary
+
 Produces risk flags, advisor review items, confidence levels, and high-risk recommendation warnings.
 
 ## 5. Data Flow
@@ -226,8 +242,9 @@ Produces risk flags, advisor review items, confidence levels, and high-risk reco
 11. Phase 7B Data Review & Confirmation records human decisions, dry-run outcomes, application runs, duplicate skips, and internal non-official course-attempt applications.
 12. Phase 8A Browser Extension Import converts user-confirmed visible page tables into `BROWSER_EXTENSION` staging imports that still require Phase 7B review.
 13. Phase 8B Section Monitoring stores user-selected advisory monitor targets and compares user-triggered section-search snapshots for manual-review alerts.
-14. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
-15. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
+14. Phase 9A Product Hardening renders status cards, reusable advisory labels, empty states, safer before/after displays, and manual next-action copy for the existing workflows.
+15. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
+16. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
 
 ## 6. API Design Principles
 

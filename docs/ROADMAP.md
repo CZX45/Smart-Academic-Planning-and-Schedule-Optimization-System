@@ -343,7 +343,7 @@ Testable outcomes:
 
 ## Phase 8: Browser Extension Import Assistant
 
-Status: current phase, with Phase 8A read-only browser extension import foundation and Phase 8B read-only section monitoring implemented.
+Status: completed foundation, with Phase 8A read-only browser extension import and Phase 8B read-only section monitoring implemented.
 
 Phase 8A deliverables:
 
@@ -360,7 +360,7 @@ Phase 8A testable outcomes:
 - Extension reads only active pages after user action.
 - Extracted data is non-official and enters staging import first.
 - Phase 7B review remains required before application.
-- No credentials, password fields, SAML/MFA bypass, background scraping, portal form submission, registration automation, add/drop/swap, waitlist automation, seat grabbing, live polling, or browser-store publishing are implemented.
+- No credentials, password fields, SAML/MFA bypass, background scraping, portal form submission, registration automation, add/drop/swap, waitlist automation, seat-state automation, live polling, or browser-store publishing are implemented.
 
 Phase 8B deliverables:
 
@@ -368,7 +368,7 @@ Phase 8B deliverables:
 - Read-only `/api/v1/section-monitoring` endpoints for target create/list/archive, snapshot comparison, alert listing, and alert acknowledgement.
 - Browser-extension section-search extraction fields for status, seats, waitlist counts, meeting time, location, and instructor.
 - Shared TypeScript schemas/client helpers and a Section Monitoring web panel with advisory disclaimers and a manual checklist.
-- Tests proving duplicate snapshots are deduplicated, alerts are structured/manual-review only, and no polling, registration, waitlist automation, seat grabbing, or portal-action behavior exists.
+- Tests proving duplicate snapshots are deduplicated, alerts are structured/manual-review only, and no polling, registration, waitlist automation, seat-state automation, or portal-action behavior exists.
 
 Phase 8B testable outcomes:
 
@@ -395,9 +395,30 @@ Deferred from Phase 8B:
 - Any real school-specific connector requiring private credentials.
 - Production browser-store publishing.
 - Official data application without staged review.
-- Registration, add/drop/swap, waitlist, seat-grabbing, or high-frequency polling features.
+- Registration, add/drop/swap, waitlist, seat-state automation, or high-frequency polling features.
 
-## Phase 9: Real Data Onboarding and Advisor Workflow
+## Phase 9A: Product Hardening, Dashboard Polish, and Usability Improvements
+
+Status: current hardening phase.
+
+Deliverables:
+
+- Dashboard status cards for degree audit, import review, browser-extension import, section monitoring, schedule optimization, and what-if planning.
+- Clear empty states for missing imports, confirmed imports, section monitoring targets, section monitoring alerts, generated schedule plans, and what-if scenarios.
+- Consistent non-official, manual-review, advisory-only, and official-portal verification labels across import and monitoring workflows.
+- Manual section-monitoring checklist polish that keeps all registration-related actions manual and outside the app.
+- Basic loading, error, stale-data, and unknown-change copy improvements.
+- Small shared UI helpers for status badges, advisory labels, timestamp formatting, before/after values, and empty-state copy.
+- Documentation updates confirming Phase 9A changes clarity and usability only.
+
+Testable outcomes:
+
+- Playwright coverage confirms key status cards, advisory labels, empty states, and manual checklist copy.
+- Shared helper tests cover badge labels, advisory labels, timestamps, before/after values, and empty-state copy.
+- Safety assertions prevent misleading UI phrases such as automatic registration claims, seat guarantees, and official-availability claims.
+- No registration automation, portal submission, polling, background scraping, credential capture, waitlist automation, or seat-state changes are added.
+
+## Phase 9B: Real Data Onboarding and Advisor Workflow
 
 Deliverables:
 

@@ -2,7 +2,7 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 8B adds read-only section monitoring on top of the Phase 8A Browser Extension Import foundation. The extension can extract visible academic tables only after user action, and section-search snapshots can be compared to produce advisory alerts for status, seat, waitlist, meeting-time, instructor, and location changes. All browser-extension and monitoring data remains `source_type = BROWSER_EXTENSION` or otherwise non-official, and students must verify manually in the official registration portal. The system does **not** store credentials, bypass SAML/MFA/CAPTCHA, scrape in the background, publish to a browser store, create official transcript data, register, add/drop/swap courses, join waitlists, reserve or grab seats, run polling, submit forms, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 9A hardens the product UI on top of the Phase 8B read-only section monitoring foundation. The dashboard now summarizes degree audit, import review, browser-extension import, section monitoring, schedule optimization, and what-if planning status with clearer manual next actions, empty states, advisory labels, and safer loading/error copy. Browser-extension and monitoring data remains `source_type = BROWSER_EXTENSION` or otherwise non-official, and students must verify manually in the official registration portal. The system does **not** store credentials, bypass SAML/MFA/CAPTCHA, scrape in the background, publish to a browser store, create official transcript data, register, add/drop/swap courses, join waitlists, alter seat state, run polling, submit forms, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
@@ -320,7 +320,15 @@ New endpoints include:
 - `GET /api/v1/section-monitoring/alerts`
 - `PATCH /api/v1/section-monitoring/alerts/{alert_id}`
 
-Section monitoring is advisory and non-official. It does not mutate canonical `Section` rows, seat counts, waitlists, student records, academic plans, schedules, or registration state. It does not poll portals, reserve seats, join waitlists, submit forms, or perform registration actions. The web app includes a Section Monitoring panel with monitored sections, advisory alerts, required disclaimers, and a manual registration checklist.
+Section monitoring is advisory and non-official. It does not mutate canonical `Section` rows, seat counts, waitlists, student records, academic plans, schedules, or registration state. It does not poll portals, change seat or waitlist state, submit forms, or perform registration actions. The web app includes a Section Monitoring panel with monitored sections, advisory alerts, required disclaimers, and a manual registration checklist.
+
+## Phase 9A product hardening and dashboard polish
+
+Phase 9A improves the existing product surface without changing backend domains or the read-only/advisory boundary. The home dashboard adds status cards for degree audit, data import review, browser extension import, section monitoring, schedule optimization, and what-if planning. Each card shows a current status, concise explanation, recommended manual next action, advisory labels where relevant, and an in-page link to the existing workflow.
+
+Phase 9A also adds clearer empty states for missing imports, missing confirmed imports, missing section monitoring targets, missing advisory alerts, missing schedule plans, and missing what-if scenarios. Shared TypeScript helpers now provide status badge copy, advisory label copy, UTC timestamp formatting, before/after value display, and reusable empty-state copy. The UI copy keeps browser extension imports, section monitoring snapshots/alerts, data import previews, and manually reviewed imports labeled as non-official, manual-review, and advisory-only where appropriate.
+
+This phase does not add registration automation, portal submission, polling, background scraping, credential capture, waitlist automation, seat-state changes, or official school-policy claims.
 
 ## Quality gates
 
@@ -372,7 +380,7 @@ Phase 8B adds `SectionMonitorTarget`, `SectionMonitorSnapshot`, and `SectionMoni
 
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 
-The project should not jump from Phase 4 directly into automatic registration, waitlist automation, seat-grabbing, credential storage, or portal bypass behavior.
+The project should not jump from Phase 4 directly into automatic registration, waitlist automation, seat-state automation, credential storage, or portal bypass behavior.
 
 ## Documentation Index
 

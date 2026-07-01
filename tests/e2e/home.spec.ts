@@ -1559,6 +1559,118 @@ test("home page shows degree progress shell and required mock warnings", async (
   await expect(page.getByText("PENDING_TRANSFER")).toBeVisible();
 });
 
+test("home page shows product status cards with advisory labels", async ({
+  page,
+}) => {
+  await mockSuccessfulAuditApis(page);
+  await mockSuccessfulSectionMonitoringApis(page);
+
+  await page.goto("/");
+
+  const dashboard = page.getByLabel("Product status dashboard");
+  await expect(dashboard).toBeVisible();
+
+  const degreeAuditCard = page.getByLabel("Degree audit status card");
+  await expect(degreeAuditCard).toContainText("Degree audit");
+  await expect(degreeAuditCard).toContainText("Completed with warnings");
+  await expect(degreeAuditCard).toContainText("Review requirement warnings");
+
+  const dataReviewCard = page.getByLabel("Data import review status card");
+  await expect(dataReviewCard).toContainText("Data import review");
+  await expect(dataReviewCard).toContainText("No confirmed imports yet");
+  await expect(dataReviewCard).toContainText("Manual review required");
+
+  const browserExtensionCard = page.getByLabel(
+    "Browser extension import status card",
+  );
+  await expect(browserExtensionCard).toContainText("Browser extension import");
+  await expect(browserExtensionCard).toContainText(
+    "Non-official imported data",
+  );
+  await expect(browserExtensionCard).toContainText("Advisory only");
+
+  const sectionMonitoringCard = page.getByLabel(
+    "Section monitoring status card",
+  );
+  await expect(sectionMonitoringCard).toContainText("Section monitoring");
+  await expect(sectionMonitoringCard).toContainText("Advisory alerts ready");
+  await expect(sectionMonitoringCard).toContainText(
+    "Verify in official portal",
+  );
+
+  const scheduleCard = page.getByLabel("Schedule optimization status card");
+  await expect(scheduleCard).toContainText("Schedule optimization");
+  await expect(scheduleCard).toContainText("No generated schedule plans");
+  await expect(scheduleCard).toContainText("Build a schedule");
+
+  const whatIfCard = page.getByLabel("What-if planning status card");
+  await expect(whatIfCard).toContainText("What-if planning");
+  await expect(whatIfCard).toContainText("No what-if scenarios");
+  await expect(whatIfCard).toContainText("Create scenario");
+});
+
+test("home page explains empty states with reasons and manual next steps", async ({
+  page,
+}) => {
+  await mockSuccessfulAuditApis(page);
+
+  await page.goto("/");
+
+  await expect(page.getByLabel("Data import empty state")).toContainText(
+    "No data imports yet",
+  );
+  await expect(page.getByLabel("Data import empty state")).toContainText(
+    "No staging imports have been created or loaded for the mock student.",
+  );
+  await expect(page.getByLabel("Data import empty state")).toContainText(
+    "Preview an import manually before review.",
+  );
+
+  await expect(page.getByLabel("Data review empty state")).toContainText(
+    "No confirmed imports yet",
+  );
+  await expect(page.getByLabel("Data review empty state")).toContainText(
+    "Manual review required",
+  );
+
+  await expect(
+    page.getByLabel("Section monitoring targets empty state"),
+  ).toContainText("No section monitoring targets");
+  await expect(
+    page.getByLabel("Section monitoring alerts empty state"),
+  ).toContainText("No section monitoring alerts");
+
+  await expect(page.getByLabel("Schedule plans empty state")).toContainText(
+    "No generated schedule plans",
+  );
+  await expect(page.getByLabel("What-if scenarios empty state")).toContainText(
+    "No what-if scenarios",
+  );
+});
+
+test("home page avoids misleading registration and availability wording", async ({
+  page,
+}) => {
+  await mockSuccessfulAuditApis(page);
+  await mockSuccessfulSectionMonitoringApis(page);
+
+  await page.goto("/");
+
+  const pageText = (await page.locator("main").innerText()).toLowerCase();
+  for (const phrase of [
+    "auto-register",
+    "reserve seat",
+    "guaranteed seat",
+    "live availability",
+    "real-time",
+    "seat grabbing",
+    "join waitlist automatically",
+    "enroll now",
+  ]) {
+    expect(pageText).not.toContain(phrase);
+  }
+});
+
 test("home page reports when the API health request is unavailable", async ({
   page,
 }) => {
@@ -1865,18 +1977,17 @@ test("home page previews read-only data imports", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: /Browser Extension Import/ }),
   ).toBeVisible();
-  await expect(
-    page.getByLabel("Browser extension import status"),
-  ).toContainText("Experimental");
-  await expect(
-    page.getByLabel("Browser extension import status"),
-  ).toContainText("staging import first");
-  await expect(
-    page.getByLabel("Browser extension import status"),
-  ).toContainText("Phase 7B review is required");
-  await expect(
-    page.getByLabel("Browser extension import status"),
-  ).toContainText("No registration automation");
+  const browserExtensionStatus = page.getByRole("region", {
+    name: "Browser extension import status",
+  });
+  await expect(browserExtensionStatus).toContainText("Experimental");
+  await expect(browserExtensionStatus).toContainText("staging import first");
+  await expect(browserExtensionStatus).toContainText(
+    "Phase 7B review is required",
+  );
+  await expect(browserExtensionStatus).toContainText(
+    "No registration automation",
+  );
 
   await page.getByLabel("Sample import").selectOption("mock-transcript-csv");
   await page.getByRole("button", { name: /Preview import/ }).click();
@@ -1930,12 +2041,12 @@ test("home page shows read-only section monitoring alerts and manual checklist",
   ).toBeVisible();
   await expect(
     page.getByText(
-      "Section monitoring is based on user-triggered imported data and may not reflect official real-time availability. Always verify information manually in the official registration portal.",
+      "Section monitoring is based on user-triggered imported data and may differ from the official portal. Always verify information manually in the official registration portal.",
     ),
   ).toBeVisible();
   await expect(
     page.getByText(
-      "This system does not register, drop, swap, waitlist, reserve seats, submit forms, or perform any portal action.",
+      "This system does not register, drop, swap, waitlist, submit forms, or perform any portal action.",
     ),
   ).toBeVisible();
 

@@ -30,6 +30,253 @@ export const SourceMetadataSchema = z.object({
 
 export type SourceMetadata = z.infer<typeof SourceMetadataSchema>;
 
+export type AcademicStatusTone =
+  | "success"
+  | "warning"
+  | "danger"
+  | "info"
+  | "neutral";
+
+export type AcademicStatusBadge = {
+  label: string;
+  tone: AcademicStatusTone;
+};
+
+export type AdvisoryLabelKey =
+  | "NON_OFFICIAL_IMPORTED_DATA"
+  | "MANUAL_REVIEW_REQUIRED"
+  | "ADVISORY_ONLY"
+  | "VERIFY_IN_OFFICIAL_PORTAL";
+
+export type AcademicAdvisoryLabel = {
+  text: string;
+  tone: AcademicStatusTone;
+};
+
+export type AcademicEmptyStateKey =
+  | "NO_DATA_IMPORTS"
+  | "NO_CONFIRMED_IMPORTS"
+  | "NO_SECTION_MONITORING_TARGETS"
+  | "NO_SECTION_MONITORING_ALERTS"
+  | "NO_GENERATED_SCHEDULE_PLANS"
+  | "NO_WHAT_IF_SCENARIOS";
+
+export type AcademicEmptyStateCopy = {
+  title: string;
+  explanation: string;
+  reason: string;
+  nextAction: string;
+  disclaimer: string;
+};
+
+const warningStatuses = new Set([
+  "AMBIGUOUS",
+  "COMPLETED_WITH_WARNINGS",
+  "CONDITIONALLY_ELIGIBLE",
+  "CONDITIONALLY_PLANNED",
+  "CONDITIONALLY_SATISFIED",
+  "IN_REVIEW",
+  "MANUAL_REVIEW_REQUIRED",
+  "PARSED_WITH_WARNINGS",
+  "PERMISSION_REQUIRED",
+  "VALID_WITH_WARNINGS",
+  "WAITLIST",
+  "WARNING",
+]);
+
+const dangerStatuses = new Set([
+  "BLOCKED",
+  "ERROR",
+  "FAILED",
+  "INFEASIBLE",
+  "NOT_ELIGIBLE",
+  "NOT_SATISFIED",
+  "OFFLINE",
+  "SCHEMA_ERROR",
+]);
+
+const successStatuses = new Set([
+  "ACTIVE",
+  "APPLIED",
+  "APPLIED_WITH_WARNINGS",
+  "COMPLETED",
+  "ELIGIBLE",
+  "FEASIBLE",
+  "OPEN",
+  "READY",
+  "SATISFIED",
+  "SUCCESS",
+]);
+
+const infoStatuses = new Set(["LOADING", "PENDING", "PLANNED", "RUNNING"]);
+
+const advisoryLabelCopy: Record<AdvisoryLabelKey, AcademicAdvisoryLabel> = {
+  NON_OFFICIAL_IMPORTED_DATA: {
+    text: "Non-official imported data",
+    tone: "warning",
+  },
+  MANUAL_REVIEW_REQUIRED: {
+    text: "Manual review required",
+    tone: "warning",
+  },
+  ADVISORY_ONLY: { text: "Advisory only", tone: "info" },
+  VERIFY_IN_OFFICIAL_PORTAL: {
+    text: "Verify in official portal",
+    tone: "danger",
+  },
+};
+
+const emptyStateCopy: Record<AcademicEmptyStateKey, AcademicEmptyStateCopy> = {
+  NO_DATA_IMPORTS: {
+    title: "No data imports yet",
+    explanation:
+      "No staging imports have been created or loaded for the mock student.",
+    reason:
+      "Import preview starts empty until a student manually chooses data to stage.",
+    nextAction: "Preview an import manually before review.",
+    disclaimer: "Non-official imported data. Manual review required.",
+  },
+  NO_CONFIRMED_IMPORTS: {
+    title: "No confirmed imports yet",
+    explanation:
+      "No imported records have been manually reviewed and confirmed.",
+    reason:
+      "A staging import must be previewed before review decisions can be applied.",
+    nextAction:
+      "Preview or load a staging import, then review each record manually.",
+    disclaimer: "Manual review required. Advisory only.",
+  },
+  NO_SECTION_MONITORING_TARGETS: {
+    title: "No section monitoring targets",
+    explanation: "No sections are currently selected for advisory monitoring.",
+    reason:
+      "Monitoring starts only after a student manually selects sections from imported data.",
+    nextAction:
+      "Import section-search data and choose sections to monitor manually.",
+    disclaimer: "Non-official imported data. Verify in official portal.",
+  },
+  NO_SECTION_MONITORING_ALERTS: {
+    title: "No section monitoring alerts",
+    explanation: "No advisory section changes have been detected yet.",
+    reason:
+      "There are no imported section snapshots with a detected before/after change.",
+    nextAction:
+      "Import a fresh section-search snapshot, then verify any change manually in the official portal.",
+    disclaimer: "Advisory only. Verify in official portal.",
+  },
+  NO_GENERATED_SCHEDULE_PLANS: {
+    title: "No generated schedule plans",
+    explanation: "No semester schedule optimization has been generated yet.",
+    reason:
+      "The schedule builder starts empty until a student manually runs an optimization.",
+    nextAction:
+      "Choose a course set and build a schedule to compare advisory options.",
+    disclaimer: "Advisory only. This is not registration.",
+  },
+  NO_WHAT_IF_SCENARIOS: {
+    title: "No what-if scenarios",
+    explanation: "No what-if program scenario has been created yet.",
+    reason:
+      "Scenario comparison starts empty until a student manually creates a scenario.",
+    nextAction: "Choose a candidate program and create a scenario.",
+    disclaimer: "Advisory only. Advisor confirmation may be required.",
+  },
+};
+
+function normalizeStatus(status: string | null | undefined): string | null {
+  const normalized = status?.trim().replaceAll("-", "_").toUpperCase();
+  return normalized && normalized.length > 0 ? normalized : null;
+}
+
+function humanizeStatus(status: string): string {
+  return status
+    .toLowerCase()
+    .split("_")
+    .filter((part) => part.length > 0)
+    .map((part, index) =>
+      index === 0 ? part.charAt(0).toUpperCase() + part.slice(1) : part,
+    )
+    .join(" ");
+}
+
+export function getAcademicStatusBadge(
+  status: string | null | undefined,
+): AcademicStatusBadge {
+  const normalized = normalizeStatus(status);
+  if (!normalized) {
+    return { label: "Not started", tone: "neutral" };
+  }
+  if (successStatuses.has(normalized)) {
+    return { label: humanizeStatus(normalized), tone: "success" };
+  }
+  if (warningStatuses.has(normalized)) {
+    return { label: humanizeStatus(normalized), tone: "warning" };
+  }
+  if (dangerStatuses.has(normalized)) {
+    return { label: humanizeStatus(normalized), tone: "danger" };
+  }
+  if (infoStatuses.has(normalized)) {
+    return { label: humanizeStatus(normalized), tone: "info" };
+  }
+  return { label: humanizeStatus(normalized), tone: "neutral" };
+}
+
+export function getAdvisoryLabels(
+  keys: AdvisoryLabelKey[],
+): AcademicAdvisoryLabel[] {
+  return keys.map((key) => advisoryLabelCopy[key]);
+}
+
+export function formatAcademicTimestamp(
+  value: string | null | undefined,
+): string {
+  if (!value) {
+    return "Not available";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) {
+    return "Not available";
+  }
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const month = months[date.getUTCMonth()] ?? "Jan";
+  const hour24 = date.getUTCHours();
+  const hour12 = hour24 % 12 || 12;
+  const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+  const amPm = hour24 < 12 ? "AM" : "PM";
+  return `${month} ${date.getUTCDate()}, ${date.getUTCFullYear()}, ${hour12}:${minutes} ${amPm} UTC`;
+}
+
+function displayValue(value: string | null | undefined): string {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : "Unknown";
+}
+
+export function formatBeforeAfterValue(
+  previousValue: string | null | undefined,
+  currentValue: string | null | undefined,
+): string {
+  return `${displayValue(previousValue)} -> ${displayValue(currentValue)}`;
+}
+
+export function getAcademicEmptyStateCopy(
+  key: AcademicEmptyStateKey,
+): AcademicEmptyStateCopy {
+  return emptyStateCopy[key];
+}
+
 export const DegreeAuditRunSchema = z.object({
   id: UuidSchema,
   student_profile_id: UuidSchema,

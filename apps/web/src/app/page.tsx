@@ -37,12 +37,19 @@ import {
   fetchStudentAcademicPlans,
   fetchStudentEligibilityChecks,
   fetchStudentAcademicScenarios,
+  formatAcademicTimestamp,
+  formatBeforeAfterValue,
+  getAcademicEmptyStateCopy,
+  getAcademicStatusBadge,
+  getAdvisoryLabels,
   updateImportedRecordReview,
   validateDataImport,
   type AcademicPlanComparison,
   type AcademicPlanDetail,
   type AcademicPlanRun,
   type AcademicScenario,
+  type AcademicEmptyStateKey,
+  type AdvisoryLabelKey,
   type CourseEligibilityCheck,
   type DataApplicationRun,
   type DataImportRun,
@@ -240,6 +247,17 @@ type DataImportSample = {
   fileName: string;
   fileMimeType: string;
   content: string;
+};
+type ProductStatusCard = {
+  ariaLabel: string;
+  title: string;
+  explanation: string;
+  status: string | null;
+  statusLabel?: string;
+  nextAction: string;
+  href: string;
+  actionLabel: string;
+  advisoryLabels?: AdvisoryLabelKey[];
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -750,15 +768,7 @@ export default function Home() {
         if (cancelled) {
           return;
         }
-        setSectionMonitoringState(
-          targets.length === 0 && alerts.length === 0
-            ? {
-                status: "empty",
-                message:
-                  "No monitored sections or advisory alerts are available yet.",
-              }
-            : { status: "ready", targets, alerts },
-        );
+        setSectionMonitoringState({ status: "ready", targets, alerts });
       } catch (error: unknown) {
         if (!cancelled) {
           setSectionMonitoringState({
@@ -804,6 +814,14 @@ export default function Home() {
         <p className="subtle">
           Advisor confirmation is required for high-impact academic guidance.
         </p>
+
+        <ProductStatusDashboard
+          auditState={auditState}
+          dataReviewState={dataReviewState}
+          scenarioState={scenarioState}
+          scheduleState={scheduleState}
+          sectionMonitoringState={sectionMonitoringState}
+        />
 
         {auditState.status === "ready" ? (
           <DegreeProgress
@@ -945,7 +963,11 @@ function DegreeProgress({
 }) {
   return (
     <>
-      <section className="summary-grid" aria-label="Degree audit summary">
+      <section
+        className="summary-grid"
+        id="degree-audit"
+        aria-label="Degree audit summary"
+      >
         <SummaryMetric label="Program" value="Mock BS Finance" />
         <SummaryMetric label="Catalog Year" value="2024" />
         <SummaryMetric label="Audit Mode" value={audit.calculation_mode} />
@@ -1049,6 +1071,233 @@ function SummaryMetric({ label, value }: { label: string; value: string }) {
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
+  );
+}
+
+function ProductStatusDashboard({
+  auditState,
+  dataReviewState,
+  scenarioState,
+  scheduleState,
+  sectionMonitoringState,
+}: {
+  auditState: AuditState;
+  dataReviewState: DataReviewState;
+  scenarioState: ScenarioState;
+  scheduleState: ScheduleState;
+  sectionMonitoringState: SectionMonitoringState;
+}) {
+  const cards: ProductStatusCard[] = [
+    {
+      ariaLabel: "Degree audit status card",
+      title: "Degree audit",
+      explanation: "Latest deterministic audit snapshot and requirement tree.",
+      status:
+        auditState.status === "ready"
+          ? auditState.audit.status
+          : auditState.status,
+      nextAction:
+        auditState.status === "ready"
+          ? "Review requirement warnings and confirm high-impact guidance with an advisor."
+          : "Load or generate a degree audit snapshot.",
+      href: "#degree-audit",
+      actionLabel: "Review audit",
+      advisoryLabels: ["ADVISORY_ONLY"],
+    },
+    {
+      ariaLabel: "Data import review status card",
+      title: "Data import review",
+      explanation: "Manual confirmation gate for staged imported records.",
+      status:
+        dataReviewState.status === "ready"
+          ? dataReviewState.review.status
+          : dataReviewState.status === "idle"
+            ? null
+            : dataReviewState.status,
+      statusLabel:
+        dataReviewState.status === "idle" || dataReviewState.status === "empty"
+          ? "No confirmed imports yet"
+          : undefined,
+      nextAction:
+        dataReviewState.status === "ready"
+          ? "Review warnings before applying confirmed internal records."
+          : "Preview or load a staging import, then review records manually.",
+      href: "#data-import-preview",
+      actionLabel: "Open review",
+      advisoryLabels: ["MANUAL_REVIEW_REQUIRED", "ADVISORY_ONLY"],
+    },
+    {
+      ariaLabel: "Browser extension import status card",
+      title: "Browser extension import",
+      explanation: "Visible-page import source that stays in staging first.",
+      status: "MANUAL_REVIEW_REQUIRED",
+      statusLabel: "Non-official imported data",
+      nextAction:
+        "Inspect only user-opened pages, then stage imported data for manual review.",
+      href: "#data-import-preview",
+      actionLabel: "Review import",
+      advisoryLabels: [
+        "NON_OFFICIAL_IMPORTED_DATA",
+        "MANUAL_REVIEW_REQUIRED",
+        "ADVISORY_ONLY",
+      ],
+    },
+    {
+      ariaLabel: "Section monitoring status card",
+      title: "Section monitoring",
+      explanation: "Advisory comparison of user-triggered section snapshots.",
+      status:
+        sectionMonitoringState.status === "ready"
+          ? sectionMonitoringState.alerts.length > 0
+            ? "WARNING"
+            : sectionMonitoringState.targets.length > 0
+              ? "READY"
+              : null
+          : sectionMonitoringState.status,
+      statusLabel:
+        sectionMonitoringState.status === "ready"
+          ? sectionMonitoringState.alerts.length > 0
+            ? "Advisory alerts ready"
+            : sectionMonitoringState.targets.length > 0
+              ? "Monitoring targets ready"
+              : "No section monitoring targets"
+          : undefined,
+      nextAction:
+        sectionMonitoringState.status === "ready" &&
+        sectionMonitoringState.alerts.length > 0
+          ? "Verify any section change manually in the official portal."
+          : "Import section-search data and choose sections to monitor manually.",
+      href: "#section-monitoring",
+      actionLabel: "Review alerts",
+      advisoryLabels: [
+        "NON_OFFICIAL_IMPORTED_DATA",
+        "ADVISORY_ONLY",
+        "VERIFY_IN_OFFICIAL_PORTAL",
+      ],
+    },
+    {
+      ariaLabel: "Schedule optimization status card",
+      title: "Schedule optimization",
+      explanation: "Section-level schedule options separate from planning.",
+      status:
+        scheduleState.status === "ready"
+          ? scheduleState.schedule.status
+          : scheduleState.status === "idle"
+            ? null
+            : scheduleState.status,
+      statusLabel:
+        scheduleState.status === "idle" || scheduleState.status === "empty"
+          ? "No generated schedule plans"
+          : undefined,
+      nextAction:
+        scheduleState.status === "ready"
+          ? "Compare advisory schedule options and warnings."
+          : "Build a schedule from a manually selected course set.",
+      href: "#schedule-optimization",
+      actionLabel: "Build a schedule",
+      advisoryLabels: ["ADVISORY_ONLY"],
+    },
+    {
+      ariaLabel: "What-if planning status card",
+      title: "What-if planning",
+      explanation: "Scenario comparison for hypothetical program changes.",
+      status:
+        scenarioState.status === "ready"
+          ? scenarioState.detail.scenario.status
+          : scenarioState.status === "idle"
+            ? null
+            : scenarioState.status,
+      statusLabel:
+        scenarioState.status === "idle" || scenarioState.status === "empty"
+          ? "No what-if scenarios"
+          : undefined,
+      nextAction:
+        scenarioState.status === "ready"
+          ? "Compare saved scenario assumptions and advisor warnings."
+          : "Create scenario from a candidate program.",
+      href: "#what-if-planning",
+      actionLabel: "Create scenario",
+      advisoryLabels: ["ADVISORY_ONLY"],
+    },
+  ];
+
+  return (
+    <section className="product-status" aria-label="Product status dashboard">
+      {cards.map((card) => (
+        <StatusCard key={card.ariaLabel} card={card} />
+      ))}
+    </section>
+  );
+}
+
+function StatusCard({ card }: { card: ProductStatusCard }) {
+  const badge = getAcademicStatusBadge(card.status);
+  const displayBadge = {
+    ...badge,
+    label: card.statusLabel ?? badge.label,
+  };
+  return (
+    <article className="status-card" aria-label={card.ariaLabel}>
+      <div className="status-card-heading">
+        <h2>{card.title}</h2>
+        <StatusBadge label={displayBadge.label} tone={displayBadge.tone} />
+      </div>
+      <p>{card.explanation}</p>
+      <p>
+        <strong>Next action:</strong> {card.nextAction}
+      </p>
+      {card.advisoryLabels ? (
+        <AdvisoryLabels keys={card.advisoryLabels} />
+      ) : null}
+      <a className="status-action" href={card.href}>
+        {card.actionLabel}
+      </a>
+    </article>
+  );
+}
+
+function StatusBadge({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: ReturnType<typeof getAcademicStatusBadge>["tone"];
+}) {
+  return <span className={`ui-status-badge tone-${tone}`}>{label}</span>;
+}
+
+function AdvisoryLabels({ keys }: { keys: AdvisoryLabelKey[] }) {
+  return (
+    <ul className="advisory-labels">
+      {getAdvisoryLabels(keys).map((label) => (
+        <li key={label.text} className={`advisory-label tone-${label.tone}`}>
+          {label.text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function EmptyState({
+  copyKey,
+  ariaLabel,
+}: {
+  copyKey: AcademicEmptyStateKey;
+  ariaLabel: string;
+}) {
+  const copy = getAcademicEmptyStateCopy(copyKey);
+  return (
+    <section className="state-panel empty-state" aria-label={ariaLabel}>
+      <h2>{copy.title}</h2>
+      <p>{copy.explanation}</p>
+      <p>
+        <strong>Reason:</strong> {copy.reason}
+      </p>
+      <p>
+        <strong>Next step:</strong> {copy.nextAction}
+      </p>
+      <p className="advisory-note">{copy.disclaimer}</p>
+    </section>
   );
 }
 
@@ -1173,6 +1422,7 @@ function WhatIfAnalysis({
   return (
     <section
       className="what-if-panel"
+      id="what-if-planning"
       aria-label="Explore Programs What-if Analysis"
     >
       <div className="section-heading">
@@ -1207,6 +1457,13 @@ function WhatIfAnalysis({
         </button>
       </div>
 
+      {scenarioState.status === "idle" ? (
+        <EmptyState
+          copyKey="NO_WHAT_IF_SCENARIOS"
+          ariaLabel="What-if scenarios empty state"
+        />
+      ) : null}
+
       {scenarioState.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
           <h2>Creating scenario</h2>
@@ -1222,10 +1479,10 @@ function WhatIfAnalysis({
       ) : null}
 
       {scenarioState.status === "empty" ? (
-        <section className="state-panel" aria-live="polite">
-          <h2>No comparison yet</h2>
-          <p>{scenarioState.message}</p>
-        </section>
+        <EmptyState
+          copyKey="NO_WHAT_IF_SCENARIOS"
+          ariaLabel="What-if scenarios empty state"
+        />
       ) : null}
 
       {scenarioState.status === "ready" ? (
@@ -2238,7 +2495,11 @@ function SemesterScheduleBuilder({
   }
 
   return (
-    <section className="schedule-panel" aria-label="Semester Schedule Builder">
+    <section
+      className="schedule-panel"
+      id="schedule-optimization"
+      aria-label="Semester Schedule Builder"
+    >
       <div className="section-heading">
         <div>
           <h2>Semester Schedule Builder</h2>
@@ -2411,6 +2672,13 @@ function SemesterScheduleBuilder({
         </button>
       </div>
 
+      {scheduleState.status === "idle" ? (
+        <EmptyState
+          copyKey="NO_GENERATED_SCHEDULE_PLANS"
+          ariaLabel="Schedule plans empty state"
+        />
+      ) : null}
+
       {scheduleState.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
           <h2>Building semester schedule</h2>
@@ -2443,10 +2711,10 @@ function SemesterScheduleBuilder({
       ) : null}
 
       {scheduleState.status === "empty" ? (
-        <section className="state-panel" aria-live="polite">
-          <h2>No saved schedules</h2>
-          <p>{scheduleState.message}</p>
-        </section>
+        <EmptyState
+          copyKey="NO_GENERATED_SCHEDULE_PLANS"
+          ariaLabel="Schedule plans empty state"
+        />
       ) : null}
 
       {scheduleState.status === "ready" ? (
@@ -2819,7 +3087,11 @@ function DataImportPreviewPanel({
   }
 
   return (
-    <section className="data-import-panel" aria-label="Data Import Preview">
+    <section
+      className="data-import-panel"
+      id="data-import-preview"
+      aria-label="Data Import Preview"
+    >
       <div className="section-heading">
         <div>
           <h2>Data Import Preview</h2>
@@ -2852,6 +3124,13 @@ function DataImportPreviewPanel({
             Experimental source for visible-page academic tables.
           </p>
         </div>
+        <AdvisoryLabels
+          keys={[
+            "NON_OFFICIAL_IMPORTED_DATA",
+            "MANUAL_REVIEW_REQUIRED",
+            "ADVISORY_ONLY",
+          ]}
+        />
         <ul className="compact-list">
           <li>
             <strong>Experimental</strong>
@@ -2894,6 +3173,13 @@ function DataImportPreviewPanel({
         </button>
       </div>
 
+      {dataImportState.status === "idle" ? (
+        <EmptyState
+          copyKey="NO_DATA_IMPORTS"
+          ariaLabel="Data import empty state"
+        />
+      ) : null}
+
       {dataImportState.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
           <h2>Parsing import</h2>
@@ -2917,10 +3203,10 @@ function DataImportPreviewPanel({
       ) : null}
 
       {dataImportState.status === "empty" ? (
-        <section className="state-panel" aria-live="polite">
-          <h2>No staging imports</h2>
-          <p>{dataImportState.message}</p>
-        </section>
+        <EmptyState
+          copyKey="NO_DATA_IMPORTS"
+          ariaLabel="Data import empty state"
+        />
       ) : null}
 
       {dataImportState.status === "ready" ? (
@@ -2981,6 +3267,9 @@ function DataImportResultView({
         aria-label="Import preview disclaimers"
       >
         <h2>Preview Boundary</h2>
+        <AdvisoryLabels
+          keys={["NON_OFFICIAL_IMPORTED_DATA", "MANUAL_REVIEW_REQUIRED"]}
+        />
         <ul className="compact-list">
           {state.preview.disclaimers.map((disclaimer) => (
             <li key={disclaimer}>
@@ -3059,6 +3348,7 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
   return (
     <section
       className="section-monitoring-panel"
+      id="section-monitoring"
       aria-label="Section Monitoring"
     >
       <div className="section-heading">
@@ -3077,14 +3367,22 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
       >
         <li>
           Section monitoring is based on user-triggered imported data and may
-          not reflect official real-time availability. Always verify information
-          manually in the official registration portal.
+          differ from the official portal. Always verify information manually in
+          the official registration portal.
         </li>
         <li>
-          This system does not register, drop, swap, waitlist, reserve seats,
-          submit forms, or perform any portal action.
+          This system does not register, drop, swap, waitlist, submit forms, or
+          perform any portal action.
         </li>
       </ul>
+
+      <AdvisoryLabels
+        keys={[
+          "NON_OFFICIAL_IMPORTED_DATA",
+          "ADVISORY_ONLY",
+          "VERIFY_IN_OFFICIAL_PORTAL",
+        ]}
+      />
 
       {state.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
@@ -3130,17 +3428,25 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
                     </span>
                     <span>
                       Latest imported snapshot:{" "}
-                      {target.latest_snapshot_created_at ?? "Not imported yet"}
+                      {formatAcademicTimestamp(
+                        target.latest_snapshot_created_at,
+                      )}
                     </span>
                     <span>
-                      {target.is_active ? "Active" : "Archived"} · advisory ·{" "}
-                      {target.is_official ? "official" : "non-official"}
+                      {target.is_active ? "Active" : "Archived"} · Advisory only
+                      ·{" "}
+                      {target.is_official
+                        ? "Official source"
+                        : "Non-official imported data"}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="subtle">No monitored sections.</p>
+              <EmptyState
+                copyKey="NO_SECTION_MONITORING_TARGETS"
+                ariaLabel="Section monitoring targets empty state"
+              />
             )}
           </section>
 
@@ -3163,8 +3469,11 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
                           : "manual review"}
                       </span>
                       <span>
-                        {alert.previous_value ?? "unknown"} -&gt;{" "}
-                        {alert.current_value ?? "unknown"}
+                        {alert.field_name ?? "Unknown section change"}:{" "}
+                        {formatBeforeAfterValue(
+                          alert.previous_value,
+                          alert.current_value,
+                        )}
                       </span>
                       <span>{alert.message}</span>
                     </div>
@@ -3172,7 +3481,10 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
                 })}
               </div>
             ) : (
-              <p className="subtle">No advisory alerts.</p>
+              <EmptyState
+                copyKey="NO_SECTION_MONITORING_ALERTS"
+                ariaLabel="Section monitoring alerts empty state"
+              />
             )}
           </section>
 
@@ -3395,6 +3707,7 @@ function DataReviewPanel({
           Rejected, deferred, duplicate, and advisor-review records are logged.
         </li>
       </ul>
+      <AdvisoryLabels keys={["MANUAL_REVIEW_REQUIRED", "ADVISORY_ONLY"]} />
 
       <div className="scenario-controls data-import-controls">
         <button type="button" onClick={() => void handleCreateReview()}>
@@ -3414,6 +3727,13 @@ function DataReviewPanel({
           </>
         ) : null}
       </div>
+
+      {dataReviewState.status === "idle" ? (
+        <EmptyState
+          copyKey="NO_CONFIRMED_IMPORTS"
+          ariaLabel="Data review empty state"
+        />
+      ) : null}
 
       {dataReviewState.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
@@ -3436,10 +3756,10 @@ function DataReviewPanel({
       ) : null}
 
       {dataReviewState.status === "empty" ? (
-        <section className="state-panel" aria-live="polite">
-          <h2>No review selected</h2>
-          <p>{dataReviewState.message}</p>
-        </section>
+        <EmptyState
+          copyKey="NO_CONFIRMED_IMPORTS"
+          ariaLabel="Data review empty state"
+        />
       ) : null}
 
       {dataReviewState.status === "ready" ? (

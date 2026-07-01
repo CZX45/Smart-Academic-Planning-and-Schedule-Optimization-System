@@ -275,7 +275,7 @@ Consequences:
 - Extension imports reuse the existing staging and review safety model instead of creating a parallel ingestion path.
 - Source metadata distinguishes browser-extension visible-page extracts from uploads, mock fixtures, inferred data, official data, and reviewed application logs.
 - The extension does not store credentials, read password fields, bypass school authentication, scrape in the background, submit portal forms, publish production browser-store builds, poll seats, join waitlists, add, drop, swap, register, or grab seats.
-- Read-only section-change alerts may be considered later, but they must remain advisory and unable to perform registration or seat-grabbing actions.
+- Read-only section-change alerts may be considered later, but they must remain advisory and unable to perform registration or seat-state automation.
 
 ## ADR-0020: Implement section monitoring as advisory snapshot comparison
 
@@ -283,11 +283,26 @@ Status: Accepted
 
 Context: Students can benefit from noticing changes in section-search data they manually import, but live seat monitoring, portal polling, waitlist automation, and registration actions create accuracy, privacy, and operational risk.
 
-Decision: Implement Phase 8B section monitoring as a read-only advisory boundary. Persist student-scoped monitor targets, non-official imported snapshots, and manual-review alerts. Compare only user-triggered browser-extension snapshots, deduplicate identical snapshots by hash, and expose alerts through `/api/v1/section-monitoring`. Render advisory UI messaging and a manual registration checklist. Do not schedule background polling, refresh portals, reserve seats, join waitlists, submit forms, or mutate canonical section, seat, waitlist, student, plan, schedule, or registration state.
+Decision: Implement Phase 8B section monitoring as a read-only advisory boundary. Persist student-scoped monitor targets, non-official imported snapshots, and manual-review alerts. Compare only user-triggered browser-extension snapshots, deduplicate identical snapshots by hash, and expose alerts through `/api/v1/section-monitoring`. Render advisory UI messaging and a manual registration checklist. Do not schedule background polling, refresh portals, alter seat or waitlist state, submit forms, or mutate canonical section, seat, waitlist, student, plan, schedule, or registration state.
 
 Consequences:
 
-- Students can review status, seat, waitlist, meeting-time, instructor, and location changes without mistaking them for official real-time availability.
+- Students can review status, seat, waitlist, meeting-time, instructor, and location changes without mistaking them for official portal status.
 - API, shared schemas, extension extraction, and web UI have an explicit non-official monitoring contract.
 - Future notification work must remain user-controlled and advisory unless a new reviewed architecture decision changes the boundary.
-- Registration automation, waitlist handling, seat grabbing, portal scraping, credential storage, and authentication bypass remain out of scope.
+- Registration automation, waitlist handling, seat-state automation, portal scraping, credential storage, and authentication bypass remain out of scope.
+
+## ADR-0021: Harden product dashboard clarity without expanding automation scope
+
+Status: Accepted
+
+Context: After Phase 8B, the product surface spans degree audit, data import, browser-extension import, section monitoring, schedule optimization, and what-if planning. Users need clearer status, empty-state, and advisory labeling so non-official imported data and manual next steps are hard to miss.
+
+Decision: Implement Phase 9A as product hardening only. Add dashboard status cards, reusable UI helper copy, advisory labels, before/after formatting, timestamp formatting, empty states, manual checklist polish, and safety-text tests. Keep the existing APIs and workflows intact, and do not introduce new backend domains, registration automation, portal submission, polling, background scraping, credential capture, waitlist automation, or seat-state changes.
+
+Consequences:
+
+- Students and reviewers can quickly distinguish not-started, loading, empty, warning, and ready states.
+- Browser-extension imports, data import previews, reviewed imported data, section monitoring snapshots, and alerts consistently show non-official/advisory/manual-review labels.
+- UX tests now guard against misleading registration, seat guarantee, and official-availability claims.
+- Any future automation or official-source workflow still requires a separate architecture decision.

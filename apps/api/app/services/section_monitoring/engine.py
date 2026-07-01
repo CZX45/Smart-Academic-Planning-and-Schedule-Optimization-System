@@ -26,12 +26,12 @@ from app.services.section_monitoring.exceptions import SectionMonitoringValidati
 SECTION_MONITORING_DISCLAIMERS = [
     (
         "Section monitoring is based on user-triggered imported data, is not official, and may "
-        "not reflect official real-time availability. Always verify information manually in the "
+        "differ from the official portal. Always verify information manually in the "
         "official registration portal."
     ),
     (
-        "This system does not register, drop, swap, waitlist, reserve seats, submit forms, "
-        "or perform any portal action."
+        "This system does not register, drop, swap, waitlist, submit forms, or perform any "
+        "portal action."
     ),
 ]
 
