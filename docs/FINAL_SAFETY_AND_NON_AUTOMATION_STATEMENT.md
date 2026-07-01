@@ -15,6 +15,12 @@ This means a user may choose to import visible or provided data, review it,
 apply supported non-official records to internal planning state, and use
 advisory outputs to decide what to check manually.
 
+For Phase 11B Kean Student Portal import, the allowed model is still manual:
+the student opens `https://kean-ss.colleague.elluciancloud.com/Student`, logs in
+through the official portal, authorizes the extension, previews visible
+academic-planning rows, confirms staging import, and completes Phase 7B review
+before planning use.
+
 ## Explicit Non-Automation Boundary
 
 The system:

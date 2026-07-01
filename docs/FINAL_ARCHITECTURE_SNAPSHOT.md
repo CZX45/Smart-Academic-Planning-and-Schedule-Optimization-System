@@ -48,6 +48,12 @@ sends confirmed data to the backend as a non-official staging import. It does
 not store credentials, inspect password fields, bypass school authentication,
 submit forms, or run hidden automation.
 
+Phase 11B adds a Kean Student Portal workflow under
+`https://kean-ss.colleague.elluciancloud.com/Student/*`. Current-page import
+uses the active tab, guided import requests the optional Kean host permission,
+and extraction code still enforces the `/Student/` prefix plus configured
+academic-planning page definitions.
+
 ## Shared Package Role
 
 `packages/shared` contains TypeScript schemas, API helpers, and generated
@@ -98,6 +104,11 @@ Imported rows remain non-official unless a future reviewed workflow changes that
 rule. Unsupported, ambiguous, rejected, deferred, or advisor-review rows are
 skipped with reason codes and warnings.
 
+Kean Student Portal imports are labeled `KEAN_STUDENT_PORTAL` in safe preview
+metadata while preserving `source_type = BROWSER_EXTENSION`,
+`is_official = false`, `official_application_ready = false`, and Phase 7B
+review.
+
 ## Section Monitoring Flow
 
 ```text
@@ -135,3 +146,6 @@ separate. Schedule options are advisory snapshots.
   migration checks are already part of the readiness path.
 - Any browser-store packaging review must preserve the read-only import model
   and be explicitly approved before release work begins.
+- Kean import support is local-development workflow support, not browser-store
+  publication, official-source ingestion, account handling, polling, or
+  enrollment automation.

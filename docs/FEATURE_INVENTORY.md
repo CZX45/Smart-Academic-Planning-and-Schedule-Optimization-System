@@ -345,3 +345,43 @@ Safety/boundary notes:
 
 - Phase 10B is documentation and handoff only. It adds no backend domain,
   database migration, extension behavior, deployment, or course-action workflow.
+
+## Phase 11B - Kean Student Portal Academic Import
+
+What was added:
+
+- Kean Student Portal page definitions for transcript, degree audit,
+  MyProgress, course catalog, section search, student planning, and schedule
+  pages.
+- Extension current-page and guided Kean import modes with optional Kean host
+  permission, preview, row counts, warnings, and confirmation-gated local API
+  handoff.
+- Backend preview labeling for Kean imports as `KEAN_STUDENT_PORTAL` while
+  preserving the existing browser-extension staging workflow.
+- Fake Kean/Ellucian-style fixtures for supported pages and safety edge cases.
+- Dedicated Kean Student Portal import guide.
+
+User value:
+
+- A student can manually log in to the official Kean portal, authorize the
+  extension, preview visible academic-planning data, and import it into the
+  local planner for review without copying rows by hand.
+
+Verification coverage:
+
+- Extension extractor tests for Kean page detection, whitelisted fields,
+  unsupported pages, hidden fields, unrelated personal/financial columns,
+  action controls, guided import requests, and deterministic staging payloads.
+- Extension manifest policy tests for optional Kean permission, no broad hosts,
+  confirmation gating, no polling, no portal submission, and required popup
+  safety copy.
+- Backend data-import tests for Kean source labeling, non-official status,
+  `official_application_ready = false`, and Phase 7B review creation.
+
+Safety/boundary notes:
+
+- Phase 11B does not add automatic login, credential collection, cookie/session
+  storage, SAML/MFA/CAPTCHA bypass, background scraping, polling, portal form
+  submission, registration automation, add/drop/swap/waitlist automation, seat
+  reservation, seat-taking automation, browser-store publishing, official-source
+  ingestion, or real student data.

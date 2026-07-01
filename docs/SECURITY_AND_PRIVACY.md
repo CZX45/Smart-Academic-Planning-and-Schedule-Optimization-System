@@ -31,6 +31,9 @@ The extension must:
 - Use Chrome Extension Manifest V3.
 - Require explicit user action before reading page content.
 - Read only currently active, user-opened pages needed for import.
+- For Phase 11B Kean import, restrict extraction to
+  `https://kean-ss.colleague.elluciancloud.com/Student/*` and configured
+  academic-planning page definitions.
 - Show a preview before sending extracted data to the backend.
 - Send confirmed data only as non-official staging import data.
 - Avoid background scraping.
@@ -53,6 +56,11 @@ Academic requirements are high-impact. Incorrect results may delay graduation, a
 - Treat Phase 9A product-hardening UI as clarity-only work. Status cards, empty states, labels, and manual checklists must not add credential capture, portal submission, polling, background scraping, registration automation, waitlist automation, or seat-state changes.
 - Treat Phase 9B as hardening-only work. Environment validation, safe HTTP headers, CORS tightening, audit logging, data-retention documentation, and safety regression tests must not add new academic authority, official imports, account systems, telemetry, registration automation, polling, portal submission, or deployment.
 - Treat Phase 10A as release-readiness QA and final product review only. Release docs, demo scenarios, checklist review, and safety audit must not add new academic authority, official imports, account systems, telemetry, registration automation, polling, portal submission, credential handling, or deployment.
+- Treat Phase 11B Kean Student Portal imports as user-authorized,
+  browser-extension staging imports. Kean rows must keep
+  `source_type = BROWSER_EXTENSION`, `is_official = false`,
+  `official_application_ready = false`, `source_label = KEAN_STUDENT_PORTAL`
+  in preview metadata, and Phase 7B review required before planning use.
 - Maintain regression fixtures for every catalog/program version.
 
 ## 6. Privacy Controls
@@ -75,7 +83,7 @@ Recommended controls:
 | Threat                                            | Mitigation                                                                                                                                                                                                                             |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Credential theft                                  | Never collect credentials; avoid storing cookies/tokens.                                                                                                                                                                               |
-| Overbroad extension access                        | Use narrow permissions and user-triggered extraction.                                                                                                                                                                                  |
+| Overbroad extension access                        | Use narrow permissions and user-triggered extraction. For Kean, request only the optional Kean host permission and enforce the `/Student/` prefix and page whitelist in code.                                                                                                                       |
 | Incorrect academic advice                         | Source versioning, confidence levels, advisor-confirmation warnings, tests.                                                                                                                                                            |
 | Unauthorized advisor access                       | Role-based access control and audit logging.                                                                                                                                                                                           |
 | Data leakage in logs                              | Structured logging with redaction.                                                                                                                                                                                                     |
@@ -104,6 +112,9 @@ Before production-like deployment, confirm:
 - OpenAPI generation and OpenAPI drift checks pass.
 - Unit, integration, e2e, lint, typecheck, format, build, and Docker Compose checks pass.
 - Browser extension permissions are manually reviewed for no broad host access and no background polling primitives.
+- Kean import permission review confirms no `<all_urls>`, no broad host
+  permissions, and only the optional Kean host permission needed for guided
+  import.
 - No `.env`, credential, portal secret, production database secret, real student record dump, or school password is committed.
 - Security/privacy review confirms no registration automation, add/drop, swap, waitlist automation, seat reservation, seat grabbing, portal submission, scraping, polling, credential capture, hidden automation, or external telemetry was added.
 

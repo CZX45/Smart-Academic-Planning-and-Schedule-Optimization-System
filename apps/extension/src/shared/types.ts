@@ -3,6 +3,13 @@ export type AcademicPageType =
   | "DEGREE_AUDIT_TABLE"
   | "COURSE_CATALOG_TABLE"
   | "SECTION_SEARCH_TABLE"
+  | "KEAN_TRANSCRIPT_PAGE"
+  | "KEAN_DEGREE_AUDIT_PAGE"
+  | "KEAN_MY_PROGRESS_PAGE"
+  | "KEAN_COURSE_CATALOG_PAGE"
+  | "KEAN_SECTION_SEARCH_PAGE"
+  | "KEAN_STUDENT_PLANNING_PAGE"
+  | "KEAN_SCHEDULE_PAGE"
   | "UNKNOWN_PAGE";
 
 export type DataImportType =
@@ -41,6 +48,7 @@ export type BrowserExtensionExtraction = {
   pageType: AcademicPageType;
   importType: DataImportType;
   sourceType: "BROWSER_EXTENSION";
+  sourceLabel?: "KEAN_STUDENT_PORTAL";
   isOfficial: false;
   title: string;
   url: string;

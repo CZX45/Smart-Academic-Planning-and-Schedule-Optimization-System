@@ -457,3 +457,56 @@ def test_data_import_api_accepts_browser_extension_source_as_non_official_stagin
         "Browser extension imports are staging-only" in disclaimer
         for disclaimer in preview.json()["disclaimers"]
     )
+
+
+def test_kean_browser_extension_import_is_labeled_non_official_and_review_gated(
+    client: TestClient,
+) -> None:
+    student_id = str(seed_uuid("student-profile:mock-student"))
+    response = client.post(
+        "/api/v1/data-imports",
+        json={
+            "student_profile_id": student_id,
+            "import_type": "UNOFFICIAL_TRANSCRIPT",
+            "file_name": "kean-student-portal-unofficial-transcript.csv",
+            "file_mime_type": "text/csv",
+            "content": "\n".join(
+                [
+                    "term_code,course_code,course_title,credits,grade,attempt_status,source_label",
+                    (
+                        "2024FA,FIN 300,Mock Managerial Finance,3.0,B,COMPLETED,"
+                        "Kean visible transcript table"
+                    ),
+                ]
+            ),
+            "source_type": "BROWSER_EXTENSION",
+            "source_reference": (
+                "KEAN_STUDENT_PORTAL browser extension import: "
+                "https://kean-ss.colleague.elluciancloud.com/Student/AcademicHistory"
+            ),
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["source"]["source_type"] == "BROWSER_EXTENSION"
+    assert payload["source"]["is_official"] is False
+    assert payload["official_application_ready"] is False
+
+    preview = client.get(f"/api/v1/data-imports/{payload['id']}/preview")
+    assert preview.status_code == 200
+    preview_payload = preview.json()
+    assert preview_payload["official_application_ready"] is False
+    assert preview_payload["summary_payload"]["source_label"] == "KEAN_STUDENT_PORTAL"
+    assert any("Kean Student Portal" in item for item in preview_payload["disclaimers"])
+    assert any("Phase 7B review is required" in item for item in preview_payload["disclaimers"])
+
+    review_response = client.post(
+        "/api/v1/data-import-reviews",
+        json={
+            "data_import_run_id": payload["id"],
+            "reviewer_label": "Kean student self-review",
+        },
+    )
+    assert review_response.status_code == 201
+    assert review_response.json()["status"] == "IN_REVIEW"

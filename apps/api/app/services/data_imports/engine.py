@@ -59,6 +59,18 @@ BROWSER_EXTENSION_STAGING_DISCLAIMERS = [
         "planning records."
     ),
 ]
+KEAN_SOURCE_LABEL = "KEAN_STUDENT_PORTAL"
+KEAN_STUDENT_PORTAL_PREFIX = "https://kean-ss.colleague.elluciancloud.com/Student"
+KEAN_STUDENT_PORTAL_DISCLAIMERS = [
+    (
+        "Kean Student Portal browser-extension imports are user-authorized, "
+        "non-official academic-planning extracts."
+    ),
+    (
+        "Kean Student Portal import rows still require Phase 7B review before "
+        "they can be used by planning workflows."
+    ),
+]
 logger = logging.getLogger(__name__)
 
 
@@ -407,6 +419,18 @@ class DataImportApplicationService:
         disclaimers = list(STAGING_DISCLAIMERS)
         if run.source_type is SourceType.BROWSER_EXTENSION:
             disclaimers.extend(BROWSER_EXTENSION_STAGING_DISCLAIMERS)
+        source_label = self._source_label(run)
+        if source_label == KEAN_SOURCE_LABEL:
+            disclaimers.extend(KEAN_STUDENT_PORTAL_DISCLAIMERS)
+        summary_payload = {
+            "disclaimers": disclaimers,
+            "supported_import_type": run.import_type.value,
+            "storage_strategy": run.storage_strategy.value,
+            "source_type": run.source_type.value,
+            "staging_only": True,
+        }
+        if source_label is not None:
+            summary_payload["source_label"] = source_label
         summary = ImportPreviewSummary(
             id=uuid4(),
             data_import_run_id=run.id,
@@ -415,17 +439,17 @@ class DataImportApplicationService:
             warning_count=run.warning_count,
             error_count=run.error_count,
             official_application_ready=False,
-            summary_payload={
-                "disclaimers": disclaimers,
-                "supported_import_type": run.import_type.value,
-                "storage_strategy": run.storage_strategy.value,
-                "source_type": run.source_type.value,
-                "staging_only": True,
-            },
+            summary_payload=summary_payload,
         )
         self._db.add(summary)
         self._db.flush()
         return summary
+
+    def _source_label(self, run: DataImportRun) -> str | None:
+        reference = run.source_reference or ""
+        if KEAN_SOURCE_LABEL in reference or KEAN_STUDENT_PORTAL_PREFIX in reference:
+            return KEAN_SOURCE_LABEL
+        return None
 
     def _get_run(self, data_import_run_id: UUID) -> DataImportRun:
         run = self._db.get(DataImportRun, data_import_run_id)

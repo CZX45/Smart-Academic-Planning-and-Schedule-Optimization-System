@@ -15,6 +15,7 @@ describe("browser extension safety policy", () => {
       manifest_version: number;
       permissions?: string[];
       host_permissions?: string[];
+      optional_host_permissions?: string[];
     };
 
     expect(manifest.manifest_version).toBe(3);
@@ -24,6 +25,12 @@ describe("browser extension safety policy", () => {
       "storage",
     ]);
     expect(manifest.host_permissions ?? []).toEqual([]);
+    expect(manifest.optional_host_permissions ?? []).toEqual([
+      "https://kean-ss.colleague.elluciancloud.com/*",
+    ]);
+    expect(JSON.stringify(manifest)).not.toContain("<all_urls>");
+    expect(JSON.stringify(manifest)).not.toContain("https://*/*");
+    expect(JSON.stringify(manifest)).not.toContain("http://*/*");
   });
 
   it("keeps extraction user-triggered and confirmation-gated", () => {
@@ -33,10 +40,13 @@ describe("browser extension safety policy", () => {
 
     expect(popup).toContain("confirmImportButton");
     expect(popup).toContain("extractCurrentPageButton");
+    expect(popup).toContain("startKeanImportButton");
     expect(popup).toContain("createDataImportRequestFromExtraction");
     expect(popup).not.toContain("setInterval");
     expect(popup).not.toContain("chrome.alarms");
+    expect(popup).not.toContain("chrome.cookies");
     expect(manifest).not.toContain("alarms");
+    expect(manifest).not.toContain("cookies");
     expect(serviceWorker).not.toContain("setInterval");
     expect(serviceWorker).not.toContain("chrome.alarms");
     expect(serviceWorker).not.toContain("fetch(");
@@ -57,6 +67,29 @@ describe("browser extension safety policy", () => {
     expect(source).not.toMatch(/register|drop|swap|seat.?grab/i);
     expect(source).not.toMatch(
       /waitlist(_join|Join|Action|Automation)|joinWaitlist/i,
+    );
+  });
+
+  it("shows required Kean import boundary copy in the popup", () => {
+    const popupHtml = readProjectFile("src/popup/index.html");
+
+    expect(popupHtml).toContain("Start Kean Academic Import");
+    expect(popupHtml).toContain("Detected page type");
+    expect(popupHtml).toContain("Non-official data");
+    expect(popupHtml).toContain("Manual review required");
+    expect(popupHtml).toContain("Local app/API");
+    expect(popupHtml).toContain("The extension does not log in for you.");
+    expect(popupHtml).toContain(
+      "The extension does not collect your password.",
+    );
+    expect(popupHtml).toContain(
+      "The extension only reads academic-planning data from Kean Student Portal pages you authorize.",
+    );
+    expect(popupHtml).toContain(
+      "Imported data is non-official and requires manual review.",
+    );
+    expect(popupHtml).toContain(
+      "The system does not register, drop, swap, waitlist, reserve seats, or grab seats.",
     );
   });
 

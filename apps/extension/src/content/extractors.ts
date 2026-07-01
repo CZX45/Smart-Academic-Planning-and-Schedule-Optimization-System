@@ -9,6 +9,14 @@ import type {
   ExtractedRecord,
   TableSnapshot,
 } from "../shared/types.js";
+import {
+  detectKeanPageDefinition,
+  isKeanHostUrl,
+  isKeanStudentPortalUrl,
+  KEAN_SOURCE_LABEL,
+  type KeanExtractionStrategy,
+  type KeanPageDefinition,
+} from "../shared/kean.js";
 
 const SOURCE_TYPE = "BROWSER_EXTENSION" as const;
 
@@ -22,6 +30,10 @@ type ExtractionSpec = {
   fields: readonly string[];
   aliases: ColumnAliases;
   requiredFields: readonly string[];
+  expectedFields?: readonly string[];
+  missingFieldWarningCodes?: Readonly<Record<string, string>>;
+  redactUnknownColumns?: boolean;
+  sourceLabel?: "KEAN_STUDENT_PORTAL";
   manualReviewWarning?: ExtensionExtractionWarning;
 };
 
@@ -97,6 +109,8 @@ const CATALOG_SPEC: ExtractionSpec = {
     "course_level",
     "department",
     "description",
+    "prerequisites",
+    "restrictions",
     "source_label",
   ],
   aliases: {
@@ -106,6 +120,8 @@ const CATALOG_SPEC: ExtractionSpec = {
     course_level: ["level", "course_level"],
     department: ["department", "subject"],
     description: ["description"],
+    prerequisites: ["prerequisite", "prerequisites", "prereqs"],
+    restrictions: ["restriction", "restrictions", "notes"],
   },
   requiredFields: ["course_code", "course_title"],
 };
@@ -174,6 +190,13 @@ const SPECS = [
   CATALOG_SPEC,
 ] as const;
 
+const SPEC_BY_KEAN_STRATEGY: Record<KeanExtractionStrategy, ExtractionSpec> = {
+  TRANSCRIPT: TRANSCRIPT_SPEC,
+  DEGREE_AUDIT: DEGREE_AUDIT_SPEC,
+  COURSE_CATALOG: CATALOG_SPEC,
+  SECTION_SCHEDULE: SECTION_SPEC,
+};
+
 export const EXTENSION_STAGING_DISCLAIMERS = [
   "Browser extension data is extracted only from the currently visible page after user action.",
   "Extracted rows enter staging import first and remain non-official.",
@@ -196,9 +219,44 @@ export function extractAcademicPageFromTables(
   snapshot: AcademicPageSnapshot,
 ): BrowserExtensionExtraction {
   const extractedAt = "1970-01-01T00:00:00.000Z";
-  const candidate = bestCandidate(snapshot.tables);
+  if (isKeanHostUrl(snapshot.url) && !isKeanStudentPortalUrl(snapshot.url)) {
+    return noDataExtraction(
+      snapshot,
+      "OUTSIDE_KEAN_STUDENT_PORTAL",
+      extractedAt,
+      "The page is on the Kean host but outside the supported Student portal prefix.",
+      KEAN_SOURCE_LABEL,
+    );
+  }
+
+  const keanDefinition = detectKeanPageDefinition(
+    snapshot.url,
+    snapshot.title,
+    visibleTextForDetection(snapshot),
+  );
+  if (isKeanStudentPortalUrl(snapshot.url) && !keanDefinition) {
+    return noDataExtraction(
+      snapshot,
+      "KEAN_PAGE_NOT_WHITELISTED",
+      extractedAt,
+      "This Kean Student Portal page is not one of the configured academic-planning pages.",
+      KEAN_SOURCE_LABEL,
+    );
+  }
+
+  const candidate = keanDefinition
+    ? bestCandidate(snapshot.tables, [specForKeanDefinition(keanDefinition)])
+    : bestCandidate(snapshot.tables);
   if (!candidate) {
-    return noDataExtraction(snapshot, "NO_ACADEMIC_TABLE_FOUND", extractedAt);
+    return noDataExtraction(
+      snapshot,
+      keanDefinition
+        ? "KEAN_WHITELISTED_PAGE_NO_ACADEMIC_TABLE_FOUND"
+        : "NO_ACADEMIC_TABLE_FOUND",
+      extractedAt,
+      "No recognizable academic table was found on the visible page.",
+      keanDefinition ? KEAN_SOURCE_LABEL : undefined,
+    );
   }
 
   const warnings: ExtensionExtractionWarning[] = [];
@@ -213,11 +271,22 @@ export function extractAcademicPageFromTables(
   if (candidate.spec.manualReviewWarning) {
     warnings.push(candidate.spec.manualReviewWarning);
   }
+  if (candidate.spec.sourceLabel === KEAN_SOURCE_LABEL) {
+    warnings.push({
+      code: "KEAN_IMPORT_NON_OFFICIAL_REVIEW_REQUIRED",
+      severity: "WARNING",
+      message:
+        "Kean Student Portal browser-extension data is non-official and requires Phase 7B review.",
+    });
+  }
 
   return {
     pageType: candidate.spec.pageType,
     importType: candidate.spec.importType,
     sourceType: SOURCE_TYPE,
+    ...(candidate.spec.sourceLabel
+      ? { sourceLabel: candidate.spec.sourceLabel }
+      : {}),
     isOfficial: false,
     title: snapshot.title,
     url: safeUrl(snapshot.url),
@@ -235,6 +304,10 @@ export function createDataImportRequestFromExtraction(
   studentProfileId: string,
   extraction: BrowserExtensionExtraction,
 ): BrowserExtensionDataImportRequest {
+  const sourceReferencePrefix =
+    extraction.sourceLabel === KEAN_SOURCE_LABEL
+      ? `${KEAN_SOURCE_LABEL} browser extension import`
+      : "Browser extension visible-page import";
   return {
     student_profile_id: studentProfileId,
     import_type: extraction.importType,
@@ -242,13 +315,27 @@ export function createDataImportRequestFromExtraction(
     file_mime_type: extraction.fileMimeType,
     content: extraction.content,
     source_type: SOURCE_TYPE,
-    source_reference: `Browser extension visible-page import: ${extraction.url}`,
+    source_reference: `${sourceReferencePrefix}: ${extraction.url}`,
   };
 }
 
-function bestCandidate(tables: TableSnapshot[]): TableCandidate | null {
+export function createDataImportRequestsFromExtractions(
+  studentProfileId: string,
+  extractions: readonly BrowserExtensionExtraction[],
+): BrowserExtensionDataImportRequest[] {
+  return extractions
+    .filter((extraction) => extraction.records.length > 0)
+    .map((extraction) =>
+      createDataImportRequestFromExtraction(studentProfileId, extraction),
+    );
+}
+
+function bestCandidate(
+  tables: TableSnapshot[],
+  specs: readonly ExtractionSpec[] = SPECS,
+): TableCandidate | null {
   const candidates = tables.flatMap((table) =>
-    SPECS.map((spec) => ({
+    specs.map((spec) => ({
       spec,
       table,
       score: scoreTable(spec, table),
@@ -287,6 +374,7 @@ function recordsFromTable(
 ): ExtractedRecord[] {
   const columnByField = buildColumnMap(spec, table.headers);
   warnForUnknownColumns(spec, table.headers, warnings);
+  warnForMissingExpectedFields(spec, table.headers, warnings);
   const records: ExtractedRecord[] = [];
   for (const [rowIndex, row] of table.rows.entries()) {
     const record = spec.fields.reduce<ExtractedRecord>((current, field) => {
@@ -297,7 +385,7 @@ function recordsFromTable(
           : normalizeValue(field, row[columnIndex] ?? "");
       return current;
     }, {});
-    if (spec.pageType === "SECTION_SEARCH_TABLE") {
+    if (spec.importType === "SECTION_SCHEDULE") {
       record.meeting_days ||= record.day_of_week ?? "";
       if (!record.meeting_time && record.start_time && record.end_time) {
         record.meeting_time = `${record.start_time}-${record.end_time}`;
@@ -347,7 +435,32 @@ function warnForUnknownColumns(
     warnings.push({
       code: "UNKNOWN_COLUMNS",
       severity: "INFO",
-      message: `Ignored unsupported visible columns: ${unknownHeaders.join(", ")}.`,
+      message: spec.redactUnknownColumns
+        ? "Ignored unsupported visible columns."
+        : `Ignored unsupported visible columns: ${unknownHeaders.join(", ")}.`,
+    });
+  }
+}
+
+function warnForMissingExpectedFields(
+  spec: ExtractionSpec,
+  headers: readonly string[],
+  warnings: ExtensionExtractionWarning[],
+): void {
+  if (!spec.expectedFields || !spec.missingFieldWarningCodes) {
+    return;
+  }
+  const normalizedHeaders = new Set(headers.map(normalizeHeader));
+  const missingFields = spec.expectedFields.filter(
+    (field) =>
+      !spec.aliases[field]?.some((alias) => normalizedHeaders.has(alias)),
+  );
+  for (const field of missingFields) {
+    warnings.push({
+      code:
+        spec.missingFieldWarningCodes[field] ?? "KEAN_EXPECTED_FIELD_MISSING",
+      severity: "INFO",
+      message: `Expected academic-planning field ${field} was not visible on this page.`,
     });
   }
 }
@@ -436,18 +549,21 @@ function noDataExtraction(
   snapshot: AcademicPageSnapshot,
   warningCode: string,
   extractedAt: string,
+  warningMessage = "No recognizable academic table was found on the visible page.",
+  sourceLabel?: "KEAN_STUDENT_PORTAL",
 ): BrowserExtensionExtraction {
   const warnings: ExtensionExtractionWarning[] = [
     {
       code: warningCode,
       severity: "WARNING",
-      message: "No recognizable academic table was found on the visible page.",
+      message: warningMessage,
     },
   ];
   return {
     pageType: "UNKNOWN_PAGE",
     importType: "UNKNOWN",
     sourceType: SOURCE_TYPE,
+    ...(sourceLabel ? { sourceLabel } : {}),
     isOfficial: false,
     title: snapshot.title,
     url: safeUrl(snapshot.url),
@@ -473,6 +589,35 @@ function noDataExtraction(
 
 function fileName(spec: ExtractionSpec): string {
   return `${spec.fileBaseName}${spec.mimeType === "application/json" ? ".json" : ".csv"}`;
+}
+
+function specForKeanDefinition(definition: KeanPageDefinition): ExtractionSpec {
+  const base = SPEC_BY_KEAN_STRATEGY[definition.extractionStrategy];
+  return {
+    ...base,
+    pageType: definition.key,
+    importType: definition.importType,
+    fileBaseName: fileBaseNameForKeanDefinition(definition),
+    expectedFields: definition.expectedFields,
+    missingFieldWarningCodes: definition.warningCodesForMissingFields,
+    redactUnknownColumns: true,
+    sourceLabel: KEAN_SOURCE_LABEL,
+  };
+}
+
+function fileBaseNameForKeanDefinition(definition: KeanPageDefinition): string {
+  const suffix = definition.key
+    .toLowerCase()
+    .replace(/^kean_/, "")
+    .replace(/_page$/, "")
+    .replace(/_/g, "-");
+  return `kean-student-portal-${suffix}`;
+}
+
+function visibleTextForDetection(snapshot: AcademicPageSnapshot): string {
+  return snapshot.tables
+    .flatMap((table) => [table.caption, ...table.headers])
+    .join(" ");
 }
 
 function safeUrl(url: string): string {

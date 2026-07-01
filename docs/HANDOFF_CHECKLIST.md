@@ -13,30 +13,31 @@ git branch --show-current
 git log -1 --oneline
 ```
 
-- Confirm the working tree only contains intended Phase 10B changes before
+- Confirm the working tree only contains intended current-phase changes before
   committing.
 - Confirm no `.env`, credential, token, portal export with sensitive student
   data, or production secret is staged.
 
 ## Branch and PR Workflow
 
-- Work from `codex-phase-10b-final-demo-handoff-package`.
+- For Phase 11B Kean import work, use
+  `codex-phase-11b-kean-student-portal-import`.
 - Commit with:
 
 ```bash
 git add -A
-git commit -m "Implement phase 10b final demo handoff package"
+git commit -m "Implement phase 11b Kean student portal import"
 ```
 
 - Push with:
 
 ```bash
-git push -u origin codex-phase-10b-final-demo-handoff-package
+git push -u origin codex-phase-11b-kean-student-portal-import
 ```
 
 - Open a draft PR into `main`.
 - Do not mark the PR ready for review until CI passes.
-- Do not merge the Phase 10B PR during handoff.
+- Do not merge the current-phase PR during handoff.
 
 ## Local Setup Commands
 
@@ -101,6 +102,7 @@ and whether CI is expected to cover it.
 - [Release Readiness QA](RELEASE_READINESS_QA.md)
 - [Demo Scenarios](DEMO_SCENARIOS.md)
 - [Release Checklist](RELEASE_CHECKLIST.md)
+- [Kean Student Portal Import Guide](KEAN_STUDENT_PORTAL_IMPORT_GUIDE.md)
 
 ## Demo Preparation
 
@@ -115,12 +117,14 @@ and whether CI is expected to cover it.
 
 ## Safety Review
 
-Confirm no Phase 10B work added:
+Confirm no current-phase work added:
 
 - credentials or secrets;
 - password-field extraction;
 - SAML/MFA bypass;
 - portal scraping beyond user-triggered visible-page import;
+- unsupported Kean portal scanning beyond
+  `https://kean-ss.colleague.elluciancloud.com/Student/*`;
 - portal polling;
 - portal form submission;
 - course registration, drop, swap, waitlist, seat hold, or seat-taking actions;

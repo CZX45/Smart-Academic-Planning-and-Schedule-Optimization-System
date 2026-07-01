@@ -128,14 +128,19 @@ Safety wording reminder:
 What to show:
 
 - The local-development extension surface.
-- A visible-page table extraction preview.
+- The Kean Student Portal Academic Import controls.
+- A visible-page or guided Kean table extraction preview using fake data.
 - Explicit confirmation before sending data to the API as a staging import.
 
 What to say:
 
-- "The extension reads only the active visible page after the user clicks the
-  extension action."
-- "It sends a read-only import to the same review-gated backend flow."
+- "For Kean, the student manually opens
+  https://kean-ss.colleague.elluciancloud.com/Student and logs in through the
+  official portal."
+- "The extension reads only authorized academic-planning data under the Kean
+  Student Portal prefix after a user click."
+- "It sends a non-official read-only import to the same Phase 7B review-gated
+  backend flow."
 
 Expected audience takeaway:
 
@@ -145,6 +150,7 @@ Safety wording reminder:
 
 - "It does not store credentials, read password fields, bypass school login, or
   submit portal forms."
+- "It does not register, drop, swap, waitlist, hold seats, or grab seats."
 
 ## 7. Section Monitoring Advisory Alerts
 

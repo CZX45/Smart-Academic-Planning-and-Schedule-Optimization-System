@@ -4,8 +4,34 @@ function cleanText(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
+function isVisible(element: HTMLElement): boolean {
+  const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+  if (!style) {
+    return true;
+  }
+  return (
+    style.display !== "none" &&
+    style.visibility !== "hidden" &&
+    style.opacity !== "0" &&
+    element.hidden !== true
+  );
+}
+
+function readableCellText(cell: HTMLTableCellElement): string {
+  const clone = cell.cloneNode(true);
+  if (clone instanceof HTMLElement) {
+    clone
+      .querySelectorAll(
+        "button, input, select, textarea, option, [role='button']",
+      )
+      .forEach((control) => control.remove());
+    return cleanText(clone.textContent);
+  }
+  return cleanText(cell.textContent);
+}
+
 function cellTexts(cells: HTMLCollectionOf<HTMLTableCellElement>): string[] {
-  return Array.from(cells).map((cell) => cleanText(cell.textContent));
+  return Array.from(cells).map(readableCellText);
 }
 
 function headerTexts(table: HTMLTableElement): string[] {
@@ -32,12 +58,12 @@ function bodyRows(table: HTMLTableElement): string[][] {
 }
 
 export function readVisibleTables(documentRef: Document): TableSnapshot[] {
-  return Array.from(documentRef.querySelectorAll("table")).map(
-    (table, index) => ({
+  return Array.from(documentRef.querySelectorAll("table"))
+    .filter((table): table is HTMLTableElement => isVisible(table))
+    .map((table, index) => ({
       index,
       caption: cleanText(table.caption?.textContent),
       headers: headerTexts(table),
       rows: bodyRows(table),
-    }),
-  );
+    }));
 }

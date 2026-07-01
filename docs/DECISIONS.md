@@ -337,3 +337,43 @@ Consequences:
 - Demo language stays anchored in imported snapshots, advisory alerts, manual review required records, read-only imported data, non-official data, and official-portal verification.
 - The release checklist connects local commands, CI validation, no-secrets review, extension permissions, prohibited automation review, docs review, and demo review.
 - Safety boundaries remain explicit while future production, official-data, notification, and advisor-access work stay deferred until separately reviewed.
+
+## ADR-0024: Implement Kean Student Portal import as a whitelisted browser-extension workflow
+
+Status: Accepted
+
+Context: The project needs to start addressing the original real-user import
+goal, and the target Kean / Ellucian Student Portal prefix is now known. Real
+portal imports create privacy and safety risk if implemented as crawling,
+credential handling, background scraping, or enrollment automation. The existing
+Phase 7A/7B staging and review model already provides the right safety boundary
+for non-official imported academic data.
+
+Decision: Implement Phase 11B as a Kean-specific browser-extension workflow
+under `https://kean-ss.colleague.elluciancloud.com/Student/*`. Keep baseline
+extension permissions to `activeTab`, `scripting`, and `storage`, and request
+the optional Kean host permission only when the student starts guided import.
+Use configurable page definitions for transcript, degree audit, MyProgress,
+course catalog, section search, student planning, and schedule pages. Extract
+only visible academic-planning table data after user action, show a preview, and
+send confirmed data to `POST /api/v1/data-imports` as
+`source_type = BROWSER_EXTENSION`, `is_official = false`, and
+`official_application_ready = false`. Label Kean imports as
+`KEAN_STUDENT_PORTAL` in safe source-reference and preview metadata. Preserve
+Phase 7B review before planning use.
+
+Consequences:
+
+- Kean import support builds on the existing staging/review path instead of
+  adding official-source ingestion.
+- The extension can support current-page import and guided full import without
+  broad crawling or hidden background work.
+- Chrome host permissions are host-scoped, so the implementation documents that
+  limitation and enforces the narrower `/Student/` prefix in code.
+- Fake Kean/Ellucian-style fixtures cover allowed academic data, unsupported
+  pages, login pages, hidden fields, unrelated personal/financial columns,
+  malformed rows, and action controls.
+- The workflow still does not store credentials, read password fields, store
+  cookies or session tokens, bypass SAML/MFA/CAPTCHA, submit portal forms,
+  automate registration, add/drop/swap courses, join waitlists, reserve seats,
+  grab seats, poll portals, or publish a browser-store workflow.
