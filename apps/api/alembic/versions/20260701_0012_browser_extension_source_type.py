@@ -49,6 +49,8 @@ NEW_SOURCE_TYPES = (
     "STUDENT_PROVIDED",
     "INFERRED",
 )
+OLD_SOURCE_TYPE_LENGTH = 16
+NEW_SOURCE_TYPE_LENGTH = 17
 
 
 def source_type_check(values: tuple[str, ...]) -> str:
@@ -66,7 +68,19 @@ def replace_source_type_constraints(values: tuple[str, ...]) -> None:
         )
 
 
+def alter_source_type_length(length: int, existing_length: int) -> None:
+    for table_name in SOURCE_TYPE_TABLES:
+        op.alter_column(
+            table_name,
+            "source_type",
+            existing_type=sa.String(length=existing_length),
+            type_=sa.String(length=length),
+            existing_nullable=False,
+        )
+
+
 def upgrade() -> None:
+    alter_source_type_length(NEW_SOURCE_TYPE_LENGTH, OLD_SOURCE_TYPE_LENGTH)
     replace_source_type_constraints(NEW_SOURCE_TYPES)
 
 
@@ -81,3 +95,4 @@ def downgrade() -> None:
                 f"Cannot downgrade while BROWSER_EXTENSION source rows exist in {table_name}."
             )
     replace_source_type_constraints(OLD_SOURCE_TYPES)
+    alter_source_type_length(OLD_SOURCE_TYPE_LENGTH, NEW_SOURCE_TYPE_LENGTH)
