@@ -2,7 +2,7 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 10A adds release-readiness QA documentation, demo scenarios, a final release checklist, and safety-boundary review for the Phase 9B product surface. Browser-extension and monitoring data remains `source_type = BROWSER_EXTENSION` or otherwise non-official, and students must verify manually in the official registration portal. The system does **not** store credentials, bypass SAML/MFA/CAPTCHA, scrape in the background, publish to a browser store, create official transcript data, register, add/drop/swap courses, join waitlists, alter seat state, run polling, submit forms, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 10B adds the final demo and handoff documentation package on top of the Phase 10A release-readiness QA set. Browser-extension and monitoring data remains `source_type = BROWSER_EXTENSION` or otherwise non-official, and students must verify manually in the official registration portal. The system does **not** store credentials, bypass SAML/MFA/CAPTCHA, scrape in the background, publish to a browser store, create official transcript data, register, add/drop/swap courses, join waitlists, alter seat state, run polling, submit forms, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
@@ -354,6 +354,37 @@ Release-readiness docs:
 
 Phase 10A remains documentation, QA, and safety-review focused. It does not add backend domains, official source ingestion, account systems, credential handling, registration automation, polling, portal submission, waitlist automation, seat reservation, seat grabbing, browser-store publishing, external telemetry, or production deployment.
 
+## Phase 10B — Final Demo Handoff Package
+
+Phase 10B prepares the project for final presentation, review, and continuation by adding a final project summary, demo script, feature inventory, architecture snapshot, known limitations/future work, final safety statement, and handoff checklist.
+
+Final handoff docs:
+
+- [Final Project Summary](docs/FINAL_PROJECT_SUMMARY.md)
+- [Final Demo Script](docs/FINAL_DEMO_SCRIPT.md)
+- [Feature Inventory](docs/FEATURE_INVENTORY.md)
+- [Final Architecture Snapshot](docs/FINAL_ARCHITECTURE_SNAPSHOT.md)
+- [Known Limitations and Future Work](docs/KNOWN_LIMITATIONS_AND_FUTURE_WORK.md)
+- [Final Safety and Non-Automation Statement](docs/FINAL_SAFETY_AND_NON_AUTOMATION_STATEMENT.md)
+- [Handoff Checklist](docs/HANDOFF_CHECKLIST.md)
+
+Phase 10B is documentation, demo readiness, handoff clarity, and safety framing only. It does not add backend domains, database tables, migrations, browser extension behavior, registration workflows, scraping, polling, notification workers, credential handling, or production deployment.
+
+## Final Review and Handoff
+
+Start here for final review:
+
+- [Release Readiness QA](docs/RELEASE_READINESS_QA.md)
+- [Demo Scenarios](docs/DEMO_SCENARIOS.md)
+- [Release Checklist](docs/RELEASE_CHECKLIST.md)
+- [Final Project Summary](docs/FINAL_PROJECT_SUMMARY.md)
+- [Final Demo Script](docs/FINAL_DEMO_SCRIPT.md)
+- [Feature Inventory](docs/FEATURE_INVENTORY.md)
+- [Final Architecture Snapshot](docs/FINAL_ARCHITECTURE_SNAPSHOT.md)
+- [Known Limitations and Future Work](docs/KNOWN_LIMITATIONS_AND_FUTURE_WORK.md)
+- [Final Safety and Non-Automation Statement](docs/FINAL_SAFETY_AND_NON_AUTOMATION_STATEMENT.md)
+- [Handoff Checklist](docs/HANDOFF_CHECKLIST.md)
+
 ## Production readiness checklist
 
 Before any real deployment, complete the focused [Release Checklist](docs/RELEASE_CHECKLIST.md) and verify:
@@ -424,6 +455,8 @@ Phase 9B adds no new domain tables. It hardens configuration, HTTP safety defaul
 
 Phase 10A adds no new domain tables. It documents release QA, demo scenarios, final checklist review, and safety-boundary confirmation for the existing read-only/advisory workflows.
 
+Phase 10B adds no new domain tables. It documents the final demo and handoff package for the existing read-only/advisory workflows.
+
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 
 The project should not jump from Phase 4 directly into automatic registration, waitlist automation, seat-state automation, credential storage, or portal bypass behavior.
@@ -441,3 +474,10 @@ The project should not jump from Phase 4 directly into automatic registration, w
 - [Release Readiness QA](docs/RELEASE_READINESS_QA.md)
 - [Demo Scenarios](docs/DEMO_SCENARIOS.md)
 - [Release Checklist](docs/RELEASE_CHECKLIST.md)
+- [Final Project Summary](docs/FINAL_PROJECT_SUMMARY.md)
+- [Final Demo Script](docs/FINAL_DEMO_SCRIPT.md)
+- [Feature Inventory](docs/FEATURE_INVENTORY.md)
+- [Final Architecture Snapshot](docs/FINAL_ARCHITECTURE_SNAPSHOT.md)
+- [Known Limitations and Future Work](docs/KNOWN_LIMITATIONS_AND_FUTURE_WORK.md)
+- [Final Safety and Non-Automation Statement](docs/FINAL_SAFETY_AND_NON_AUTOMATION_STATEMENT.md)
+- [Handoff Checklist](docs/HANDOFF_CHECKLIST.md)
