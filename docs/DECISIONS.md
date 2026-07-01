@@ -253,7 +253,7 @@ Status: Accepted
 
 Context: Phase 7A staging data can be mock, student-provided, ambiguous, unsupported, or unmatched. Automatically applying those records would create planning state that appears more authoritative than its source. At the same time, students need a controlled way to turn reviewed unofficial transcript rows into internal planning records for estimates.
 
-Decision: Implement Phase 7B as an explicit Data Review & Confirmation workflow. Persist `DataImportReviewSession`, `ImportedRecordReview`, `DataApplicationRun`, `AppliedImportedRecord`, and `DataReviewWarning`. Require per-record decisions and apply only through `POST /data-import-reviews/{review_id}/apply`; GET endpoints remain read-only. Support dry-run with no domain writes. Limit real application to confirmed unofficial transcript course attempts that map to a known course and term, create non-official internal `StudentCourseAttempt` records with source metadata, and audit every applied or skipped record with action, status, reason code, and message.
+Decision: Implement Phase 7B as an explicit Data Review and Confirmation workflow. Persist `DataImportReviewSession`, `ImportedRecordReview`, `DataApplicationRun`, `AppliedImportedRecord`, and `DataReviewWarning`. Require per-record decisions and apply only through `POST /data-import-reviews/{review_id}/apply`; GET endpoints remain read-only. Support dry-run with no domain writes. Limit real application to confirmed unofficial transcript course attempts that map to a known course and term, create non-official internal `StudentCourseAttempt` records with source metadata, and audit every applied or skipped record with action, status, reason code, and message.
 
 Consequences:
 
@@ -322,3 +322,18 @@ Consequences:
 - Auditability improves while raw imported academic content, HTML, credentials, tokens, and secrets stay out of logs.
 - The browser extension and section monitoring boundaries remain user-triggered, non-official, read-only, and advisory.
 - Real data onboarding, advisor workflow expansion, deletion/export controls, external telemetry, and production deployment remain future work requiring separate review.
+
+## ADR-0023: Treat Phase 10A as release-readiness QA and final product review
+
+Status: Accepted
+
+Context: After Phase 9B, the product has mock degree audit, what-if, planner, schedule optimization, data import, browser-extension import, section monitoring, dashboard, and security-hardening surfaces. Before final review or demo, the project needs an explicit QA and handoff layer that explains how to review the existing workflows without implying official data authority or school-system automation.
+
+Decision: Implement Phase 10A as release-readiness QA and final product review only. Add release QA documentation, demo scenarios, a release checklist, final safety-boundary audit, documentation consistency cleanup, and lightweight wording regression tests. Do not add backend domains, official-source ingestion, notification workers, browser-store publishing, account/auth systems, credential handling, external telemetry, production deployment, polling, portal submission, registration automation, add/drop/swap automation, waitlist automation, seat reservation, or seat grabbing.
+
+Consequences:
+
+- Reviewers get a clear path through the main end-to-end user journeys.
+- Demo language stays anchored in imported snapshots, advisory alerts, manual review required records, read-only imported data, non-official data, and official-portal verification.
+- The release checklist connects local commands, CI validation, no-secrets review, extension permissions, prohibited automation review, docs review, and demo review.
+- Safety boundaries remain explicit while future production, official-data, notification, and advisor-access work stay deferred until separately reviewed.

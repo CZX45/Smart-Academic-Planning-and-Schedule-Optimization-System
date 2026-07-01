@@ -101,7 +101,7 @@ Phase 7B adds data review and confirmation coverage:
 - Service/API tests for review creation, per-record decisions, dry-run application without domain writes, explicit apply into non-official internal course attempts, duplicate skips, warnings, and student review/application indexes.
 - Seed tests for review sessions, edited-and-confirmed records, advisor-review skips, duplicate application logs, unsupported-grade warnings, non-official status, and idempotency.
 - Shared TypeScript schema tests for review sessions, record reviews, application runs, applied-record logs, warnings, dry-run results, decision patching, and apply helpers.
-- Playwright tests for the Data Review & Confirmation panel, create review, confirm/reject/defer/advisor-review controls, simple grade edit, dry-run output, explicit apply output, warnings, and application logs.
+- Playwright tests for the Data Review and Confirmation panel, create review, confirm/reject/defer/advisor-review controls, simple grade edit, dry-run output, explicit apply output, warnings, and application logs.
 
 Phase 8A adds read-only browser extension import coverage:
 
@@ -119,6 +119,12 @@ Phase 8B adds read-only section monitoring coverage:
 - Shared TypeScript schema/helper tests for section monitor targets, snapshots, alerts, and snapshot comparison responses.
 - Extension extractor and policy tests for section-search availability fields without background polling, broad host permissions, form submission, or registration actions.
 - Playwright coverage for the Section Monitoring panel, advisory disclaimers, monitored-section rows, alerts, and manual registration checklist.
+
+Phase 10A adds release-readiness QA coverage:
+
+- Documentation review for end-to-end user-flow QA, demo scenarios, final release checklist, and final safety boundary audit.
+- Backend safety-policy tests that require Phase 10A release docs and scan demo/release wording for advisory, non-official, manual review required, read-only imported data, and verify in the official portal language.
+- Manual QA confirms the release docs describe data import review, Phase 7B confirmation, Phase 8A browser-extension import, Phase 8B advisory alerts, degree audit/planner status, schedule optimization status, manual action checklist, and official portal verification.
 
 ### End-to-End Tests
 
@@ -289,6 +295,13 @@ Phase 9B covers security and production-readiness hardening:
 - Logging tests proving data-import and section-monitoring comparison logs contain only safe metadata and do not include raw imported content, file names, visible table labels, credentials, or portal-derived row text.
 - Documentation review covers production readiness, data-retention principles, safe logging, no-secrets checks, and manual browser-extension permission verification.
 
+Phase 10A covers release-readiness QA and final product review:
+
+- Release QA docs list the purpose, prerequisites, test steps, expected result, safety boundary confirmation, and automated coverage for each main user journey.
+- Demo scenario docs explain what to show, what users should understand, what not to claim, demo-safe wording, and manual verification reminders.
+- Release checklist docs cover local verification, CI validation, no-secrets review, browser extension permissions, prohibited automation review, documentation review, demo review, and known local limitations.
+- Safety-policy regression tests require Phase 10A docs to exist and avoid misleading demo claims while preserving advisory, non-official, manual-review wording.
+
 ## 5. Property and Constraint Tests
 
 For optimizers, add property-like tests:
@@ -331,3 +344,5 @@ Expected commands once tooling is scaffolded:
 - `playwright test`
 
 During the documentation-only phase, basic repository checks are limited to file existence, Markdown review, and Git status.
+
+For Phase 10A, documentation changes are still verified through the full available project commands plus the release-doc wording regression test in `apps/api/tests/test_production_safety_policy.py`.
