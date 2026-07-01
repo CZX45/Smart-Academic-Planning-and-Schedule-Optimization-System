@@ -306,6 +306,62 @@ describe("data import schemas", () => {
     });
   });
 
+  it("supports browser-extension import handoff requests as staging-only data", async () => {
+    let requestBody: unknown = null;
+    const fetchFn = async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestBody = JSON.parse(String(init?.body ?? "{}"));
+      return new Response(
+        JSON.stringify({
+          id: "00000000-0000-4000-8000-000000000741",
+          student_profile_id: "00000000-0000-4000-8000-000000000702",
+          import_type: "SECTION_SCHEDULE",
+          status: "PARSED_WITH_WARNINGS",
+          storage_strategy: "METADATA_ONLY",
+          file_name: "browser-extension-section-schedule.csv",
+          file_mime_type: "text/csv",
+          file_size_bytes: 96,
+          file_sha256:
+            "8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b",
+          parser_version: "phase7a-data-import-v1",
+          record_count: 1,
+          valid_record_count: 1,
+          warning_count: 1,
+          error_count: 0,
+          official_application_ready: false,
+          started_at: "2026-07-01T00:00:00Z",
+          completed_at: "2026-07-01T00:00:01Z",
+          source: { source_type: "BROWSER_EXTENSION", is_official: false },
+          created_at: "2026-07-01T00:00:00Z",
+          updated_at: "2026-07-01T00:00:01Z",
+        }),
+      );
+    };
+
+    const result = await createDataImport(
+      "http://api.test",
+      {
+        student_profile_id: "00000000-0000-4000-8000-000000000702",
+        import_type: "SECTION_SCHEDULE",
+        file_name: "browser-extension-section-schedule.csv",
+        file_mime_type: "text/csv",
+        content:
+          "term_code,course_code,section_code,modality,status,credits\n2025FA,FIN 403,001,IN_PERSON,OPEN,3",
+        source_type: "BROWSER_EXTENSION",
+        source_reference:
+          "Browser extension visible-page import: https://portal.example.edu/section-search",
+      },
+      { fetchFn },
+    );
+
+    expect(result.source.source_type).toBe("BROWSER_EXTENSION");
+    expect(result.official_application_ready).toBe(false);
+    expect(requestBody).toMatchObject({
+      source_type: "BROWSER_EXTENSION",
+      source_reference:
+        "Browser extension visible-page import: https://portal.example.edu/section-search",
+    });
+  });
+
   it("validates review sessions, record decisions, warnings, and dry-run results", () => {
     const review = DataImportReviewSessionSchema.parse({
       id: "00000000-0000-4000-8000-000000000731",

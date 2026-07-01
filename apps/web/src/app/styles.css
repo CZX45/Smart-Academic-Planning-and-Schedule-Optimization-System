@@ -177,6 +177,15 @@ h2 {
   padding-top: 16px;
 }
 
+.browser-extension-status {
+  background: #ffffff;
+  border: 1px solid #d7dde7;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
 .section-heading {
   align-items: flex-start;
   display: flex;

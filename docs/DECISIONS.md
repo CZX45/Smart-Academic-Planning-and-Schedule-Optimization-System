@@ -261,3 +261,18 @@ Consequences:
 - Duplicate prevention and application logs make re-apply behavior explainable.
 - Unsupported catalog, section, requirement, unknown-course, rejected, deferred, advisor-review, and unsupported-grade records are skipped rather than silently applied.
 - Phase 7B deliberately does not implement browser extension import, real school login, scraping, OCR-heavy extraction, official data ingestion, seat monitoring, waitlist handling, add/drop/swap, or automatic registration.
+
+## ADR-0019: Implement browser extension imports as user-triggered staging handoff
+
+Status: Accepted
+
+Context: Students may need to import visible academic data from pages they have already opened, but browser automation can easily cross privacy, credential, and registration safety boundaries. The existing Phase 7A/7B import workflow already provides staging, warnings, preview, review decisions, dry-run, duplicate checks, and explicit application logs.
+
+Decision: Implement Phase 8A as a read-only Manifest V3 browser extension foundation in `apps/extension`. Use minimal permissions (`activeTab`, `scripting`, and `storage`) and no broad host permissions. Extract visible transcript, degree-audit, catalog, and section-search tables only after user action, show a preview, and send data only after confirmation. Reuse `POST /api/v1/data-imports` with `source_type = BROWSER_EXTENSION`, `is_official = false`, and `official_application_ready = false`. Keep Phase 7B review required before any application.
+
+Consequences:
+
+- Extension imports reuse the existing staging and review safety model instead of creating a parallel ingestion path.
+- Source metadata distinguishes browser-extension visible-page extracts from uploads, mock fixtures, inferred data, official data, and reviewed application logs.
+- The extension does not store credentials, read password fields, bypass school authentication, scrape in the background, submit portal forms, publish production browser-store builds, poll seats, join waitlists, add, drop, swap, register, or grab seats.
+- Read-only section-change alerts may be considered later, but they must remain advisory and unable to perform registration or seat-grabbing actions.

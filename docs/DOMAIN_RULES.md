@@ -348,6 +348,36 @@ Phase 7B forbidden behavior:
 - Treating imported data as official policy, official transcript data, registration state, seat availability, or advisor approval.
 - Real school login, browser extension import, scraping, OCR-heavy extraction, automatic registration, add/drop/swap, waitlist handling, seat polling, or seat grabbing.
 
+## 13. Read-only Browser Extension Import Rules
+
+Phase 8A lets the browser extension extract visible academic data from the active page only after user action. Extracted rows are staged through the Phase 7A import API and must still pass through Phase 7B review before application.
+
+Phase 8A hard rules:
+
+- Extension extraction is user-triggered from the active visible page only.
+- Extracted data must be sent as `source_type = BROWSER_EXTENSION` and `is_official = false`.
+- Extension imports must enter staging first and keep `official_application_ready = false`.
+- A preview must be shown before sending data to the API.
+- User confirmation is required before the import request is sent.
+- Unknown columns produce warnings instead of crashes.
+- Empty or unrecognized pages produce no-data warnings.
+- Ambiguous degree-audit rows require manual review.
+- Raw HTML is not stored by default.
+- Phase 7B review remains required before application.
+
+Phase 8A allowed behavior:
+
+- Extract visible transcript, degree-audit, course-catalog, and section-search tables from mock or user-viewed pages.
+- Convert visible rows into deterministic CSV/JSON compatible with the Phase 7A importer.
+- Preserve safe source metadata such as a visible-page URL.
+- Display extension imports in the existing Data Import Preview and Data Review flow.
+
+Phase 8A forbidden behavior:
+
+- Credential storage, password capture, SAML/MFA/CAPTCHA bypass, background scraping, live polling, portal form submission, official source claims, production browser-store publishing, automatic registration, add/drop/swap, waitlist automation, seat grabbing, or high-frequency section refreshes.
+
+The next possible extension phase is read-only section-change alerts. Alerts must remain advisory, rate-limited, user-controlled, and unable to perform registration or seat-grabbing actions.
+
 ## 9. Phase 3A Requirement Status Semantics
 
 - `SATISFIED`: the requirement is completed by valid completed records or approved transfer/substitution records.

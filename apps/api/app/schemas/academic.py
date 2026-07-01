@@ -1083,7 +1083,14 @@ ImportMatchTypeValue = Literal[
     "MANUAL_REQUIRED",
     "NO_MATCH",
 ]
-DataImportSourceTypeValue = Literal["MOCK", "IMPORTED", "STUDENT_PROVIDED", "INFERRED", "OFFICIAL"]
+DataImportSourceTypeValue = Literal[
+    "MOCK",
+    "IMPORTED",
+    "BROWSER_EXTENSION",
+    "STUDENT_PROVIDED",
+    "INFERRED",
+    "OFFICIAL",
+]
 
 
 class DataImportCreateRequest(BaseModel):

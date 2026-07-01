@@ -2752,6 +2752,34 @@ function DataImportPreviewPanel({
         </li>
       </ul>
 
+      <section
+        className="browser-extension-status"
+        aria-label="Browser extension import status"
+      >
+        <div>
+          <h2>Browser Extension Import</h2>
+          <p className="subtle">
+            Experimental source for visible-page academic tables.
+          </p>
+        </div>
+        <ul className="compact-list">
+          <li>
+            <strong>Experimental</strong>
+            <span>Extension extracts must enter staging import first.</span>
+          </li>
+          <li>
+            <strong>Review</strong>
+            <span>Phase 7B review is required before application.</span>
+          </li>
+          <li>
+            <strong>Boundary</strong>
+            <span>
+              No registration automation, add/drop, swap, or waitlist actions.
+            </span>
+          </li>
+        </ul>
+      </section>
+
       <div className="scenario-controls data-import-controls">
         <label>
           Sample import
@@ -2847,6 +2875,10 @@ function DataImportResultView({
           value={
             state.preview.official_application_ready ? "Ready" : "Disabled"
           }
+        />
+        <SummaryMetric
+          label="Source Type"
+          value={state.run.source.source_type}
         />
         <SummaryMetric
           label="Saved Imports"

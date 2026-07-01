@@ -2,13 +2,14 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 7B adds a Data Review & Confirmation workflow on top of the Phase 7A Data Import Preview foundation. Phase 7A parses small mock or student-provided CSV/JSON academic data into staging tables, proposes mapping candidates, emits validation warnings, and renders a preview panel. Phase 7B lets users review staged records, confirm/reject/defer/advisor-review them, dry-run an application, and explicitly apply confirmed unofficial transcript course attempts into internal planning records with audit logs and duplicate prevention. It does **not** create official transcript data, registrations, add/drop/swap courses, waitlists, seat polling, real school login, scraping, authentication bypass, or authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 8A adds a read-only Browser Extension Import foundation on top of the Phase 7A/7B staging and review workflow. The extension can extract visible academic tables only after user action, preview the extracted rows, and send confirmed payloads to the existing staging import API as `source_type = BROWSER_EXTENSION` and `is_official = false`. Phase 7B review is still required before any internal planning application. It does **not** store credentials, bypass SAML/MFA/CAPTCHA, scrape in the background, publish to a browser store, create official transcript data, register, add/drop/swap courses, waitlist, grab seats, poll seats, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
 ```text
 apps/
   api/                 # FastAPI, SQLAlchemy, Alembic, Pydantic, pytest, Ruff, mypy
+  extension/           # Chrome Extension Manifest V3 read-only import assistant
   web/                 # Next.js TypeScript app with API health status
 packages/
   shared/              # Shared TypeScript schemas/client helpers and OpenAPI copy step
@@ -293,6 +294,19 @@ New endpoints include:
 
 Review decisions are `UNREVIEWED`, `CONFIRMED`, `REJECTED`, `NEEDS_ADVISOR_REVIEW`, `EDITED_AND_CONFIRMED`, and `DEFERRED`. Confirmed unofficial transcript course attempts can create internal `student_course_attempts` rows with `is_official = false`, source metadata, application logs, and duplicate checks. Unsupported catalog, section, requirement, unknown-course, rejected, deferred, advisor-review, duplicate, and unsupported-grade records are skipped with reason codes and warnings rather than silently applied.
 
+## Phase 8A read-only browser extension import
+
+Phase 8A introduces `apps/extension`, a local-development Manifest V3 extension scaffold. It reads only the active visible page after the user clicks the extension action, extracts mock-compatible transcript, degree-audit, catalog, or section-search tables, shows a preview, and sends data only after explicit confirmation.
+
+Extension handoff reuses `POST /api/v1/data-imports` with:
+
+- `source_type = BROWSER_EXTENSION`
+- `is_official = false`
+- staging CSV/JSON content derived from visible page tables
+- source reference metadata for the visible page URL
+
+Browser-extension imports remain staging-only. They do not bypass Phase 7A validation, Phase 7B review, or Phase 7B explicit apply. The extension does not store credentials, inspect password fields, bypass school authentication, submit portal forms, automate registration, add/drop/swap courses, join waitlists, grab seats, run live polling, or publish production browser-store builds in this phase. The next possible extension phase is read-only section-change alerts, still advisory and never registration automation.
+
 ## Quality gates
 
 Run the following before opening a pull request:
@@ -336,6 +350,8 @@ Phase 6A adds `ScheduleOptimizationRun`, `ScheduleConstraintSet`, `ScheduleOptio
 Phase 7A adds `DataImportRun`, `DataImportFile`, `ImportedRecord`, `ImportMappingCandidate`, `ImportValidationWarning`, and `ImportPreviewSummary`. These tables are import staging and preview tables only; they preserve source metadata, warnings, reason codes, and mapping explanations without applying imported records to official academic-domain tables.
 
 Phase 7B adds `DataImportReviewSession`, `ImportedRecordReview`, `DataApplicationRun`, `AppliedImportedRecord`, and `DataReviewWarning`. These tables preserve review decisions, edited normalized payloads, dry-run/application outcomes, skipped duplicate/unsupported records, and warnings. Application is explicit and limited to internal planning records; it does not mark imported data official.
+
+Phase 8A uses `source_type = BROWSER_EXTENSION` on `DataImportRun` rows to distinguish user-confirmed visible-page extension imports from uploads and mock fixtures. These rows remain non-official staging records and still require Phase 7B review before application.
 
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 

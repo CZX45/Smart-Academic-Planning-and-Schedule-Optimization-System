@@ -103,6 +103,14 @@ Phase 7B adds data review and confirmation coverage:
 - Shared TypeScript schema tests for review sessions, record reviews, application runs, applied-record logs, warnings, dry-run results, decision patching, and apply helpers.
 - Playwright tests for the Data Review & Confirmation panel, create review, confirm/reject/defer/advisor-review controls, simple grade edit, dry-run output, explicit apply output, warnings, and application logs.
 
+Phase 8A adds read-only browser extension import coverage:
+
+- TypeScript extractor tests for transcript tables, degree-audit tables, course-catalog tables, section-search tables, unknown pages, empty tables, malformed rows, unknown columns, deterministic output, and password-field exclusion.
+- Extension policy tests for Manifest V3, minimal permissions, no broad host permissions, no credential capture, no portal form submission, no background scraping, and confirmation-gated import sending.
+- Backend/API tests proving `source_type = BROWSER_EXTENSION` imports stay non-official, keep `official_application_ready = false`, preserve source metadata, and enter Phase 7A staging.
+- Shared TypeScript tests for browser-extension import handoff requests.
+- Playwright coverage that Browser Extension Import appears in the web UI with staging-only, review-required, and no-registration messaging.
+
 ### End-to-End Tests
 
 Playwright tests for:
@@ -236,6 +244,15 @@ Phase 7B covers reviewed application behavior:
 - Real application must require explicit POST and must audit every applied or skipped record.
 - Confirmed unofficial transcript course attempts may create internal `student_course_attempts` only with `is_official = false` and source metadata.
 - Duplicate, rejected, deferred, unsupported, unknown-course, unsupported-grade, and advisor-review records must be skipped with reason codes and warnings.
+
+Phase 8A covers browser-extension import behavior:
+
+- Extraction reads visible table text only after user action and never reads password-field values.
+- Extracted data is deterministic and compatible with existing staging import formats.
+- Browser-extension imports use `source_type = BROWSER_EXTENSION`, `is_official = false`, and `official_application_ready = false`.
+- Unknown or malformed visible page data produces warnings, not crashes.
+- Extension handoff requires preview and explicit user confirmation before sending.
+- Extension code does not include credential storage, SAML/MFA bypass, background scraping, live polling, portal submission, registration automation, add/drop/swap, waitlist automation, or seat grabbing.
 
 ## 5. Property and Constraint Tests
 

@@ -1761,6 +1761,21 @@ test("home page previews read-only data imports", async ({ page }) => {
         "No transcript, catalog, section, registration, seat, or waitlist records are changed.",
       ),
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Browser Extension Import/ }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Browser extension import status")).toContainText(
+    "Experimental",
+  );
+  await expect(page.getByLabel("Browser extension import status")).toContainText(
+    "staging import first",
+  );
+  await expect(page.getByLabel("Browser extension import status")).toContainText(
+    "Phase 7B review is required",
+  );
+  await expect(page.getByLabel("Browser extension import status")).toContainText(
+    "No registration automation",
+  );
 
   await page.getByLabel("Sample import").selectOption("mock-transcript-csv");
   await page.getByRole("button", { name: /Preview import/ }).click();
@@ -1769,6 +1784,7 @@ test("home page previews read-only data imports", async ({ page }) => {
   await expect(importSummary.getByText(/parsed with warnings/i)).toBeVisible();
   await expect(importSummary.getByText("Mapped Candidates")).toBeVisible();
   await expect(importSummary.getByText("Disabled")).toBeVisible();
+  await expect(importSummary.getByText("STUDENT_PROVIDED")).toBeVisible();
 
   await expect(
     page.getByLabel("Data import records").getByText("FIN 300", {
