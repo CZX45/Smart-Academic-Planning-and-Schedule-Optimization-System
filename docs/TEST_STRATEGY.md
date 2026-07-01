@@ -111,6 +111,29 @@ Phase 8A adds read-only browser extension import coverage:
 - Shared TypeScript tests for browser-extension import handoff requests.
 - Playwright coverage that Browser Extension Import appears in the web UI with staging-only, review-required, and no-registration messaging.
 
+Phase 11B adds Kean Student Portal import coverage:
+
+- Kean/Ellucian-style fake fixtures for transcript, degree audit/MyProgress,
+  course catalog, section search, student planning, schedule, unknown Kean
+  pages, login pages, hidden fields, unrelated personal/financial columns,
+  action controls, malformed rows, and missing fields.
+- Extension extractor tests proving only supported
+  `https://kean-ss.colleague.elluciancloud.com/Student/*` pages are read, page
+  definitions are whitelisted, academic fields are extracted, unsupported fields
+  are ignored, and guided import requests contain no cookie/session/token
+  payloads.
+- Extension manifest policy tests proving baseline permissions remain
+  `activeTab`, `scripting`, and `storage`, the Kean host permission is optional,
+  `<all_urls>` and broad hosts are absent, and no polling, form submission, or
+  enrollment automation code exists.
+- Popup copy tests proving Kean import explains manual login, no password
+  collection, authorized academic-planning reads only, non-official import
+  status, manual review, local app/API status, and the no-registration boundary.
+- Backend/API tests proving Kean imports are labeled `KEAN_STUDENT_PORTAL`,
+  remain `BROWSER_EXTENSION`, `is_official = false`, and
+  `official_application_ready = false`, and can only proceed through Phase 7B
+  review.
+
 Phase 8B adds read-only section monitoring coverage:
 
 - SQLite-backed model tests for advisory monitor targets, non-official snapshots, official-source rejection, duplicate snapshot deduplication, and alert uniqueness.
@@ -301,6 +324,21 @@ Phase 10A covers release-readiness QA and final product review:
 - Demo scenario docs explain what to show, what users should understand, what not to claim, demo-safe wording, and manual verification reminders.
 - Release checklist docs cover local verification, CI validation, no-secrets review, browser extension permissions, prohibited automation review, documentation review, demo review, and known local limitations.
 - Safety-policy regression tests require Phase 10A docs to exist and avoid misleading demo claims while preserving advisory, non-official, manual-review wording.
+
+Phase 11B covers Kean Student Portal import behavior:
+
+- Current-page import and guided import remain user-triggered and
+  confirmation-gated.
+- The extension rejects or returns no import rows for Kean host pages outside
+  `/Student/` and for unrecognized `/Student/` pages.
+- Extractors ignore password inputs, hidden form values, unrelated personal or
+  financial data, and action-only columns.
+- Kean payloads are source-labeled but still non-official browser-extension
+  staging imports requiring Phase 7B review.
+- Tests guard against background scraping, periodic polling, portal form
+  submission, broad host permissions, browser-store publishing, registration
+  automation, add/drop/swap automation, waitlist automation, seat reservation,
+  and seat grabbing.
 
 ## 5. Property and Constraint Tests
 

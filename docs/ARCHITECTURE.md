@@ -63,6 +63,10 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Phase 9A adds product-hardening UI helpers and dashboard polish. It summarizes existing workflow status, empty states, manual next actions, and advisory labels without adding backend domains or changing the read-only/advisory boundary.
 - Phase 9B adds production-readiness hardening. The API validates environment, database, timeout, and CORS settings; applies safe response headers; narrows CORS request headers; and emits low-sensitivity audit logs for imports and section-monitoring comparisons without adding product domains.
 - Phase 10A adds release-readiness QA and final product review documentation. It covers user-flow QA, demo-safe wording, final checklist review, and safety-boundary audit without adding backend domains or changing workflow authority.
+- Phase 11B adds Kean Student Portal browser-extension import handling through
+  the existing `/api/v1/data-imports` and Phase 7B review path. It adds no new
+  backend domain, official-source ingestion, credential handling, polling, or
+  registration capability.
 
 ### Browser Extension
 
@@ -71,6 +75,11 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Converts visible transcript, degree-audit, catalog, or section-search tables into structured import drafts.
 - Shows a preview before sending and requires explicit confirmation.
 - Phase 8B extraction includes section availability, waitlist count, meeting-time, location, and instructor fields so user-triggered imports can feed advisory comparisons.
+- Phase 11B adds Kean-specific page definitions for transcript, degree audit,
+  MyProgress, course catalog, section search, student planning, and schedule
+  pages under `https://kean-ss.colleague.elluciancloud.com/Student/*`.
+- Guided Kean import requests an optional Kean host permission only when the
+  student starts the workflow, then captures only user-opened supported pages.
 - Never stores school credentials.
 - Never performs registration actions.
 
@@ -213,6 +222,20 @@ Phase 8A adds a browser-extension handoff into the same staging boundary:
 - Phase 7B review and explicit apply remain mandatory before internal planning records can be changed.
 - No extension code stores credentials, reads password fields, submits forms, polls portals, publishes production builds, or automates registration, add/drop, swap, waitlist, or seat-state behavior.
 
+Phase 11B specializes that handoff for Kean Student Portal:
+
+- Supported portal prefix is
+  `https://kean-ss.colleague.elluciancloud.com/Student/*`.
+- The manifest keeps baseline permissions to `activeTab`, `scripting`, and
+  `storage`, with an optional Kean host permission for guided import.
+- Because Chrome host permissions are host-scoped, extraction code enforces the
+  narrower `/Student/` prefix and page whitelist.
+- Kean extracts are labeled `KEAN_STUDENT_PORTAL` in source-reference and
+  preview metadata while staying non-official browser-extension imports.
+- Unsupported Kean host pages, login pages, hidden fields, unrelated personal
+  or financial columns, and action-only columns do not become import payload
+  fields.
+
 ### Section Monitoring Boundary
 
 Compares user-triggered section-search snapshots and produces advisory alerts only.
@@ -266,8 +289,11 @@ Produces risk flags, advisor review items, confidence levels, and high-risk reco
 14. Phase 9A Product Hardening renders status cards, reusable advisory labels, empty states, safer before/after displays, and manual next-action copy for the existing workflows.
 15. Phase 9B Production Readiness validates environment configuration, applies safe HTTP defaults, and logs low-sensitivity audit events around imports and advisory monitoring.
 16. Phase 10A Release Readiness QA documents final user-flow QA, demo scenarios, checklist review, and safety-boundary audit for handoff.
-17. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
-18. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
+17. Phase 11B Kean Student Portal Import captures user-authorized supported
+    Kean pages into `BROWSER_EXTENSION` staging imports and preserves Phase 7B
+    review.
+18. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
+19. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
 
 ## 6. API Design Principles
 

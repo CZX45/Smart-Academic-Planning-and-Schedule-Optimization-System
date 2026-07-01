@@ -2,7 +2,7 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 10B adds the final demo and handoff documentation package on top of the Phase 10A release-readiness QA set. Browser-extension and monitoring data remains `source_type = BROWSER_EXTENSION` or otherwise non-official, and students must verify manually in the official registration portal. The system does **not** store credentials, bypass SAML/MFA/CAPTCHA, scrape in the background, publish to a browser store, create official transcript data, register, add/drop/swap courses, join waitlists, alter seat state, run polling, submit forms, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 11B adds a user-authorized Kean Student Portal academic import workflow on top of the Phase 10B final demo and handoff package. Browser-extension and monitoring data remains `source_type = BROWSER_EXTENSION` or otherwise non-official, and students must verify manually in the official registration portal. The system does **not** store credentials, bypass SAML/MFA/CAPTCHA, scrape in the background, publish to a browser store, create official transcript data, register, add/drop/swap courses, join waitlists, alter seat state, run polling, submit forms, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
@@ -370,6 +370,24 @@ Final handoff docs:
 
 Phase 10B is documentation, demo readiness, handoff clarity, and safety framing only. It does not add backend domains, database tables, migrations, browser extension behavior, registration workflows, scraping, polling, notification workers, credential handling, or production deployment.
 
+## Phase 11B — Kean Student Portal Academic Import
+
+Phase 11B hardens the local-development extension for a Kean / Ellucian Student Portal workflow under:
+
+```text
+https://kean-ss.colleague.elluciancloud.com/Student/*
+```
+
+The student opens the official portal, logs in manually, opens the extension, and either extracts the current supported page or starts a guided Kean import. Guided import requests the narrowest Chrome host permission available for the Kean host, then still enforces the `/Student/` prefix and configured page whitelist in code.
+
+Supported Kean page definitions include transcript, degree audit, MyProgress, course catalog, section search, student planning, and schedule pages. The extension extracts only visible academic-planning table fields, shows row counts/warnings/preview, and sends confirmed staging imports to the local API as `source_type = BROWSER_EXTENSION`, `is_official = false`, and `official_application_ready = false`. Backend preview metadata labels Kean imports as `KEAN_STUDENT_PORTAL`, and Phase 7B review remains required.
+
+Phase 11B does not add automatic login, credential collection, cookie/session storage, SAML/MFA bypass, broad crawling, background scraping, polling, portal form submission, registration, add/drop/swap/waitlist automation, seat reservation, seat grabbing, browser-store publishing, official-source ingestion, or real student data.
+
+Guide:
+
+- [Kean Student Portal Import Guide](docs/KEAN_STUDENT_PORTAL_IMPORT_GUIDE.md)
+
 ## Final Review and Handoff
 
 Start here for final review:
@@ -384,6 +402,7 @@ Start here for final review:
 - [Known Limitations and Future Work](docs/KNOWN_LIMITATIONS_AND_FUTURE_WORK.md)
 - [Final Safety and Non-Automation Statement](docs/FINAL_SAFETY_AND_NON_AUTOMATION_STATEMENT.md)
 - [Handoff Checklist](docs/HANDOFF_CHECKLIST.md)
+- [Kean Student Portal Import Guide](docs/KEAN_STUDENT_PORTAL_IMPORT_GUIDE.md)
 
 ## Production readiness checklist
 
@@ -395,7 +414,7 @@ Before any real deployment, complete the focused [Release Checklist](docs/RELEAS
 - OpenAPI artifacts are regenerated and checked with `corepack pnpm openapi:generate` and `corepack pnpm openapi:check`.
 - Unit, integration, e2e, type, lint, format, build, and Docker Compose checks pass.
 - Security/privacy review confirms imported data stays non-official unless a future reviewed workflow changes that rule.
-- Browser extension permissions remain Manifest V3, `activeTab`, `scripting`, `storage`, and no broad `host_permissions`.
+- Browser extension permissions remain Manifest V3, `activeTab`, `scripting`, `storage`, no broad `host_permissions`, and only the optional Kean host permission for the Phase 11B guided import workflow.
 - Manual verification confirms no registration, add/drop, swap, waitlist, seat-state, portal submission, polling, background scraping, credential capture, or hidden automation behavior exists.
 - Demo wording uses imported snapshot, advisory alert, manual review required, non-official data, and "verify in the official portal" language for high-impact decisions.
 
@@ -457,6 +476,8 @@ Phase 10A adds no new domain tables. It documents release QA, demo scenarios, fi
 
 Phase 10B adds no new domain tables. It documents the final demo and handoff package for the existing read-only/advisory workflows.
 
+Phase 11B adds no new domain tables. It labels Kean Student Portal browser-extension staging imports through source-reference and preview metadata while preserving `source_type = BROWSER_EXTENSION`, `is_official = false`, `official_application_ready = false`, and Phase 7B review.
+
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 
 The project should not jump from Phase 4 directly into automatic registration, waitlist automation, seat-state automation, credential storage, or portal bypass behavior.
@@ -481,3 +502,4 @@ The project should not jump from Phase 4 directly into automatic registration, w
 - [Known Limitations and Future Work](docs/KNOWN_LIMITATIONS_AND_FUTURE_WORK.md)
 - [Final Safety and Non-Automation Statement](docs/FINAL_SAFETY_AND_NON_AUTOMATION_STATEMENT.md)
 - [Handoff Checklist](docs/HANDOFF_CHECKLIST.md)
+- [Kean Student Portal Import Guide](docs/KEAN_STUDENT_PORTAL_IMPORT_GUIDE.md)

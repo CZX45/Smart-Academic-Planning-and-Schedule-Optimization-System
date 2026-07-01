@@ -442,7 +442,7 @@ Testable outcomes:
 
 ## Phase 10A: Release Readiness QA and Final Product Review
 
-Status: current release-readiness phase.
+Status: complete.
 
 Deliverables:
 
@@ -467,6 +467,49 @@ Deferred from Phase 10A:
 - Browser-store publishing.
 - Account/auth systems.
 - Real production deployment.
+
+## Phase 11B: Kean Student Portal Academic Import
+
+Status: current phase.
+
+Deliverables:
+
+- Kean Student Portal Academic Import workflow under
+  `https://kean-ss.colleague.elluciancloud.com/Student/*`.
+- Extension current-page import mode for a user-opened supported Kean page.
+- Guided Kean full academic import mode that requests the optional Kean host
+  permission only when started by the student.
+- Configurable Kean page definitions for transcript, degree audit, MyProgress,
+  course catalog, section search, student planning, and schedule pages.
+- Popup UI with supported page types, detected page type, row counts, warnings,
+  preview table, non-official/manual-review labels, local app/API status, and
+  confirmation-gated handoff.
+- Backend preview labeling for Kean imports as `KEAN_STUDENT_PORTAL` while
+  preserving `source_type = BROWSER_EXTENSION`, `is_official = false`, and
+  `official_application_ready = false`.
+- Fake Kean/Ellucian-style fixtures and tests for supported pages, unsupported
+  pages, login pages, hidden fields, personal/financial columns, action
+  controls, malformed rows, and missing fields.
+- Dedicated Kean Student Portal import guide.
+
+Testable outcomes:
+
+- Kean imports are user-triggered, previewed, confirmation-gated, non-official,
+  and Phase 7B review-gated.
+- The extension enforces the `/Student/` prefix and configured page whitelist.
+- Password fields, hidden form values, cookies, session tokens, unrelated
+  personal/financial data, and action payloads are not imported.
+- No automatic login, SAML/MFA/CAPTCHA bypass, portal form submission,
+  background scraping, polling, registration, add/drop/swap/waitlist automation,
+  seat reservation, seat grabbing, browser-store publishing, official-source
+  ingestion, or real student data is added.
+
+Deferred from Phase 11B:
+
+- Verified official Kean catalog or program-source ingestion.
+- Production browser-store publication.
+- Account/auth and FERPA production controls.
+- Automated portal navigation, polling, notifications, or enrollment actions.
 
 ## Deferred / Future
 

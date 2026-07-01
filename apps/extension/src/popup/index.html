@@ -8,7 +8,7 @@
         color: #111827;
         font: 14px system-ui, sans-serif;
         margin: 0;
-        min-width: 360px;
+        min-width: 420px;
         padding: 14px;
       }
 
@@ -53,15 +53,63 @@
         padding: 8px;
         white-space: pre-wrap;
       }
+
+      table {
+        border-collapse: collapse;
+        font-size: 12px;
+        margin-top: 8px;
+        width: 100%;
+      }
+
+      th,
+      td {
+        border: 1px solid #d1d5db;
+        padding: 5px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #f3f4f6;
+      }
+
+      .status-grid {
+        display: grid;
+        gap: 6px;
+        grid-template-columns: 1fr;
+      }
+
+      .label {
+        background: #eef2ff;
+        color: #312e81;
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 3px 6px;
+      }
     </style>
   </head>
   <body>
-    <h1>Browser Extension Import</h1>
+    <h1>Kean Student Portal Academic Import</h1>
     <ul>
-      <li>Reads only the active visible page after you request it.</li>
-      <li>Sends staging import data only after confirmation.</li>
-      <li>No credential storage, portal writes, or registration automation.</li>
+      <li>The extension does not log in for you.</li>
+      <li>The extension does not collect your password.</li>
+      <li>The extension only reads academic-planning data from Kean Student Portal pages you authorize.</li>
+      <li>Imported data is non-official and requires manual review.</li>
+      <li>The system does not register, drop, swap, waitlist, reserve seats, or grab seats.</li>
     </ul>
+    <p>
+      Open
+      https://kean-ss.colleague.elluciancloud.com/Student, log in manually, and
+      keep using the official portal directly.
+    </p>
+    <section>
+      <strong>Supported page types</strong>
+      <span>
+        Transcript, Degree Audit, MyProgress, Course Catalog, Section Search,
+        Student Planning, Schedule.
+      </span>
+    </section>
     <label>
       API base URL
       <input id="apiBaseUrlInput" value="http://localhost:8000" />
@@ -70,14 +118,35 @@
       Student profile ID
       <input id="studentProfileIdInput" />
     </label>
-    <button id="extractCurrentPageButton" type="button">Extract current page</button>
-    <section aria-live="polite">
+    <button id="extractCurrentPageButton" type="button">
+      Extract current page
+    </button>
+    <button id="startKeanImportButton" type="button">
+      Start Kean Academic Import
+    </button>
+    <button id="captureGuidedPageButton" type="button" disabled>
+      Capture current guided page
+    </button>
+    <section class="status-grid" aria-live="polite">
       <strong id="statusText">Waiting for user action.</strong>
-      <pre id="previewText"></pre>
+      <span id="apiStatusText">Local app/API not contacted.</span>
+      <span>Detected page type: <strong id="detectedPageText"></strong></span>
+      <span>Extracted row counts: <strong id="countsText"></strong></span>
+      <span class="label">Non-official data</span>
+      <span class="label">Manual review required</span>
+    </section>
+    <section>
+      <strong>Warnings</strong>
+      <ul id="warningsList"></ul>
+    </section>
+    <section>
+      <strong>Preview</strong>
+      <table id="previewTable" aria-label="Extracted academic data preview"></table>
     </section>
     <button id="confirmImportButton" type="button" disabled>
       Confirm staging import
     </button>
+    <p>Open the local app after import to complete Phase 7B review.</p>
     <script type="module" src="../../dist/popup/popup.js"></script>
   </body>
 </html>

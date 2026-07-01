@@ -4,9 +4,14 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  createDataImportRequestsFromExtractions,
   createDataImportRequestFromExtraction,
   extractAcademicPageFromTables,
 } from "../src/content/extractors.js";
+import {
+  KEAN_SOURCE_LABEL,
+  KEAN_STUDENT_PORTAL_PREFIX,
+} from "../src/shared/kean.js";
 import type { TableSnapshot } from "../src/shared/types.js";
 
 const fixturesDir = join(process.cwd(), "tests", "fixtures");
@@ -58,10 +63,13 @@ function tablesFromFixture(name: string): TableSnapshot[] {
   });
 }
 
-function extractFixture(name: string) {
+function extractFixture(
+  name: string,
+  options: { title?: string; url?: string } = {},
+) {
   return extractAcademicPageFromTables({
-    title: `Fixture ${name}`,
-    url: `https://portal.example.edu/${name}`,
+    title: options.title ?? `Fixture ${name}`,
+    url: options.url ?? `https://portal.example.edu/${name}`,
     tables: tablesFromFixture(name),
   });
 }
@@ -212,5 +220,152 @@ describe("browser extension academic table extractors", () => {
     expect(request.source_reference).toContain(
       "https://portal.example.edu/section-search-table.html",
     );
+  });
+
+  it("detects Kean transcript pages under the Student portal prefix", () => {
+    const extraction = extractFixture("kean-transcript-page.html", {
+      title: "Kean Student Planning - Unofficial Transcript",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory`,
+    });
+
+    expect(extraction.pageType).toBe("KEAN_TRANSCRIPT_PAGE");
+    expect(extraction.importType).toBe("UNOFFICIAL_TRANSCRIPT");
+    expect(extraction.sourceType).toBe("BROWSER_EXTENSION");
+    expect(extraction.isOfficial).toBe(false);
+    expect(extraction.requiresReview).toBe(true);
+    expect(extraction.records).toHaveLength(2);
+    expect(extraction.records[0]).toMatchObject({
+      term_code: "2024FA",
+      course_code: "CPS 2231",
+      course_title: "Mock Computer Organization",
+      credits: "3",
+      grade: "B+",
+      attempt_status: "COMPLETED",
+    });
+    expect(extraction.warnings.map((warning) => warning.code)).toContain(
+      "KEAN_IMPORT_NON_OFFICIAL_REVIEW_REQUIRED",
+    );
+  });
+
+  it("detects Kean MyProgress, catalog, section search, planning, and schedule pages", () => {
+    const myProgress = extractFixture("kean-my-progress-page.html", {
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/MyProgress`,
+    });
+    const catalog = extractFixture("kean-course-catalog-page.html", {
+      title: "Course Catalog",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/CourseCatalog`,
+    });
+    const sections = extractFixture("kean-section-search-page.html", {
+      title: "Section Search",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/SectionSearch`,
+    });
+    const planning = extractFixture("kean-student-planning-page.html", {
+      title: "Student Planning",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/StudentPlanning`,
+    });
+    const schedule = extractFixture("kean-schedule-page.html", {
+      title: "Student Schedule",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Schedule`,
+    });
+
+    expect(myProgress.pageType).toBe("KEAN_MY_PROGRESS_PAGE");
+    expect(myProgress.importType).toBe("DEGREE_AUDIT_EXPORT");
+    expect(catalog.pageType).toBe("KEAN_COURSE_CATALOG_PAGE");
+    expect(catalog.importType).toBe("COURSE_CATALOG");
+    expect(sections.pageType).toBe("KEAN_SECTION_SEARCH_PAGE");
+    expect(sections.importType).toBe("SECTION_SCHEDULE");
+    expect(planning.pageType).toBe("KEAN_STUDENT_PLANNING_PAGE");
+    expect(planning.importType).toBe("SECTION_SCHEDULE");
+    expect(schedule.pageType).toBe("KEAN_SCHEDULE_PAGE");
+    expect(schedule.importType).toBe("SECTION_SCHEDULE");
+  });
+
+  it("creates confirmed guided Kean import requests without cookies or session data", () => {
+    const extractions = [
+      extractFixture("kean-transcript-page.html", {
+        title: "Unofficial Transcript",
+        url: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory`,
+      }),
+      extractFixture("kean-my-progress-page.html", {
+        title: "MyProgress",
+        url: `${KEAN_STUDENT_PORTAL_PREFIX}/MyProgress`,
+      }),
+      extractFixture("kean-section-search-page.html", {
+        title: "Section Search",
+        url: `${KEAN_STUDENT_PORTAL_PREFIX}/SectionSearch`,
+      }),
+    ];
+
+    const requests = createDataImportRequestsFromExtractions(
+      "00000000-0000-4000-8000-000000000702",
+      extractions,
+    );
+
+    expect(requests).toHaveLength(3);
+    expect(requests.map((request) => request.import_type)).toEqual([
+      "UNOFFICIAL_TRANSCRIPT",
+      "DEGREE_AUDIT_EXPORT",
+      "SECTION_SCHEDULE",
+    ]);
+    expect(
+      requests.every((request) => request.source_type === "BROWSER_EXTENSION"),
+    ).toBe(true);
+    expect(
+      requests.every((request) =>
+        request.source_reference.includes(KEAN_SOURCE_LABEL),
+      ),
+    ).toBe(true);
+    expect(JSON.stringify(requests).toLowerCase()).not.toMatch(
+      /cookie|session|token|secret|hidden-field-value/,
+    );
+  });
+
+  it("does not scan Kean host pages outside the Student portal prefix", () => {
+    const extraction = extractFixture("kean-transcript-page.html", {
+      title: "Kean Billing",
+      url: "https://kean-ss.colleague.elluciancloud.com/Finance/Billing",
+    });
+
+    expect(extraction.pageType).toBe("UNKNOWN_PAGE");
+    expect(extraction.records).toHaveLength(0);
+    expect(extraction.warnings.map((warning) => warning.code)).toContain(
+      "OUTSIDE_KEAN_STUDENT_PORTAL",
+    );
+  });
+
+  it("ignores Kean login, hidden, personal, financial, and action-only data", () => {
+    const login = extractFixture("kean-login-page.html", {
+      title: "Kean Login",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Account/Login`,
+    });
+    const hidden = extractFixture("kean-hidden-credential-fields.html", {
+      title: "Unofficial Transcript",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory`,
+    });
+    const personal = extractFixture("kean-personal-financial-columns.html", {
+      title: "Unofficial Transcript",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory`,
+    });
+    const actions = extractFixture("kean-registration-actions-page.html", {
+      title: "Section Search",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/SectionSearch`,
+    });
+
+    expect(login.pageType).toBe("UNKNOWN_PAGE");
+    expect(login.records).toHaveLength(0);
+    expect(hidden.records[0]).toMatchObject({
+      course_code: "MATH 1054",
+      course_title: "Mock Precalculus",
+    });
+    const serialized = JSON.stringify([login, hidden, personal, actions]);
+    expect(serialized).not.toContain("do-not-read-password");
+    expect(serialized).not.toContain("hidden-field-value");
+    expect(serialized).not.toContain("mock.student@example.edu");
+    expect(serialized).not.toContain("$500.00");
+    expect(serialized).not.toContain("Add Section");
+    expect(serialized).not.toContain("Drop Section");
+    expect(actions.records[0]).not.toHaveProperty("registration_action");
+    expect(actions.records[0]).not.toHaveProperty("form_action");
   });
 });

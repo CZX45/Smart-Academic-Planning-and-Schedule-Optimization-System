@@ -1,6 +1,6 @@
 # Release Checklist
 
-Phase 10A — Release Readiness QA and Final Product Review uses this checklist
+Phase 11B — Kean Student Portal Import uses this checklist
 before a demo, handoff, or release-candidate review. It is not a production
 deployment checklist and does not approve official institutional data use.
 
@@ -45,6 +45,11 @@ deployment checklist and does not approve official institutional data use.
 - [ ] Manifest version remains 3.
 - [ ] Permissions remain limited to `activeTab`, `scripting`, and `storage`.
 - [ ] No broad `host_permissions` are added.
+- [ ] The Kean host permission is optional and limited to
+  `https://kean-ss.colleague.elluciancloud.com/*`.
+- [ ] Kean extraction code enforces
+  `https://kean-ss.colleague.elluciancloud.com/Student/*` and configured page
+  definitions.
 - [ ] Extraction remains user-triggered.
 - [ ] Preview and explicit confirmation remain required before sending data.
 - [ ] Extension remains local-development only unless a future review approves
@@ -70,13 +75,13 @@ deployment checklist and does not approve official institutional data use.
 
 ## Documentation Review
 
-- [ ] `README.md` reflects Phase 10A status and links release QA docs.
+- [ ] `README.md` reflects current phase status and links release QA docs.
 - [ ] `docs/ARCHITECTURE.md` describes the release-readiness boundary.
 - [ ] `docs/DOMAIN_RULES.md` keeps Phase 10A hard rules explicit.
 - [ ] `docs/SECURITY_AND_PRIVACY.md` includes final safety boundary review.
 - [ ] `docs/TEST_STRATEGY.md` includes release-readiness QA coverage.
-- [ ] `docs/ROADMAP.md` marks Phase 9B complete and Phase 10A current.
-- [ ] `docs/DECISIONS.md` records the Phase 10A decision.
+- [ ] `docs/ROADMAP.md` marks completed phases consistently.
+- [ ] `docs/DECISIONS.md` records the current phase decision.
 - [ ] `docs/RELEASE_READINESS_QA.md` covers the main user journeys.
 - [ ] `docs/DEMO_SCENARIOS.md` uses demo-safe wording.
 
@@ -84,6 +89,8 @@ deployment checklist and does not approve official institutional data use.
 
 - [ ] Data import review and confirmation scenario uses non-official wording.
 - [ ] Browser extension scenario describes read-only imported data and user action.
+- [ ] Kean import scenario describes manual portal login, optional permission,
+  preview, confirmation, non-official import status, and Phase 7B review.
 - [ ] Section monitoring scenario describes advisory alerts and manual review required.
 - [ ] Dashboard scenario shows status cards, empty states, and manual next actions.
 - [ ] Schedule optimization scenario explains snapshots, warnings, and repair
