@@ -2,7 +2,7 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 9B hardens the Phase 9A product surface for security, privacy, environment validation, safe HTTP defaults, auditability, and production-readiness review. Browser-extension and monitoring data remains `source_type = BROWSER_EXTENSION` or otherwise non-official, and students must verify manually in the official registration portal. The system does **not** store credentials, bypass SAML/MFA/CAPTCHA, scrape in the background, publish to a browser store, create official transcript data, register, add/drop/swap courses, join waitlists, alter seat state, run polling, submit forms, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 10A adds release-readiness QA documentation, demo scenarios, a final release checklist, and safety-boundary review for the Phase 9B product surface. Browser-extension and monitoring data remains `source_type = BROWSER_EXTENSION` or otherwise non-official, and students must verify manually in the official registration portal. The system does **not** store credentials, bypass SAML/MFA/CAPTCHA, scrape in the background, publish to a browser store, create official transcript data, register, add/drop/swap courses, join waitlists, alter seat state, run polling, submit forms, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
@@ -280,7 +280,7 @@ Supported endpoint family:
 
 Import types include unofficial transcript CSV, degree audit JSON, catalog CSV, section schedule CSV, and generic CSV/JSON. Phase 7A intentionally keeps `official_application_ready = false`; it never writes imported records into `student_course_attempts`, `courses`, `sections`, requirement tables, registration state, seat counts, or waitlists. The web app includes a Data Import Preview panel with required non-official and advisor-confirmation disclaimers.
 
-## Phase 7B data review and confirmation API
+## Phase 7B — Data Review and Confirmation Workflow
 
 Phase 7B reviews Phase 7A staging rows before any internal planning write. Users create a review session, update each imported record decision, run a dry-run application, and then explicitly POST an apply request. GET endpoints only read review/application state.
 
@@ -298,7 +298,7 @@ New endpoints include:
 
 Review decisions are `UNREVIEWED`, `CONFIRMED`, `REJECTED`, `NEEDS_ADVISOR_REVIEW`, `EDITED_AND_CONFIRMED`, and `DEFERRED`. Confirmed unofficial transcript course attempts can create internal `student_course_attempts` rows with `is_official = false`, source metadata, application logs, and duplicate checks. Unsupported catalog, section, requirement, unknown-course, rejected, deferred, advisor-review, duplicate, and unsupported-grade records are skipped with reason codes and warnings rather than silently applied.
 
-## Phase 8A read-only browser extension import
+## Phase 8A — Read-only Browser Extension Import
 
 Phase 8A introduces `apps/extension`, a local-development Manifest V3 extension scaffold. It reads only the active visible page after the user clicks the extension action, extracts mock-compatible transcript, degree-audit, catalog, or section-search tables, shows a preview, and sends data only after explicit confirmation.
 
@@ -311,7 +311,7 @@ Extension handoff reuses `POST /api/v1/data-imports` with:
 
 Browser-extension imports remain staging-only. They do not bypass Phase 7A validation, Phase 7B review, or Phase 7B explicit apply. The extension does not store credentials, inspect password fields, bypass school authentication, submit portal forms, automate registration, add/drop/swap courses, join waitlists, grab seats, run live polling, or publish production browser-store builds in this phase.
 
-## Phase 8B read-only section monitoring
+## Phase 8B — Read-only Section Monitoring Alerts
 
 Phase 8B creates advisory section monitoring under `/api/v1/section-monitoring`. A student can create a monitor target, submit user-triggered non-official section-search snapshots, compare snapshots, list alerts, and acknowledge alerts. Snapshot comparison deduplicates identical imports and alerts on section opened/closed changes, seat count changes, waitlist count changes, meeting-time changes, instructor changes, location changes, and unknown raw-payload changes.
 
@@ -326,7 +326,7 @@ New endpoints include:
 
 Section monitoring is advisory and non-official. It does not mutate canonical `Section` rows, seat counts, waitlists, student records, academic plans, schedules, or registration state. It does not poll portals, change seat or waitlist state, submit forms, or perform registration actions. The web app includes a Section Monitoring panel with monitored sections, advisory alerts, required disclaimers, and a manual registration checklist.
 
-## Phase 9A product hardening and dashboard polish
+## Phase 9A — Product Hardening and Dashboard Polish
 
 Phase 9A improves the existing product surface without changing backend domains or the read-only/advisory boundary. The home dashboard adds status cards for degree audit, data import review, browser extension import, section monitoring, schedule optimization, and what-if planning. Each card shows a current status, concise explanation, recommended manual next action, advisory labels where relevant, and an in-page link to the existing workflow.
 
@@ -334,7 +334,7 @@ Phase 9A also adds clearer empty states for missing imports, missing confirmed i
 
 This phase does not add registration automation, portal submission, polling, background scraping, credential capture, waitlist automation, seat-state changes, or official school-policy claims.
 
-## Phase 9B security and production readiness
+## Phase 9B — Security and Production Readiness Hardening
 
 Phase 9B adds focused operational hardening without changing product workflows. The API validates database URL, app environment, database timeout, and CORS origins with production-safe defaults. The web app validates `NEXT_PUBLIC_API_BASE_URL` through a typed helper before using it for API calls. The API also emits safe response headers, keeps CORS explicit, and logs import/section-monitoring events with low-sensitivity metadata only.
 
@@ -342,9 +342,21 @@ Phase 9B documentation clarifies imported academic data privacy, user-triggered 
 
 This phase does not add credentials, secrets, registration automation, polling, portal submission, waitlist automation, seat reservation, seat grabbing, external telemetry, account systems, or production deployment.
 
+## Phase 10A — Release Readiness QA and Final Product Review
+
+Phase 10A prepares the project for final review, demo, and handoff. It adds a release QA matrix, demo-safe scenario guide, final release checklist, and documentation consistency cleanup for Phase 7B through Phase 10A workflows.
+
+Release-readiness docs:
+
+- [Release Readiness QA](docs/RELEASE_READINESS_QA.md)
+- [Demo Scenarios](docs/DEMO_SCENARIOS.md)
+- [Release Checklist](docs/RELEASE_CHECKLIST.md)
+
+Phase 10A remains documentation, QA, and safety-review focused. It does not add backend domains, official source ingestion, account systems, credential handling, registration automation, polling, portal submission, waitlist automation, seat reservation, seat grabbing, browser-store publishing, external telemetry, or production deployment.
+
 ## Production readiness checklist
 
-Before any real deployment, verify:
+Before any real deployment, complete the focused [Release Checklist](docs/RELEASE_CHECKLIST.md) and verify:
 
 - Environment variables are explicit for the target environment: `ENVIRONMENT`, `DATABASE_URL`, `DATABASE_CONNECT_TIMEOUT_SECONDS`, `CORS_ORIGINS`, and `NEXT_PUBLIC_API_BASE_URL`.
 - No `.env` file, real credential, school password, portal token, production database secret, or student record dump is committed.
@@ -354,6 +366,7 @@ Before any real deployment, verify:
 - Security/privacy review confirms imported data stays non-official unless a future reviewed workflow changes that rule.
 - Browser extension permissions remain Manifest V3, `activeTab`, `scripting`, `storage`, and no broad `host_permissions`.
 - Manual verification confirms no registration, add/drop, swap, waitlist, seat-state, portal submission, polling, background scraping, credential capture, or hidden automation behavior exists.
+- Demo wording uses imported snapshot, advisory alert, manual review required, non-official data, and "verify in the official portal" language for high-impact decisions.
 
 ## Quality gates
 
@@ -409,6 +422,8 @@ Phase 8B adds `SectionMonitorTarget`, `SectionMonitorSnapshot`, and `SectionMoni
 
 Phase 9B adds no new domain tables. It hardens configuration, HTTP safety defaults, privacy documentation, audit logging, and regression tests around the existing read-only/advisory workflows.
 
+Phase 10A adds no new domain tables. It documents release QA, demo scenarios, final checklist review, and safety-boundary confirmation for the existing read-only/advisory workflows.
+
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 
 The project should not jump from Phase 4 directly into automatic registration, waitlist automation, seat-state automation, credential storage, or portal bypass behavior.
@@ -423,3 +438,6 @@ The project should not jump from Phase 4 directly into automatic registration, w
 - [Roadmap](docs/ROADMAP.md)
 - [Test Strategy](docs/TEST_STRATEGY.md)
 - [Architecture Decisions](docs/DECISIONS.md)
+- [Release Readiness QA](docs/RELEASE_READINESS_QA.md)
+- [Demo Scenarios](docs/DEMO_SCENARIOS.md)
+- [Release Checklist](docs/RELEASE_CHECKLIST.md)

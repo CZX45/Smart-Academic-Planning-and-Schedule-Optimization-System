@@ -52,6 +52,7 @@ Academic requirements are high-impact. Incorrect results may delay graduation, a
 - Treat Phase 8B section monitoring as advisory comparison of user-triggered non-official snapshots. Do not run background polling, refresh school pages automatically, alter seat or waitlist state, submit forms, or claim alerts are official portal status.
 - Treat Phase 9A product-hardening UI as clarity-only work. Status cards, empty states, labels, and manual checklists must not add credential capture, portal submission, polling, background scraping, registration automation, waitlist automation, or seat-state changes.
 - Treat Phase 9B as hardening-only work. Environment validation, safe HTTP headers, CORS tightening, audit logging, data-retention documentation, and safety regression tests must not add new academic authority, official imports, account systems, telemetry, registration automation, polling, portal submission, or deployment.
+- Treat Phase 10A as release-readiness QA and final product review only. Release docs, demo scenarios, checklist review, and safety audit must not add new academic authority, official imports, account systems, telemetry, registration automation, polling, portal submission, credential handling, or deployment.
 - Maintain regression fixtures for every catalog/program version.
 
 ## 6. Privacy Controls
@@ -105,3 +106,25 @@ Before production-like deployment, confirm:
 - Browser extension permissions are manually reviewed for no broad host access and no background polling primitives.
 - No `.env`, credential, portal secret, production database secret, real student record dump, or school password is committed.
 - Security/privacy review confirms no registration automation, add/drop, swap, waitlist automation, seat reservation, seat grabbing, portal submission, scraping, polling, credential capture, hidden automation, or external telemetry was added.
+
+## 10. Phase 10A Final Safety Boundary Audit
+
+Before demo or handoff review, confirm:
+
+- Release QA docs cover user journeys without treating mock, imported, inferred, or ambiguous data as official school policy.
+- Demo scenarios use imported snapshot, advisory alert, manual review required, read-only imported data, non-official data, and verify in the official portal language.
+- No portal credentials are stored.
+- No password fields are extracted.
+- No SAML/MFA/CAPTCHA bypass exists.
+- No portal form submission exists.
+- No background scraping exists.
+- No polling exists.
+- No automatic registration exists.
+- No add/drop/swap automation exists.
+- No waitlist automation exists.
+- No seat reservation exists.
+- No seat grabbing exists.
+- No browser-store publishing exists.
+- No hidden automation exists.
+- No external telemetry exists without explicit approval.
+- No real production deployment exists without explicit approval.

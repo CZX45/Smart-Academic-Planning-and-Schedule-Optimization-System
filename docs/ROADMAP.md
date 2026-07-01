@@ -319,7 +319,7 @@ Deferred from Phase 7A:
 - OCR-heavy document extraction.
 - Automatic registration, add/drop/swap, seat monitoring, and waitlist handling.
 
-## Phase 7B: Data Review & Confirmation Workflow
+## Phase 7B: Data Review and Confirmation Workflow
 
 Status: complete.
 
@@ -330,7 +330,7 @@ Deliverables:
 - `/api/v1/data-import-reviews` endpoint family for create, detail, records, decision updates, dry-run/apply, application logs, warnings, application detail, and student review history.
 - `DataReviewApplicationService.apply_review_session(...)` with dry-run support, duplicate prevention, source metadata preservation, and skipped-record reason codes.
 - Non-official internal `student_course_attempts` application for confirmed unofficial transcript course attempts only.
-- Shared TypeScript schemas/client helpers and Data Review & Confirmation UI panel.
+- Shared TypeScript schemas/client helpers and Data Review and Confirmation UI panel.
 - Mock seed scenarios and tests for edited records, advisor review, unsupported data, duplicate skip, dry-run, and application logs.
 
 Testable outcomes:
@@ -343,7 +343,7 @@ Testable outcomes:
 
 ## Phase 8: Browser Extension Import Assistant
 
-Status: completed foundation, with Phase 8A read-only browser extension import and Phase 8B read-only section monitoring implemented.
+Status: completed foundation, with Phase 8A — Read-only Browser Extension Import and Phase 8B — Read-only Section Monitoring Alerts implemented.
 
 Phase 8A deliverables:
 
@@ -397,7 +397,7 @@ Deferred from Phase 8B:
 - Official data application without staged review.
 - Registration, add/drop/swap, waitlist, seat-state automation, or high-frequency polling features.
 
-## Phase 9A: Product Hardening, Dashboard Polish, and Usability Improvements
+## Phase 9A: Product Hardening and Dashboard Polish
 
 Status: complete.
 
@@ -418,9 +418,9 @@ Testable outcomes:
 - Safety assertions prevent misleading UI phrases such as automatic registration claims, seat guarantees, and official-availability claims.
 - No registration automation, portal submission, polling, background scraping, credential capture, waitlist automation, or seat-state changes are added.
 
-## Phase 9B: Security, Privacy, and Production Readiness Hardening
+## Phase 9B: Security and Production Readiness Hardening
 
-Status: current hardening phase.
+Status: complete.
 
 Deliverables:
 
@@ -439,6 +439,34 @@ Testable outcomes:
 - Logs preserve auditability without leaking raw imported academic data or secrets.
 - Browser extension remains minimal-permission and user-triggered.
 - No registration automation, portal submission, polling, background scraping, credential capture, waitlist automation, seat-state automation, external telemetry, or real production deployment is added.
+
+## Phase 10A: Release Readiness QA and Final Product Review
+
+Status: current release-readiness phase.
+
+Deliverables:
+
+- `docs/RELEASE_READINESS_QA.md` covering the main user journeys, prerequisites, test steps, expected results, safety boundary confirmations, and automated coverage.
+- `docs/DEMO_SCENARIOS.md` covering demo-safe scenarios for data import review, browser-extension import, section monitoring alerts, dashboard status cards, schedule optimization, and security/privacy boundaries.
+- `docs/RELEASE_CHECKLIST.md` covering local verification, CI-only validation, no-secrets review, extension permission review, prohibited automation review, documentation review, demo review, and known local limitations.
+- Documentation consistency cleanup for Phase 7B — Data Review and Confirmation Workflow, Phase 8A — Read-only Browser Extension Import, Phase 8B — Read-only Section Monitoring Alerts, Phase 9A — Product Hardening and Dashboard Polish, Phase 9B — Security and Production Readiness Hardening, and Phase 10A — Release Readiness QA and Final Product Review.
+- Lightweight safety-policy regression test requiring release docs and demo-safe advisory wording.
+
+Testable outcomes:
+
+- Release QA documentation names the purpose, prerequisites, steps, expected result, safety boundary, and automated coverage for the main workflows.
+- Demo wording uses imported snapshot, advisory alert, manual review required, read-only imported data, non-official data, and verify in the official portal language.
+- Release checklist covers format, lint, typecheck, tests, build, e2e, OpenAPI, Ruff, mypy, pytest, Alembic, Docker Compose, no-secrets, extension permissions, prohibited automation, documentation review, demo review, and known local limitations.
+- Safety review confirms no credentials, password-field extraction, SAML/MFA bypass, polling, background scraping, portal form submission, registration automation, add/drop/swap automation, waitlist automation, seat reservation, seat grabbing, browser-store publishing, hidden automation, external telemetry, or real production deployment.
+
+Deferred from Phase 10A:
+
+- New backend domains.
+- Real official-source ingestion.
+- Notification workers or scheduled refresh systems.
+- Browser-store publishing.
+- Account/auth systems.
+- Real production deployment.
 
 ## Deferred / Future
 

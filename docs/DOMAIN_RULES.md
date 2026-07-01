@@ -426,6 +426,28 @@ Phase 9B forbidden behavior:
 
 - Credential capture, password extraction, SAML/MFA/CAPTCHA bypass, polling, background scraping, portal form submission, automatic registration, add/drop, automated swap, waitlist automation, seat reservation, seat grabbing, browser-store publishing, hidden automation, real production deployment, external telemetry, or storing real portal credentials.
 
+## 16. Phase 10A Release Readiness QA And Final Product Review Rules
+
+Phase 10A documents final review, demo, handoff, and safety checks without changing academic behavior.
+
+Phase 10A hard rules:
+
+- Release QA must cover the main user journeys from Phase 7B through Phase 10A, including data import review, browser-extension import, section monitoring alerts, degree audit/planner status, schedule optimization status, manual action checklist, and manual official-portal verification.
+- Demo scenarios must distinguish imported snapshots, advisory alerts, read-only imported data, non-official data, manual review required records, and advisor or school confirmation.
+- Release checklist review must include format, lint, typecheck, tests, build, e2e, OpenAPI, Ruff, mypy, pytest, Alembic, Docker Compose, no-secrets, browser extension permissions, prohibited automation, documentation, and demo-scenario checks.
+- Safety wording tests must continue to guard against misleading endpoint/action names and unsafe demo claims.
+- Phase names must remain consistent: Phase 7B — Data Review and Confirmation Workflow; Phase 8A — Read-only Browser Extension Import; Phase 8B — Read-only Section Monitoring Alerts; Phase 9A — Product Hardening and Dashboard Polish; Phase 9B — Security and Production Readiness Hardening; Phase 10A — Release Readiness QA and Final Product Review.
+
+Phase 10A allowed behavior:
+
+- Add release QA, demo scenario, release checklist, and final safety boundary documentation.
+- Add lightweight tests that scan release docs or existing surfaces for misleading wording.
+- Clean up documentation references for consistency.
+
+Phase 10A forbidden behavior:
+
+- Credential capture, password-field extraction, storing real portal credentials, SAML/MFA/CAPTCHA bypass, polling, background scraping, portal form submission, automatic registration, add/drop/swap automation, waitlist automation, seat reservation, seat grabbing, browser-store publishing, hidden automation, external telemetry without explicit approval, or real production deployment without explicit approval.
+
 ## 9. Phase 3A Requirement Status Semantics
 
 - `SATISFIED`: the requirement is completed by valid completed records or approved transfer/substitution records.
