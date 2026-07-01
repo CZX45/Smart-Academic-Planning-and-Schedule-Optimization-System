@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+from collections.abc import Awaitable, Callable
+
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -16,10 +18,34 @@ app.add_middleware(
     allow_origins=settings.cors_origin_list,
     allow_credentials=False,
     allow_methods=["GET", "PATCH", "POST"],
-    allow_headers=["*"],
+    allow_headers=["content-type"],
 )
 
 app.include_router(academic_router)
+
+
+def security_headers() -> dict[str, str]:
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "no-referrer",
+        "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+        "Cache-Control": "no-store",
+    }
+    if settings.is_production:
+        headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return headers
+
+
+@app.middleware("http")
+async def add_security_headers(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    response = await call_next(request)
+    for name, value in security_headers().items():
+        response.headers.setdefault(name, value)
+    return response
 
 
 def check_database_ready() -> bool:

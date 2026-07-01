@@ -401,6 +401,31 @@ Phase 8B forbidden behavior:
 
 - Background polling, high-frequency refreshes, portal scraping, credential storage, SAML/MFA/CAPTCHA bypass, form submission, registration, add, drop, swap, waitlist joins, waitlist automation, seat-state changes, or official availability claims.
 
+## 15. Phase 9B Security And Production Readiness Rules
+
+Phase 9B hardens configuration, privacy, logging, and operational review without changing academic behavior.
+
+Phase 9B hard rules:
+
+- API configuration must reject missing or unsupported database URL schemes.
+- Production configuration must not use local development database defaults or localhost CORS origins.
+- CORS must remain explicit and must not use wildcard origins.
+- Web public configuration must validate the API base URL as `http` or `https` and must not allow embedded credentials.
+- API safe headers must not depend on UI code.
+- Audit logs must be low sensitivity and must not include raw imported content, raw HTML, portal credentials, tokens, passwords, or full academic records.
+- Safety regression tests must continue to assert that prohibited endpoint/action names, extension permissions, credential-like extraction fields, polling primitives, and misleading registration or seat-state claims are absent.
+
+Phase 9B allowed behavior:
+
+- Validate environment variables and fail fast with useful errors.
+- Add safe HTTP response headers and explicit CORS headers.
+- Add structured logs for data-import creation and advisory section snapshot comparison using IDs, source type, import type, counts, and statuses.
+- Document data retention, production readiness, and security/privacy review requirements.
+
+Phase 9B forbidden behavior:
+
+- Credential capture, password extraction, SAML/MFA/CAPTCHA bypass, polling, background scraping, portal form submission, automatic registration, add/drop, automated swap, waitlist automation, seat reservation, seat grabbing, browser-store publishing, hidden automation, real production deployment, external telemetry, or storing real portal credentials.
+
 ## 9. Phase 3A Requirement Status Semantics
 
 - `SATISFIED`: the requirement is completed by valid completed records or approved transfer/substitution records.

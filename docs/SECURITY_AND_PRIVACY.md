@@ -51,6 +51,7 @@ Academic requirements are high-impact. Incorrect results may delay graduation, a
 - Treat Phase 8A browser-extension imports as visible-page staging extracts with `source_type = BROWSER_EXTENSION`, `is_official = false`, and required Phase 7B review. Do not store raw HTML by default, do not read password fields, and do not claim extracted rows are official school policy.
 - Treat Phase 8B section monitoring as advisory comparison of user-triggered non-official snapshots. Do not run background polling, refresh school pages automatically, alter seat or waitlist state, submit forms, or claim alerts are official portal status.
 - Treat Phase 9A product-hardening UI as clarity-only work. Status cards, empty states, labels, and manual checklists must not add credential capture, portal submission, polling, background scraping, registration automation, waitlist automation, or seat-state changes.
+- Treat Phase 9B as hardening-only work. Environment validation, safe HTTP headers, CORS tightening, audit logging, data-retention documentation, and safety regression tests must not add new academic authority, official imports, account systems, telemetry, registration automation, polling, portal submission, or deployment.
 - Maintain regression fixtures for every catalog/program version.
 
 ## 6. Privacy Controls
@@ -65,6 +66,8 @@ Recommended controls:
 - Data export and deletion workflows.
 - Short retention for raw imported page snapshots.
 - Prefer metadata-only storage for Phase 7A uploads. If a future workflow stores raw imported files or browser-extracted snapshots, enforce short retention, encryption, explicit user review, and source labels.
+- Keep imported academic data user-triggered, non-official, and review-gated until a future reviewed official-source workflow exists.
+- Plan future user-facing deletion/export controls for import runs, review decisions, generated planning snapshots, and browser-extension staging records before handling real institutional data.
 
 ## 7. Threats and Mitigations
 
@@ -81,7 +84,24 @@ Recommended controls:
 | Review application creates unsafe records         | Allow application only through explicit POST, support dry-run with no domain writes, skip unsupported/duplicate/advisor-review records with reason codes, and audit every applied or skipped record.                                   |
 | Browser extension overreach                       | Keep permissions minimal, avoid host permissions, require user action and confirmation, extract visible table text only, do not store credentials or raw HTML by default, and keep all data in staging import until review.            |
 | Section monitoring mistaken for live registration | Store only non-official advisory snapshots, require manual verification messaging, deduplicate imported snapshots, avoid background polling, and provide no portal-action endpoints or extension code.                                 |
+| Misconfigured production environment              | Validate environment, database URL scheme, production database defaults, CORS origins, public API URL, and safe HTTP headers before serving traffic.                                                                   |
+| Sensitive data leakage through logs               | Log low-sensitivity event metadata only: IDs, source type, import type, counts, statuses, and reason codes. Do not log raw import content, HTML, credentials, tokens, passwords, or full academic records.             |
 
 ## 8. Compliance Considerations
 
 Future deployment may need FERPA-aware handling, institutional data agreements, retention policies, and advisor access controls. The MVP should be designed so these controls can be added without reworking core data boundaries.
+
+## 9. Phase 9B Production Readiness Checklist
+
+Before production-like deployment, confirm:
+
+- `ENVIRONMENT` is explicit and is not accidentally left as `development`.
+- `DATABASE_URL` is a PostgreSQL psycopg URL and does not use local development credentials in production.
+- `CORS_ORIGINS` contains only explicit origins; production origins use HTTPS and are not localhost.
+- `NEXT_PUBLIC_API_BASE_URL` is an `http` or `https` URL without embedded credentials.
+- Database migrations and Alembic drift checks pass.
+- OpenAPI generation and OpenAPI drift checks pass.
+- Unit, integration, e2e, lint, typecheck, format, build, and Docker Compose checks pass.
+- Browser extension permissions are manually reviewed for no broad host access and no background polling primitives.
+- No `.env`, credential, portal secret, production database secret, real student record dump, or school password is committed.
+- Security/privacy review confirms no registration automation, add/drop, swap, waitlist automation, seat reservation, seat grabbing, portal submission, scraping, polling, credential capture, hidden automation, or external telemetry was added.

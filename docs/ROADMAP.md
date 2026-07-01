@@ -399,7 +399,7 @@ Deferred from Phase 8B:
 
 ## Phase 9A: Product Hardening, Dashboard Polish, and Usability Improvements
 
-Status: current hardening phase.
+Status: complete.
 
 Deliverables:
 
@@ -418,23 +418,36 @@ Testable outcomes:
 - Safety assertions prevent misleading UI phrases such as automatic registration claims, seat guarantees, and official-availability claims.
 - No registration automation, portal submission, polling, background scraping, credential capture, waitlist automation, or seat-state changes are added.
 
-## Phase 9B: Real Data Onboarding and Advisor Workflow
+## Phase 9B: Security, Privacy, and Production Readiness Hardening
+
+Status: current hardening phase.
 
 Deliverables:
 
-- Official source ingestion process.
-- Program version comparison tools.
-- Advisor review and comments.
-- Exportable plan summaries.
-- Data-quality dashboards.
+- API environment validation for database URL, app environment, timeout, and CORS origins.
+- Web public environment validation for the API base URL.
+- Safe API response headers and explicit CORS request headers.
+- Lightweight safe audit logs around data imports and advisory section snapshot comparisons.
+- Privacy and data-retention documentation for imported academic data.
+- Production readiness checklist covering environment variables, migrations, OpenAPI, e2e, Docker Compose, no-secrets checks, extension permissions, and registration-boundary review.
+- Safety regression tests for prohibited endpoint/action names, extension permissions, no credential-like extraction fields, no polling primitives, safe logging, and misleading UI wording.
 
 Testable outcomes:
 
-- Official source data includes source references and confidence levels.
-- Advisor can approve, reject, or comment on a plan.
+- Misconfigured production-like environments fail fast with clear messages.
+- API responses include safe default headers.
+- Logs preserve auditability without leaking raw imported academic data or secrets.
+- Browser extension remains minimal-permission and user-triggered.
+- No registration automation, portal submission, polling, background scraping, credential capture, waitlist automation, seat-state automation, external telemetry, or real production deployment is added.
 
 ## Deferred / Future
 
+- Real data onboarding and advisor workflow.
+- Official source ingestion process.
+- Program version comparison tools.
+- Advisor review and comments beyond the existing import-review workflow.
+- Exportable plan summaries.
+- Data-quality dashboards.
 - Seat-change notifications with safe refresh limits.
 - GPA scenario analysis.
 - Tuition estimation.

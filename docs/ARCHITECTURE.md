@@ -61,6 +61,7 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Phase 7A adds synchronous read-only data import preview endpoints under `/api/v1/data-imports`. The import service parses bounded mock or student-provided CSV/JSON content into staging tables, proposes mapping candidates, emits warnings, and does not mutate catalog, transcript, requirement, section, seat, waitlist, or registration tables.
 - Phase 8B adds read-only section monitoring endpoints under `/api/v1/section-monitoring`. The service stores user-selected advisory monitor targets, compares user-triggered non-official section-search snapshots, emits structured change alerts, and does not poll, refresh portals, change seat or waitlist state, or perform registration actions.
 - Phase 9A adds product-hardening UI helpers and dashboard polish. It summarizes existing workflow status, empty states, manual next actions, and advisory labels without adding backend domains or changing the read-only/advisory boundary.
+- Phase 9B adds production-readiness hardening. The API validates environment, database, timeout, and CORS settings; applies safe response headers; narrows CORS request headers; and emits low-sensitivity audit logs for imports and section-monitoring comparisons without adding product domains.
 
 ### Browser Extension
 
@@ -223,6 +224,17 @@ Phase 8B implements this boundary with:
 
 The service accepts non-official browser-extension snapshots, deduplicates identical snapshots by hash, and compares only against stored snapshots for the same student/course/section/term. Alerts include manual-review and advisory flags plus messages that tell students to verify in the official registration portal. The boundary deliberately does not schedule background jobs, poll portals, register, drop, swap, alter waitlist or seat state, submit forms, store credentials, or bypass school authentication.
 
+### Production Readiness Boundary
+
+Phase 9B keeps operational hardening separate from product expansion:
+
+- API settings fail fast for unsupported `DATABASE_URL` schemes, unknown environments, empty or wildcard CORS origins, local production database defaults, and localhost production CORS origins.
+- Web settings validate `NEXT_PUBLIC_API_BASE_URL` as an `http` or `https` URL without embedded credentials.
+- API responses include safe default headers such as content-type sniffing protection, frame denial, referrer suppression, restrictive browser permissions policy, and no-store caching.
+- Production HSTS is enabled only when `ENVIRONMENT=production`; reverse proxies should still terminate TLS and preserve host/protocol headers.
+- Audit logs record event names, IDs, source type, import type, counts, and statuses only. They must not include raw imported content, HTML, school credentials, portal tokens, passwords, or full student data.
+- This boundary does not deploy the system, add telemetry, add account/auth systems, ingest official school data, or change the read-only/advisory academic workflow.
+
 ### Advising and Risk Boundary
 
 Produces risk flags, advisor review items, confidence levels, and high-risk recommendation warnings.
@@ -243,8 +255,9 @@ Produces risk flags, advisor review items, confidence levels, and high-risk reco
 12. Phase 8A Browser Extension Import converts user-confirmed visible page tables into `BROWSER_EXTENSION` staging imports that still require Phase 7B review.
 13. Phase 8B Section Monitoring stores user-selected advisory monitor targets and compares user-triggered section-search snapshots for manual-review alerts.
 14. Phase 9A Product Hardening renders status cards, reusable advisory labels, empty states, safer before/after displays, and manual next-action copy for the existing workflows.
-15. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
-16. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
+15. Phase 9B Production Readiness validates environment configuration, applies safe HTTP defaults, and logs low-sensitivity audit events around imports and advisory monitoring.
+16. Risk Engine annotates results with missing-data, prerequisite-chain, offering-frequency, GPA, and advisor-review warnings in a later phase.
+17. UI presents explanations and warnings and will let users adjust assumptions as optimizer phases mature.
 
 ## 6. API Design Principles
 

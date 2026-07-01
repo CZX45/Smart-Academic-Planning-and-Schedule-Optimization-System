@@ -2,7 +2,7 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 9A hardens the product UI on top of the Phase 8B read-only section monitoring foundation. The dashboard now summarizes degree audit, import review, browser-extension import, section monitoring, schedule optimization, and what-if planning status with clearer manual next actions, empty states, advisory labels, and safer loading/error copy. Browser-extension and monitoring data remains `source_type = BROWSER_EXTENSION` or otherwise non-official, and students must verify manually in the official registration portal. The system does **not** store credentials, bypass SAML/MFA/CAPTCHA, scrape in the background, publish to a browser store, create official transcript data, register, add/drop/swap courses, join waitlists, alter seat state, run polling, submit forms, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 9B hardens the Phase 9A product surface for security, privacy, environment validation, safe HTTP defaults, auditability, and production-readiness review. Browser-extension and monitoring data remains `source_type = BROWSER_EXTENSION` or otherwise non-official, and students must verify manually in the official registration portal. The system does **not** store credentials, bypass SAML/MFA/CAPTCHA, scrape in the background, publish to a browser store, create official transcript data, register, add/drop/swap courses, join waitlists, alter seat state, run polling, submit forms, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
@@ -41,9 +41,13 @@ cp .env.example .env
 
 Required local variables include:
 
+- `ENVIRONMENT`
 - `DATABASE_URL`
+- `DATABASE_CONNECT_TIMEOUT_SECONDS`
 - `NEXT_PUBLIC_API_BASE_URL`
 - `CORS_ORIGINS`
+
+`ENVIRONMENT` must be one of `development`, `test`, `staging`, or `production`. Production settings must use an explicit non-local PostgreSQL URL and HTTPS CORS origins; the API rejects wildcard CORS origins and unsupported database URL schemes. `NEXT_PUBLIC_API_BASE_URL` must be an `http` or `https` URL and must not contain credentials.
 
 ## Install
 
@@ -330,6 +334,27 @@ Phase 9A also adds clearer empty states for missing imports, missing confirmed i
 
 This phase does not add registration automation, portal submission, polling, background scraping, credential capture, waitlist automation, seat-state changes, or official school-policy claims.
 
+## Phase 9B security and production readiness
+
+Phase 9B adds focused operational hardening without changing product workflows. The API validates database URL, app environment, database timeout, and CORS origins with production-safe defaults. The web app validates `NEXT_PUBLIC_API_BASE_URL` through a typed helper before using it for API calls. The API also emits safe response headers, keeps CORS explicit, and logs import/section-monitoring events with low-sensitivity metadata only.
+
+Phase 9B documentation clarifies imported academic data privacy, user-triggered import boundaries, data-retention principles, safety logging, and production readiness. Regression tests assert environment validation behavior, safe API headers, prohibited endpoint/action names, extension permission boundaries, no credential-like extraction fields, no background polling primitives, and existing misleading UI wording safeguards.
+
+This phase does not add credentials, secrets, registration automation, polling, portal submission, waitlist automation, seat reservation, seat grabbing, external telemetry, account systems, or production deployment.
+
+## Production readiness checklist
+
+Before any real deployment, verify:
+
+- Environment variables are explicit for the target environment: `ENVIRONMENT`, `DATABASE_URL`, `DATABASE_CONNECT_TIMEOUT_SECONDS`, `CORS_ORIGINS`, and `NEXT_PUBLIC_API_BASE_URL`.
+- No `.env` file, real credential, school password, portal token, production database secret, or student record dump is committed.
+- Database migrations run cleanly with `cd apps/api && python -m alembic upgrade head` and drift is checked with `cd apps/api && python -m alembic check`.
+- OpenAPI artifacts are regenerated and checked with `corepack pnpm openapi:generate` and `corepack pnpm openapi:check`.
+- Unit, integration, e2e, type, lint, format, build, and Docker Compose checks pass.
+- Security/privacy review confirms imported data stays non-official unless a future reviewed workflow changes that rule.
+- Browser extension permissions remain Manifest V3, `activeTab`, `scripting`, `storage`, and no broad `host_permissions`.
+- Manual verification confirms no registration, add/drop, swap, waitlist, seat-state, portal submission, polling, background scraping, credential capture, or hidden automation behavior exists.
+
 ## Quality gates
 
 Run the following before opening a pull request:
@@ -337,14 +362,18 @@ Run the following before opening a pull request:
 ```bash
 python -m ruff check apps/api
 python -m ruff format --check apps/api
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
+corepack pnpm format
+git diff --check
+corepack pnpm lint
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm build
+corepack pnpm e2e
+corepack pnpm openapi:generate
+corepack pnpm openapi:check
 cd apps/api && python -m alembic upgrade head
 cd apps/api && python -m mypy .
 cd apps/api && python -m pytest
-git diff --check
 ```
 
 Playwright is configured with a baseline homepage test:
@@ -377,6 +406,8 @@ Phase 7B adds `DataImportReviewSession`, `ImportedRecordReview`, `DataApplicatio
 Phase 8A uses `source_type = BROWSER_EXTENSION` on `DataImportRun` rows to distinguish user-confirmed visible-page extension imports from uploads and mock fixtures. These rows remain non-official staging records and still require Phase 7B review before application.
 
 Phase 8B adds `SectionMonitorTarget`, `SectionMonitorSnapshot`, and `SectionMonitorAlert` as advisory non-official monitoring snapshots. These rows compare user-triggered imports and do not update canonical sections, seats, waitlists, plans, schedules, student records, or registration state.
+
+Phase 9B adds no new domain tables. It hardens configuration, HTTP safety defaults, privacy documentation, audit logging, and regression tests around the existing read-only/advisory workflows.
 
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 
