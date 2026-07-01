@@ -2,7 +2,7 @@
 
 A full-stack, school-agnostic foundation for explainable academic planning, degree-progress analysis, and section-level schedule optimization.
 
-Phase 8A adds a read-only Browser Extension Import foundation on top of the Phase 7A/7B staging and review workflow. The extension can extract visible academic tables only after user action, preview the extracted rows, and send confirmed payloads to the existing staging import API as `source_type = BROWSER_EXTENSION` and `is_official = false`. Phase 7B review is still required before any internal planning application. It does **not** store credentials, bypass SAML/MFA/CAPTCHA, scrape in the background, publish to a browser store, create official transcript data, register, add/drop/swap courses, waitlist, grab seats, poll seats, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
+Phase 8B adds read-only section monitoring on top of the Phase 8A Browser Extension Import foundation. The extension can extract visible academic tables only after user action, and section-search snapshots can be compared to produce advisory alerts for status, seat, waitlist, meeting-time, instructor, and location changes. All browser-extension and monitoring data remains `source_type = BROWSER_EXTENSION` or otherwise non-official, and students must verify manually in the official registration portal. The system does **not** store credentials, bypass SAML/MFA/CAPTCHA, scrape in the background, publish to a browser store, create official transcript data, register, add/drop/swap courses, join waitlists, reserve or grab seats, run polling, submit forms, or provide authoritative academic advice. Development seed data is mock-only and must not be presented as official school policy.
 
 ## Monorepo Layout
 
@@ -305,7 +305,22 @@ Extension handoff reuses `POST /api/v1/data-imports` with:
 - staging CSV/JSON content derived from visible page tables
 - source reference metadata for the visible page URL
 
-Browser-extension imports remain staging-only. They do not bypass Phase 7A validation, Phase 7B review, or Phase 7B explicit apply. The extension does not store credentials, inspect password fields, bypass school authentication, submit portal forms, automate registration, add/drop/swap courses, join waitlists, grab seats, run live polling, or publish production browser-store builds in this phase. The next possible extension phase is read-only section-change alerts, still advisory and never registration automation.
+Browser-extension imports remain staging-only. They do not bypass Phase 7A validation, Phase 7B review, or Phase 7B explicit apply. The extension does not store credentials, inspect password fields, bypass school authentication, submit portal forms, automate registration, add/drop/swap courses, join waitlists, grab seats, run live polling, or publish production browser-store builds in this phase.
+
+## Phase 8B read-only section monitoring
+
+Phase 8B creates advisory section monitoring under `/api/v1/section-monitoring`. A student can create a monitor target, submit user-triggered non-official section-search snapshots, compare snapshots, list alerts, and acknowledge alerts. Snapshot comparison deduplicates identical imports and alerts on section opened/closed changes, seat count changes, waitlist count changes, meeting-time changes, instructor changes, location changes, and unknown raw-payload changes.
+
+New endpoints include:
+
+- `GET /api/v1/section-monitoring/targets`
+- `POST /api/v1/section-monitoring/targets`
+- `PATCH /api/v1/section-monitoring/targets/{target_id}`
+- `POST /api/v1/section-monitoring/snapshots/compare`
+- `GET /api/v1/section-monitoring/alerts`
+- `PATCH /api/v1/section-monitoring/alerts/{alert_id}`
+
+Section monitoring is advisory and non-official. It does not mutate canonical `Section` rows, seat counts, waitlists, student records, academic plans, schedules, or registration state. It does not poll portals, reserve seats, join waitlists, submit forms, or perform registration actions. The web app includes a Section Monitoring panel with monitored sections, advisory alerts, required disclaimers, and a manual registration checklist.
 
 ## Quality gates
 
@@ -352,6 +367,8 @@ Phase 7A adds `DataImportRun`, `DataImportFile`, `ImportedRecord`, `ImportMappin
 Phase 7B adds `DataImportReviewSession`, `ImportedRecordReview`, `DataApplicationRun`, `AppliedImportedRecord`, and `DataReviewWarning`. These tables preserve review decisions, edited normalized payloads, dry-run/application outcomes, skipped duplicate/unsupported records, and warnings. Application is explicit and limited to internal planning records; it does not mark imported data official.
 
 Phase 8A uses `source_type = BROWSER_EXTENSION` on `DataImportRun` rows to distinguish user-confirmed visible-page extension imports from uploads and mock fixtures. These rows remain non-official staging records and still require Phase 7B review before application.
+
+Phase 8B adds `SectionMonitorTarget`, `SectionMonitorSnapshot`, and `SectionMonitorAlert` as advisory non-official monitoring snapshots. These rows compare user-triggered imports and do not update canonical sections, seats, waitlists, plans, schedules, student records, or registration state.
 
 All seed data is mock-only. Mock data is not official university policy, and students must confirm high-impact academic guidance with the school or an advisor.
 

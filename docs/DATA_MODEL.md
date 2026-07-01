@@ -105,6 +105,12 @@ Phase 7B adds review and application audit storage:
 
 Phase 8A does not add new data tables. It adds `BROWSER_EXTENSION` as a source type for staged `data_import_runs` so visible-page extension imports can be distinguished from mock, imported, inferred, official, and student-provided sources.
 
+Phase 8B adds advisory section monitoring storage:
+
+- `section_monitor_targets`
+- `section_monitor_snapshots`
+- `section_monitor_alerts`
+
 Every Phase 2A academic-domain table includes `source_type`, `is_official`, source reference fields, and timestamps. The development seed uses only `source_type = MOCK` and `is_official = false`.
 
 Phase 2B also source-tags offering patterns, sections, meetings, rules, and rule expressions. Mock data remains non-official and cannot be used as authoritative school policy.
@@ -124,6 +130,8 @@ Phase 7A data import rows are staging-only previews. They do not modify `student
 Phase 7B review rows sit between staging data and internal planning records. A review session belongs to one import run and student. Per-record reviews store the selected mapping candidate, decision, optional edited normalized payload, reviewer note, and advisor-confirmation flag. Application runs record explicit apply attempts; applied-record logs preserve the action, status, target entity type/id, reason code, and message for created, duplicate, rejected, deferred, advisor-review, and unsupported outcomes. Confirmed unofficial transcript course attempts may create non-official internal `student_course_attempts`; unsupported catalog, section, requirement, unknown-course, rejected, deferred, duplicate, advisor-review, and unsupported-grade records are skipped with warnings.
 
 Phase 8A browser-extension imports reuse Phase 7A staging rows. A browser-extension import run must keep `source_type = BROWSER_EXTENSION`, `is_official = false`, and `official_application_ready = false`. The source reference may preserve a safe visible-page URL, but raw page HTML is not stored by default. Phase 7B review rows remain required before application.
+
+Phase 8B section monitoring rows are advisory, non-official, and student-scoped. Targets identify a course, section, and term the student wants to compare manually. Snapshots preserve imported section-search state such as status, seats, waitlist counts, meeting time, instructor, and location, plus a deterministic snapshot hash for deduplication. Alerts compare two snapshots and store the changed field, previous/current values, severity, acknowledgement state, advisory/manual-review flags, and a manual verification message. These rows do not mutate `sections`, seat counts, waitlists, student records, or registration state.
 
 Important Phase 2A constraints include:
 
@@ -179,6 +187,9 @@ Important Phase 2A constraints include:
 - A data application run references a review session, stores nonnegative applied/skipped/warning/error counts, and is created only by `POST /data-import-reviews/{review_id}/apply`.
 - Applied imported records are unique by application run and imported record. Each row includes action, status, reason code, target entity type/id, and an explanatory message.
 - Data review warnings include warning code, severity, message, optional record-review/application links, and advisor-confirmation flag.
+- Section monitor targets are unique by student, course code, section code, and term; they are always advisory and non-official.
+- Section monitor snapshots are unique by student, course code, section code, term, and snapshot hash so duplicate user-triggered imports do not generate duplicate alerts.
+- Section monitor alerts are unique by previous snapshot, current snapshot, alert type, and field name; they always require manual review and remain advisory.
 
 ### Institution and Versioning
 
@@ -513,6 +524,18 @@ Use relational tables for identities, relationships, student records, courses, s
 - `CANCELLED`
 - `COMPLETED`
 - `UNKNOWN`
+
+### Section Monitor Alert Type
+
+- `STATUS_CHANGED`
+- `SEATS_CHANGED`
+- `SECTION_OPENED`
+- `SECTION_CLOSED`
+- `WAITLIST_CHANGED`
+- `MEETING_TIME_CHANGED`
+- `INSTRUCTOR_CHANGED`
+- `LOCATION_CHANGED`
+- `UNKNOWN_CHANGE`
 
 ### Section Modality
 

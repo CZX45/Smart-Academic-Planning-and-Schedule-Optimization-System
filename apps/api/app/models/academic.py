@@ -456,6 +456,18 @@ class SectionModality(StrEnum):
     UNKNOWN = "UNKNOWN"
 
 
+class SectionMonitorAlertType(StrEnum):
+    STATUS_CHANGED = "STATUS_CHANGED"
+    SEATS_CHANGED = "SEATS_CHANGED"
+    SECTION_OPENED = "SECTION_OPENED"
+    SECTION_CLOSED = "SECTION_CLOSED"
+    WAITLIST_CHANGED = "WAITLIST_CHANGED"
+    MEETING_TIME_CHANGED = "MEETING_TIME_CHANGED"
+    INSTRUCTOR_CHANGED = "INSTRUCTOR_CHANGED"
+    LOCATION_CHANGED = "LOCATION_CHANGED"
+    UNKNOWN_CHANGE = "UNKNOWN_CHANGE"
+
+
 class MeetingType(StrEnum):
     LECTURE = "LECTURE"
     LAB = "LAB"
@@ -828,6 +840,13 @@ section_status_enum = Enum(
 section_modality_enum = Enum(
     SectionModality,
     name="section_modality",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+section_monitor_alert_type_enum = Enum(
+    SectionMonitorAlertType,
+    name="section_monitor_alert_type",
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
@@ -3648,6 +3667,204 @@ class ScheduleWarning(UuidPrimaryKeyMixin, Base):
     )
     message: Mapped[str] = mapped_column(Text, nullable=False)
     requires_advisor_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class SectionMonitorTarget(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixin, Base):
+    __tablename__ = "section_monitor_targets"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["student_profile_id"],
+            ["student_profiles.id"],
+            name="fk_section_monitor_targets_student",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("length(course_code) > 0", name="ck_section_monitor_targets_course"),
+        CheckConstraint("length(section_code) > 0", name="ck_section_monitor_targets_section"),
+        CheckConstraint("length(term) > 0", name="ck_section_monitor_targets_term"),
+        CheckConstraint("is_official = false", name="ck_section_monitor_targets_never_official"),
+        CheckConstraint(
+            "source_type != 'OFFICIAL'",
+            name="ck_section_monitor_targets_no_official_source",
+        ),
+        CheckConstraint("is_advisory = true", name="ck_section_monitor_targets_advisory"),
+        UniqueConstraint(
+            "student_profile_id",
+            "course_code",
+            "section_code",
+            "term",
+            name="uq_section_monitor_targets_student_section_term",
+        ),
+        Index(
+            "ix_section_monitor_targets_student_active",
+            "student_profile_id",
+            "is_active",
+            "created_at",
+        ),
+    )
+
+    student_profile_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    course_code: Mapped[str] = mapped_column(String(40), nullable=False)
+    section_code: Mapped[str] = mapped_column(String(40), nullable=False)
+    term: Mapped[str] = mapped_column(String(40), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    instructor: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_advisory: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class SectionMonitorSnapshot(UuidPrimaryKeyMixin, SourceMetadataMixin, Base):
+    __tablename__ = "section_monitor_snapshots"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["student_profile_id"],
+            ["student_profiles.id"],
+            name="fk_section_monitor_snapshots_student",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["target_id"],
+            ["section_monitor_targets.id"],
+            name="fk_section_monitor_snapshots_target",
+            ondelete="SET NULL",
+        ),
+        ForeignKeyConstraint(
+            ["data_import_id"],
+            ["data_import_runs.id"],
+            name="fk_section_monitor_snapshots_data_import",
+            ondelete="SET NULL",
+        ),
+        CheckConstraint("length(course_code) > 0", name="ck_section_monitor_snapshots_course"),
+        CheckConstraint("length(section_code) > 0", name="ck_section_monitor_snapshots_section"),
+        CheckConstraint("length(term) > 0", name="ck_section_monitor_snapshots_term"),
+        CheckConstraint("length(snapshot_hash) > 0", name="ck_section_monitor_snapshots_hash"),
+        CheckConstraint(
+            "seats_available IS NULL OR seats_available >= 0",
+            name="ck_section_monitor_snapshots_seats_available",
+        ),
+        CheckConstraint(
+            "seats_capacity IS NULL OR seats_capacity >= 0",
+            name="ck_section_monitor_snapshots_seats_capacity",
+        ),
+        CheckConstraint(
+            "waitlist_available IS NULL OR waitlist_available >= 0",
+            name="ck_section_monitor_snapshots_waitlist_available",
+        ),
+        CheckConstraint(
+            "waitlist_capacity IS NULL OR waitlist_capacity >= 0",
+            name="ck_section_monitor_snapshots_waitlist_capacity",
+        ),
+        CheckConstraint("is_official = false", name="ck_section_monitor_snapshots_never_official"),
+        CheckConstraint(
+            "source_type != 'OFFICIAL'",
+            name="ck_section_monitor_snapshots_no_official_source",
+        ),
+        UniqueConstraint(
+            "student_profile_id",
+            "course_code",
+            "section_code",
+            "term",
+            "snapshot_hash",
+            name="uq_section_monitor_snapshots_student_section_hash",
+        ),
+        Index(
+            "ix_section_monitor_snapshots_lookup",
+            "student_profile_id",
+            "course_code",
+            "section_code",
+            "term",
+            "created_at",
+        ),
+        Index("ix_section_monitor_snapshots_target_created", "target_id", "created_at"),
+    )
+
+    student_profile_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    target_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    data_import_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    course_code: Mapped[str] = mapped_column(String(40), nullable=False)
+    section_code: Mapped[str] = mapped_column(String(40), nullable=False)
+    term: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    seats_available: Mapped[int | None] = mapped_column(nullable=True)
+    seats_capacity: Mapped[int | None] = mapped_column(nullable=True)
+    waitlist_available: Mapped[int | None] = mapped_column(nullable=True)
+    waitlist_capacity: Mapped[int | None] = mapped_column(nullable=True)
+    meeting_days: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    meeting_time: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    instructor: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    raw_payload: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    snapshot_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class SectionMonitorAlert(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "section_monitor_alerts"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["target_id"],
+            ["section_monitor_targets.id"],
+            name="fk_section_monitor_alerts_target",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["previous_snapshot_id"],
+            ["section_monitor_snapshots.id"],
+            name="fk_section_monitor_alerts_previous_snapshot",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["current_snapshot_id"],
+            ["section_monitor_snapshots.id"],
+            name="fk_section_monitor_alerts_current_snapshot",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("length(field_name) > 0", name="ck_section_monitor_alerts_field_name"),
+        CheckConstraint("length(message) > 0", name="ck_section_monitor_alerts_message"),
+        CheckConstraint("is_advisory = true", name="ck_section_monitor_alerts_advisory"),
+        CheckConstraint(
+            "requires_manual_review = true",
+            name="ck_section_monitor_alerts_manual_review",
+        ),
+        UniqueConstraint(
+            "previous_snapshot_id",
+            "current_snapshot_id",
+            "alert_type",
+            "field_name",
+            name="uq_section_monitor_alerts_snapshot_type_field",
+        ),
+        Index("ix_section_monitor_alerts_target_ack", "target_id", "is_acknowledged"),
+        Index("ix_section_monitor_alerts_created", "created_at"),
+    )
+
+    target_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    previous_snapshot_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    current_snapshot_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    alert_type: Mapped[SectionMonitorAlertType] = mapped_column(
+        section_monitor_alert_type_enum,
+        nullable=False,
+    )
+    severity: Mapped[AuditWarningSeverity] = mapped_column(
+        audit_warning_severity_enum,
+        nullable=False,
+    )
+    field_name: Mapped[str] = mapped_column(String(80), nullable=False)
+    previous_value: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    current_value: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    is_acknowledged: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_advisory: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    requires_manual_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

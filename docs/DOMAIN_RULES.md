@@ -376,7 +376,30 @@ Phase 8A forbidden behavior:
 
 - Credential storage, password capture, SAML/MFA/CAPTCHA bypass, background scraping, live polling, portal form submission, official source claims, production browser-store publishing, automatic registration, add/drop/swap, waitlist automation, seat grabbing, or high-frequency section refreshes.
 
-The next possible extension phase is read-only section-change alerts. Alerts must remain advisory, rate-limited, user-controlled, and unable to perform registration or seat-grabbing actions.
+Phase 8B builds read-only section-change alerts on top of this boundary. Alerts remain advisory, user-controlled, and unable to perform registration or seat-grabbing actions.
+
+## 14. Read-only Section Monitoring Rules
+
+Phase 8B compares user-triggered section-search snapshots and displays advisory alerts. It is not a live seat service and does not make official availability claims.
+
+Phase 8B hard rules:
+
+- Monitor targets, snapshots, and alerts must be non-official and advisory.
+- Snapshot comparisons must be student-scoped by course code, section code, and term.
+- Identical snapshots must be deduplicated by deterministic hash so repeat imports do not create duplicate alerts.
+- Alerts must include structured alert type, changed field, previous/current values, severity, manual-review flag, and an explanation telling students to verify manually in the official registration portal.
+- Section monitoring must never update canonical `Section` rows, seat counts, waitlists, student records, academic plans, schedules, or registration state.
+
+Phase 8B allowed behavior:
+
+- Let a student create or archive advisory monitor targets.
+- Store non-official browser-extension section-search snapshots from user-triggered imports.
+- Alert on opened/closed status changes, seat count changes, waitlist count changes, meeting-time changes, instructor changes, location changes, and unknown raw-payload changes.
+- Render a web panel with monitored sections, advisory alerts, disclaimers, and a manual registration checklist.
+
+Phase 8B forbidden behavior:
+
+- Background polling, high-frequency refreshes, portal scraping, credential storage, SAML/MFA/CAPTCHA bypass, form submission, registration, add, drop, swap, waitlist joins, waitlist automation, seat reservations, seat grabbing, or official availability claims.
 
 ## 9. Phase 3A Requirement Status Semantics
 

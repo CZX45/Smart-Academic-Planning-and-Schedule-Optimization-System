@@ -1091,6 +1091,129 @@ DataImportSourceTypeValue = Literal[
     "INFERRED",
     "OFFICIAL",
 ]
+SectionMonitorAlertTypeValue = Literal[
+    "STATUS_CHANGED",
+    "SEATS_CHANGED",
+    "SECTION_OPENED",
+    "SECTION_CLOSED",
+    "WAITLIST_CHANGED",
+    "MEETING_TIME_CHANGED",
+    "INSTRUCTOR_CHANGED",
+    "LOCATION_CHANGED",
+    "UNKNOWN_CHANGE",
+]
+SectionMonitoringSourceTypeValue = Literal["BROWSER_EXTENSION"]
+
+
+class SectionMonitorTargetCreateRequest(BaseModel):
+    student_profile_id: UUID
+    course_code: str = Field(min_length=1, max_length=40)
+    section_code: str = Field(min_length=1, max_length=40)
+    term: str = Field(min_length=1, max_length=40)
+    title: str | None = Field(default=None, max_length=255)
+    instructor: str | None = Field(default=None, max_length=255)
+    status: str | None = Field(default=None, max_length=80)
+
+
+class SectionMonitorTargetUpdateRequest(BaseModel):
+    is_active: bool | None = None
+    title: str | None = Field(default=None, max_length=255)
+    instructor: str | None = Field(default=None, max_length=255)
+    status: str | None = Field(default=None, max_length=80)
+
+
+class SectionMonitorTargetResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    course_code: str
+    section_code: str
+    term: str
+    title: str | None = None
+    instructor: str | None = None
+    status: str | None = None
+    is_active: bool
+    is_advisory: bool
+    is_official: bool
+    latest_snapshot_created_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class SectionMonitorSnapshotInput(BaseModel):
+    target_id: UUID | None = None
+    data_import_id: UUID | None = None
+    course_code: str = Field(min_length=1, max_length=40)
+    section_code: str = Field(min_length=1, max_length=40)
+    term: str = Field(min_length=1, max_length=40)
+    status: str | None = Field(default=None, max_length=80)
+    seats_available: int | None = Field(default=None, ge=0)
+    seats_capacity: int | None = Field(default=None, ge=0)
+    waitlist_available: int | None = Field(default=None, ge=0)
+    waitlist_capacity: int | None = Field(default=None, ge=0)
+    meeting_days: str | None = Field(default=None, max_length=80)
+    meeting_time: str | None = Field(default=None, max_length=120)
+    location: str | None = Field(default=None, max_length=255)
+    instructor: str | None = Field(default=None, max_length=255)
+    raw_payload: dict[str, Any] = Field(default_factory=dict)
+    source_reference: str | None = Field(default=None, max_length=500)
+
+
+class SectionMonitorSnapshotCompareRequest(BaseModel):
+    student_profile_id: UUID
+    source_type: SectionMonitoringSourceTypeValue = "BROWSER_EXTENSION"
+    snapshots: list[SectionMonitorSnapshotInput] = Field(min_length=1)
+
+
+class SectionMonitorSnapshotResponse(BaseModel):
+    id: UUID
+    target_id: UUID | None = None
+    data_import_id: UUID | None = None
+    course_code: str
+    section_code: str
+    term: str
+    status: str | None = None
+    seats_available: int | None = None
+    seats_capacity: int | None = None
+    waitlist_available: int | None = None
+    waitlist_capacity: int | None = None
+    meeting_days: str | None = None
+    meeting_time: str | None = None
+    location: str | None = None
+    instructor: str | None = None
+    raw_payload: dict[str, Any]
+    source_type: str
+    is_official: bool
+    source_reference: str | None = None
+    source_confidence: str | None = None
+    created_at: datetime
+
+
+class SectionMonitorAlertUpdateRequest(BaseModel):
+    is_acknowledged: bool
+
+
+class SectionMonitorAlertResponse(BaseModel):
+    id: UUID
+    target_id: UUID
+    previous_snapshot_id: UUID
+    current_snapshot_id: UUID
+    alert_type: SectionMonitorAlertTypeValue
+    severity: AuditWarningSeverityValue
+    field_name: str
+    previous_value: str | None = None
+    current_value: str | None = None
+    message: str
+    is_acknowledged: bool
+    acknowledged_at: datetime | None = None
+    is_advisory: bool
+    requires_manual_review: bool
+    created_at: datetime
+
+
+class SectionMonitorSnapshotCompareResponse(BaseModel):
+    snapshots: list[SectionMonitorSnapshotResponse]
+    alerts: list[SectionMonitorAlertResponse]
+    disclaimers: list[str]
 
 
 class DataImportCreateRequest(BaseModel):

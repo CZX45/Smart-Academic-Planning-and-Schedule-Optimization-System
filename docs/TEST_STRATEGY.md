@@ -111,6 +111,15 @@ Phase 8A adds read-only browser extension import coverage:
 - Shared TypeScript tests for browser-extension import handoff requests.
 - Playwright coverage that Browser Extension Import appears in the web UI with staging-only, review-required, and no-registration messaging.
 
+Phase 8B adds read-only section monitoring coverage:
+
+- SQLite-backed model tests for advisory monitor targets, non-official snapshots, official-source rejection, duplicate snapshot deduplication, and alert uniqueness.
+- Service tests for opened/closed section alerts, seat count changes, waitlist count changes, meeting-time changes, instructor changes, location changes, unknown raw-payload changes, and manual-verification messages.
+- API tests for target create/list/archive, snapshot comparison, alert listing/acknowledgement, OpenAPI shape, and absence of registration/waitlist/portal-action routes.
+- Shared TypeScript schema/helper tests for section monitor targets, snapshots, alerts, and snapshot comparison responses.
+- Extension extractor and policy tests for section-search availability fields without background polling, broad host permissions, form submission, or registration actions.
+- Playwright coverage for the Section Monitoring panel, advisory disclaimers, monitored-section rows, alerts, and manual registration checklist.
+
 ### End-to-End Tests
 
 Playwright tests for:
@@ -253,6 +262,13 @@ Phase 8A covers browser-extension import behavior:
 - Unknown or malformed visible page data produces warnings, not crashes.
 - Extension handoff requires preview and explicit user confirmation before sending.
 - Extension code does not include credential storage, SAML/MFA bypass, background scraping, live polling, portal submission, registration automation, add/drop/swap, waitlist automation, or seat grabbing.
+
+Phase 8B covers section monitoring behavior:
+
+- Monitor targets, snapshots, and alerts are advisory, non-official, and student-scoped.
+- Duplicate imported snapshots do not produce duplicate alerts.
+- Status, seat, waitlist, meeting-time, instructor, location, and unknown raw changes produce structured alerts with manual-review messaging.
+- API, shared helpers, web UI, and extension code do not include polling, portal submission, registration, add/drop/swap, waitlist automation, seat reservations, or seat grabbing.
 
 ## 5. Property and Constraint Tests
 

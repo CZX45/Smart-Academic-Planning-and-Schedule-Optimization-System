@@ -30,6 +30,8 @@ import {
   fetchDegreeAuditRequirements,
   fetchHealth,
   fetchLatestDegreeAudit,
+  fetchSectionMonitorAlerts,
+  fetchSectionMonitorTargets,
   fetchStudentDataImports,
   fetchStudentScheduleOptimizations,
   fetchStudentAcademicPlans,
@@ -58,6 +60,8 @@ import {
   type ScheduleOptimizationComparison,
   type ScheduleOptimizationDetail,
   type ScheduleOptimizationRun,
+  type SectionMonitorAlert,
+  type SectionMonitorTarget,
   type ScenarioComparisonSnapshot,
   type ScenarioCourseAllocation,
   type ScenarioProgram,
@@ -181,6 +185,17 @@ type DataReviewState =
       warnings: DataReviewWarning[];
       applications: DataApplicationRun[];
       applicationResult: DataReviewApplicationResult | null;
+    }
+  | { status: "empty"; message: string }
+  | { status: "offline"; message: string }
+  | { status: "failed"; message: string }
+  | { status: "schema-error"; message: string };
+type SectionMonitoringState =
+  | { status: "loading" }
+  | {
+      status: "ready";
+      targets: SectionMonitorTarget[];
+      alerts: SectionMonitorAlert[];
     }
   | { status: "empty"; message: string }
   | { status: "offline"; message: string }
@@ -495,6 +510,18 @@ function describeDataImportError(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown data import error";
 }
 
+function describeSectionMonitoringError(error: unknown): string {
+  if (error instanceof ApiResponseSchemaError) {
+    return "API returned an unexpected section monitoring response shape.";
+  }
+  if (error instanceof ApiRequestError) {
+    return error.message;
+  }
+  return error instanceof Error
+    ? error.message
+    : "Unknown section monitoring error";
+}
+
 function isNotFound(error: unknown): boolean {
   return (
     error instanceof ApiRequestError && error.message.includes("status 404")
@@ -614,6 +641,15 @@ export default function Home() {
           message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
         },
   );
+  const [sectionMonitoringState, setSectionMonitoringState] =
+    useState<SectionMonitoringState>(() =>
+      apiBaseUrl
+        ? { status: "loading" }
+        : {
+            status: "offline",
+            message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+          },
+    );
 
   useEffect(() => {
     let cancelled = false;
@@ -690,6 +726,58 @@ export default function Home() {
       cancelled = true;
     };
   }, [health.status]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!apiBaseUrl) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    async function loadSectionMonitoring(baseUrl: string): Promise<void> {
+      setSectionMonitoringState({ status: "loading" });
+      try {
+        const [targets, alerts] = await Promise.all([
+          fetchSectionMonitorTargets(baseUrl, mockStudentId, {
+            timeoutMs: 5_000,
+          }),
+          fetchSectionMonitorAlerts(baseUrl, mockStudentId, {
+            timeoutMs: 5_000,
+          }),
+        ]);
+        if (cancelled) {
+          return;
+        }
+        setSectionMonitoringState(
+          targets.length === 0 && alerts.length === 0
+            ? {
+                status: "empty",
+                message:
+                  "No monitored sections or advisory alerts are available yet.",
+              }
+            : { status: "ready", targets, alerts },
+        );
+      } catch (error: unknown) {
+        if (!cancelled) {
+          setSectionMonitoringState({
+            status:
+              error instanceof ApiResponseSchemaError
+                ? "schema-error"
+                : "failed",
+            message: describeSectionMonitoringError(error),
+          });
+        }
+      }
+    }
+
+    void loadSectionMonitoring(apiBaseUrl);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const warnings =
     auditState.status === "ready"
@@ -812,6 +900,8 @@ export default function Home() {
           dataReviewState={dataReviewState}
           setDataReviewState={setDataReviewState}
         />
+
+        <SectionMonitoringPanel state={sectionMonitoringState} />
       </section>
     </main>
   );
@@ -2957,6 +3047,152 @@ function DataImportResultView({
         )}
       </section>
     </div>
+  );
+}
+
+function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
+  const targetById =
+    state.status === "ready"
+      ? new Map(state.targets.map((target) => [target.id, target]))
+      : new Map<string, SectionMonitorTarget>();
+
+  return (
+    <section
+      className="section-monitoring-panel"
+      aria-label="Section Monitoring"
+    >
+      <div className="section-heading">
+        <div>
+          <h2>Section Monitoring</h2>
+          <p className="subtle">
+            Advisory alerts from user-triggered section-search imports.
+          </p>
+        </div>
+        <p className="notice compact">Manual review required.</p>
+      </div>
+
+      <ul
+        className="disclaimer-list"
+        aria-label="Section monitoring disclaimers"
+      >
+        <li>
+          Section monitoring is based on user-triggered imported data and may
+          not reflect official real-time availability. Always verify information
+          manually in the official registration portal.
+        </li>
+        <li>
+          This system does not register, drop, swap, waitlist, reserve seats,
+          submit forms, or perform any portal action.
+        </li>
+      </ul>
+
+      {state.status === "loading" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>Loading section monitoring</h2>
+          <p>Retrieving monitored sections and advisory alerts.</p>
+        </section>
+      ) : null}
+
+      {state.status === "offline" ||
+      state.status === "failed" ||
+      state.status === "schema-error" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>
+            {state.status === "schema-error"
+              ? "Section monitoring schema error"
+              : "Section monitoring unavailable"}
+          </h2>
+          <p>{state.message}</p>
+        </section>
+      ) : null}
+
+      {state.status === "empty" ? (
+        <section className="state-panel" aria-live="polite">
+          <h2>No section alerts</h2>
+          <p>{state.message}</p>
+        </section>
+      ) : null}
+
+      {state.status === "ready" ? (
+        <div className="section-monitoring-grid">
+          <section className="comparison-table" aria-label="Monitored sections">
+            <h2>Monitored Sections</h2>
+            {state.targets.length > 0 ? (
+              <div className="comparison-rows">
+                {state.targets.map((target) => (
+                  <div key={target.id} className="comparison-row">
+                    <strong>
+                      {target.course_code} {target.section_code}
+                    </strong>
+                    <span>
+                      {target.term} · {target.title ?? "Untitled section"} ·{" "}
+                      {target.status ? statusLabel(target.status) : "Unknown"}
+                    </span>
+                    <span>
+                      Latest imported snapshot:{" "}
+                      {target.latest_snapshot_created_at ?? "Not imported yet"}
+                    </span>
+                    <span>
+                      {target.is_active ? "Active" : "Archived"} · advisory ·{" "}
+                      {target.is_official ? "official" : "non-official"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="subtle">No monitored sections.</p>
+            )}
+          </section>
+
+          <section className="comparison-table" aria-label="Advisory alerts">
+            <h2>Advisory Alerts</h2>
+            {state.alerts.length > 0 ? (
+              <div className="comparison-rows">
+                {state.alerts.map((alert) => {
+                  const target = targetById.get(alert.target_id);
+                  return (
+                    <div key={alert.id} className="comparison-row">
+                      <strong>{statusLabel(alert.alert_type)}</strong>
+                      <span>
+                        {target
+                          ? `${target.course_code} ${target.section_code}`
+                          : alert.target_id}{" "}
+                        · {statusLabel(alert.severity)} ·{" "}
+                        {alert.is_acknowledged
+                          ? "acknowledged"
+                          : "manual review"}
+                      </span>
+                      <span>
+                        {alert.previous_value ?? "unknown"} -&gt;{" "}
+                        {alert.current_value ?? "unknown"}
+                      </span>
+                      <span>{alert.message}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="subtle">No advisory alerts.</p>
+            )}
+          </section>
+
+          <section
+            className="comparison-table"
+            aria-label="Manual registration checklist"
+          >
+            <h2>Manual Checklist</h2>
+            <ul className="compact-list">
+              <li>Open the official registration portal manually.</li>
+              <li>Verify the section status manually.</li>
+              <li>Confirm prerequisites, restrictions, and holds manually.</li>
+              <li>
+                Register manually through the official portal if appropriate.
+              </li>
+            </ul>
+          </section>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

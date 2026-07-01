@@ -28,12 +28,18 @@ describe("browser extension safety policy", () => {
 
   it("keeps extraction user-triggered and confirmation-gated", () => {
     const popup = readProjectFile("src/popup/popup.ts");
+    const manifest = readProjectFile("manifest.json");
+    const serviceWorker = readProjectFile("src/background/service-worker.ts");
 
     expect(popup).toContain("confirmImportButton");
     expect(popup).toContain("extractCurrentPageButton");
     expect(popup).toContain("createDataImportRequestFromExtraction");
     expect(popup).not.toContain("setInterval");
     expect(popup).not.toContain("chrome.alarms");
+    expect(manifest).not.toContain("alarms");
+    expect(serviceWorker).not.toContain("setInterval");
+    expect(serviceWorker).not.toContain("chrome.alarms");
+    expect(serviceWorker).not.toContain("fetch(");
   });
 
   it("does not include credential capture, portal submission, or registration automation code", () => {
@@ -48,6 +54,9 @@ describe("browser extension safety policy", () => {
     expect(source).not.toMatch(/querySelectorAll\(["']input/i);
     expect(source).not.toMatch(/\.submit\(/i);
     expect(source).not.toMatch(/\.click\(/i);
-    expect(source).not.toMatch(/register|drop|swap|waitlist|seat.?grab/i);
+    expect(source).not.toMatch(/register|drop|swap|seat.?grab/i);
+    expect(source).not.toMatch(
+      /waitlist(_join|Join|Action|Automation)|joinWaitlist/i,
+    );
   });
 });

@@ -177,6 +177,13 @@ h2 {
   padding-top: 16px;
 }
 
+.section-monitoring-panel {
+  border-top: 1px solid #d7dde7;
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+}
+
 .browser-extension-status {
   background: #ffffff;
   border: 1px solid #d7dde7;
@@ -398,6 +405,12 @@ h2 {
 }
 
 .data-import-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.section-monitoring-grid {
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

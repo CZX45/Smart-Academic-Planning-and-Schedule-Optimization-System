@@ -132,14 +132,24 @@ describe("browser extension academic table extractors", () => {
       section_code: "001",
       modality: "IN_PERSON",
       status: "OPEN",
+      seats_available: "4",
+      seats_capacity: "30",
+      waitlist_available: "2",
+      waitlist_capacity: "10",
       credits: "3",
       day_of_week: "MONDAY",
       start_time: "09:00",
       end_time: "10:15",
-      building: "Mock Hall",
-      room: "101",
+      meeting_days: "MONDAY",
+      meeting_time: "09:00-10:15",
+      location: "Mock Hall 101",
       instructor_display: "Mock Instructor",
     });
+    expect(extraction.records[0]).not.toHaveProperty("registration_action");
+    expect(extraction.content).toContain("seats_available");
+    expect(extraction.content).toContain("waitlist_available");
+    expect(extraction.content).toContain("meeting_time");
+    expect(extraction.content).toContain("location");
   });
 
   it("returns a no-data result for unknown pages and empty tables", () => {
