@@ -318,7 +318,7 @@ Phase 7A allowed behavior:
 Phase 7A forbidden behavior:
 
 - Real school login, SAML, MFA, CAPTCHA, portal scraping, browser extension import, OCR-heavy extraction, or official source ingestion.
-- Automatic registration, add/drop, swap, seat polling, seat grabbing, waitlist handling, or advisor approval workflows.
+- Automatic registration, add/drop, swap, seat polling, seat-state automation, waitlist handling, or advisor approval workflows.
 - Presenting imported, mock, inferred, or student-provided data as official school policy.
 
 ## 12. Data Review And Confirmation Rules
@@ -346,7 +346,7 @@ Phase 7B forbidden behavior:
 
 - Applying course catalog, section, section-meeting, requirement, or unknown-course records unless a later phase implements and tests a safe target-specific application path.
 - Treating imported data as official policy, official transcript data, registration state, seat availability, or advisor approval.
-- Real school login, browser extension import, scraping, OCR-heavy extraction, automatic registration, add/drop/swap, waitlist handling, seat polling, or seat grabbing.
+- Real school login, browser extension import, scraping, OCR-heavy extraction, automatic registration, add/drop/swap, waitlist handling, seat polling, or seat-state automation.
 
 ## 13. Read-only Browser Extension Import Rules
 
@@ -374,9 +374,9 @@ Phase 8A allowed behavior:
 
 Phase 8A forbidden behavior:
 
-- Credential storage, password capture, SAML/MFA/CAPTCHA bypass, background scraping, live polling, portal form submission, official source claims, production browser-store publishing, automatic registration, add/drop/swap, waitlist automation, seat grabbing, or high-frequency section refreshes.
+- Credential storage, password capture, SAML/MFA/CAPTCHA bypass, background scraping, live polling, portal form submission, official source claims, production browser-store publishing, automatic registration, add/drop/swap, waitlist automation, seat-state automation, or high-frequency section refreshes.
 
-Phase 8B builds read-only section-change alerts on top of this boundary. Alerts remain advisory, user-controlled, and unable to perform registration or seat-grabbing actions.
+Phase 8B builds read-only section-change alerts on top of this boundary. Alerts remain advisory, user-controlled, and unable to perform registration or seat-state automation.
 
 ## 14. Read-only Section Monitoring Rules
 
@@ -399,7 +399,7 @@ Phase 8B allowed behavior:
 
 Phase 8B forbidden behavior:
 
-- Background polling, high-frequency refreshes, portal scraping, credential storage, SAML/MFA/CAPTCHA bypass, form submission, registration, add, drop, swap, waitlist joins, waitlist automation, seat reservations, seat grabbing, or official availability claims.
+- Background polling, high-frequency refreshes, portal scraping, credential storage, SAML/MFA/CAPTCHA bypass, form submission, registration, add, drop, swap, waitlist joins, waitlist automation, seat-state changes, or official availability claims.
 
 ## 9. Phase 3A Requirement Status Semantics
 

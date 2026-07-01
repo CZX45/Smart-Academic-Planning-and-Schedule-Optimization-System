@@ -35,7 +35,7 @@ The extension must:
 - Send confirmed data only as non-official staging import data.
 - Avoid background scraping.
 - Avoid high-frequency polling.
-- Avoid credential storage, password-field reading, SAML/MFA/CAPTCHA bypass, registration, drop, swap, waitlist, seat-grabbing, or form-submit automation.
+- Avoid credential storage, password-field reading, SAML/MFA/CAPTCHA bypass, registration, drop, swap, waitlist, seat-state automation, or form-submit automation.
 
 ## 5. Data Accuracy Risk
 
@@ -45,11 +45,12 @@ Academic requirements are high-impact. Incorrect results may delay graduation, a
 - Display confidence levels.
 - Separate mock, student-entered, inferred, advisor-confirmed, and official data.
 - Require advisor confirmation messaging for high-risk results.
-- Treat academic plans as advisory course-level snapshots; never convert them into add/drop/swap, waitlist, seat-grabbing, or registration actions.
+- Treat academic plans as advisory course-level snapshots; never convert them into add/drop/swap, waitlist, seat-state automation, or registration actions.
 - Treat Phase 7A data imports as staging-only previews. Do not mark imported data official, and do not apply it to transcript, catalog, section, requirement, seat, waitlist, or registration tables.
 - Treat Phase 7B review applications as explicit, audited, non-official internal planning writes. Confirmed unofficial transcript course attempts may create `student_course_attempts` with `is_official = false`, source metadata, duplicate checks, and applied-record logs. Do not use Phase 7B to create official transcript, catalog, section, seat, waitlist, advisor-approval, or registration state.
 - Treat Phase 8A browser-extension imports as visible-page staging extracts with `source_type = BROWSER_EXTENSION`, `is_official = false`, and required Phase 7B review. Do not store raw HTML by default, do not read password fields, and do not claim extracted rows are official school policy.
-- Treat Phase 8B section monitoring as advisory comparison of user-triggered non-official snapshots. Do not run background polling, refresh school pages automatically, reserve seats, join waitlists, submit forms, or claim alerts are official real-time availability.
+- Treat Phase 8B section monitoring as advisory comparison of user-triggered non-official snapshots. Do not run background polling, refresh school pages automatically, alter seat or waitlist state, submit forms, or claim alerts are official portal status.
+- Treat Phase 9A product-hardening UI as clarity-only work. Status cards, empty states, labels, and manual checklists must not add credential capture, portal submission, polling, background scraping, registration automation, waitlist automation, or seat-state changes.
 - Maintain regression fixtures for every catalog/program version.
 
 ## 6. Privacy Controls
@@ -67,19 +68,19 @@ Recommended controls:
 
 ## 7. Threats and Mitigations
 
-| Threat | Mitigation |
-| --- | --- |
-| Credential theft | Never collect credentials; avoid storing cookies/tokens. |
-| Overbroad extension access | Use narrow permissions and user-triggered extraction. |
-| Incorrect academic advice | Source versioning, confidence levels, advisor-confirmation warnings, tests. |
-| Unauthorized advisor access | Role-based access control and audit logging. |
-| Data leakage in logs | Structured logging with redaction. |
-| Prompt or fixture confusion | Clearly label mock data and never call it official. |
-| Excessive school-system requests | No high-frequency polling; backoff and user-controlled refresh. |
-| Imported data mistaken for official policy | Keep Phase 7A imports in staging tables, force `official_application_ready = false`, emit preview disclaimers, require Phase 7B review decisions, keep applied planning records non-official, and require advisor/school confirmation. |
-| Review application creates unsafe records | Allow application only through explicit POST, support dry-run with no domain writes, skip unsupported/duplicate/advisor-review records with reason codes, and audit every applied or skipped record. |
-| Browser extension overreach | Keep permissions minimal, avoid host permissions, require user action and confirmation, extract visible table text only, do not store credentials or raw HTML by default, and keep all data in staging import until review. |
-| Section monitoring mistaken for live registration | Store only non-official advisory snapshots, require manual verification messaging, deduplicate imported snapshots, avoid background polling, and provide no portal-action endpoints or extension code. |
+| Threat                                            | Mitigation                                                                                                                                                                                                                             |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Credential theft                                  | Never collect credentials; avoid storing cookies/tokens.                                                                                                                                                                               |
+| Overbroad extension access                        | Use narrow permissions and user-triggered extraction.                                                                                                                                                                                  |
+| Incorrect academic advice                         | Source versioning, confidence levels, advisor-confirmation warnings, tests.                                                                                                                                                            |
+| Unauthorized advisor access                       | Role-based access control and audit logging.                                                                                                                                                                                           |
+| Data leakage in logs                              | Structured logging with redaction.                                                                                                                                                                                                     |
+| Prompt or fixture confusion                       | Clearly label mock data and never call it official.                                                                                                                                                                                    |
+| Excessive school-system requests                  | No high-frequency polling; backoff and user-controlled refresh.                                                                                                                                                                        |
+| Imported data mistaken for official policy        | Keep Phase 7A imports in staging tables, force `official_application_ready = false`, emit preview disclaimers, require Phase 7B review decisions, keep applied planning records non-official, and require advisor/school confirmation. |
+| Review application creates unsafe records         | Allow application only through explicit POST, support dry-run with no domain writes, skip unsupported/duplicate/advisor-review records with reason codes, and audit every applied or skipped record.                                   |
+| Browser extension overreach                       | Keep permissions minimal, avoid host permissions, require user action and confirmation, extract visible table text only, do not store credentials or raw HTML by default, and keep all data in staging import until review.            |
+| Section monitoring mistaken for live registration | Store only non-official advisory snapshots, require manual verification messaging, deduplicate imported snapshots, avoid background polling, and provide no portal-action endpoints or extension code.                                 |
 
 ## 8. Compliance Considerations
 

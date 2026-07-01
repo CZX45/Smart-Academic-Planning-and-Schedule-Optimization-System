@@ -41,6 +41,11 @@ import {
   updateSectionMonitorAlert,
   updateSectionMonitorTarget,
   updateImportedRecordReview,
+  formatAcademicTimestamp,
+  formatBeforeAfterValue,
+  getAcademicEmptyStateCopy,
+  getAcademicStatusBadge,
+  getAdvisoryLabels,
 } from "./index.js";
 
 describe("HealthResponseSchema", () => {
@@ -71,6 +76,73 @@ describe("ReadinessResponseSchema", () => {
       status: "ready",
       service: "api",
       database_ready: true,
+    });
+  });
+});
+
+describe("academic UI helpers", () => {
+  it("normalizes status badges for dashboard and panel states", () => {
+    expect(getAcademicStatusBadge("COMPLETED_WITH_WARNINGS")).toEqual({
+      label: "Completed with warnings",
+      tone: "warning",
+    });
+    expect(getAcademicStatusBadge("OPEN")).toEqual({
+      label: "Open",
+      tone: "success",
+    });
+    expect(getAcademicStatusBadge("schema-error")).toEqual({
+      label: "Schema error",
+      tone: "danger",
+    });
+    expect(getAcademicStatusBadge(null)).toEqual({
+      label: "Not started",
+      tone: "neutral",
+    });
+  });
+
+  it("returns consistent advisory labels for non-official workflows", () => {
+    expect(
+      getAdvisoryLabels([
+        "NON_OFFICIAL_IMPORTED_DATA",
+        "MANUAL_REVIEW_REQUIRED",
+        "ADVISORY_ONLY",
+        "VERIFY_IN_OFFICIAL_PORTAL",
+      ]),
+    ).toEqual([
+      { text: "Non-official imported data", tone: "warning" },
+      { text: "Manual review required", tone: "warning" },
+      { text: "Advisory only", tone: "info" },
+      { text: "Verify in official portal", tone: "danger" },
+    ]);
+  });
+
+  it("formats timestamps and before-after values for imported snapshots", () => {
+    expect(formatAcademicTimestamp("2026-07-01T00:00:00Z")).toBe(
+      "Jul 1, 2026, 12:00 AM UTC",
+    );
+    expect(formatAcademicTimestamp(null)).toBe("Not available");
+    expect(formatBeforeAfterValue(null, "OPEN")).toBe("Unknown -> OPEN");
+    expect(formatBeforeAfterValue("CLOSED", "")).toBe("CLOSED -> Unknown");
+  });
+
+  it("provides empty-state copy with reasons and next manual actions", () => {
+    expect(getAcademicEmptyStateCopy("NO_SECTION_MONITORING_ALERTS")).toEqual({
+      title: "No section monitoring alerts",
+      explanation: "No advisory section changes have been detected yet.",
+      reason:
+        "There are no imported section snapshots with a detected before/after change.",
+      nextAction:
+        "Import a fresh section-search snapshot, then verify any change manually in the official portal.",
+      disclaimer: "Advisory only. Verify in official portal.",
+    });
+    expect(getAcademicEmptyStateCopy("NO_GENERATED_SCHEDULE_PLANS")).toEqual({
+      title: "No generated schedule plans",
+      explanation: "No semester schedule optimization has been generated yet.",
+      reason:
+        "The schedule builder starts empty until a student manually runs an optimization.",
+      nextAction:
+        "Choose a course set and build a schedule to compare advisory options.",
+      disclaimer: "Advisory only. This is not registration.",
     });
   });
 });
@@ -694,7 +766,7 @@ describe("section monitoring schemas", () => {
             snapshots: [snapshotPayload],
             alerts: [alertPayload],
             disclaimers: [
-              "This system does not register, drop, swap, waitlist, reserve seats, submit forms, or perform any portal action.",
+              "This system does not register, drop, swap, waitlist, submit forms, or perform any portal action.",
             ],
           }),
           { status: 201 },

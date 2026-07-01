@@ -146,16 +146,16 @@ Fixtures must clearly indicate `confidence_level: mock` unless based on official
 
 ## 4. Domain Test Matrix
 
-| Area | Examples |
-| --- | --- |
-| Requirement status | satisfied, partially satisfied, in_progress, planned, unsatisfied |
-| Course status | completed, in_progress, planned, failed_or_insufficient_grade, transferred, waived |
-| Allocation | course eligible for major elective and GE; overlap limited by policy |
-| Prerequisites | all-of, any-of, min grade, in-progress prereq, missing data |
-| Restrictions | campus, major, class standing, permission required |
-| Planner | impossible target term, prerequisite chain, credit overload |
-| Scheduler | time conflict, no-Friday, latest end, unavailable block, online preference |
-| Risk | missing source data, offering frequency uncertainty, advisor confirmation |
+| Area               | Examples                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| Requirement status | satisfied, partially satisfied, in_progress, planned, unsatisfied                  |
+| Course status      | completed, in_progress, planned, failed_or_insufficient_grade, transferred, waived |
+| Allocation         | course eligible for major elective and GE; overlap limited by policy               |
+| Prerequisites      | all-of, any-of, min grade, in-progress prereq, missing data                        |
+| Restrictions       | campus, major, class standing, permission required                                 |
+| Planner            | impossible target term, prerequisite chain, credit overload                        |
+| Scheduler          | time conflict, no-Friday, latest end, unavailable block, online preference         |
+| Risk               | missing source data, offering frequency uncertainty, advisor confirmation          |
 
 Phase 2A covers storage-level safety before evaluator behavior exists:
 
@@ -261,14 +261,23 @@ Phase 8A covers browser-extension import behavior:
 - Browser-extension imports use `source_type = BROWSER_EXTENSION`, `is_official = false`, and `official_application_ready = false`.
 - Unknown or malformed visible page data produces warnings, not crashes.
 - Extension handoff requires preview and explicit user confirmation before sending.
-- Extension code does not include credential storage, SAML/MFA bypass, background scraping, live polling, portal submission, registration automation, add/drop/swap, waitlist automation, or seat grabbing.
+- Extension code does not include credential storage, SAML/MFA bypass, background scraping, live polling, portal submission, registration automation, add/drop/swap, waitlist automation, or seat-state automation.
 
 Phase 8B covers section monitoring behavior:
 
 - Monitor targets, snapshots, and alerts are advisory, non-official, and student-scoped.
 - Duplicate imported snapshots do not produce duplicate alerts.
 - Status, seat, waitlist, meeting-time, instructor, location, and unknown raw changes produce structured alerts with manual-review messaging.
-- API, shared helpers, web UI, and extension code do not include polling, portal submission, registration, add/drop/swap, waitlist automation, seat reservations, or seat grabbing.
+- API, shared helpers, web UI, and extension code do not include polling, portal submission, registration, add/drop/swap, waitlist automation, or seat-state automation.
+
+Phase 9A covers product-hardening behavior:
+
+- Shared UI helper tests cover status badge rendering, advisory label rendering, UTC timestamp formatting, before/after value display, and empty-state copy.
+- Playwright tests confirm the dashboard status cards render key workflow states and manual next actions.
+- Playwright tests confirm browser-extension import and section-monitoring workflows use non-official, manual-review, advisory-only, and official-portal verification labels.
+- Playwright tests confirm empty states for missing imports, confirmed imports, monitoring targets, monitoring alerts, schedule plans, and what-if scenarios.
+- Safety assertions scan rendered UI text for misleading registration, seat guarantee, and official-availability claims.
+- Phase 9A does not add registration automation, portal submission, polling, background scraping, credential capture, waitlist automation, or seat-state changes.
 
 ## 5. Property and Constraint Tests
 
