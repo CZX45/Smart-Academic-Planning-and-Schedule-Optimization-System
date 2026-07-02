@@ -106,4 +106,11 @@ describe("browser extension safety policy", () => {
     );
     expect(source).not.toMatch(/\b(setInterval|setTimeout|chrome\.alarms)\b/);
   });
+
+  it("keeps the injected content script standalone for programmatic injection", () => {
+    const contentScript = readProjectFile("src/content/content-script.ts");
+
+    expect(contentScript).toContain("chrome?.runtime?.onMessage.addListener");
+    expect(contentScript).not.toMatch(/^import\s+(?!type\b)/m);
+  });
 });
