@@ -368,6 +368,127 @@ describe("browser extension academic table extractors", () => {
     });
   });
 
+  it("extracts sanitized Kean MyProgress course rows across visible requirement tables", () => {
+    const extraction = extractFixture(
+      "kean-my-progress-multi-table-page.html",
+      {
+        title: "MyProgress",
+        url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.MOCK.24`,
+      },
+    );
+
+    expect(extraction.pageType).toBe("KEAN_MY_PROGRESS_PAGE");
+    expect(extraction.importType).toBe("DEGREE_AUDIT_EXPORT");
+    expect(extraction.records).toHaveLength(7);
+    expect(extraction.records.map((record) => record.status)).toEqual([
+      "COMPLETED",
+      "REGISTERED",
+      "PLANNED",
+      "IN_PROGRESS",
+      "NOT_STARTED",
+      "ATTEMPTED",
+      "FULLY_PLANNED",
+    ]);
+    expect(extraction.records[1]).toMatchObject({
+      requirements: "Business Core Requirements",
+      requirement_section: "Business Core Requirements",
+      status: "REGISTERED",
+      raw_course_code: "FIN*3311",
+      course_code: "FIN 3311",
+      course_title: "Mock Corporate Finance II",
+      grade: "",
+      term_code: "2026FAW",
+      credits: "3",
+      source_page_type: "KEAN_MY_PROGRESS_PAGE",
+      type: "DEGREE_AUDIT_EXPORT",
+    });
+    expect(extraction.records[4]).toMatchObject({
+      requirements: "Economics Requirements",
+      requirement_section: "Economics Requirements",
+      status: "NOT_STARTED",
+      raw_course_code: "MATH*1044 Mock Precalculus for Business",
+      course_code: "MATH 1044",
+      course_title: "Mock Precalculus for Business",
+      grade: "",
+      term_code: "",
+      credits: "",
+    });
+    expect(extraction.diagnostics).toMatchObject({
+      academicTablesDetected: 3,
+      academicTablesParsed: 3,
+      academicRowsParsed: 7,
+      academicRowsSkipped: 0,
+      academicRowsCapped: 0,
+      parserWarningCodes: [],
+    });
+  });
+
+  it("warns when MyProgress table parsing is partial while preserving bounded diagnostics", () => {
+    const extraction = extractAcademicPageFromTables({
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.MOCK.24`,
+      tables: [
+        {
+          index: 0,
+          caption: "Mock Requirement",
+          headers: ["Status", "Course", "Title", "Grade", "Term", "Credits"],
+          rows: [
+            [
+              "Completed",
+              "ACCT*2200",
+              "Mock Accounting Foundations",
+              "A-",
+              "2025FAW",
+              "3",
+            ],
+            ["Planned", "", "Missing mock course code", "", "2026FAW", "3"],
+          ],
+        },
+      ],
+      warnings: [
+        {
+          code: "EXTRACTION_LIMIT_REACHED",
+          severity: "WARNING",
+          message:
+            "Extraction stopped early because the page is large. Try expanding only the relevant section or use a more specific supported page.",
+        },
+      ],
+      snapshotMetadata: {
+        directSnapshotRan: true,
+        bounded: true,
+      },
+    });
+
+    expect(extraction.records).toHaveLength(1);
+    expect(extraction.warnings.map((warning) => warning.code)).toEqual(
+      expect.arrayContaining([
+        "EXTRACTION_LIMIT_REACHED",
+        "MY_PROGRESS_ROWS_SKIPPED",
+        "MY_PROGRESS_PARTIAL_TABLE_PARSE",
+      ]),
+    );
+    expect(extraction.warnings).toContainEqual(
+      expect.objectContaining({
+        code: "MY_PROGRESS_PARTIAL_TABLE_PARSE",
+        message:
+          "Only a subset of visible MyProgress rows was parsed. Some requirement tables may need parser support.",
+      }),
+    );
+    expect(extraction.diagnostics).toMatchObject({
+      academicTablesDetected: 1,
+      academicTablesParsed: 1,
+      academicRowsParsed: 1,
+      academicRowsSkipped: 1,
+      academicRowsCapped: 0,
+      parserWarningCodes: expect.arrayContaining([
+        "MY_PROGRESS_ROWS_SKIPPED",
+        "MY_PROGRESS_PARTIAL_TABLE_PARSE",
+      ]),
+      bounded: true,
+      directSnapshotRan: true,
+    });
+  });
+
   it("preserves direct snapshot diagnostics when MyProgress parsing finds no rows", () => {
     const visibleText = "My Progress Requirements Cumulative GPA Total Credits";
     const extraction = extractAcademicPageFromTables({

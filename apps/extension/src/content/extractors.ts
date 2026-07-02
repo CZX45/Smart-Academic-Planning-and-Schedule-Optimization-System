@@ -1,5 +1,8 @@
 import { readVisibleTables } from "./table-reader.js";
-import { limitAcademicPageSnapshot } from "./snapshot-limits.js";
+import {
+  BOUNDED_EXTRACTION_LIMITS,
+  limitAcademicPageSnapshot,
+} from "./snapshot-limits.js";
 import type {
   AcademicPageSnapshot,
   AcademicPageType,
@@ -43,6 +46,21 @@ type TableCandidate = {
   spec: ExtractionSpec;
   table: TableSnapshot;
   score: number;
+};
+
+type ParserDiagnostics = Pick<
+  ExtensionDiagnostics,
+  | "academicTablesDetected"
+  | "academicTablesParsed"
+  | "academicRowsParsed"
+  | "academicRowsSkipped"
+  | "academicRowsCapped"
+  | "parserWarningCodes"
+>;
+
+type MyProgressParseResult = {
+  records: ExtractedRecord[];
+  diagnostics: ParserDiagnostics;
 };
 
 function cleanText(value: string | null | undefined): string {
@@ -112,18 +130,29 @@ const MY_PROGRESS_COURSE_SPEC: ExtractionSpec = {
   mimeType: "application/json",
   fields: [
     "requirements",
+    "requirement_section",
     "status",
+    "raw_course_code",
     "course_code",
     "course_title",
     "grade",
     "term_code",
     "credits",
+    "source_page_type",
+    "type",
     "source_label",
   ],
   aliases: {
     requirements: ["requirement", "requirements", "section"],
+    requirement_section: [
+      "requirement_section",
+      "requirement",
+      "requirements",
+      "section",
+    ],
     status: ["status", "course_status", "attempt_status"],
     course_code: ["course", "course_code", "code"],
+    raw_course_code: ["course", "course_code", "code"],
     course_title: ["title", "course_title", "name"],
     grade: ["grade", "final_grade"],
     term_code: ["term", "term_code", "semester"],
@@ -299,7 +328,13 @@ export function extractAcademicPageFromTables(
   }
 
   const warnings: ExtensionExtractionWarning[] = [...(snapshot.warnings ?? [])];
-  const records = recordsFromTable(candidate.spec, candidate.table, warnings);
+  const parseResult = isMyProgressCourseSpec(candidate.spec)
+    ? recordsFromMyProgressTables(candidate.spec, candidateTables, warnings)
+    : {
+        records: recordsFromTable(candidate.spec, candidate.table, warnings),
+        diagnostics: emptyParserDiagnostics(),
+      };
+  const { records } = parseResult;
   if (records.length === 0) {
     warnings.push({
       code: "NO_IMPORTABLE_ROWS",
@@ -341,6 +376,7 @@ export function extractAcademicPageFromTables(
       records,
       candidate.spec.fields,
       warnings,
+      parseResult.diagnostics,
     ),
     requiresReview: true,
     extractedAt,
@@ -404,6 +440,204 @@ function tablesForExtraction(snapshot: AcademicPageSnapshot): TableSnapshot[] {
     ...snapshot.tables,
     ...myProgressCourseTablesFromSnapshot(snapshot, snapshot.tables.length),
   ];
+}
+
+function emptyParserDiagnostics(): ParserDiagnostics {
+  return {
+    academicTablesDetected: 0,
+    academicTablesParsed: 0,
+    academicRowsParsed: 0,
+    academicRowsSkipped: 0,
+    academicRowsCapped: 0,
+    parserWarningCodes: [],
+  };
+}
+
+function isMyProgressCourseSpec(spec: ExtractionSpec): boolean {
+  return (
+    spec.pageType === "KEAN_MY_PROGRESS_PAGE" &&
+    spec.importType === "DEGREE_AUDIT_EXPORT" &&
+    spec.requiredFields.includes("status") &&
+    spec.requiredFields.includes("course_code")
+  );
+}
+
+function recordsFromMyProgressTables(
+  spec: ExtractionSpec,
+  tables: readonly TableSnapshot[],
+  warnings: ExtensionExtractionWarning[],
+): MyProgressParseResult {
+  const parserWarningsStart = warnings.length;
+  const diagnostics = emptyParserDiagnostics();
+  const relevantTables = tables.filter((table) => scoreTable(spec, table) > 0);
+  diagnostics.academicTablesDetected = relevantTables.length;
+  const records: ExtractedRecord[] = [];
+
+  for (const table of relevantTables) {
+    const parsedBeforeTable = records.length;
+    const columnByField = buildColumnMap(spec, table.headers);
+    let currentRequirement = requirementLabelFromTable(table);
+    warnForUnknownColumns(spec, table.headers, warnings);
+
+    for (const row of table.rows) {
+      const rowText = cleanText(row.join(" "));
+      if (!rowText || isMyProgressHeader(rowText)) {
+        continue;
+      }
+      const rowRequirement = requirementLabelFromCells(row);
+      if (rowRequirement) {
+        currentRequirement = rowRequirement;
+        continue;
+      }
+      const record = myProgressRecordFromRow(
+        spec,
+        table,
+        row,
+        columnByField,
+        currentRequirement,
+      );
+      if (!hasRequiredFields(spec, record)) {
+        diagnostics.academicRowsSkipped += 1;
+        continue;
+      }
+      if (records.length >= BOUNDED_EXTRACTION_LIMITS.maxTotalRows) {
+        diagnostics.academicRowsCapped += 1;
+        continue;
+      }
+      records.push(record);
+    }
+
+    if (records.length > parsedBeforeTable) {
+      diagnostics.academicTablesParsed += 1;
+    }
+  }
+
+  diagnostics.academicRowsParsed = records.length;
+  if (diagnostics.academicRowsSkipped > 0) {
+    pushUniqueWarning(warnings, {
+      code: "MY_PROGRESS_ROWS_SKIPPED",
+      severity: "INFO",
+      message: `Skipped ${diagnostics.academicRowsSkipped} visible MyProgress row(s) that were missing required academic fields.`,
+    });
+  }
+  if (diagnostics.academicRowsCapped > 0) {
+    pushUniqueWarning(warnings, {
+      code: "MY_PROGRESS_ROWS_CAPPED",
+      severity: "WARNING",
+      message: `Stopped after ${records.length} MyProgress row(s) to keep extraction bounded.`,
+    });
+  }
+  if (isPartialMyProgressParse(diagnostics, warnings)) {
+    pushUniqueWarning(warnings, {
+      code: "MY_PROGRESS_PARTIAL_TABLE_PARSE",
+      severity: "WARNING",
+      message:
+        "Only a subset of visible MyProgress rows was parsed. Some requirement tables may need parser support.",
+    });
+  }
+  diagnostics.parserWarningCodes = warnings
+    .slice(parserWarningsStart)
+    .map((warning) => warning.code);
+  return { records, diagnostics };
+}
+
+function myProgressRecordFromRow(
+  spec: ExtractionSpec,
+  table: TableSnapshot,
+  row: readonly string[],
+  columnByField: ReadonlyMap<string, number>,
+  currentRequirement: string,
+): ExtractedRecord {
+  const record = spec.fields.reduce<ExtractedRecord>((current, field) => {
+    const columnIndex = columnByField.get(field);
+    current[field] =
+      columnIndex === undefined
+        ? ""
+        : normalizeValue(field, row[columnIndex] ?? "");
+    return current;
+  }, {});
+  const rawCourseIndex =
+    columnByField.get("raw_course_code") ?? columnByField.get("course_code");
+  const rawCourseCode =
+    rawCourseIndex === undefined
+      ? (record.course_code ?? "")
+      : (row[rawCourseIndex] ?? "");
+  const parsedCourse = splitCourseCodeAndTitle(rawCourseCode);
+  record.raw_course_code = cleanText(rawCourseCode);
+  if (parsedCourse) {
+    record.course_code = parsedCourse.courseCode;
+    record.course_title ||= parsedCourse.courseTitle;
+  }
+
+  const requirement =
+    record.requirement_section || record.requirements || currentRequirement;
+  record.requirements = requirement;
+  record.requirement_section = requirement;
+  record.source_page_type = spec.pageType;
+  record.type = spec.importType;
+  record.source_label = table.caption || `visible table ${table.index + 1}`;
+  return record;
+}
+
+function splitCourseCodeAndTitle(
+  value: string,
+): { courseCode: string; courseTitle: string } | null {
+  const match = cleanText(value).match(
+    /^([A-Z]{2,6})[*\s-]*(\d{3,4}[A-Z]?)(?:\s*[-:]\s*|\s+)?(.*)$/i,
+  );
+  if (!match?.[1] || !match[2]) {
+    return null;
+  }
+  return {
+    courseCode: `${match[1].toUpperCase()} ${match[2].toUpperCase()}`,
+    courseTitle: cleanText(match[3] ?? ""),
+  };
+}
+
+function requirementLabelFromTable(table: TableSnapshot): string {
+  const caption = cleanText(table.caption);
+  return caption.length <= 160 ? caption : "";
+}
+
+function requirementLabelFromCells(cells: readonly string[]): string {
+  const nonEmptyCells = cells.map(cleanText).filter(Boolean);
+  if (nonEmptyCells.length !== 1) {
+    return "";
+  }
+  const [value] = nonEmptyCells;
+  if (!value || value.length > 160 || looksLikeMyProgressCourseRow(value)) {
+    return "";
+  }
+  if (
+    isMyProgressHeader(value) ||
+    /\b[A-Z]{2,6}[*\s-]?\d{3,4}[A-Z]?\b/.test(value)
+  ) {
+    return "";
+  }
+  return value;
+}
+
+function isPartialMyProgressParse(
+  diagnostics: ParserDiagnostics,
+  warnings: readonly ExtensionExtractionWarning[],
+): boolean {
+  if (diagnostics.academicTablesDetected === 0) {
+    return false;
+  }
+  return (
+    diagnostics.academicRowsSkipped > 0 ||
+    diagnostics.academicRowsCapped > 0 ||
+    warnings.some((warning) => warning.code === "EXTRACTION_LIMIT_REACHED")
+  );
+}
+
+function pushUniqueWarning(
+  warnings: ExtensionExtractionWarning[],
+  warning: ExtensionExtractionWarning,
+): void {
+  if (!warnings.some((current) => current.code === warning.code)) {
+    warnings.push(warning);
+  }
 }
 
 function myProgressCourseTablesFromSnapshot(
@@ -485,7 +719,7 @@ function myProgressCourseRow(
   requirement: string,
 ): string[] | null {
   const statusMatch = value.match(
-    /^(Completed|Reg(?:istered)?|Planned|Not Started|In Progress|Failed|Withdrawn)\s+/i,
+    /^(Completed|Reg(?:istered)?|Planned|Fully Planned|Not Started|In[- ]Progress|Attempted|Failed|Withdrawn)\s+/i,
   );
   if (!statusMatch?.[1]) {
     return null;
@@ -838,6 +1072,7 @@ function diagnosticsForExtraction(
   records: readonly ExtractedRecord[],
   academicFields: readonly string[],
   warnings: readonly ExtensionExtractionWarning[],
+  parserDiagnostics: ParserDiagnostics = emptyParserDiagnostics(),
 ): ExtensionDiagnostics {
   const visibleAcademicFields = academicFields.filter(
     (field) => field !== "source_label",
@@ -878,6 +1113,7 @@ function diagnosticsForExtraction(
     directSnapshotRan: snapshot.snapshotMetadata?.directSnapshotRan === true,
     bounded,
     warningCodes: warnings.map((warning) => warning.code),
+    ...parserDiagnostics,
   };
 }
 
