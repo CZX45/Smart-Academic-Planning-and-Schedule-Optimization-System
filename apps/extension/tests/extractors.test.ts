@@ -396,4 +396,27 @@ describe("browser extension academic table extractors", () => {
       /password|cookie|token|session|hidden-field-value|do-not-read-password/,
     );
   });
+
+  it("preserves bounded extraction warnings in diagnostics", () => {
+    const extraction = extractAcademicPageFromTables({
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      tables: tablesFromFixture("kean-my-progress-page.html"),
+      warnings: [
+        {
+          code: "EXTRACTION_LIMIT_REACHED",
+          severity: "WARNING",
+          message:
+            "Extraction stopped early because the page is large. Try expanding only the relevant section or use a more specific supported page.",
+        },
+      ],
+    });
+
+    expect(extraction.warnings.map((warning) => warning.code)).toContain(
+      "EXTRACTION_LIMIT_REACHED",
+    );
+    expect(extraction.diagnostics.warningCodes).toContain(
+      "EXTRACTION_LIMIT_REACHED",
+    );
+  });
 });

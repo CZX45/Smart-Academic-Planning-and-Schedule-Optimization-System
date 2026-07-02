@@ -42,6 +42,7 @@ export type AcademicPageSnapshot = {
   title: string;
   url: string;
   tables: TableSnapshot[];
+  warnings?: ExtensionExtractionWarning[];
 };
 
 export type ExtensionDiagnostics = {

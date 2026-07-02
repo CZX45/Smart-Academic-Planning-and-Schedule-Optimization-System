@@ -16,6 +16,7 @@ describe("browser extension safety policy", () => {
       permissions?: string[];
       host_permissions?: string[];
       optional_host_permissions?: string[];
+      content_scripts?: unknown[];
     };
 
     expect(manifest.manifest_version).toBe(3);
@@ -28,6 +29,7 @@ describe("browser extension safety policy", () => {
     expect(manifest.optional_host_permissions ?? []).toEqual([
       "https://kean-ss.colleague.elluciancloud.com/*",
     ]);
+    expect(manifest.content_scripts ?? []).toEqual([]);
     expect(JSON.stringify(manifest)).not.toContain("<all_urls>");
     expect(JSON.stringify(manifest)).not.toContain("https://*/*");
     expect(JSON.stringify(manifest)).not.toContain("http://*/*");
@@ -105,6 +107,7 @@ describe("browser extension safety policy", () => {
       /\b(password|portal_password|credential|session_cookie|saml|mfa|captcha)\b/i,
     );
     expect(source).not.toMatch(/\b(setInterval|setTimeout|chrome\.alarms)\b/);
+    expect(source).not.toMatch(/\bMutationObserver\b/);
   });
 
   it("keeps the injected content script standalone for programmatic injection", () => {
@@ -112,5 +115,21 @@ describe("browser extension safety policy", () => {
 
     expect(contentScript).toContain("chrome?.runtime?.onMessage.addListener");
     expect(contentScript).not.toMatch(/^import\s+(?!type\b)/m);
+  });
+
+  it("keeps content-script DOM scanning message-triggered and idempotent", () => {
+    const contentScript = readProjectFile("src/content/content-script.ts");
+
+    expect(contentScript).toContain("SAPSOS_CONTENT_SCRIPT_READY");
+    expect(contentScript).toContain("EXTRACTION_LIMIT_REACHED");
+    expect(
+      contentScript.match(/readAcademicPageSnapshot\(document\)/g),
+    ).toHaveLength(1);
+    expect(
+      contentScript.indexOf("readAcademicPageSnapshot(document)"),
+    ).toBeGreaterThan(contentScript.indexOf("onMessage.addListener"));
+    expect(contentScript).not.toContain("document_start");
+    expect(contentScript).not.toContain("document_idle");
+    expect(contentScript).not.toContain("window.onload");
   });
 });

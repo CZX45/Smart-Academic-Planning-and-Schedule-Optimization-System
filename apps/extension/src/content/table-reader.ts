@@ -1,3 +1,4 @@
+import { BOUNDED_EXTRACTION_LIMITS } from "./snapshot-limits.js";
 import type { TableSnapshot } from "../shared/types.js";
 
 function cleanText(value: string | null | undefined): string {
@@ -31,7 +32,19 @@ function readableCellText(cell: HTMLTableCellElement): string {
 }
 
 function cellTexts(cells: HTMLCollectionOf<HTMLTableCellElement>): string[] {
-  return Array.from(cells).map(readableCellText);
+  const texts: string[] = [];
+  for (
+    let index = 0;
+    index < cells.length &&
+    texts.length < BOUNDED_EXTRACTION_LIMITS.maxCellsPerRow;
+    index += 1
+  ) {
+    const cell = cells.item(index);
+    if (cell) {
+      texts.push(readableCellText(cell));
+    }
+  }
+  return texts;
 }
 
 function headerTexts(table: HTMLTableElement): string[] {
@@ -47,23 +60,59 @@ function headerTexts(table: HTMLTableElement): string[] {
 }
 
 function bodyRows(table: HTMLTableElement): string[][] {
-  const rows = Array.from(table.rows);
-  const firstBodyIndex = rows.findIndex((row) =>
-    Array.from(row.cells).some((cell) => cell.tagName.toLowerCase() === "td"),
-  );
-  if (firstBodyIndex < 0) {
-    return [];
+  function hasBodyCell(row: HTMLTableRowElement): boolean {
+    for (let index = 0; index < row.cells.length; index += 1) {
+      const cell = row.cells.item(index);
+      if (cell?.tagName.toLowerCase() === "td") {
+        return true;
+      }
+      if (index >= BOUNDED_EXTRACTION_LIMITS.maxCellsPerRow) {
+        return false;
+      }
+    }
+    return false;
   }
-  return rows.slice(firstBodyIndex).map((row) => cellTexts(row.cells));
+
+  const rows: string[][] = [];
+  let bodyStarted = false;
+  for (
+    let index = 0;
+    index < table.rows.length &&
+    rows.length < BOUNDED_EXTRACTION_LIMITS.maxRowsPerTable;
+    index += 1
+  ) {
+    const row = table.rows.item(index);
+    if (!row) {
+      continue;
+    }
+    if (!bodyStarted && !hasBodyCell(row)) {
+      continue;
+    }
+    bodyStarted = true;
+    rows.push(cellTexts(row.cells));
+  }
+  return rows;
 }
 
 export function readVisibleTables(documentRef: Document): TableSnapshot[] {
-  return Array.from(documentRef.querySelectorAll("table"))
-    .filter((table): table is HTMLTableElement => isVisible(table))
-    .map((table, index) => ({
-      index,
+  const tables: TableSnapshot[] = [];
+  const tableElements = documentRef.getElementsByTagName("table");
+  for (
+    let elementIndex = 0;
+    elementIndex < tableElements.length &&
+    tables.length < BOUNDED_EXTRACTION_LIMITS.maxTables;
+    elementIndex += 1
+  ) {
+    const table = tableElements.item(elementIndex);
+    if (!table || !isVisible(table)) {
+      continue;
+    }
+    tables.push({
+      index: tables.length,
       caption: cleanText(table.caption?.textContent),
       headers: headerTexts(table),
       rows: bodyRows(table),
-    }));
+    });
+  }
+  return tables;
 }

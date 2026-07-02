@@ -1,4 +1,5 @@
 import { readVisibleTables } from "./table-reader.js";
+import { limitAcademicPageSnapshot } from "./snapshot-limits.js";
 import type {
   AcademicPageSnapshot,
   AcademicPageType,
@@ -219,6 +220,7 @@ export function extractAcademicPage(
 export function extractAcademicPageFromTables(
   snapshot: AcademicPageSnapshot,
 ): BrowserExtensionExtraction {
+  snapshot = limitAcademicPageSnapshot(snapshot);
   const extractedAt = "1970-01-01T00:00:00.000Z";
   if (isKeanHostUrl(snapshot.url) && !isKeanStudentPortalUrl(snapshot.url)) {
     return noDataExtraction(
@@ -260,7 +262,9 @@ export function extractAcademicPageFromTables(
     );
   }
 
-  const warnings: ExtensionExtractionWarning[] = [];
+  const warnings: ExtensionExtractionWarning[] = [
+    ...(snapshot.warnings ?? []),
+  ];
   const records = recordsFromTable(candidate.spec, candidate.table, warnings);
   if (records.length === 0) {
     warnings.push({
@@ -562,6 +566,7 @@ function noDataExtraction(
   sourceLabel?: "KEAN_STUDENT_PORTAL",
 ): BrowserExtensionExtraction {
   const warnings: ExtensionExtractionWarning[] = [
+    ...(snapshot.warnings ?? []),
     {
       code: warningCode,
       severity: "WARNING",
