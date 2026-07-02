@@ -52,6 +52,7 @@ async function fetchWithTimeout(url, timeoutMs = 5000) {
 async function checkEndpoint(check) {
   try {
     const response = await fetchWithTimeout(check.url);
+    await response.arrayBuffer().catch(() => undefined);
     if (response.ok) {
       console.log(`[PASS] ${check.name}: ${check.url}`);
       return true;
@@ -102,10 +103,9 @@ endpointResults.push(await checkExtensionPackage());
 if (endpointResults.every(Boolean)) {
   console.log("");
   console.log("Local smoke test passed.");
-  process.exit(0);
+} else {
+  console.error("");
+  console.error("Local smoke test failed. Fix the failed checks above and re-run:");
+  console.error("corepack pnpm app:smoke");
+  process.exitCode = 1;
 }
-
-console.error("");
-console.error("Local smoke test failed. Fix the failed checks above and re-run:");
-console.error("corepack pnpm app:smoke");
-process.exit(1);
