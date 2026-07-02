@@ -5,6 +5,7 @@ import type {
   BrowserExtensionDataImportRequest,
   BrowserExtensionExtraction,
   DataImportType,
+  ExtensionDiagnostics,
   ExtensionExtractionWarning,
   ExtractedRecord,
   TableSnapshot,
@@ -295,6 +296,14 @@ export function extractAcademicPageFromTables(
     content: contentFor(candidate.spec, records),
     records,
     warnings,
+    diagnostics: diagnosticsForExtraction(
+      snapshot,
+      candidate.spec.pageType,
+      matchedPageMarker(snapshot, keanDefinition),
+      records,
+      candidate.spec.fields,
+      warnings,
+    ),
     requiresReview: true,
     extractedAt,
   };
@@ -582,6 +591,14 @@ function noDataExtraction(
     )}\n`,
     records: [],
     warnings,
+    diagnostics: diagnosticsForExtraction(
+      snapshot,
+      "UNKNOWN_PAGE",
+      warningCode,
+      [],
+      [],
+      warnings,
+    ),
     requiresReview: true,
     extractedAt,
   };
@@ -620,9 +637,65 @@ function visibleTextForDetection(snapshot: AcademicPageSnapshot): string {
     .join(" ");
 }
 
+function matchedPageMarker(
+  snapshot: AcademicPageSnapshot,
+  definition: KeanPageDefinition | null,
+): string {
+  if (!definition) {
+    return "generic-academic-table";
+  }
+  const normalizedPath = safeUrl(snapshot.url).toLowerCase();
+  const haystack =
+    `${snapshot.title} ${visibleTextForDetection(snapshot)}`.toLowerCase();
+  return (
+    definition.routeMarkers.find((marker) =>
+      normalizedPath.includes(marker.toLowerCase()),
+    ) ??
+    definition.visibleTextMarkers.find((marker) =>
+      haystack.includes(marker.toLowerCase()),
+    ) ??
+    definition.key
+  );
+}
+
+function diagnosticsForExtraction(
+  snapshot: AcademicPageSnapshot,
+  detectedPageType: BrowserExtensionExtraction["pageType"],
+  matchedPageMarker: string,
+  records: readonly ExtractedRecord[],
+  academicFields: readonly string[],
+  warnings: readonly ExtensionExtractionWarning[],
+): ExtensionDiagnostics {
+  const visibleAcademicFields = academicFields.filter(
+    (field) => field !== "source_label",
+  );
+  const extractedAcademicFieldCount = records.reduce(
+    (count, record) =>
+      count +
+      visibleAcademicFields.filter(
+        (field) => (record[field] ?? "").trim().length > 0,
+      ).length,
+    0,
+  );
+  return {
+    currentUrl: safeUrl(snapshot.url),
+    detectedPageType,
+    matchedPageMarker,
+    tablesFound: snapshot.tables.length,
+    rowsFound: snapshot.tables.reduce(
+      (count, table) => count + table.rows.length,
+      0,
+    ),
+    extractedAcademicFieldCount,
+    ignoredSensitiveFieldCount: 0,
+    warningCodes: warnings.map((warning) => warning.code),
+  };
+}
+
 function safeUrl(url: string): string {
   try {
     const parsed = new URL(url);
+    parsed.search = "";
     parsed.hash = "";
     return parsed.toString();
   } catch {

@@ -80,6 +80,16 @@ const detectedPageText = document.getElementById("detectedPageText");
 const countsText = document.getElementById("countsText");
 const warningsList = document.getElementById("warningsList");
 const previewTable = document.getElementById("previewTable");
+const diagnosticUrlText = document.getElementById("diagnosticUrlText");
+const diagnosticMarkerText = document.getElementById("diagnosticMarkerText");
+const diagnosticTablesText = document.getElementById("diagnosticTablesText");
+const diagnosticRowsText = document.getElementById("diagnosticRowsText");
+const diagnosticAcademicFieldsText = document.getElementById(
+  "diagnosticAcademicFieldsText",
+);
+const diagnosticSensitiveFieldsText = document.getElementById(
+  "diagnosticSensitiveFieldsText",
+);
 
 let latestExtraction: BrowserExtensionExtraction | null = null;
 let guidedMode = false;
@@ -152,6 +162,39 @@ function setWarnings(extractions: readonly BrowserExtensionExtraction[]): void {
   }
 }
 
+function setText(element: Element | null, value: string): void {
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+function setDiagnostics(
+  extractions: readonly BrowserExtensionExtraction[],
+): void {
+  const latest = extractions.at(-1);
+  if (!latest) {
+    setText(diagnosticUrlText, "No page captured.");
+    setText(diagnosticMarkerText, "No marker.");
+    setText(diagnosticTablesText, "0");
+    setText(diagnosticRowsText, "0");
+    setText(diagnosticAcademicFieldsText, "0");
+    setText(diagnosticSensitiveFieldsText, "0");
+    return;
+  }
+  setText(diagnosticUrlText, latest.diagnostics.currentUrl);
+  setText(diagnosticMarkerText, latest.diagnostics.matchedPageMarker);
+  setText(diagnosticTablesText, String(latest.diagnostics.tablesFound));
+  setText(diagnosticRowsText, String(latest.diagnostics.rowsFound));
+  setText(
+    diagnosticAcademicFieldsText,
+    String(latest.diagnostics.extractedAcademicFieldCount),
+  );
+  setText(
+    diagnosticSensitiveFieldsText,
+    String(latest.diagnostics.ignoredSensitiveFieldCount),
+  );
+}
+
 function appendCell(
   row: HTMLTableRowElement,
   value: string,
@@ -195,6 +238,7 @@ function renderPreview(
   setDetectedPage(extractions);
   setCounts(extractions);
   setWarnings(extractions);
+  setDiagnostics(extractions);
   setPreview(extractions);
 }
 

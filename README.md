@@ -57,6 +57,65 @@ pnpm install --frozen-lockfile
 python -m pip install -e "apps/api[dev]"
 ```
 
+## Run as Local Software
+
+Phase 11C provides a Windows local software workflow for running the web app,
+API, PostgreSQL database, and browser-extension package without adding new
+academic planning features.
+
+Prerequisites:
+
+- Git
+- Node.js 24+ with Corepack/pnpm
+- Python 3.12+
+- Docker Desktop
+- Chrome or Edge for the extension
+
+Check prerequisites:
+
+```powershell
+.\scripts\windows\Check-Prerequisites.ps1
+```
+
+Start the local stack:
+
+```powershell
+.\scripts\windows\Start-Smart-Academic-Planner.ps1
+```
+
+Open the app:
+
+- Web app: <http://localhost:3000>
+- API: <http://localhost:8000>
+- API docs: <http://localhost:8000/docs>
+
+Stop the local stack:
+
+```powershell
+.\scripts\windows\Stop-Smart-Academic-Planner.ps1
+```
+
+Build the local browser extension package:
+
+```powershell
+corepack pnpm extension:package
+```
+
+Load the generated `dist/extension-unpacked` folder manually from
+`chrome://extensions` or `edge://extensions` with Developer Mode enabled.
+
+Detailed local-use docs:
+
+- [User Software Manual](docs/USER_SOFTWARE_MANUAL.md)
+- [Local App Package](docs/LOCAL_APP_PACKAGE.md)
+- [Kean Portal Real-Page QA](docs/KEAN_PORTAL_REAL_PAGE_QA.md)
+
+Safety boundary: the local software has no credential collection, no
+cookie/session-token storage, no SAML/MFA/CAPTCHA bypass, no portal form
+submission, no automatic registration, no waitlist automation, no background
+polling, no seat reservation, no seat grabbing, no browser-store publishing,
+and no hidden automation.
+
 ## Local mixed development
 
 After dependencies are installed, this command starts Docker PostgreSQL plus local FastAPI and local Next.js dev servers:
