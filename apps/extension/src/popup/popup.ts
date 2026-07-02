@@ -3,6 +3,14 @@ import {
   createDataImportRequestFromExtraction,
 } from "../content/extractors.js";
 import {
+  ensureHostPermission,
+  executeExtraction,
+  popupDiagnosticsFromExtractions,
+  readActiveTab,
+  shouldAttemptExtractionForUrl,
+  type PopupChromeApi,
+} from "./browser-actions.js";
+import {
   KEAN_OPTIONAL_HOST_PERMISSION,
   KEAN_SOURCE_LABEL,
 } from "../shared/kean.js";
@@ -16,11 +24,7 @@ type StoredSettings = {
   studentProfileId?: string;
 };
 
-type Tab = {
-  id?: number;
-};
-
-type ChromeApi = {
+type ChromeApi = PopupChromeApi & {
   storage: {
     local: {
       get: (
@@ -29,36 +33,6 @@ type ChromeApi = {
       ) => void;
       set: (settings: StoredSettings) => void;
     };
-  };
-  tabs: {
-    query: (
-      query: { active: true; currentWindow: true },
-      callback: (tabs: Tab[]) => void,
-    ) => void;
-    sendMessage: (
-      tabId: number,
-      message: { type: string },
-      callback: (response?: {
-        ok: true;
-        extraction: BrowserExtensionExtraction;
-      }) => void,
-    ) => void;
-  };
-  scripting: {
-    executeScript: (
-      details: { target: { tabId: number }; files: string[] },
-      callback: () => void,
-    ) => void;
-  };
-  permissions: {
-    contains: (
-      permissions: { origins: string[] },
-      callback: (granted: boolean) => void,
-    ) => void;
-    request: (
-      permissions: { origins: string[] },
-      callback: (granted: boolean) => void,
-    ) => void;
   };
 };
 
@@ -92,6 +66,7 @@ const diagnosticSensitiveFieldsText = document.getElementById(
 );
 
 let latestExtraction: BrowserExtensionExtraction | null = null;
+let latestCapturedUrl: string | null = null;
 let guidedMode = false;
 let guidedExtractions: BrowserExtensionExtraction[] = [];
 
@@ -170,28 +145,22 @@ function setText(element: Element | null, value: string): void {
 
 function setDiagnostics(
   extractions: readonly BrowserExtensionExtraction[],
+  capturedUrl?: string | null,
 ): void {
-  const latest = extractions.at(-1);
-  if (!latest) {
-    setText(diagnosticUrlText, "No page captured.");
-    setText(diagnosticMarkerText, "No marker.");
-    setText(diagnosticTablesText, "0");
-    setText(diagnosticRowsText, "0");
-    setText(diagnosticAcademicFieldsText, "0");
-    setText(diagnosticSensitiveFieldsText, "0");
-    return;
-  }
-  setText(diagnosticUrlText, latest.diagnostics.currentUrl);
-  setText(diagnosticMarkerText, latest.diagnostics.matchedPageMarker);
-  setText(diagnosticTablesText, String(latest.diagnostics.tablesFound));
-  setText(diagnosticRowsText, String(latest.diagnostics.rowsFound));
+  const diagnostics = capturedUrl
+    ? popupDiagnosticsFromExtractions(extractions, { capturedUrl })
+    : popupDiagnosticsFromExtractions(extractions);
+  setText(diagnosticUrlText, diagnostics.currentUrl);
+  setText(diagnosticMarkerText, diagnostics.matchedPageMarker);
+  setText(diagnosticTablesText, String(diagnostics.tablesFound));
+  setText(diagnosticRowsText, String(diagnostics.rowsFound));
   setText(
     diagnosticAcademicFieldsText,
-    String(latest.diagnostics.extractedAcademicFieldCount),
+    String(diagnostics.extractedAcademicFieldCount),
   );
   setText(
     diagnosticSensitiveFieldsText,
-    String(latest.diagnostics.ignoredSensitiveFieldCount),
+    String(diagnostics.ignoredSensitiveFieldCount),
   );
 }
 
@@ -234,11 +203,12 @@ function setPreview(extractions: readonly BrowserExtensionExtraction[]): void {
 
 function renderPreview(
   extractions: readonly BrowserExtensionExtraction[],
+  options: { capturedUrl?: string | null } = {},
 ): void {
   setDetectedPage(extractions);
   setCounts(extractions);
   setWarnings(extractions);
-  setDiagnostics(extractions);
+  setDiagnostics(extractions, options.capturedUrl);
   setPreview(extractions);
 }
 
@@ -254,79 +224,49 @@ function setCaptureGuidedEnabled(enabled: boolean): void {
   }
 }
 
-function activeTab(): Promise<Tab> {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tab = tabs[0];
-      if (!tab?.id) {
-        reject(new Error("No active tab is available."));
-        return;
-      }
-      resolve(tab);
-    });
-  });
-}
-
-function executeExtraction(tabId: number): Promise<BrowserExtensionExtraction> {
-  return new Promise((resolve, reject) => {
-    chrome.scripting.executeScript(
-      {
-        target: { tabId },
-        files: ["dist/content/content-script.js"],
-      },
-      () => {
-        chrome.tabs.sendMessage(
-          tabId,
-          { type: "SAPSOS_EXTRACT_PAGE" },
-          (response) => {
-            if (!response?.ok) {
-              reject(
-                new Error("The page did not return an extraction result."),
-              );
-              return;
-            }
-            resolve(response.extraction);
-          },
-        );
-      },
-    );
-  });
-}
-
 async function handleExtract(): Promise<void> {
   try {
     setStatus("Extracting visible page data.");
     guidedMode = false;
     guidedExtractions = [];
+    latestCapturedUrl = null;
     setConfirmEnabled(false);
-    const tab = await activeTab();
-    latestExtraction = await executeExtraction(tab.id ?? 0);
+    const tab = await readActiveTab(chrome);
+    latestCapturedUrl = tab.url;
+    if (!shouldAttemptExtractionForUrl(tab.url)) {
+      latestExtraction = null;
+      renderPreview([], { capturedUrl: tab.url });
+      setStatus("This browser page cannot be inspected by the extension.");
+      return;
+    }
+    latestExtraction = await executeExtraction(chrome, tab.id);
     renderPreview([latestExtraction]);
     setConfirmEnabled(latestExtraction.records.length > 0);
     setStatus("Preview ready. Confirm before sending to staging import.");
   } catch (error: unknown) {
     latestExtraction = null;
-    renderPreview([]);
+    renderPreview([], { capturedUrl: latestCapturedUrl });
     setStatus(error instanceof Error ? error.message : "Extraction failed.");
   }
 }
 
 function ensureKeanPermission(): Promise<boolean> {
-  const origins = [KEAN_OPTIONAL_HOST_PERMISSION];
-  return new Promise((resolve) => {
-    chrome.permissions.contains({ origins }, (alreadyGranted) => {
-      if (alreadyGranted) {
-        resolve(true);
-        return;
-      }
-      chrome.permissions.request({ origins }, (granted) => resolve(granted));
-    });
-  });
+  return ensureHostPermission(chrome, [KEAN_OPTIONAL_HOST_PERMISSION]);
 }
 
 async function handleStartKeanImport(): Promise<void> {
   setStatus("Requesting Kean Student Portal permission.");
-  const granted = await ensureKeanPermission();
+  let granted = false;
+  try {
+    granted = await ensureKeanPermission();
+  } catch (error: unknown) {
+    setStatus(
+      error instanceof Error
+        ? error.message
+        : "Kean import permission check failed.",
+    );
+    return;
+  }
   if (!granted) {
     guidedMode = false;
     guidedExtractions = [];
@@ -354,8 +294,16 @@ async function handleCaptureGuidedPage(): Promise<void> {
   }
   try {
     setStatus("Capturing current Kean academic page.");
-    const tab = await activeTab();
-    const extraction = await executeExtraction(tab.id ?? 0);
+    latestCapturedUrl = null;
+    const tab = await readActiveTab(chrome);
+    latestCapturedUrl = tab.url;
+    if (!shouldAttemptExtractionForUrl(tab.url)) {
+      renderPreview([], { capturedUrl: tab.url });
+      setConfirmEnabled(guidedExtractions.length > 0);
+      setStatus("This browser page cannot be inspected by the extension.");
+      return;
+    }
+    const extraction = await executeExtraction(chrome, tab.id);
     if (
       extraction.sourceLabel !== KEAN_SOURCE_LABEL ||
       extraction.pageType === "UNKNOWN_PAGE" ||
@@ -378,6 +326,7 @@ async function handleCaptureGuidedPage(): Promise<void> {
       "Kean page captured. Continue with another page or confirm import.",
     );
   } catch (error: unknown) {
+    renderPreview(guidedExtractions, { capturedUrl: latestCapturedUrl });
     setStatus(
       error instanceof Error ? error.message : "Guided capture failed.",
     );
