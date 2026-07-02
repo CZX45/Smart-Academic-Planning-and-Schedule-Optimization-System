@@ -76,6 +76,12 @@ export type ExtensionDiagnostics = {
   directSnapshotRan: boolean;
   bounded: boolean;
   warningCodes: string[];
+  academicTablesDetected: number;
+  academicTablesParsed: number;
+  academicRowsParsed: number;
+  academicRowsSkipped: number;
+  academicRowsCapped: number;
+  parserWarningCodes: string[];
 };
 
 export type BrowserExtensionExtraction = {

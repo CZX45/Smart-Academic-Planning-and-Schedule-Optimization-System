@@ -99,6 +99,12 @@ export function popupDiagnosticsFromExtractions(
     directSnapshotRan: false,
     bounded: false,
     warningCodes: [],
+    academicTablesDetected: 0,
+    academicTablesParsed: 0,
+    academicRowsParsed: 0,
+    academicRowsSkipped: 0,
+    academicRowsCapped: 0,
+    parserWarningCodes: [],
   };
 }
 
@@ -426,7 +432,7 @@ export function snapshotVisibleAcademicPage(
 
   function looksLikeAcademicRow(text: string): boolean {
     return (
-      /\b(?:Completed|Reg(?:istered)?|Planned|Not Started|In Progress)\b/i.test(
+      /\b(?:Completed|Reg(?:istered)?|Planned|Fully Planned|Not Started|In[- ]Progress|Attempted)\b/i.test(
         text,
       ) && /\b[A-Z]{2,5}[*\s-]?\d{3,4}[A-Z]?\b/.test(text)
     );
