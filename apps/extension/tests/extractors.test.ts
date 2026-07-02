@@ -402,16 +402,32 @@ describe("browser extension academic table extractors", () => {
       source_page_type: "KEAN_MY_PROGRESS_PAGE",
       type: "DEGREE_AUDIT_EXPORT",
     });
-    expect(extraction.records[4]).toMatchObject({
+    const math1044 = extraction.records.find(
+      (record) => record.raw_course_code === "MATH*1044",
+    );
+    expect(math1044).toMatchObject({
       requirements: "Economics Requirements",
       requirement_section: "Economics Requirements",
       status: "NOT_STARTED",
-      raw_course_code: "MATH*1044 Mock Precalculus for Business",
+      raw_course_code: "MATH*1044",
       course_code: "MATH 1044",
-      course_title: "Mock Precalculus for Business",
+      course_title: "Precalculus for Business",
       grade: "",
       term_code: "",
       credits: "",
+    });
+    const eng2403 = extraction.records.find(
+      (record) => record.raw_course_code === "ENG*2403",
+    );
+    expect(eng2403).toMatchObject({
+      requirements: "Open Electives Requirements",
+      requirement_section: "Open Electives Requirements",
+      status: "FULLY_PLANNED",
+      raw_course_code: "ENG*2403",
+      course_code: "ENG 2403",
+      course_title: "World Literature",
+      term_code: "2026FAW",
+      credits: "3",
     });
     expect(extraction.diagnostics).toMatchObject({
       academicTablesDetected: 3,

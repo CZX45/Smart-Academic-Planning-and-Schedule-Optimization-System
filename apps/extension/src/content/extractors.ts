@@ -475,7 +475,7 @@ function recordsFromMyProgressTables(
 
   for (const table of relevantTables) {
     const parsedBeforeTable = records.length;
-    const columnByField = buildColumnMap(spec, table.headers);
+    const columnByField = buildMyProgressColumnMap(spec, table.headers);
     let currentRequirement = requirementLabelFromTable(table);
     warnForUnknownColumns(spec, table.headers, warnings);
 
@@ -816,6 +816,43 @@ function buildColumnMap(
     if (index >= 0) {
       columnByField.set(field, index);
     }
+  }
+  return columnByField;
+}
+
+function buildMyProgressColumnMap(
+  spec: ExtractionSpec,
+  headers: readonly string[],
+): Map<string, number> {
+  const columnByField = buildColumnMap(spec, headers);
+  if (columnByField.has("course_title")) {
+    return columnByField;
+  }
+
+  const normalizedHeaders = headers.map(normalizeHeader);
+  const statusIndex = normalizedHeaders.findIndex((header) =>
+    spec.aliases.status?.includes(header),
+  );
+  if (statusIndex < 0) {
+    return columnByField;
+  }
+  const courseIndex = statusIndex + 1;
+  const titleIndex = courseIndex + 1;
+  const gradeIndex = titleIndex + 1;
+  const termIndex = gradeIndex + 1;
+  const creditsIndex = termIndex + 1;
+  const matchesBlankTitleShape =
+    spec.aliases.course_code?.includes(normalizedHeaders[courseIndex] ?? "") ===
+      true &&
+    normalizedHeaders[titleIndex] === "" &&
+    spec.aliases.grade?.includes(normalizedHeaders[gradeIndex] ?? "") === true &&
+    spec.aliases.term_code?.includes(normalizedHeaders[termIndex] ?? "") ===
+      true &&
+    spec.aliases.credits?.includes(normalizedHeaders[creditsIndex] ?? "") ===
+      true;
+
+  if (matchesBlankTitleShape) {
+    columnByField.set("course_title", titleIndex);
   }
   return columnByField;
 }
