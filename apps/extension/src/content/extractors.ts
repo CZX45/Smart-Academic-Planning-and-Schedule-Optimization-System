@@ -45,6 +45,17 @@ type TableCandidate = {
   score: number;
 };
 
+function cleanText(value: string | null | undefined): string {
+  return (value ?? "").replace(/\s+/g, " ").trim();
+}
+
+const DEGREE_AUDIT_MANUAL_REVIEW_WARNING: ExtensionExtractionWarning = {
+  code: "DEGREE_AUDIT_REQUIRES_MANUAL_REVIEW",
+  severity: "WARNING",
+  message:
+    "Degree-audit rows are staged for manual review and are not official policy.",
+};
+
 const TRANSCRIPT_SPEC: ExtractionSpec = {
   pageType: "TRANSCRIPT_TABLE",
   importType: "UNOFFICIAL_TRANSCRIPT",
@@ -91,12 +102,35 @@ const DEGREE_AUDIT_SPEC: ExtractionSpec = {
     remaining_requirements: ["remaining", "remaining_requirements"],
   },
   requiredFields: ["program_code", "requirements"],
-  manualReviewWarning: {
-    code: "DEGREE_AUDIT_REQUIRES_MANUAL_REVIEW",
-    severity: "WARNING",
-    message:
-      "Degree-audit rows are staged for manual review and are not official policy.",
+  manualReviewWarning: DEGREE_AUDIT_MANUAL_REVIEW_WARNING,
+};
+
+const MY_PROGRESS_COURSE_SPEC: ExtractionSpec = {
+  pageType: "KEAN_MY_PROGRESS_PAGE",
+  importType: "DEGREE_AUDIT_EXPORT",
+  fileBaseName: "kean-student-portal-my-progress",
+  mimeType: "application/json",
+  fields: [
+    "requirements",
+    "status",
+    "course_code",
+    "course_title",
+    "grade",
+    "term_code",
+    "credits",
+    "source_label",
+  ],
+  aliases: {
+    requirements: ["requirement", "requirements", "section"],
+    status: ["status", "course_status", "attempt_status"],
+    course_code: ["course", "course_code", "code"],
+    course_title: ["title", "course_title", "name"],
+    grade: ["grade", "final_grade"],
+    term_code: ["term", "term_code", "semester"],
+    credits: ["credits", "credit_hours", "credit"],
   },
+  requiredFields: ["status", "course_code"],
+  manualReviewWarning: DEGREE_AUDIT_MANUAL_REVIEW_WARNING,
 };
 
 const CATALOG_SPEC: ExtractionSpec = {
@@ -195,6 +229,7 @@ const SPECS = [
 const SPEC_BY_KEAN_STRATEGY: Record<KeanExtractionStrategy, ExtractionSpec> = {
   TRANSCRIPT: TRANSCRIPT_SPEC,
   DEGREE_AUDIT: DEGREE_AUDIT_SPEC,
+  MY_PROGRESS: MY_PROGRESS_COURSE_SPEC,
   COURSE_CATALOG: CATALOG_SPEC,
   SECTION_SCHEDULE: SECTION_SPEC,
 };
@@ -247,9 +282,10 @@ export function extractAcademicPageFromTables(
     );
   }
 
+  const candidateTables = tablesForExtraction(snapshot);
   const candidate = keanDefinition
-    ? bestCandidate(snapshot.tables, [specForKeanDefinition(keanDefinition)])
-    : bestCandidate(snapshot.tables);
+    ? bestCandidate(candidateTables, specsForKeanDefinition(keanDefinition))
+    : bestCandidate(candidateTables);
   if (!candidate) {
     return noDataExtraction(
       snapshot,
@@ -262,9 +298,7 @@ export function extractAcademicPageFromTables(
     );
   }
 
-  const warnings: ExtensionExtractionWarning[] = [
-    ...(snapshot.warnings ?? []),
-  ];
+  const warnings: ExtensionExtractionWarning[] = [...(snapshot.warnings ?? [])];
   const records = recordsFromTable(candidate.spec, candidate.table, warnings);
   if (records.length === 0) {
     warnings.push({
@@ -363,6 +397,123 @@ function bestCandidate(
         left.spec.pageType.localeCompare(right.spec.pageType),
     );
   return scored[0] ?? null;
+}
+
+function tablesForExtraction(snapshot: AcademicPageSnapshot): TableSnapshot[] {
+  return [
+    ...snapshot.tables,
+    ...myProgressCourseTablesFromSnapshot(snapshot, snapshot.tables.length),
+  ];
+}
+
+function myProgressCourseTablesFromSnapshot(
+  snapshot: AcademicPageSnapshot,
+  startingIndex: number,
+): TableSnapshot[] {
+  const blocks = snapshot.rowLikeBlocks ?? [];
+  if (blocks.length === 0) {
+    return [];
+  }
+  const rows: string[][] = [];
+  let currentRequirement = "";
+  for (const block of blocks) {
+    const blockText = cleanText(
+      block.cells && block.cells.length > 0
+        ? block.cells.join(" ")
+        : block.text,
+    );
+    if (!blockText) {
+      continue;
+    }
+    if (isMyProgressHeader(blockText)) {
+      continue;
+    }
+    const requirement = requirementLabelFromBlock(blockText);
+    if (requirement) {
+      currentRequirement = requirement;
+      continue;
+    }
+    const parsed = myProgressCourseRow(blockText, currentRequirement);
+    if (parsed) {
+      rows.push(parsed);
+    }
+  }
+  if (rows.length === 0) {
+    return [];
+  }
+  return [
+    {
+      index: startingIndex,
+      caption: "Kean MyProgress row-like blocks",
+      headers: [
+        "Requirement",
+        "Status",
+        "Course",
+        "Title",
+        "Grade",
+        "Term",
+        "Credits",
+      ],
+      rows,
+    },
+  ];
+}
+
+function isMyProgressHeader(value: string): boolean {
+  const header = normalizeHeader(value);
+  return (
+    header.includes("status") &&
+    header.includes("course") &&
+    header.includes("term") &&
+    header.includes("credit")
+  );
+}
+
+function requirementLabelFromBlock(value: string): string {
+  if (looksLikeMyProgressCourseRow(value) || isMyProgressHeader(value)) {
+    return "";
+  }
+  return /\brequirements?\b/i.test(value) && value.length <= 160 ? value : "";
+}
+
+function looksLikeMyProgressCourseRow(value: string): boolean {
+  return myProgressCourseRow(value, "") !== null;
+}
+
+function myProgressCourseRow(
+  value: string,
+  requirement: string,
+): string[] | null {
+  const statusMatch = value.match(
+    /^(Completed|Reg(?:istered)?|Planned|Not Started|In Progress|Failed|Withdrawn)\s+/i,
+  );
+  if (!statusMatch?.[1]) {
+    return null;
+  }
+  const status = statusMatch[1];
+  const remainder = value.slice(statusMatch[0].length).trim();
+  const courseMatch = remainder.match(/^([A-Z]{2,5})[*\s-]?(\d{3,4}[A-Z]?)\b/i);
+  if (!courseMatch?.[1] || !courseMatch[2]) {
+    return null;
+  }
+  const course = `${courseMatch[1].toUpperCase()} ${courseMatch[2].toUpperCase()}`;
+  let details = remainder.slice(courseMatch[0].length).trim();
+  let credits = "";
+  let term = "";
+  let grade = "";
+  const tokens = details.split(/\s+/).filter(Boolean);
+  const lastToken = (): string => tokens[tokens.length - 1] ?? "";
+  if (/^\d+(?:\.\d+)?$/.test(lastToken())) {
+    credits = tokens.pop() ?? "";
+  }
+  if (/^(?:\d{4}[A-Z]{2,4}[A-Z]?|[A-Z]{2,4}\d{2,4})$/i.test(lastToken())) {
+    term = tokens.pop() ?? "";
+  }
+  if (/^(?:A|A-|B\+|B|B-|C\+|C|C-|D\+|D|D-|F|P|PR|IP|W)$/i.test(lastToken())) {
+    grade = tokens.pop() ?? "";
+  }
+  details = tokens.join(" ");
+  return [requirement, status, course, details, grade, term, credits];
 }
 
 function scoreTable(spec: ExtractionSpec, table: TableSnapshot): number {
@@ -498,7 +649,7 @@ function normalizeHeader(value: string): string {
 function normalizeValue(field: string, value: string): string {
   const cleaned = value.replace(/\s+/g, " ").trim();
   if (field === "course_code") {
-    return cleaned.toUpperCase().replace(/^([A-Z]+)[-\s]*(\d)/, "$1 $2");
+    return cleaned.toUpperCase().replace(/^([A-Z]+)[*\-\s]*(\d)/, "$1 $2");
   }
   if (field === "modality") {
     return enumLike(cleaned);
@@ -613,8 +764,20 @@ function fileName(spec: ExtractionSpec): string {
   return `${spec.fileBaseName}${spec.mimeType === "application/json" ? ".json" : ".csv"}`;
 }
 
-function specForKeanDefinition(definition: KeanPageDefinition): ExtractionSpec {
-  const base = SPEC_BY_KEAN_STRATEGY[definition.extractionStrategy];
+function specsForKeanDefinition(
+  definition: KeanPageDefinition,
+): ExtractionSpec[] {
+  const bases =
+    definition.extractionStrategy === "MY_PROGRESS"
+      ? [MY_PROGRESS_COURSE_SPEC, DEGREE_AUDIT_SPEC]
+      : [SPEC_BY_KEAN_STRATEGY[definition.extractionStrategy]];
+  return bases.map((base) => specForKeanDefinition(definition, base));
+}
+
+function specForKeanDefinition(
+  definition: KeanPageDefinition,
+  base: ExtractionSpec,
+): ExtractionSpec {
   return {
     ...base,
     pageType: definition.key,
@@ -637,8 +800,13 @@ function fileBaseNameForKeanDefinition(definition: KeanPageDefinition): string {
 }
 
 function visibleTextForDetection(snapshot: AcademicPageSnapshot): string {
-  return snapshot.tables
-    .flatMap((table) => [table.caption, ...table.headers])
+  return [
+    ...(snapshot.headings ?? []),
+    snapshot.visibleText ?? "",
+    ...(snapshot.rowLikeBlocks ?? []).map((block) => block.text),
+    ...snapshot.tables.flatMap((table) => [table.caption, ...table.headers]),
+  ]
+    .filter(Boolean)
     .join(" ");
 }
 
@@ -682,17 +850,33 @@ function diagnosticsForExtraction(
       ).length,
     0,
   );
+  const tableRowsFound = snapshot.tables.reduce(
+    (count, table) => count + table.rows.length,
+    0,
+  );
+  const rowLikeBlocksFound =
+    snapshot.snapshotMetadata?.rowLikeBlocksFound ??
+    snapshot.rowLikeBlocks?.length ??
+    0;
+  const visibleTextLength =
+    snapshot.snapshotMetadata?.visibleTextLength ??
+    snapshot.visibleText?.length ??
+    0;
+  const bounded =
+    snapshot.snapshotMetadata?.bounded === true ||
+    warnings.some((warning) => warning.code === "EXTRACTION_LIMIT_REACHED");
   return {
     currentUrl: safeUrl(snapshot.url),
     detectedPageType,
     matchedPageMarker,
     tablesFound: snapshot.tables.length,
-    rowsFound: snapshot.tables.reduce(
-      (count, table) => count + table.rows.length,
-      0,
-    ),
+    rowsFound: tableRowsFound + rowLikeBlocksFound,
+    visibleTextLength,
+    rowLikeBlocksFound,
     extractedAcademicFieldCount,
     ignoredSensitiveFieldCount: 0,
+    directSnapshotRan: snapshot.snapshotMetadata?.directSnapshotRan === true,
+    bounded,
     warningCodes: warnings.map((warning) => warning.code),
   };
 }

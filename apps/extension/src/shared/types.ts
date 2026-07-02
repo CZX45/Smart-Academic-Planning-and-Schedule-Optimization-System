@@ -38,10 +38,28 @@ export type TableSnapshot = {
   rows: string[][];
 };
 
+export type RowLikeBlockSnapshot = {
+  index: number;
+  text: string;
+  cells?: string[];
+  section?: string;
+};
+
+export type AcademicPageSnapshotMetadata = {
+  directSnapshotRan?: boolean;
+  visibleTextLength?: number;
+  rowLikeBlocksFound?: number;
+  bounded?: boolean;
+};
+
 export type AcademicPageSnapshot = {
   title: string;
   url: string;
   tables: TableSnapshot[];
+  headings?: string[];
+  visibleText?: string;
+  rowLikeBlocks?: RowLikeBlockSnapshot[];
+  snapshotMetadata?: AcademicPageSnapshotMetadata;
   warnings?: ExtensionExtractionWarning[];
 };
 
@@ -51,8 +69,12 @@ export type ExtensionDiagnostics = {
   matchedPageMarker: string;
   tablesFound: number;
   rowsFound: number;
+  visibleTextLength: number;
+  rowLikeBlocksFound: number;
   extractedAcademicFieldCount: number;
   ignoredSensitiveFieldCount: number;
+  directSnapshotRan: boolean;
+  bounded: boolean;
   warningCodes: string[];
 };
 

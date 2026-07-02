@@ -6,7 +6,9 @@
     <style>
       body {
         color: #111827;
-        font: 14px system-ui, sans-serif;
+        font:
+          14px system-ui,
+          sans-serif;
         margin: 0;
         min-width: 420px;
         padding: 14px;
@@ -94,14 +96,19 @@
     <ul>
       <li>The extension does not log in for you.</li>
       <li>The extension does not collect your password.</li>
-      <li>The extension only reads academic-planning data from Kean Student Portal pages you authorize.</li>
+      <li>
+        The extension only reads academic-planning data from Kean Student Portal
+        pages you authorize.
+      </li>
       <li>Imported data is non-official and requires manual review.</li>
-      <li>The system does not register, drop, swap, waitlist, reserve seats, or grab seats.</li>
+      <li>
+        The system does not register, drop, swap, waitlist, reserve seats, or
+        grab seats.
+      </li>
     </ul>
     <p>
-      Open
-      https://kean-ss.colleague.elluciancloud.com/Student, log in manually, and
-      keep using the official portal directly.
+      Open https://kean-ss.colleague.elluciancloud.com/Student, log in manually,
+      and keep using the official portal directly.
     </p>
     <section>
       <strong>Supported page types</strong>
@@ -143,12 +150,28 @@
         <li>Visible tables: <span id="diagnosticTablesText"></span></li>
         <li>Visible rows: <span id="diagnosticRowsText"></span></li>
         <li>
+          Visible text length:
+          <span id="diagnosticVisibleTextLengthText"></span>
+        </li>
+        <li>
+          Visible row-like blocks:
+          <span id="diagnosticRowLikeBlocksText"></span>
+        </li>
+        <li>
           Academic fields:
           <span id="diagnosticAcademicFieldsText"></span>
         </li>
         <li>
           Ignored sensitive fields:
           <span id="diagnosticSensitiveFieldsText"></span>
+        </li>
+        <li>
+          Direct snapshot ran:
+          <span id="diagnosticDirectSnapshotText"></span>
+        </li>
+        <li>
+          Bounded or truncated:
+          <span id="diagnosticBoundedText"></span>
         </li>
       </ul>
     </section>
@@ -158,7 +181,10 @@
     </section>
     <section>
       <strong>Preview</strong>
-      <table id="previewTable" aria-label="Extracted academic data preview"></table>
+      <table
+        id="previewTable"
+        aria-label="Extracted academic data preview"
+      ></table>
     </section>
     <button id="confirmImportButton" type="button" disabled>
       Confirm staging import

@@ -58,12 +58,22 @@ const diagnosticUrlText = document.getElementById("diagnosticUrlText");
 const diagnosticMarkerText = document.getElementById("diagnosticMarkerText");
 const diagnosticTablesText = document.getElementById("diagnosticTablesText");
 const diagnosticRowsText = document.getElementById("diagnosticRowsText");
+const diagnosticVisibleTextLengthText = document.getElementById(
+  "diagnosticVisibleTextLengthText",
+);
+const diagnosticRowLikeBlocksText = document.getElementById(
+  "diagnosticRowLikeBlocksText",
+);
 const diagnosticAcademicFieldsText = document.getElementById(
   "diagnosticAcademicFieldsText",
 );
 const diagnosticSensitiveFieldsText = document.getElementById(
   "diagnosticSensitiveFieldsText",
 );
+const diagnosticDirectSnapshotText = document.getElementById(
+  "diagnosticDirectSnapshotText",
+);
+const diagnosticBoundedText = document.getElementById("diagnosticBoundedText");
 
 let latestExtraction: BrowserExtensionExtraction | null = null;
 let latestCapturedUrl: string | null = null;
@@ -155,6 +165,11 @@ function setDiagnostics(
   setText(diagnosticTablesText, String(diagnostics.tablesFound));
   setText(diagnosticRowsText, String(diagnostics.rowsFound));
   setText(
+    diagnosticVisibleTextLengthText,
+    String(diagnostics.visibleTextLength),
+  );
+  setText(diagnosticRowLikeBlocksText, String(diagnostics.rowLikeBlocksFound));
+  setText(
     diagnosticAcademicFieldsText,
     String(diagnostics.extractedAcademicFieldCount),
   );
@@ -162,6 +177,11 @@ function setDiagnostics(
     diagnosticSensitiveFieldsText,
     String(diagnostics.ignoredSensitiveFieldCount),
   );
+  setText(
+    diagnosticDirectSnapshotText,
+    diagnostics.directSnapshotRan ? "yes" : "no",
+  );
+  setText(diagnosticBoundedText, diagnostics.bounded ? "yes" : "no");
 }
 
 function appendCell(
@@ -239,7 +259,7 @@ async function handleExtract(): Promise<void> {
       setStatus("This browser page cannot be inspected by the extension.");
       return;
     }
-    latestExtraction = await executeExtraction(chrome, tab.id);
+    latestExtraction = await executeExtraction(chrome, tab);
     renderPreview([latestExtraction]);
     setConfirmEnabled(latestExtraction.records.length > 0);
     setStatus("Preview ready. Confirm before sending to staging import.");
@@ -303,7 +323,7 @@ async function handleCaptureGuidedPage(): Promise<void> {
       setStatus("This browser page cannot be inspected by the extension.");
       return;
     }
-    const extraction = await executeExtraction(chrome, tab.id);
+    const extraction = await executeExtraction(chrome, tab);
     if (
       extraction.sourceLabel !== KEAN_SOURCE_LABEL ||
       extraction.pageType === "UNKNOWN_PAGE" ||
