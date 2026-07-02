@@ -74,6 +74,30 @@ function extractFixture(
   });
 }
 
+function rowLikeBlocksFromFixture(name: string) {
+  const html = fixture(name);
+  return textOnly(html)
+    .split(
+      /(Status Course Grade Term Credits|Completed |Registered |Planned |Not Started )/,
+    )
+    .reduce<string[]>((blocks, segment, index, parts) => {
+      if (
+        segment === "Completed " ||
+        segment === "Registered " ||
+        segment === "Planned " ||
+        segment === "Not Started "
+      ) {
+        blocks.push(`${segment}${parts[index + 1] ?? ""}`.trim());
+        return blocks;
+      }
+      if (segment === "Status Course Grade Term Credits") {
+        blocks.push(segment);
+      }
+      return blocks;
+    }, [])
+    .map((text, index) => ({ index, text }));
+}
+
 describe("browser extension academic table extractors", () => {
   it("extracts transcript tables into Phase 7A-compatible unofficial transcript content", () => {
     const extraction = extractFixture("transcript-table.html");
@@ -290,6 +314,90 @@ describe("browser extension academic table extractors", () => {
     expect(schedule.importType).toBe("SECTION_SCHEDULE");
   });
 
+  it("parses sanitized Kean MyProgress row-like blocks without real tables", () => {
+    const extraction = extractAcademicPageFromTables({
+      title: "My Progress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      tables: [],
+      visibleText: textOnly(fixture("kean-my-progress-row-blocks.html")),
+      rowLikeBlocks: rowLikeBlocksFromFixture(
+        "kean-my-progress-row-blocks.html",
+      ),
+      snapshotMetadata: {
+        directSnapshotRan: true,
+        visibleTextLength: textOnly(fixture("kean-my-progress-row-blocks.html"))
+          .length,
+        rowLikeBlocksFound: 5,
+      },
+    });
+
+    expect(extraction.pageType).toBe("KEAN_MY_PROGRESS_PAGE");
+    expect(extraction.importType).toBe("DEGREE_AUDIT_EXPORT");
+    expect(extraction.records).toHaveLength(4);
+    expect(extraction.records[0]).toMatchObject({
+      status: "COMPLETED",
+      course_code: "ACCT 2200",
+      course_title: "Principles of Accounting I",
+      grade: "A-",
+      term_code: "2025FAW",
+      credits: "3",
+    });
+    expect(extraction.records[1]).toMatchObject({
+      status: "REGISTERED",
+      course_code: "FIN 3311",
+      course_title: "Corporate Finance II",
+      term_code: "2026FAW",
+      credits: "3",
+    });
+    expect(extraction.records[3]).toMatchObject({
+      status: "NOT_STARTED",
+      course_code: "MGS 3040",
+      course_title: "Management Information Systems",
+    });
+    expect(extraction.diagnostics).toMatchObject({
+      currentUrl: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress`,
+      detectedPageType: "KEAN_MY_PROGRESS_PAGE",
+      matchedPageMarker: "MyProgress",
+      tablesFound: 0,
+      rowsFound: 5,
+      visibleTextLength: textOnly(fixture("kean-my-progress-row-blocks.html"))
+        .length,
+      rowLikeBlocksFound: 5,
+      directSnapshotRan: true,
+      bounded: false,
+    });
+  });
+
+  it("preserves direct snapshot diagnostics when MyProgress parsing finds no rows", () => {
+    const visibleText = "My Progress Requirements Cumulative GPA Total Credits";
+    const extraction = extractAcademicPageFromTables({
+      title: "My Progress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      tables: [],
+      visibleText,
+      rowLikeBlocks: [{ index: 0, text: "Requirements" }],
+      snapshotMetadata: {
+        directSnapshotRan: true,
+        visibleTextLength: visibleText.length,
+        rowLikeBlocksFound: 1,
+      },
+    });
+
+    expect(extraction.pageType).toBe("UNKNOWN_PAGE");
+    expect(extraction.records).toHaveLength(0);
+    expect(extraction.diagnostics).toMatchObject({
+      currentUrl: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress`,
+      tablesFound: 0,
+      rowsFound: 1,
+      visibleTextLength: visibleText.length,
+      rowLikeBlocksFound: 1,
+      directSnapshotRan: true,
+    });
+    expect(extraction.warnings.map((warning) => warning.code)).toContain(
+      "KEAN_WHITELISTED_PAGE_NO_ACADEMIC_TABLE_FOUND",
+    );
+  });
+
   it("creates confirmed guided Kean import requests without cookies or session data", () => {
     const extractions = [
       extractFixture("kean-transcript-page.html", {
@@ -418,5 +526,6 @@ describe("browser extension academic table extractors", () => {
     expect(extraction.diagnostics.warningCodes).toContain(
       "EXTRACTION_LIMIT_REACHED",
     );
+    expect(extraction.diagnostics.bounded).toBe(true);
   });
 });

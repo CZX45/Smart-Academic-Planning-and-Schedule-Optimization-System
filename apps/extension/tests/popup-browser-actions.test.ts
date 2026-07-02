@@ -28,7 +28,6 @@ function chromeWithActiveTabs(
         callback(tabs);
         delete runtime.lastError;
       },
-      sendMessage: () => undefined,
     },
     scripting: {
       executeScript: () => undefined,
@@ -46,37 +45,12 @@ function chromeWithExtractionFailure(message: string): PopupChromeApi {
     runtime,
     tabs: {
       query: () => undefined,
-      sendMessage: () => undefined,
     },
     scripting: {
       executeScript: (_details, callback) => {
         runtime.lastError = { message };
-        callback();
+        callback([]);
         delete runtime.lastError;
-      },
-    },
-    permissions: {
-      contains: () => undefined,
-      request: () => undefined,
-    },
-  };
-}
-
-function chromeWithMessageFailure(message: string): PopupChromeApi {
-  const runtime: { lastError?: { message: string } } = {};
-  return {
-    runtime,
-    tabs: {
-      query: () => undefined,
-      sendMessage: (_tabId, _message, callback) => {
-        runtime.lastError = { message };
-        callback();
-        delete runtime.lastError;
-      },
-    },
-    scripting: {
-      executeScript: (_details, callback) => {
-        callback();
       },
     },
     permissions: {
@@ -93,15 +67,13 @@ function chromeWithExtractionSnapshot(
   return {
     tabs: {
       query: () => undefined,
-      sendMessage: (_tabId, message, callback) => {
-        calls.push(`send:${message.type}`);
-        callback({ ok: true, snapshot } as never);
-      },
     },
     scripting: {
       executeScript: (details, callback) => {
-        calls.push(`inject:${details.files.join(",")}`);
-        callback();
+        calls.push(
+          `execute:${typeof details.func}:${details.target.tabId}:${details.args.length}`,
+        );
+        callback([{ result: snapshot }]);
       },
     },
     permissions: {
@@ -130,8 +102,12 @@ function extractionWithNoRows(url: string): BrowserExtensionExtraction {
       matchedPageMarker: "No marker.",
       tablesFound: 0,
       rowsFound: 0,
+      visibleTextLength: 0,
+      rowLikeBlocksFound: 0,
       extractedAcademicFieldCount: 0,
       ignoredSensitiveFieldCount: 0,
+      directSnapshotRan: false,
+      bounded: false,
       warningCodes: [],
     },
     requiresReview: true,
@@ -182,26 +158,32 @@ describe("popup browser actions", () => {
 
   it("reports script injection runtime errors", async () => {
     await expect(
-      executeExtraction(chromeWithExtractionFailure("Cannot access page"), 42),
-    ).rejects.toThrow(
-      "Could not inject extractor into the active tab: Cannot access page",
-    );
+      executeExtraction(chromeWithExtractionFailure("Cannot access page"), {
+        id: 42,
+        url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress`,
+      }),
+    ).rejects.toThrow("Could not snapshot the active tab: Cannot access page");
   });
 
-  it("reports content-script messaging runtime errors", async () => {
+  it("rejects extraction before injection outside the Kean Student portal", async () => {
     await expect(
       executeExtraction(
-        chromeWithMessageFailure(
-          "Could not establish connection. Receiving end does not exist.",
-        ),
-        42,
+        chromeWithExtractionSnapshot({
+          title: "Billing",
+          url: "https://kean-ss.colleague.elluciancloud.com/Finance/Billing",
+          tables: [],
+        }),
+        {
+          id: 42,
+          url: "https://kean-ss.colleague.elluciancloud.com/Finance/Billing",
+        },
       ),
     ).rejects.toThrow(
-      "Could not contact the page extractor: Could not establish connection. Receiving end does not exist.",
+      "This browser page cannot be inspected by the extension.",
     );
   });
 
-  it("injects the content script before sending the extraction request", async () => {
+  it("runs a direct page snapshot function without content-script messaging", async () => {
     const calls: string[] = [];
     const snapshot: AcademicPageSnapshot = {
       title: "MyProgress",
@@ -209,12 +191,12 @@ describe("popup browser actions", () => {
       tables: [],
     };
 
-    await executeExtraction(chromeWithExtractionSnapshot(snapshot, calls), 42);
+    await executeExtraction(chromeWithExtractionSnapshot(snapshot, calls), {
+      id: 42,
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+    });
 
-    expect(calls).toEqual([
-      "inject:dist/content/content-script.js",
-      "send:SAPSOS_EXTRACT_PAGE",
-    ]);
+    expect(calls).toEqual(["execute:function:42:1"]);
   });
 
   it("extracts diagnostics from content-script snapshots", async () => {
@@ -226,7 +208,10 @@ describe("popup browser actions", () => {
 
     const extraction = await executeExtraction(
       chromeWithExtractionSnapshot(snapshot),
-      42,
+      {
+        id: 42,
+        url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      },
     );
 
     expect(extraction.diagnostics).toMatchObject({
@@ -234,6 +219,10 @@ describe("popup browser actions", () => {
       detectedPageType: "UNKNOWN_PAGE",
       tablesFound: 0,
       rowsFound: 0,
+      visibleTextLength: 0,
+      rowLikeBlocksFound: 0,
+      directSnapshotRan: true,
+      bounded: false,
     });
     expect(extraction.diagnostics.warningCodes).toContain(
       "KEAN_WHITELISTED_PAGE_NO_ACADEMIC_TABLE_FOUND",
@@ -267,7 +256,10 @@ describe("popup browser actions", () => {
 
     const extraction = await executeExtraction(
       chromeWithExtractionSnapshot(snapshot),
-      42,
+      {
+        id: 42,
+        url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      },
     );
 
     expect(extraction.records).toHaveLength(200);
@@ -297,13 +289,41 @@ describe("popup browser actions", () => {
 
     const extraction = await executeExtraction(
       chromeWithExtractionSnapshot(snapshot),
-      42,
+      {
+        id: 42,
+        url: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory`,
+      },
     );
 
     expect(extraction.records[0]?.course_title).toHaveLength(500);
     expect(extraction.warnings.map((warning) => warning.code)).toContain(
       "EXTRACTION_LIMIT_REACHED",
     );
+  });
+
+  it("keeps visible page text diagnostics beyond the per-cell limit", async () => {
+    const visibleText = "My Progress ".repeat(120);
+    const snapshot: AcademicPageSnapshot = {
+      title: "My Progress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      tables: [],
+      visibleText,
+      snapshotMetadata: {
+        directSnapshotRan: true,
+        visibleTextLength: visibleText.length,
+        rowLikeBlocksFound: 0,
+      },
+    };
+
+    const extraction = await executeExtraction(
+      chromeWithExtractionSnapshot(snapshot),
+      {
+        id: 42,
+        url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      },
+    );
+
+    expect(extraction.diagnostics.visibleTextLength).toBe(visibleText.length);
   });
 
   it("keeps a captured URL in diagnostics when no extraction result exists", () => {

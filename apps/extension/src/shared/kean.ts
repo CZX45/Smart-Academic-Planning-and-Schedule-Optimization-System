@@ -13,6 +13,7 @@ export const KEAN_OPTIONAL_HOST_PERMISSION =
 export type KeanExtractionStrategy =
   | "TRANSCRIPT"
   | "DEGREE_AUDIT"
+  | "MY_PROGRESS"
   | "COURSE_CATALOG"
   | "SECTION_SCHEDULE";
 
@@ -88,22 +89,26 @@ export const KEAN_PAGE_DEFINITIONS: readonly KeanPageDefinition[] = [
   {
     key: "KEAN_MY_PROGRESS_PAGE",
     importType: "DEGREE_AUDIT_EXPORT",
-    extractionStrategy: "DEGREE_AUDIT",
+    extractionStrategy: "MY_PROGRESS",
     routeMarkers: ["MyProgress", "Progress"],
     visibleTextMarkers: ["MyProgress", "My Progress", "Degree Progress"],
     expectedFields: [
-      "program_code",
-      "catalog_year",
+      "status",
+      "course_code",
+      "course_title",
+      "grade",
+      "term_code",
+      "credits",
       "requirements",
-      "completed_courses",
-      "remaining_requirements",
     ],
     warningCodesForMissingFields: {
-      program_code: "KEAN_MY_PROGRESS_PROGRAM_MISSING",
-      catalog_year: "KEAN_MY_PROGRESS_CATALOG_MISSING",
+      status: "KEAN_MY_PROGRESS_STATUS_MISSING",
+      course_code: "KEAN_MY_PROGRESS_COURSE_MISSING",
+      course_title: "KEAN_MY_PROGRESS_TITLE_MISSING",
+      grade: "KEAN_MY_PROGRESS_GRADE_MISSING",
+      term_code: "KEAN_MY_PROGRESS_TERM_MISSING",
+      credits: "KEAN_MY_PROGRESS_CREDITS_MISSING",
       requirements: "KEAN_MY_PROGRESS_REQUIREMENT_MISSING",
-      completed_courses: "KEAN_MY_PROGRESS_COMPLETED_MISSING",
-      remaining_requirements: "KEAN_MY_PROGRESS_REMAINING_MISSING",
     },
     safetyRestrictions: COMMON_SAFETY_RESTRICTIONS,
   },

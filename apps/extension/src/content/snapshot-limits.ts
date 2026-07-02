@@ -1,6 +1,7 @@
 import type {
   AcademicPageSnapshot,
   ExtensionExtractionWarning,
+  RowLikeBlockSnapshot,
   TableSnapshot,
 } from "../shared/types.js";
 
@@ -14,6 +15,8 @@ export const BOUNDED_EXTRACTION_LIMITS = {
   maxDurationMs: 1000,
   maxCellTextLength: 500,
 } as const;
+
+export type BoundedExtractionLimits = typeof BOUNDED_EXTRACTION_LIMITS;
 
 export const EXTRACTION_LIMIT_REACHED_WARNING: ExtensionExtractionWarning = {
   code: "EXTRACTION_LIMIT_REACHED",
@@ -65,6 +68,19 @@ export function limitAcademicPageSnapshot(
     return totalBounded;
   }
 
+  function boundedVisibleText(value: string): string {
+    const remainingTextBudget = Math.max(
+      limits.maxTotalTextLength - totalTextLength,
+      0,
+    );
+    if (value.length > remainingTextBudget) {
+      markLimited();
+    }
+    const bounded = value.slice(0, remainingTextBudget);
+    totalTextLength += bounded.length;
+    return bounded;
+  }
+
   function boundedCells(cells: readonly string[]): string[] {
     if (cells.length > limits.maxCellsPerRow) {
       markLimited();
@@ -73,6 +89,23 @@ export function limitAcademicPageSnapshot(
       visitedNodeCount += 1;
       return boundedText(cell);
     });
+  }
+
+  function boundedRowLikeBlock(
+    block: RowLikeBlockSnapshot,
+  ): RowLikeBlockSnapshot {
+    const cells = block.cells ? boundedCells(block.cells) : undefined;
+    const boundedBlock: RowLikeBlockSnapshot = {
+      index: block.index,
+      text: boundedText(block.text),
+    };
+    if (cells) {
+      boundedBlock.cells = cells;
+    }
+    if (block.section) {
+      boundedBlock.section = boundedText(block.section);
+    }
+    return boundedBlock;
   }
 
   const tables: TableSnapshot[] = [];
@@ -109,6 +142,27 @@ export function limitAcademicPageSnapshot(
     });
   }
 
+  const rowLikeBlocks: RowLikeBlockSnapshot[] = [];
+  const sourceRowLikeBlocks = snapshot.rowLikeBlocks ?? [];
+  for (const block of sourceRowLikeBlocks) {
+    if (totalRows >= limits.maxTotalRows || overBudget()) {
+      markLimited();
+      break;
+    }
+    visitedNodeCount += 1;
+    rowLikeBlocks.push(boundedRowLikeBlock(block));
+    totalRows += 1;
+  }
+  if (sourceRowLikeBlocks.length > rowLikeBlocks.length) {
+    markLimited();
+  }
+
+  const headings = snapshot.headings?.map((heading) => boundedText(heading));
+  const visibleText =
+    snapshot.visibleText === undefined
+      ? undefined
+      : boundedVisibleText(snapshot.visibleText);
+
   const warnings = [...(snapshot.warnings ?? [])];
   if (
     limited &&
@@ -119,9 +173,25 @@ export function limitAcademicPageSnapshot(
     warnings.push(EXTRACTION_LIMIT_REACHED_WARNING);
   }
 
+  const snapshotMetadata = {
+    ...(snapshot.snapshotMetadata ?? {}),
+    visibleTextLength: visibleText?.length ?? 0,
+    rowLikeBlocksFound: rowLikeBlocks.length,
+    bounded:
+      (snapshot.snapshotMetadata?.bounded ?? false) ||
+      limited ||
+      warnings.some(
+        (warning) => warning.code === EXTRACTION_LIMIT_REACHED_WARNING.code,
+      ),
+  };
+
   return {
     ...snapshot,
     tables,
+    ...(headings ? { headings } : {}),
+    ...(visibleText !== undefined ? { visibleText } : {}),
+    ...(rowLikeBlocks.length > 0 ? { rowLikeBlocks } : {}),
+    snapshotMetadata,
     ...(warnings.length > 0 ? { warnings } : {}),
   };
 }

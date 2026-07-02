@@ -54,6 +54,16 @@ describe("browser extension safety policy", () => {
     expect(serviceWorker).not.toContain("fetch(");
   });
 
+  it("uses direct active-tab script execution instead of a content-script receiver for popup extraction", () => {
+    const browserActions = readProjectFile("src/popup/browser-actions.ts");
+
+    expect(browserActions).toContain("chromeApi.scripting.executeScript");
+    expect(browserActions).toContain("snapshotVisibleAcademicPage");
+    expect(browserActions).not.toContain("tabs.sendMessage");
+    expect(browserActions).not.toContain("SAPSOS_EXTRACT_PAGE");
+    expect(browserActions).not.toContain("dist/content/content-script.js");
+  });
+
   it("does not include credential capture, portal submission, or registration automation code", () => {
     const source = [
       readProjectFile("src/content/content-script.ts"),
@@ -74,6 +84,7 @@ describe("browser extension safety policy", () => {
 
   it("shows required Kean import boundary copy in the popup", () => {
     const popupHtml = readProjectFile("src/popup/index.html");
+    const normalizedPopupHtml = popupHtml.replace(/\s+/g, " ");
 
     expect(popupHtml).toContain("Start Kean Academic Import");
     expect(popupHtml).toContain("Detected page type");
@@ -84,13 +95,13 @@ describe("browser extension safety policy", () => {
     expect(popupHtml).toContain(
       "The extension does not collect your password.",
     );
-    expect(popupHtml).toContain(
+    expect(normalizedPopupHtml).toContain(
       "The extension only reads academic-planning data from Kean Student Portal pages you authorize.",
     );
     expect(popupHtml).toContain(
       "Imported data is non-official and requires manual review.",
     );
-    expect(popupHtml).toContain(
+    expect(normalizedPopupHtml).toContain(
       "The system does not register, drop, swap, waitlist, reserve seats, or grab seats.",
     );
   });
