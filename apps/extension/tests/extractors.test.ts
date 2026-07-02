@@ -245,6 +245,15 @@ describe("browser extension academic table extractors", () => {
     expect(extraction.warnings.map((warning) => warning.code)).toContain(
       "KEAN_IMPORT_NON_OFFICIAL_REVIEW_REQUIRED",
     );
+    expect(extraction.diagnostics).toMatchObject({
+      currentUrl: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory`,
+      detectedPageType: "KEAN_TRANSCRIPT_PAGE",
+      matchedPageMarker: "AcademicHistory",
+      tablesFound: 1,
+      rowsFound: 2,
+      extractedAcademicFieldCount: 12,
+      ignoredSensitiveFieldCount: 0,
+    });
   });
 
   it("detects Kean MyProgress, catalog, section search, planning, and schedule pages", () => {
@@ -367,5 +376,24 @@ describe("browser extension academic table extractors", () => {
     expect(serialized).not.toContain("Drop Section");
     expect(actions.records[0]).not.toHaveProperty("registration_action");
     expect(actions.records[0]).not.toHaveProperty("form_action");
+  });
+
+  it("keeps diagnostic metadata free of credentials, cookies, tokens, and row payloads", () => {
+    const extraction = extractFixture("kean-hidden-credential-fields.html", {
+      title: "Unofficial Transcript",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory?session=do-not-copy`,
+    });
+
+    expect(extraction.diagnostics).toMatchObject({
+      currentUrl: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory`,
+      detectedPageType: "KEAN_TRANSCRIPT_PAGE",
+      matchedPageMarker: "AcademicHistory",
+      tablesFound: 1,
+      rowsFound: 1,
+      ignoredSensitiveFieldCount: 0,
+    });
+    expect(JSON.stringify(extraction.diagnostics).toLowerCase()).not.toMatch(
+      /password|cookie|token|session|hidden-field-value|do-not-read-password/,
+    );
   });
 });

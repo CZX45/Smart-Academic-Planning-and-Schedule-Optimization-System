@@ -18,7 +18,14 @@
     "seed:dev": "pnpm seed",
     "openapi:generate": "pnpm --filter @sapsos/api openapi && pnpm --filter @sapsos/shared generate",
     "openapi:check": "pnpm openapi:generate && git diff --exit-code -- apps/api/openapi.json packages/shared/src/generated/openapi.json",
-    "e2e": "node scripts/run-e2e.mjs"
+    "e2e": "node scripts/run-e2e.mjs",
+    "app:check": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Check-Prerequisites.ps1",
+    "app:up": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Start-Smart-Academic-Planner.ps1",
+    "app:down": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Stop-Smart-Academic-Planner.ps1",
+    "app:open": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Open-Local-App.ps1",
+    "app:smoke": "node scripts/smoke-test-local.mjs",
+    "extension:package": "pnpm --filter @sapsos/extension build && node scripts/package-extension.mjs",
+    "package:local": "pnpm extension:package && pnpm app:smoke"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",

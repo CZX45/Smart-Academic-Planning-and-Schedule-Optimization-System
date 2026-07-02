@@ -44,6 +44,17 @@ export type AcademicPageSnapshot = {
   tables: TableSnapshot[];
 };
 
+export type ExtensionDiagnostics = {
+  currentUrl: string;
+  detectedPageType: AcademicPageType;
+  matchedPageMarker: string;
+  tablesFound: number;
+  rowsFound: number;
+  extractedAcademicFieldCount: number;
+  ignoredSensitiveFieldCount: number;
+  warningCodes: string[];
+};
+
 export type BrowserExtensionExtraction = {
   pageType: AcademicPageType;
   importType: DataImportType;
@@ -57,6 +68,7 @@ export type BrowserExtensionExtraction = {
   content: string;
   records: ExtractedRecord[];
   warnings: ExtensionExtractionWarning[];
+  diagnostics: ExtensionDiagnostics;
   requiresReview: true;
   extractedAt: string;
 };
