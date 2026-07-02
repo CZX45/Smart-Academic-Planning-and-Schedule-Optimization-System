@@ -240,6 +240,72 @@ describe("popup browser actions", () => {
     );
   });
 
+  it("caps oversized content-script snapshots before parsing", async () => {
+    const rows = Array.from({ length: 250 }, (_value, index) => [
+      "BSFIN",
+      `Requirement ${index}`,
+      "Completed",
+      "Remaining",
+    ]);
+    const snapshot: AcademicPageSnapshot = {
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      tables: [
+        {
+          index: 0,
+          caption: "My Progress",
+          headers: [
+            "Program",
+            "Requirements",
+            "Completed Courses",
+            "Remaining Requirements",
+          ],
+          rows,
+        },
+      ],
+    };
+
+    const extraction = await executeExtraction(
+      chromeWithExtractionSnapshot(snapshot),
+      42,
+    );
+
+    expect(extraction.records).toHaveLength(200);
+    expect(extraction.diagnostics.rowsFound).toBe(200);
+    expect(extraction.warnings.map((warning) => warning.code)).toContain(
+      "EXTRACTION_LIMIT_REACHED",
+    );
+    expect(extraction.diagnostics.warningCodes).toContain(
+      "EXTRACTION_LIMIT_REACHED",
+    );
+  });
+
+  it("truncates very long cell text before parsing", async () => {
+    const longTitle = "A".repeat(1200);
+    const snapshot: AcademicPageSnapshot = {
+      title: "AcademicHistory",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory`,
+      tables: [
+        {
+          index: 0,
+          caption: "Transcript",
+          headers: ["Term", "Course", "Title"],
+          rows: [["2024FA", "CPS 2231", longTitle]],
+        },
+      ],
+    };
+
+    const extraction = await executeExtraction(
+      chromeWithExtractionSnapshot(snapshot),
+      42,
+    );
+
+    expect(extraction.records[0]?.course_title).toHaveLength(500);
+    expect(extraction.warnings.map((warning) => warning.code)).toContain(
+      "EXTRACTION_LIMIT_REACHED",
+    );
+  });
+
   it("keeps a captured URL in diagnostics when no extraction result exists", () => {
     const diagnostics = popupDiagnosticsFromExtractions([], {
       capturedUrl: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,

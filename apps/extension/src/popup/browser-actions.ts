@@ -1,4 +1,5 @@
 import { extractAcademicPageFromTables } from "../content/extractors.js";
+import { limitAcademicPageSnapshot } from "../content/snapshot-limits.js";
 import { isKeanStudentPortalUrl } from "../shared/kean.js";
 import type {
   AcademicPageSnapshot,
@@ -172,7 +173,11 @@ export function executeExtraction(
               return;
             }
             if (response.snapshot) {
-              resolve(extractAcademicPageFromTables(response.snapshot));
+              resolve(
+                extractAcademicPageFromTables(
+                  limitAcademicPageSnapshot(response.snapshot),
+                ),
+              );
               return;
             }
             reject(
