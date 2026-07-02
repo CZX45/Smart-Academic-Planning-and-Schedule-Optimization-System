@@ -8,7 +8,10 @@ import {
   type PopupChromeApi,
 } from "../src/popup/browser-actions.js";
 import { KEAN_STUDENT_PORTAL_PREFIX } from "../src/shared/kean.js";
-import type { BrowserExtensionExtraction } from "../src/shared/types.js";
+import type {
+  AcademicPageSnapshot,
+  BrowserExtensionExtraction,
+} from "../src/shared/types.js";
 
 function chromeWithActiveTabs(
   tabs: Array<{ id?: number; url?: string }>,
@@ -50,6 +53,55 @@ function chromeWithExtractionFailure(message: string): PopupChromeApi {
         runtime.lastError = { message };
         callback();
         delete runtime.lastError;
+      },
+    },
+    permissions: {
+      contains: () => undefined,
+      request: () => undefined,
+    },
+  };
+}
+
+function chromeWithMessageFailure(message: string): PopupChromeApi {
+  const runtime: { lastError?: { message: string } } = {};
+  return {
+    runtime,
+    tabs: {
+      query: () => undefined,
+      sendMessage: (_tabId, _message, callback) => {
+        runtime.lastError = { message };
+        callback();
+        delete runtime.lastError;
+      },
+    },
+    scripting: {
+      executeScript: (_details, callback) => {
+        callback();
+      },
+    },
+    permissions: {
+      contains: () => undefined,
+      request: () => undefined,
+    },
+  };
+}
+
+function chromeWithExtractionSnapshot(
+  snapshot: AcademicPageSnapshot,
+  calls: string[] = [],
+): PopupChromeApi {
+  return {
+    tabs: {
+      query: () => undefined,
+      sendMessage: (_tabId, message, callback) => {
+        calls.push(`send:${message.type}`);
+        callback({ ok: true, snapshot } as never);
+      },
+    },
+    scripting: {
+      executeScript: (details, callback) => {
+        calls.push(`inject:${details.files.join(",")}`);
+        callback();
       },
     },
     permissions: {
@@ -112,6 +164,14 @@ describe("popup browser actions", () => {
     ).toBe(true);
   });
 
+  it("does not attempt extraction on Kean host pages outside the Student portal", () => {
+    expect(
+      shouldAttemptExtractionForUrl(
+        "https://kean-ss.colleague.elluciancloud.com/Finance/Billing",
+      ),
+    ).toBe(false);
+  });
+
   it("reports missing active tab URL as a permission problem", async () => {
     await expect(
       readActiveTab(chromeWithActiveTabs([{ id: 42 }])),
@@ -123,7 +183,61 @@ describe("popup browser actions", () => {
   it("reports script injection runtime errors", async () => {
     await expect(
       executeExtraction(chromeWithExtractionFailure("Cannot access page"), 42),
-    ).rejects.toThrow("Cannot access page");
+    ).rejects.toThrow(
+      "Could not inject extractor into the active tab: Cannot access page",
+    );
+  });
+
+  it("reports content-script messaging runtime errors", async () => {
+    await expect(
+      executeExtraction(
+        chromeWithMessageFailure(
+          "Could not establish connection. Receiving end does not exist.",
+        ),
+        42,
+      ),
+    ).rejects.toThrow(
+      "Could not contact the page extractor: Could not establish connection. Receiving end does not exist.",
+    );
+  });
+
+  it("injects the content script before sending the extraction request", async () => {
+    const calls: string[] = [];
+    const snapshot: AcademicPageSnapshot = {
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      tables: [],
+    };
+
+    await executeExtraction(chromeWithExtractionSnapshot(snapshot, calls), 42);
+
+    expect(calls).toEqual([
+      "inject:dist/content/content-script.js",
+      "send:SAPSOS_EXTRACT_PAGE",
+    ]);
+  });
+
+  it("extracts diagnostics from content-script snapshots", async () => {
+    const snapshot: AcademicPageSnapshot = {
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      tables: [],
+    };
+
+    const extraction = await executeExtraction(
+      chromeWithExtractionSnapshot(snapshot),
+      42,
+    );
+
+    expect(extraction.diagnostics).toMatchObject({
+      currentUrl: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress`,
+      detectedPageType: "UNKNOWN_PAGE",
+      tablesFound: 0,
+      rowsFound: 0,
+    });
+    expect(extraction.diagnostics.warningCodes).toContain(
+      "KEAN_WHITELISTED_PAGE_NO_ACADEMIC_TABLE_FOUND",
+    );
   });
 
   it("keeps a captured URL in diagnostics when no extraction result exists", () => {

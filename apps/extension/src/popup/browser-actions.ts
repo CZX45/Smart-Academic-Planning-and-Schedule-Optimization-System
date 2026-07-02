@@ -1,5 +1,7 @@
+import { extractAcademicPageFromTables } from "../content/extractors.js";
 import { isKeanStudentPortalUrl } from "../shared/kean.js";
 import type {
+  AcademicPageSnapshot,
   BrowserExtensionExtraction,
   ExtensionDiagnostics,
 } from "../shared/types.js";
@@ -12,6 +14,7 @@ type PopupTab = {
 type ExtractionResponse = {
   ok?: true;
   extraction?: BrowserExtensionExtraction;
+  snapshot?: AcademicPageSnapshot;
 };
 
 export type PopupChromeApi = {
@@ -120,11 +123,7 @@ export function readActiveTab(
 }
 
 export function shouldAttemptExtractionForUrl(url: string): boolean {
-  if (isKeanStudentPortalUrl(url)) {
-    return true;
-  }
-  const parsed = safeUrl(url);
-  return parsed?.protocol === "https:" || parsed?.protocol === "http:";
+  return isKeanStudentPortalUrl(url);
 }
 
 export function executeExtraction(
@@ -140,7 +139,11 @@ export function executeExtraction(
       () => {
         const injectionError = lastErrorMessage(chromeApi);
         if (injectionError) {
-          reject(new Error(injectionError));
+          reject(
+            new Error(
+              `Could not inject extractor into the active tab: ${injectionError}`,
+            ),
+          );
           return;
         }
         chromeApi.tabs.sendMessage(
@@ -149,16 +152,34 @@ export function executeExtraction(
           (response) => {
             const messageError = lastErrorMessage(chromeApi);
             if (messageError) {
-              reject(new Error(messageError));
-              return;
-            }
-            if (!response?.ok || !response.extraction) {
               reject(
-                new Error("The page did not return an extraction result."),
+                new Error(
+                  `Could not contact the page extractor: ${messageError}`,
+                ),
               );
               return;
             }
-            resolve(response.extraction);
+            if (!response?.ok) {
+              reject(
+                new Error(
+                  "Could not contact the page extractor: The page did not return an extraction result.",
+                ),
+              );
+              return;
+            }
+            if (response.extraction) {
+              resolve(response.extraction);
+              return;
+            }
+            if (response.snapshot) {
+              resolve(extractAcademicPageFromTables(response.snapshot));
+              return;
+            }
+            reject(
+              new Error(
+                "Could not contact the page extractor: The page did not return an extraction result.",
+              ),
+            );
           },
         );
       },
@@ -191,12 +212,4 @@ export function ensureHostPermission(
       });
     });
   });
-}
-
-function safeUrl(url: string): URL | null {
-  try {
-    return new URL(url);
-  } catch {
-    return null;
-  }
 }
