@@ -12,6 +12,6 @@
     "type": "module"
   },
   "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": [],
+  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
   "optional_host_permissions": ["https://kean-ss.colleague.elluciancloud.com/*"]
 }

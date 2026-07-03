@@ -10,7 +10,7 @@ function readProjectFile(path: string): string {
 }
 
 describe("browser extension safety policy", () => {
-  it("uses Manifest V3 with minimal permissions and no broad host permissions", () => {
+  it("uses Manifest V3 with minimal permissions and local API host permissions only", () => {
     const manifest = JSON.parse(readProjectFile("manifest.json")) as {
       manifest_version: number;
       permissions?: string[];
@@ -25,7 +25,10 @@ describe("browser extension safety policy", () => {
       "scripting",
       "storage",
     ]);
-    expect(manifest.host_permissions ?? []).toEqual([]);
+    expect(manifest.host_permissions ?? []).toEqual([
+      "http://localhost/*",
+      "http://127.0.0.1/*",
+    ]);
     expect(manifest.optional_host_permissions ?? []).toEqual([
       "https://kean-ss.colleague.elluciancloud.com/*",
     ]);
