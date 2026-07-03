@@ -1,10 +1,10 @@
-import {
-  getAcademicStatusBadge,
-  type AcademicAdvisoryLabel,
-  type AcademicEmptyStateCopy,
-  type AcademicEmptyStateKey,
-  type AcademicStatusBadge,
-  type AdvisoryLabelKey,
+import type {
+  AcademicAdvisoryLabel,
+  AcademicEmptyStateCopy,
+  AcademicEmptyStateKey,
+  AcademicStatusBadge,
+  AcademicStatusTone,
+  AdvisoryLabelKey,
 } from "@sapsos/shared";
 
 const statusCopy: Record<string, string> = {
@@ -200,6 +200,63 @@ const statusCopy: Record<string, string> = {
   WHAT_IF_SCENARIO: "假设方案",
 };
 
+const warningStatuses = new Set([
+  "AMBIGUOUS",
+  "COMPLETED_WITH_WARNINGS",
+  "CONDITIONALLY_ELIGIBLE",
+  "CONDITIONALLY_PLANNED",
+  "CONDITIONALLY_SATISFIED",
+  "IN_REVIEW",
+  "MANUAL_REVIEW_REQUIRED",
+  "PARSED_WITH_WARNINGS",
+  "PERMISSION_REQUIRED",
+  "VALID_WITH_WARNINGS",
+  "WAITLIST",
+  "WARNING",
+]);
+
+const dangerStatuses = new Set([
+  "BLOCKED",
+  "ERROR",
+  "FAILED",
+  "INFEASIBLE",
+  "NOT_ELIGIBLE",
+  "NOT_SATISFIED",
+  "OFFLINE",
+  "SCHEMA_ERROR",
+]);
+
+const successStatuses = new Set([
+  "ACTIVE",
+  "APPLIED",
+  "APPLIED_WITH_WARNINGS",
+  "COMPLETED",
+  "ELIGIBLE",
+  "FEASIBLE",
+  "OPEN",
+  "READY",
+  "SATISFIED",
+  "SUCCESS",
+]);
+
+const infoStatuses = new Set(["LOADING", "PENDING", "PLANNED", "RUNNING"]);
+
+function statusToneForKey(key: string): AcademicStatusTone {
+  if (successStatuses.has(key)) {
+    return "success";
+  }
+  if (warningStatuses.has(key)) {
+    return "warning";
+  }
+  if (dangerStatuses.has(key)) {
+    return "danger";
+  }
+  if (infoStatuses.has(key)) {
+    return "info";
+  }
+  return "neutral";
+}
+
 const advisoryLabelCopy: Record<AdvisoryLabelKey, AcademicAdvisoryLabel> = {
   NON_OFFICIAL_IMPORTED_DATA: {
     text: "非官方导入数据",
@@ -336,10 +393,13 @@ export function localizeStatusLabel(status: string): string {
 export function localizeStatusBadge(
   status: string | null | undefined,
 ): AcademicStatusBadge {
-  const badge = getAcademicStatusBadge(status);
+  const key = normalizeDisplayKey(status);
+  if (!key) {
+    return { label: statusCopy.NOT_STARTED, tone: "neutral" };
+  }
   return {
-    ...badge,
-    label: localizeStatusLabel(badge.label),
+    label: localizeStatusLabel(status ?? key),
+    tone: statusToneForKey(key),
   };
 }
 
