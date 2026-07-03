@@ -255,6 +255,7 @@ type DataImportSample = {
 };
 type ProductStatusCard = {
   ariaLabel: string;
+  testId: string;
   title: string;
   explanation: string;
   status: string | null;
@@ -987,6 +988,7 @@ function DegreeProgress({
         className="summary-grid"
         id="degree-audit"
         aria-label="学业审核摘要"
+        data-testid="degree-audit-summary"
       >
         <SummaryMetric label="项目" value="Mock BS Finance" />
         <SummaryMetric label="目录年份" value="2024" />
@@ -1016,7 +1018,11 @@ function DegreeProgress({
         />
       </section>
 
-      <section className="requirement-tree" aria-label="毕业要求树">
+      <section
+        className="requirement-tree"
+        aria-label="毕业要求树"
+        data-testid="degree-requirement-tree"
+      >
         <h2>毕业要求树</h2>
         {requirements.map((requirement) => (
           <details key={requirement.id} className="requirement-row">
@@ -1113,6 +1119,7 @@ function ProductStatusDashboard({
   const cards: ProductStatusCard[] = [
     {
       ariaLabel: "学业审核状态卡片",
+      testId: "degree-audit-status-card",
       title: "学业审核",
       explanation: "最新的确定性学业审核快照和毕业要求树。",
       status:
@@ -1129,6 +1136,7 @@ function ProductStatusDashboard({
     },
     {
       ariaLabel: "数据导入审核状态卡片",
+      testId: "data-import-review-status-card",
       title: "数据导入审核",
       explanation: "staging 导入记录进入正式应用前的人工确认入口。",
       status:
@@ -1151,6 +1159,7 @@ function ProductStatusDashboard({
     },
     {
       ariaLabel: "浏览器插件导入状态卡片",
+      testId: "browser-extension-import-status-card",
       title: "浏览器插件导入",
       explanation: "仅从用户已打开页面读取；导入数据先进入 staging。",
       status: "MANUAL_REVIEW_REQUIRED",
@@ -1167,6 +1176,7 @@ function ProductStatusDashboard({
     },
     {
       ariaLabel: "课节监控状态卡片",
+      testId: "section-monitoring-status-card",
       title: "课节监控",
       explanation: "对用户触发导入的课节快照进行仅供参考的比较。",
       status:
@@ -1200,6 +1210,7 @@ function ProductStatusDashboard({
     },
     {
       ariaLabel: "课表优化状态卡片",
+      testId: "schedule-optimization-status-card",
       title: "课表优化",
       explanation: "独立于长期规划的课节级课表选项。",
       status:
@@ -1222,6 +1233,7 @@ function ProductStatusDashboard({
     },
     {
       ariaLabel: "假设规划状态卡片",
+      testId: "what-if-planning-status-card",
       title: "假设规划",
       explanation: "用于比较假设项目变更的方案。",
       status:
@@ -1245,7 +1257,11 @@ function ProductStatusDashboard({
   ];
 
   return (
-    <section className="product-status" aria-label="产品状态仪表盘">
+    <section
+      className="product-status"
+      aria-label="产品状态仪表盘"
+      data-testid="product-status-dashboard"
+    >
       {cards.map((card) => (
         <StatusCard key={card.ariaLabel} card={card} />
       ))}
@@ -1260,7 +1276,11 @@ function StatusCard({ card }: { card: ProductStatusCard }) {
     label: card.statusLabel ?? badge.label,
   };
   return (
-    <article className="status-card" aria-label={card.ariaLabel}>
+    <article
+      className="status-card"
+      aria-label={card.ariaLabel}
+      data-testid={card.testId}
+    >
       <div className="status-card-heading">
         <h2>{card.title}</h2>
         <StatusBadge label={displayBadge.label} tone={displayBadge.tone} />
@@ -1304,13 +1324,19 @@ function AdvisoryLabels({ keys }: { keys: AdvisoryLabelKey[] }) {
 function EmptyState({
   copyKey,
   ariaLabel,
+  testId,
 }: {
   copyKey: AcademicEmptyStateKey;
   ariaLabel: string;
+  testId?: string;
 }) {
   const copy = getZhCnEmptyStateCopy(copyKey);
   return (
-    <section className="state-panel empty-state" aria-label={ariaLabel}>
+    <section
+      className="state-panel empty-state"
+      aria-label={ariaLabel}
+      data-testid={testId}
+    >
       <h2>{copy.title}</h2>
       <p>{copy.explanation}</p>
       <p>
@@ -1447,6 +1473,7 @@ function WhatIfAnalysis({
       className="what-if-panel"
       id="what-if-planning"
       aria-label="项目探索与假设分析"
+      data-testid="what-if-planning"
     >
       <div className="section-heading">
         <div>
@@ -1460,6 +1487,7 @@ function WhatIfAnalysis({
         <label>
           候选项目
           <select
+            data-testid="candidate-program-select"
             value={selectedCandidateId}
             onChange={(event) => setSelectedCandidateId(event.target.value)}
           >
@@ -1474,16 +1502,28 @@ function WhatIfAnalysis({
             ))}
           </select>
         </label>
-        <button type="button" onClick={() => void handleCreateScenario()}>
+        <button
+          type="button"
+          data-testid="create-scenario-button"
+          onClick={() => void handleCreateScenario()}
+        >
           创建假设方案
         </button>
-        <button type="button" onClick={() => void handleCompareSaved()}>
+        <button
+          type="button"
+          data-testid="compare-saved-scenarios-button"
+          onClick={() => void handleCompareSaved()}
+        >
           比较已保存方案
         </button>
       </div>
 
       {scenarioState.status === "idle" ? (
-        <EmptyState copyKey="NO_WHAT_IF_SCENARIOS" ariaLabel="假设方案空状态" />
+        <EmptyState
+          copyKey="NO_WHAT_IF_SCENARIOS"
+          ariaLabel="假设方案空状态"
+          testId="what-if-scenarios-empty-state"
+        />
       ) : null}
 
       {scenarioState.status === "loading" ? (
@@ -1501,7 +1541,11 @@ function WhatIfAnalysis({
       ) : null}
 
       {scenarioState.status === "empty" ? (
-        <EmptyState copyKey="NO_WHAT_IF_SCENARIOS" ariaLabel="假设方案空状态" />
+        <EmptyState
+          copyKey="NO_WHAT_IF_SCENARIOS"
+          ariaLabel="假设方案空状态"
+          testId="what-if-scenarios-empty-state"
+        />
       ) : null}
 
       {scenarioState.status === "ready" ? (
@@ -1608,7 +1652,11 @@ function CourseEligibilityChecker({
   }
 
   return (
-    <section className="eligibility-panel" aria-label="课程资格检查">
+    <section
+      className="eligibility-panel"
+      aria-label="课程资格检查"
+      data-testid="course-eligibility"
+    >
       <div className="section-heading">
         <div>
           <h2>课程资格</h2>
@@ -1621,6 +1669,7 @@ function CourseEligibilityChecker({
         <label>
           检查课程
           <select
+            data-testid="course-check-select"
             value={selectedCourseId}
             onChange={(event) => setSelectedCourseId(event.target.value)}
           >
@@ -1635,10 +1684,18 @@ function CourseEligibilityChecker({
             ))}
           </select>
         </label>
-        <button type="button" onClick={() => void handleRunEligibility()}>
+        <button
+          type="button"
+          data-testid="check-eligibility-button"
+          onClick={() => void handleRunEligibility()}
+        >
           检查资格
         </button>
-        <button type="button" onClick={() => void handleLoadHistory()}>
+        <button
+          type="button"
+          data-testid="load-eligibility-history-button"
+          onClick={() => void handleLoadHistory()}
+        >
           加载历史
         </button>
       </div>
@@ -1694,7 +1751,11 @@ function EligibilityResultView({
   const availability = result.registration_availability;
   return (
     <div className="eligibility-result">
-      <section className="summary-grid" aria-label="课程资格摘要">
+      <section
+        className="summary-grid"
+        aria-label="课程资格摘要"
+        data-testid="course-eligibility-summary"
+      >
         <SummaryMetric label="模式" value={statusLabel(result.mode)} />
         <SummaryMetric
           label="结果"
@@ -1994,7 +2055,11 @@ function AcademicPlanner({
   }
 
   return (
-    <section className="planner-panel" aria-label="长期学业规划">
+    <section
+      className="planner-panel"
+      aria-label="长期学业规划"
+      data-testid="academic-planner"
+    >
       <div className="section-heading">
         <div>
           <h2>长期学业规划</h2>
@@ -2003,7 +2068,11 @@ function AcademicPlanner({
         <p className="notice compact">此规划不会注册课程。</p>
       </div>
 
-      <ul className="disclaimer-list" aria-label="学业规划免责声明">
+      <ul
+        className="disclaimer-list"
+        aria-label="学业规划免责声明"
+        data-testid="academic-planner-disclaimers"
+      >
         <li>模拟数据 — 不是官方学校政策。</li>
         <li>此规划不会注册课程，也不会 add/drop/swap/waitlist。</li>
         <li>此规划不会检查每周课表冲突。</li>
@@ -2015,6 +2084,7 @@ function AcademicPlanner({
         <label>
           规划范围
           <select
+            data-testid="planning-scope-select"
             value={selectedPlannerScopeId}
             onChange={(event) => setSelectedPlannerScopeId(event.target.value)}
           >
@@ -2043,6 +2113,7 @@ function AcademicPlanner({
         <label>
           学期数
           <input
+            data-testid="terms-input"
             min={1}
             max={16}
             type="number"
@@ -2053,6 +2124,7 @@ function AcademicPlanner({
         <label>
           最低学分
           <input
+            data-testid="min-credits-input"
             min={0}
             type="number"
             value={minimumCredits}
@@ -2062,6 +2134,7 @@ function AcademicPlanner({
         <label>
           偏好学分
           <input
+            data-testid="preferred-credits-input"
             min={0}
             type="number"
             value={preferredCredits}
@@ -2073,16 +2146,25 @@ function AcademicPlanner({
         <label>
           最高学分
           <input
+            data-testid="max-credits-input"
             min={0}
             type="number"
             value={maximumCredits}
             onChange={(event) => setMaximumCredits(Number(event.target.value))}
           />
         </label>
-        <button type="button" onClick={() => void handleCreatePlan()}>
+        <button
+          type="button"
+          data-testid="create-plan-button"
+          onClick={() => void handleCreatePlan()}
+        >
           创建规划
         </button>
-        <button type="button" onClick={() => void handleComparePlans()}>
+        <button
+          type="button"
+          data-testid="compare-saved-plans-button"
+          onClick={() => void handleComparePlans()}
+        >
           比较已保存规划
         </button>
       </div>
@@ -2142,7 +2224,11 @@ function AcademicPlanResultView({
 
   return (
     <div className="planner-result">
-      <section className="summary-grid" aria-label="学业规划摘要">
+      <section
+        className="summary-grid"
+        aria-label="学业规划摘要"
+        data-testid="academic-plan-summary"
+      >
         <SummaryMetric label="规划状态" value={statusLabel(plan.status)} />
         <SummaryMetric
           label="规划模式"
@@ -2160,7 +2246,11 @@ function AcademicPlanResultView({
         <SummaryMetric label="警告" value={String(plan.warnings.length)} />
       </section>
 
-      <section className="planner-term-grid" aria-label="逐学期学业规划">
+      <section
+        className="planner-term-grid"
+        aria-label="逐学期学业规划"
+        data-testid="term-by-term-academic-plan"
+      >
         <h2>逐学期规划</h2>
         {plan.planned_courses.length === 0 ? (
           <p className="subtle">当前设置没有生成规划课程。</p>
@@ -2242,7 +2332,11 @@ function AcademicPlanResultView({
       </section>
 
       {state.comparisons.length > 0 ? (
-        <section className="comparison-table" aria-label="已保存学业规划比较">
+        <section
+          className="comparison-table"
+          aria-label="已保存学业规划比较"
+          data-testid="saved-plan-comparison"
+        >
           <h2>已保存规划比较</h2>
           <div className="comparison-rows">
             {state.comparisons.map((comparison) => {
@@ -2481,6 +2575,7 @@ function SemesterScheduleBuilder({
       className="schedule-panel"
       id="schedule-optimization"
       aria-label="学期课表优化"
+      data-testid="schedule-optimization"
     >
       <div className="section-heading">
         <div>
@@ -2490,7 +2585,11 @@ function SemesterScheduleBuilder({
         <p className="notice compact">这不是选课注册。</p>
       </div>
 
-      <ul className="disclaimer-list" aria-label="课表优化免责声明">
+      <ul
+        className="disclaimer-list"
+        aria-label="课表优化免责声明"
+        data-testid="schedule-builder-disclaimers"
+      >
         <li>模拟数据 — 不是官方学校政策。</li>
         <li>生成的课表不是选课注册。</li>
         <li>座位可用性与学业资格分开判断。</li>
@@ -2503,6 +2602,7 @@ function SemesterScheduleBuilder({
         <label>
           课程集合
           <select
+            data-testid="course-set-select"
             value={selectedSchedulePresetId}
             onChange={(event) =>
               setSelectedSchedulePresetId(event.target.value)
@@ -2565,6 +2665,7 @@ function SemesterScheduleBuilder({
         </label>
         <label className="toggle-row">
           <input
+            data-testid="no-gaps-checkbox"
             checked={schedulePreferNoGaps}
             type="checkbox"
             onChange={(event) => setSchedulePreferNoGaps(event.target.checked)}
@@ -2573,6 +2674,7 @@ function SemesterScheduleBuilder({
         </label>
         <label className="toggle-row">
           <input
+            data-testid="morning-checkbox"
             checked={schedulePreferMorning}
             type="checkbox"
             onChange={(event) => setSchedulePreferMorning(event.target.checked)}
@@ -2592,6 +2694,7 @@ function SemesterScheduleBuilder({
         <label>
           固定课节
           <select
+            data-testid="pinned-section-select"
             value={schedulePinnedSectionChoiceId}
             onChange={(event) =>
               setSchedulePinnedSectionChoiceId(event.target.value)
@@ -2611,6 +2714,7 @@ function SemesterScheduleBuilder({
         <label>
           排除课节
           <select
+            data-testid="excluded-section-select"
             value={scheduleExcludedSectionChoiceId}
             onChange={(event) =>
               setScheduleExcludedSectionChoiceId(event.target.value)
@@ -2635,6 +2739,7 @@ function SemesterScheduleBuilder({
         <label>
           多样性
           <select
+            data-testid="diversity-select"
             value={scheduleDiversityMode}
             onChange={(event) =>
               setScheduleDiversityMode(
@@ -2656,10 +2761,18 @@ function SemesterScheduleBuilder({
           />
           允许部分方案
         </label>
-        <button type="button" onClick={() => void handleCreateSchedule()}>
+        <button
+          type="button"
+          data-testid="build-schedule-button"
+          onClick={() => void handleCreateSchedule()}
+        >
           生成课表
         </button>
-        <button type="button" onClick={() => void handleCompareSchedules()}>
+        <button
+          type="button"
+          data-testid="compare-saved-schedules-button"
+          onClick={() => void handleCompareSchedules()}
+        >
           比较已保存课表
         </button>
       </div>
@@ -2668,6 +2781,7 @@ function SemesterScheduleBuilder({
         <EmptyState
           copyKey="NO_GENERATED_SCHEDULE_PLANS"
           ariaLabel="课表方案空状态"
+          testId="schedule-plans-empty-state"
         />
       ) : null}
 
@@ -2703,6 +2817,7 @@ function SemesterScheduleBuilder({
         <EmptyState
           copyKey="NO_GENERATED_SCHEDULE_PLANS"
           ariaLabel="课表方案空状态"
+          testId="schedule-plans-empty-state"
         />
       ) : null}
 
@@ -2723,7 +2838,11 @@ function ScheduleResultView({
 
   return (
     <div className="schedule-result">
-      <section className="summary-grid" aria-label="课表优化摘要">
+      <section
+        className="summary-grid"
+        aria-label="课表优化摘要"
+        data-testid="schedule-optimization-summary"
+      >
         <SummaryMetric label="运行状态" value={statusLabel(schedule.status)} />
         <SummaryMetric label="方案数" value={String(schedule.options.length)} />
         <SummaryMetric label="冲突" value={String(schedule.conflicts.length)} />
@@ -2738,7 +2857,11 @@ function ScheduleResultView({
         />
       </section>
 
-      <section className="schedule-options" aria-label="课表方案">
+      <section
+        className="schedule-options"
+        aria-label="课表方案"
+        data-testid="schedule-options"
+      >
         <h2>课节方案</h2>
         {schedule.options.length === 0 ? (
           <p className="subtle">没有生成可行的课节方案。</p>
@@ -2825,7 +2948,11 @@ function ScheduleResultView({
       </section>
 
       {schedule.options.length >= 2 ? (
-        <section className="comparison-table" aria-label="前两个课表方案比较">
+        <section
+          className="comparison-table"
+          aria-label="前两个课表方案比较"
+          data-testid="top-schedule-option-comparison"
+        >
           <h2>前两个方案比较</h2>
           <div className="comparison-rows">
             {schedule.options.slice(0, 2).map((option) => (
@@ -2877,7 +3004,11 @@ function ScheduleResultView({
       </section>
 
       {schedule.repair_suggestions.length > 0 ? (
-        <section className="comparison-table" aria-label="课表修复建议">
+        <section
+          className="comparison-table"
+          aria-label="课表修复建议"
+          data-testid="schedule-repair-suggestions"
+        >
           <h2>修复建议</h2>
           <div className="comparison-rows">
             {schedule.repair_suggestions.map((suggestion) => (
@@ -2896,7 +3027,11 @@ function ScheduleResultView({
       ) : null}
 
       {state.comparisons.length > 0 ? (
-        <section className="comparison-table" aria-label="已保存课表比较">
+        <section
+          className="comparison-table"
+          aria-label="已保存课表比较"
+          data-testid="saved-schedule-comparison"
+        >
           <h2>已保存课表比较</h2>
           <div className="comparison-rows">
             {state.comparisons.map((comparison) => {
@@ -3055,6 +3190,7 @@ function DataImportPreviewPanel({
       className="data-import-panel"
       id="data-import-preview"
       aria-label="数据导入预览"
+      data-testid="data-import-preview"
     >
       <div className="section-heading">
         <div>
@@ -3064,7 +3200,11 @@ function DataImportPreviewPanel({
         <p className="notice compact">只读 staging 边界。</p>
       </div>
 
-      <ul className="disclaimer-list" aria-label="数据导入免责声明">
+      <ul
+        className="disclaimer-list"
+        aria-label="数据导入免责声明"
+        data-testid="data-import-disclaimers"
+      >
         <li>导入预览数据不是官方学校政策。</li>
         <li>不会更改成绩单、目录、课节、注册、座位或候补名单记录。</li>
         <li>导入数据先进入 staging，不直接写入正式记录。</li>
@@ -3074,6 +3214,7 @@ function DataImportPreviewPanel({
       <section
         className="browser-extension-status"
         aria-label="浏览器插件导入状态"
+        data-testid="browser-extension-import-status"
       >
         <div>
           <h2>浏览器插件导入</h2>
@@ -3112,6 +3253,7 @@ function DataImportPreviewPanel({
         <label>
           示例导入
           <select
+            data-testid="sample-import-select"
             value={selectedDataImportSampleId}
             onChange={(event) =>
               setSelectedDataImportSampleId(event.target.value)
@@ -3128,16 +3270,28 @@ function DataImportPreviewPanel({
             ))}
           </select>
         </label>
-        <button type="button" onClick={() => void handlePreviewImport()}>
+        <button
+          type="button"
+          data-testid="preview-import-button"
+          onClick={() => void handlePreviewImport()}
+        >
           预览导入
         </button>
-        <button type="button" onClick={() => void handleLoadSavedImports()}>
+        <button
+          type="button"
+          data-testid="load-saved-imports-button"
+          onClick={() => void handleLoadSavedImports()}
+        >
           加载已保存导入
         </button>
       </div>
 
       {dataImportState.status === "idle" ? (
-        <EmptyState copyKey="NO_DATA_IMPORTS" ariaLabel="数据导入空状态" />
+        <EmptyState
+          copyKey="NO_DATA_IMPORTS"
+          ariaLabel="数据导入空状态"
+          testId="data-import-empty-state"
+        />
       ) : null}
 
       {dataImportState.status === "loading" ? (
@@ -3161,7 +3315,11 @@ function DataImportPreviewPanel({
       ) : null}
 
       {dataImportState.status === "empty" ? (
-        <EmptyState copyKey="NO_DATA_IMPORTS" ariaLabel="数据导入空状态" />
+        <EmptyState
+          copyKey="NO_DATA_IMPORTS"
+          ariaLabel="数据导入空状态"
+          testId="data-import-empty-state"
+        />
       ) : null}
 
       {dataImportState.status === "ready" ? (
@@ -3187,7 +3345,11 @@ function DataImportResultView({
   ).length;
   return (
     <div className="data-import-result">
-      <section className="summary-grid" aria-label="数据导入预览摘要">
+      <section
+        className="summary-grid"
+        aria-label="数据导入预览摘要"
+        data-testid="data-import-preview-summary"
+      >
         <SummaryMetric label="导入状态" value={statusLabel(state.run.status)} />
         <SummaryMetric label="记录数" value={String(state.run.record_count)} />
         <SummaryMetric
@@ -3209,7 +3371,11 @@ function DataImportResultView({
         />
       </section>
 
-      <section className="comparison-table" aria-label="导入预览边界">
+      <section
+        className="comparison-table"
+        aria-label="导入预览边界"
+        data-testid="import-preview-disclaimers"
+      >
         <h2>预览边界</h2>
         <AdvisoryLabels
           keys={["NON_OFFICIAL_IMPORTED_DATA", "MANUAL_REVIEW_REQUIRED"]}
@@ -3225,7 +3391,7 @@ function DataImportResultView({
       </section>
 
       <section className="data-import-grid">
-        <section aria-label="数据导入记录">
+        <section aria-label="数据导入记录" data-testid="data-import-records">
           <h2>导入记录</h2>
           <div className="comparison-rows">
             {state.records.map((record) => (
@@ -3243,7 +3409,10 @@ function DataImportResultView({
             ))}
           </div>
         </section>
-        <section aria-label="数据导入映射候选">
+        <section
+          aria-label="数据导入映射候选"
+          data-testid="data-import-mapping-candidates"
+        >
           <h2>映射候选</h2>
           <div className="comparison-rows">
             {state.candidates.map((candidate) => (
@@ -3294,6 +3463,7 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
       className="section-monitoring-panel"
       id="section-monitoring"
       aria-label="课节监控"
+      data-testid="section-monitoring"
     >
       <div className="section-heading">
         <div>
@@ -3303,7 +3473,11 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
         <p className="notice compact">需要人工审核。</p>
       </div>
 
-      <ul className="disclaimer-list" aria-label="课节监控免责声明">
+      <ul
+        className="disclaimer-list"
+        aria-label="课节监控免责声明"
+        data-testid="section-monitoring-disclaimers"
+      >
         <li>
           课节监控基于用户触发的导入数据，可能不同于官方门户。请始终在官方注册门户人工核对信息。
         </li>
@@ -3350,7 +3524,11 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
 
       {state.status === "ready" ? (
         <div className="section-monitoring-grid">
-          <section className="comparison-table" aria-label="已监控课节">
+          <section
+            className="comparison-table"
+            aria-label="已监控课节"
+            data-testid="monitored-sections"
+          >
             <h2>已监控课节</h2>
             {state.targets.length > 0 ? (
               <div className="comparison-rows">
@@ -3380,11 +3558,16 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
               <EmptyState
                 copyKey="NO_SECTION_MONITORING_TARGETS"
                 ariaLabel="课节监控目标空状态"
+                testId="section-monitoring-targets-empty-state"
               />
             )}
           </section>
 
-          <section className="comparison-table" aria-label="参考提醒">
+          <section
+            className="comparison-table"
+            aria-label="参考提醒"
+            data-testid="advisory-alerts"
+          >
             <h2>参考提醒</h2>
             {state.alerts.length > 0 ? (
               <div className="comparison-rows">
@@ -3416,11 +3599,16 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
               <EmptyState
                 copyKey="NO_SECTION_MONITORING_ALERTS"
                 ariaLabel="课节监控提醒空状态"
+                testId="section-monitoring-alerts-empty-state"
               />
             )}
           </section>
 
-          <section className="comparison-table" aria-label="人工注册检查清单">
+          <section
+            className="comparison-table"
+            aria-label="人工注册检查清单"
+            data-testid="manual-registration-checklist"
+          >
             <h2>人工检查清单</h2>
             <ul className="compact-list">
               <li>手动打开官方注册门户。</li>
@@ -3613,7 +3801,11 @@ function DataReviewPanel({
   }
 
   return (
-    <section className="data-review-panel" aria-label="数据审核与确认">
+    <section
+      className="data-review-panel"
+      aria-label="数据审核与确认"
+      data-testid="data-review"
+    >
       <div className="section-heading">
         <div>
           <h2>数据审核与确认</h2>
@@ -3622,7 +3814,11 @@ function DataReviewPanel({
         <p className="notice compact">必须明确点击应用。</p>
       </div>
 
-      <ul className="disclaimer-list" aria-label="数据审核免责声明">
+      <ul
+        className="disclaimer-list"
+        aria-label="数据审核免责声明"
+        data-testid="data-review-disclaimers"
+      >
         <li>审核决定不会创建官方成绩单记录。</li>
         <li>试运行只显示拟写入内容，不会创建正式领域记录。</li>
         <li>已拒绝、暂缓、重复和顾问审核记录会被记录下来。</li>
@@ -3630,18 +3826,34 @@ function DataReviewPanel({
       <AdvisoryLabels keys={["MANUAL_REVIEW_REQUIRED", "ADVISORY_ONLY"]} />
 
       <div className="scenario-controls data-import-controls">
-        <button type="button" onClick={() => void handleCreateReview()}>
+        <button
+          type="button"
+          data-testid="create-review-button"
+          onClick={() => void handleCreateReview()}
+        >
           创建人工审核
         </button>
-        <button type="button" onClick={() => void handleLoadLatestReviews()}>
+        <button
+          type="button"
+          data-testid="load-latest-reviews-button"
+          onClick={() => void handleLoadLatestReviews()}
+        >
           加载最新审核
         </button>
         {dataReviewState.status === "ready" ? (
           <>
-            <button type="button" onClick={() => void handleApply(true)}>
+            <button
+              type="button"
+              data-testid="dry-run-button"
+              onClick={() => void handleApply(true)}
+            >
               试运行
             </button>
-            <button type="button" onClick={() => void handleApply(false)}>
+            <button
+              type="button"
+              data-testid="apply-confirmed-button"
+              onClick={() => void handleApply(false)}
+            >
               应用已确认记录
             </button>
           </>
@@ -3649,7 +3861,11 @@ function DataReviewPanel({
       </div>
 
       {dataReviewState.status === "idle" ? (
-        <EmptyState copyKey="NO_CONFIRMED_IMPORTS" ariaLabel="数据审核空状态" />
+        <EmptyState
+          copyKey="NO_CONFIRMED_IMPORTS"
+          ariaLabel="数据审核空状态"
+          testId="data-review-empty-state"
+        />
       ) : null}
 
       {dataReviewState.status === "loading" ? (
@@ -3673,12 +3889,20 @@ function DataReviewPanel({
       ) : null}
 
       {dataReviewState.status === "empty" ? (
-        <EmptyState copyKey="NO_CONFIRMED_IMPORTS" ariaLabel="数据审核空状态" />
+        <EmptyState
+          copyKey="NO_CONFIRMED_IMPORTS"
+          ariaLabel="数据审核空状态"
+          testId="data-review-empty-state"
+        />
       ) : null}
 
       {dataReviewState.status === "ready" ? (
         <div className="data-import-result">
-          <section className="summary-grid" aria-label="数据审核摘要">
+          <section
+            className="summary-grid"
+            aria-label="数据审核摘要"
+            data-testid="data-review-summary"
+          >
             <SummaryMetric
               label="审核状态"
               value={statusLabel(dataReviewState.review.status)}
@@ -3709,7 +3933,11 @@ function DataReviewPanel({
             />
           </section>
 
-          <section className="comparison-table" aria-label="审核记录">
+          <section
+            className="comparison-table"
+            aria-label="审核记录"
+            data-testid="review-records"
+          >
             <h2>记录决定</h2>
             <div className="comparison-rows">
               {dataReviewState.records.map((recordReview) => {
@@ -3753,6 +3981,7 @@ function DataReviewPanel({
                       </label>
                       <button
                         type="button"
+                        data-testid="confirm-record-button"
                         onClick={() =>
                           void handleDecision(recordReview, "CONFIRMED")
                         }
@@ -3761,6 +3990,7 @@ function DataReviewPanel({
                       </button>
                       <button
                         type="button"
+                        data-testid="reject-record-button"
                         onClick={() =>
                           void handleDecision(recordReview, "REJECTED")
                         }
@@ -3769,6 +3999,7 @@ function DataReviewPanel({
                       </button>
                       <button
                         type="button"
+                        data-testid="defer-record-button"
                         onClick={() =>
                           void handleDecision(recordReview, "DEFERRED")
                         }
@@ -3777,6 +4008,7 @@ function DataReviewPanel({
                       </button>
                       <button
                         type="button"
+                        data-testid="advisor-review-record-button"
                         onClick={() =>
                           void handleDecision(
                             recordReview,
@@ -3788,6 +4020,7 @@ function DataReviewPanel({
                       </button>
                       <button
                         type="button"
+                        data-testid="edit-confirm-record-button"
                         onClick={() =>
                           void handleDecision(
                             recordReview,
@@ -3805,7 +4038,11 @@ function DataReviewPanel({
           </section>
 
           {dataReviewState.applicationResult ? (
-            <section className="comparison-table" aria-label="数据应用结果">
+            <section
+              className="comparison-table"
+              aria-label="数据应用结果"
+              data-testid="data-application-result"
+            >
               <h2>应用结果</h2>
               <div className="comparison-rows">
                 {dataReviewState.applicationResult.applied_records.map(
@@ -3916,7 +4153,11 @@ function ScenarioResult({
   );
   return (
     <div className="scenario-result">
-      <section className="summary-grid" aria-label="假设方案摘要">
+      <section
+        className="summary-grid"
+        aria-label="假设方案摘要"
+        data-testid="what-if-scenario-summary"
+      >
         <SummaryMetric
           label="候选项目"
           value={localizeDemoOptionLabel(
@@ -3997,7 +4238,11 @@ function ScenarioResult({
       </section>
 
       {state.comparisons.length > 0 ? (
-        <section className="comparison-table" aria-label="已保存方案比较">
+        <section
+          className="comparison-table"
+          aria-label="已保存方案比较"
+          data-testid="saved-scenario-comparison"
+        >
           <h2>已保存方案比较</h2>
           <div className="comparison-rows">
             {state.comparisons.map((comparison) => {
