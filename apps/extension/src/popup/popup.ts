@@ -24,6 +24,11 @@ type StoredSettings = {
   studentProfileId?: string;
 };
 
+type CreatedImportSummary = {
+  id: string;
+  recordCount: number | null;
+};
+
 type ChromeApi = PopupChromeApi & {
   storage: {
     local: {
@@ -100,6 +105,67 @@ function setApiStatus(message: string): void {
   if (apiStatusText) {
     apiStatusText.textContent = message;
   }
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+async function responseJson(response: Response): Promise<unknown> {
+  try {
+    return (await response.json()) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function apiErrorMessage(payload: unknown): string | null {
+  if (!isObject(payload)) {
+    return null;
+  }
+  const detail = payload.detail;
+  if (typeof detail === "string") {
+    return detail;
+  }
+  if (isObject(detail) && typeof detail.message === "string") {
+    return detail.message;
+  }
+  if (typeof payload.message === "string") {
+    return payload.message;
+  }
+  return null;
+}
+
+function createdImportSummary(payload: unknown): CreatedImportSummary {
+  if (!isObject(payload)) {
+    return { id: "unknown import id", recordCount: null };
+  }
+  return {
+    id: typeof payload.id === "string" ? payload.id : "unknown import id",
+    recordCount:
+      typeof payload.record_count === "number" ? payload.record_count : null,
+  };
+}
+
+function pluralize(count: number, singular: string): string {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
+}
+
+function createdImportSummaryText(
+  summaries: readonly CreatedImportSummary[],
+): string {
+  const ids = summaries.map((summary) => summary.id).join(", ");
+  const knownRowCounts = summaries.filter(
+    (summary) => summary.recordCount !== null,
+  );
+  if (knownRowCounts.length === 0) {
+    return `${ids}; row count unavailable`;
+  }
+  const totalRows = knownRowCounts.reduce(
+    (current, summary) => current + (summary.recordCount ?? 0),
+    0,
+  );
+  return `${ids}; ${pluralize(totalRows, "row")}`;
 }
 
 function setDetectedPage(
@@ -386,9 +452,13 @@ async function handleConfirm(): Promise<void> {
       createDataImportRequestFromExtraction(studentProfileId, firstExtraction),
     ];
   }
+  if (requests.length === 0) {
+    setStatus("No extracted rows are available to import.");
+    return;
+  }
   setStatus("Sending confirmed staging import.");
   try {
-    let createdCount = 0;
+    const summaries: CreatedImportSummary[] = [];
     for (const request of requests) {
       const response = await fetch(`${apiBaseUrl}/api/v1/data-imports`, {
         method: "POST",
@@ -396,20 +466,37 @@ async function handleConfirm(): Promise<void> {
         body: JSON.stringify(request),
       });
       if (!response.ok) {
-        setApiStatus(`Local app/API failed with HTTP ${response.status}.`);
+        const message = apiErrorMessage(await responseJson(response));
+        setApiStatus(
+          `Local app/API failed with HTTP ${response.status}${
+            message ? `: ${message}` : "."
+          }`,
+        );
         setStatus(
           "Staging import failed. Retry only after reviewing the issue.",
         );
         return;
       }
-      createdCount += 1;
+      summaries.push(createdImportSummary(await responseJson(response)));
     }
-    setApiStatus(`Local app/API accepted ${createdCount} staging import(s).`);
-    setStatus("Staging import created. Review is still required in the app.");
-  } catch (error: unknown) {
-    setApiStatus("Local app/API connection failed.");
+    const summaryText = createdImportSummaryText(summaries);
+    setApiStatus(
+      `Local app/API accepted ${pluralize(
+        summaries.length,
+        "staging import",
+      )}: ${summaryText}.`,
+    );
     setStatus(
-      error instanceof Error ? error.message : "Staging import failed.",
+      `Staging import created: ${summaryText}. Review is still required in the app.`,
+    );
+  } catch (error: unknown) {
+    setApiStatus(
+      "Local app/API connection failed. Check the API base URL, extension local API host permission, and CORS.",
+    );
+    setStatus(
+      error instanceof Error
+        ? `Staging import failed: ${error.message}`
+        : "Staging import failed.",
     );
   }
 }
