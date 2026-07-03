@@ -1,3 +1,4 @@
+import json
 from collections.abc import Generator
 from typing import Any, Protocol, cast
 from uuid import UUID
@@ -16,11 +17,14 @@ from app.main import app
 from app.models.academic import (
     AuditWarningSeverity,
     DataImportFile,
+    DataImportReviewStatus,
     DataImportRun,
     DataImportStatus,
     DataImportStorageStrategy,
     DataImportType,
     ImportedRecord,
+    ImportedRecordReview,
+    ImportedRecordReviewDecision,
     ImportedRecordStatus,
     ImportedRecordType,
     ImportMappingCandidate,
@@ -33,6 +37,7 @@ from app.models.academic import (
 )
 from app.seed_dev import seed_mock_data, seed_uuid
 from app.services.data_imports.engine import DataImportApplicationService
+from app.services.data_review.engine import DataReviewApplicationService
 
 
 class DataImportCreatedLogRecord(Protocol):
@@ -102,6 +107,151 @@ def transcript_csv() -> str:
             "2024FA,FIN 999,Unreviewed Special Topic,A,3.0,COMPLETED",
         ]
     )
+
+
+def kean_finance_myprogress_json() -> str:
+    return json.dumps(
+        {
+            "source_type": "BROWSER_EXTENSION",
+            "staging_only": True,
+            "page_type": "KEAN_MY_PROGRESS_PAGE",
+            "programSummary": {
+                "programName": "Finance, BS",
+                "degree": "Bachelor of Science",
+                "major": "Finance",
+                "department": "Accounting & Finance",
+                "catalogYear": 2024,
+                "cumulativeGpa": 3.916,
+                "institutionGpa": 3.916,
+                "anticipatedCompletionDate": "12/20/2028",
+            },
+            "creditSummary": {
+                "totalAppliedCredits": 104,
+                "totalRequiredCredits": 120,
+                "completedCredits": 67,
+                "inProgressCredits": 24,
+                "plannedCredits": 13,
+                "remainingCredits": 16,
+                "completionPercent": 86.67,
+            },
+            "progressBarSegments": [
+                {
+                    "value": 67,
+                    "rawText": "67",
+                    "classification": "COMPLETED",
+                    "requiresReview": False,
+                },
+                {
+                    "value": 24,
+                    "rawText": "24",
+                    "classification": "IN_PROGRESS",
+                    "requiresReview": False,
+                },
+                {
+                    "value": 13,
+                    "rawText": "13",
+                    "classification": "PLANNED",
+                    "requiresReview": False,
+                },
+            ],
+            "fieldProvenance": {
+                "completedCredits": {
+                    "value": 67,
+                    "rawText": "67",
+                    "source": "MyProgress Total Credits progress bar green segment",
+                    "confidence": "high",
+                    "requiresReview": False,
+                }
+            },
+            "requirementGroups": [
+                {
+                    "name": "GE Foundation Requirements 13 S.H.",
+                    "statusText": "GE*1000/3000 4 of 5 Completed 13",
+                    "source": "Requirement Group",
+                    "confidence": "high",
+                    "requiresReview": False,
+                }
+            ],
+            "courseRows": [],
+            "rawSnapshot": {
+                "pageTitle": "MyProgress",
+                "pageUrl": (
+                    "https://kean-ss.colleague.elluciancloud.com/Student/"
+                    "Planning/Programs/MyProgress"
+                ),
+                "capturedAt": "1970-01-01T00:00:00.000Z",
+                "visibleTextSample": (
+                    "My Progress Finance, BS Degree Bachelor of Science Major Finance "
+                    "Department Accounting & Finance Catalog 2024 Cumulative GPA 3.916 "
+                    "Institution GPA 3.916 Anticipated Completion Date 12/20/2028 "
+                    "Total Credits 104 of 120 67 24 13 GE Foundation Requirements 13 S.H. "
+                    "GE*1000/3000 4 of 5 Completed"
+                ),
+                "headings": [
+                    "My Progress",
+                    "Finance, BS",
+                    "GE Foundation Requirements 13 S.H.",
+                ],
+                "visibleTables": [
+                    {
+                        "caption": "GE Foundation Requirements 13 S.H.",
+                        "headers": ["Requirement", "Status", "Credits"],
+                        "rows": [["GE*1000/3000", "4 of 5 Completed", "13"]],
+                    }
+                ],
+                "visibleRows": [["GE*1000/3000", "4 of 5 Completed", "13"]],
+                "requirementLikeBlocks": ["GE Foundation Requirements 13 S.H."],
+                "courseLikeRows": [],
+                "progressBarText": "67 24 13",
+                "progressSegmentText": ["67", "24", "13"],
+                "diagnostics": {
+                    "tableCount": 1,
+                    "rowCount": 1,
+                    "requirementGroupCount": 1,
+                    "courseLikeRowCount": 1,
+                    "truncated": False,
+                },
+            },
+            "validation": {
+                "status": "AUTO_VERIFIED",
+                "exceptionCount": 0,
+                "exceptions": [],
+                "autoConfirmedFieldCount": 14,
+                "autoConfirmedCourseRowCount": 0,
+                "overallConfidenceScore": 1.0,
+                "downstreamAnalysisAllowed": True,
+            },
+        }
+    )
+
+
+def failed_kean_myprogress_json() -> str:
+    payload = json.loads(kean_finance_myprogress_json())
+    payload["programSummary"].pop("catalogYear")
+    payload["creditSummary"]["remainingCredits"] = 93
+    payload["validation"] = {
+        "status": "FAILED",
+        "exceptionCount": 2,
+        "exceptions": [
+            {
+                "code": "MY_PROGRESS_CATALOG_YEAR_MISSING",
+                "message": "Catalog year was not detected.",
+                "source": "At a Glance",
+                "severity": "ERROR",
+            },
+            {
+                "code": "MY_PROGRESS_REMAINING_CREDITS_MISMATCH",
+                "message": "Remaining credits do not reconcile with total credits.",
+                "source": "Total Credits",
+                "severity": "ERROR",
+            },
+        ],
+        "autoConfirmedFieldCount": 12,
+        "autoConfirmedCourseRowCount": 0,
+        "overallConfidenceScore": 0.0,
+        "downstreamAnalysisAllowed": False,
+    }
+    return json.dumps(payload)
 
 
 def test_data_import_models_are_staging_only_and_explainable(session: Session) -> None:
@@ -510,3 +660,151 @@ def test_kean_browser_extension_import_is_labeled_non_official_and_review_gated(
     )
     assert review_response.status_code == 201
     assert review_response.json()["status"] == "IN_REVIEW"
+
+
+def test_kean_myprogress_summary_is_auto_verified_and_exception_review_only(
+    session: Session,
+) -> None:
+    service = DataImportApplicationService(session)
+
+    run = service.create_import(
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        import_type=DataImportType.DEGREE_AUDIT_EXPORT,
+        file_name="kean-student-portal-my-progress.json",
+        file_mime_type="application/json",
+        content=kean_finance_myprogress_json(),
+        source_type=SourceType.BROWSER_EXTENSION,
+        source_reference=(
+            "KEAN_STUDENT_PORTAL browser extension import: "
+            "https://kean-ss.colleague.elluciancloud.com/Student/Planning/Programs/MyProgress"
+        ),
+    )
+
+    assert run.status is DataImportStatus.PARSED
+    assert run.source_confidence == "browser_extension"
+    assert run.record_count == 2
+    assert run.valid_record_count == 2
+    assert run.error_count == 0
+    assert run.official_application_ready is False
+
+    preview = session.scalar(
+        select(ImportPreviewSummary).where(ImportPreviewSummary.data_import_run_id == run.id)
+    )
+    assert preview is not None
+    payload = cast(dict[str, Any], preview.summary_payload)
+    assert payload["real_import_status"] == "REAL_IMPORTED_DATA_AUTO_VERIFIED"
+    assert payload["mock_data_mixed_with_real_import"] is False
+    assert payload["can_apply_verified_import"] is True
+    assert payload["downstream_analysis_allowed"] is True
+    assert payload["exception_count"] == 0
+    assert payload["auto_confirmed_field_count"] >= 14
+    assert payload["auto_confirmed_course_row_count"] == 0
+    assert payload["overall_confidence_score"] == 1.0
+    assert payload["program_summary"] == {
+        "programName": "Finance, BS",
+        "degree": "Bachelor of Science",
+        "major": "Finance",
+        "department": "Accounting & Finance",
+        "catalogYear": 2024,
+        "cumulativeGpa": 3.916,
+        "institutionGpa": 3.916,
+        "anticipatedCompletionDate": "12/20/2028",
+    }
+    assert payload["credit_summary"] == {
+        "totalAppliedCredits": 104,
+        "totalRequiredCredits": 120,
+        "completedCredits": 67,
+        "inProgressCredits": 24,
+        "plannedCredits": 13,
+        "remainingCredits": 16,
+        "completionPercent": 86.67,
+    }
+    requirement_groups = cast(list[dict[str, Any]], payload["requirement_groups"])
+    assert requirement_groups[0]["name"] == "GE Foundation Requirements 13 S.H."
+    assert "4 of 5 Completed" in requirement_groups[0]["statusText"]
+
+    records = session.scalars(
+        select(ImportedRecord)
+        .where(ImportedRecord.data_import_run_id == run.id)
+        .order_by(ImportedRecord.row_number)
+    ).all()
+    assert [record.record_type for record in records] == [
+        ImportedRecordType.PROGRAM,
+        ImportedRecordType.REQUIREMENT,
+    ]
+    assert all(record.status is ImportedRecordStatus.VALID for record in records)
+    program_record_payload = cast(dict[str, Any], records[0].normalized_payload)
+    program_summary = cast(dict[str, Any], program_record_payload["programSummary"])
+    credit_summary = cast(dict[str, Any], program_record_payload["creditSummary"])
+    assert program_summary["programName"] == "Finance, BS"
+    assert credit_summary["completedCredits"] == 67
+
+    review = DataReviewApplicationService(session).create_review_session(
+        data_import_run_id=run.id,
+        reviewer_label="Kean student self-review",
+    )
+    assert review.status is DataImportReviewStatus.READY_TO_APPLY
+
+    review_records = session.scalars(
+        select(ImportedRecordReview).where(ImportedRecordReview.review_session_id == review.id)
+    ).all()
+    assert review_records
+    assert {record_review.decision for record_review in review_records} == {
+        ImportedRecordReviewDecision.CONFIRMED
+    }
+    assert all(
+        record_review.requires_advisor_confirmation is False for record_review in review_records
+    )
+
+
+def test_failed_kean_myprogress_validation_blocks_downstream_application(
+    session: Session,
+) -> None:
+    service = DataImportApplicationService(session)
+
+    run = service.create_import(
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        import_type=DataImportType.DEGREE_AUDIT_EXPORT,
+        file_name="kean-student-portal-my-progress.json",
+        file_mime_type="application/json",
+        content=failed_kean_myprogress_json(),
+        source_type=SourceType.BROWSER_EXTENSION,
+        source_reference=(
+            "KEAN_STUDENT_PORTAL browser extension import: "
+            "https://kean-ss.colleague.elluciancloud.com/Student/Planning/Programs/MyProgress"
+        ),
+    )
+
+    preview = session.scalar(
+        select(ImportPreviewSummary).where(ImportPreviewSummary.data_import_run_id == run.id)
+    )
+    assert preview is not None
+    assert preview.summary_payload["real_import_status"] == (
+        "REAL_IMPORTED_DATA_REQUIRES_EXCEPTION_REVIEW"
+    )
+    assert preview.summary_payload["can_apply_verified_import"] is False
+    assert preview.summary_payload["downstream_analysis_allowed"] is False
+    assert preview.summary_payload["exception_count"] == 2
+
+    review_service = DataReviewApplicationService(session)
+    review = review_service.create_review_session(
+        data_import_run_id=run.id,
+        reviewer_label="Kean student self-review",
+    )
+    review_record = session.scalars(
+        select(ImportedRecordReview)
+        .where(ImportedRecordReview.review_session_id == review.id)
+        .order_by(ImportedRecordReview.created_at, ImportedRecordReview.id)
+    ).first()
+    assert review_record is not None
+    assert review_record.decision is ImportedRecordReviewDecision.UNREVIEWED
+    assert review_record.requires_advisor_confirmation is True
+
+    review_service.update_record_review(
+        review_session_id=review.id,
+        record_review_id=review_record.id,
+        decision=ImportedRecordReviewDecision.CONFIRMED,
+    )
+    result = review_service.apply_review_session(review.id, dry_run=True)
+    assert result.applied_records
+    assert {record.reason_code for record in result.applied_records} == {"IMPORT_VALIDATION_FAILED"}

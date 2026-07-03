@@ -20,6 +20,7 @@ from app.models.academic import (
     DataImportType,
     ImportedRecord,
     ImportedRecordStatus,
+    ImportedRecordType,
     ImportMappingCandidate,
     ImportMatchType,
     ImportPreviewSummary,
@@ -143,16 +144,17 @@ class DataImportApplicationService:
                 content_preview=content[:500],
             )
         )
-        self._add_warning(
-            run.id,
-            None,
-            "STAGING_ONLY_NOT_OFFICIAL",
-            AuditWarningSeverity.WARNING,
-            (
-                "Phase 7A imports are preview-only staging records and are not official school "
-                "policy or transcript data."
-            ),
-        )
+        if not self._is_auto_verified_myprogress_import(parsed_records):
+            self._add_warning(
+                run.id,
+                None,
+                "STAGING_ONLY_NOT_OFFICIAL",
+                AuditWarningSeverity.WARNING,
+                (
+                    "Phase 7A imports are preview-only staging records and are not official school "
+                    "policy or transcript data."
+                ),
+            )
 
         for parsed_record in parsed_records:
             record_status, confidence = self._record_status(parsed_record)
@@ -170,7 +172,8 @@ class DataImportApplicationService:
             )
             self._db.add(imported_record)
             self._db.flush()
-            self._persist_mapping_candidates(student, imported_record, parsed_record)
+            if self._should_match_course_candidate(parsed_record):
+                self._persist_mapping_candidates(student, imported_record, parsed_record)
 
         if not parsed_records:
             self._add_warning(
@@ -262,9 +265,45 @@ class DataImportApplicationService:
         self,
         parsed_record: ParsedImportRecord,
     ) -> tuple[ImportedRecordStatus, Decimal]:
+        if self._is_myprogress_record(parsed_record):
+            if parsed_record.requires_review:
+                has_error = self._myprogress_record_has_error(parsed_record)
+                return (
+                    ImportedRecordStatus.INVALID
+                    if has_error
+                    else ImportedRecordStatus.VALID_WITH_WARNINGS,
+                    parsed_record.confidence_score,
+                )
+            return ImportedRecordStatus.VALID, parsed_record.confidence_score
         if not parsed_record.normalized_payload.get("course_code"):
             return ImportedRecordStatus.INVALID, Decimal("0.00")
         return ImportedRecordStatus.VALID_WITH_WARNINGS, Decimal("0.80")
+
+    def _is_myprogress_record(self, parsed_record: ParsedImportRecord) -> bool:
+        return parsed_record.normalized_payload.get("source_page_type") == "KEAN_MY_PROGRESS_PAGE"
+
+    def _myprogress_record_has_error(self, parsed_record: ParsedImportRecord) -> bool:
+        validation = parsed_record.normalized_payload.get("validation")
+        if isinstance(validation, dict) and validation.get("status") == "FAILED":
+            return True
+        return False
+
+    def _should_match_course_candidate(self, parsed_record: ParsedImportRecord) -> bool:
+        return not self._is_myprogress_record(parsed_record)
+
+    def _is_auto_verified_myprogress_import(
+        self,
+        parsed_records: list[ParsedImportRecord],
+    ) -> bool:
+        if not parsed_records:
+            return False
+        first = parsed_records[0]
+        validation = first.normalized_payload.get("validation")
+        return (
+            self._is_myprogress_record(first)
+            and isinstance(validation, dict)
+            and validation.get("status") == "AUTO_VERIFIED"
+        )
 
     def _persist_mapping_candidates(
         self,
@@ -422,7 +461,7 @@ class DataImportApplicationService:
         source_label = self._source_label(run)
         if source_label == KEAN_SOURCE_LABEL:
             disclaimers.extend(KEAN_STUDENT_PORTAL_DISCLAIMERS)
-        summary_payload = {
+        summary_payload: dict[str, object] = {
             "disclaimers": disclaimers,
             "supported_import_type": run.import_type.value,
             "storage_strategy": run.storage_strategy.value,
@@ -431,6 +470,9 @@ class DataImportApplicationService:
         }
         if source_label is not None:
             summary_payload["source_label"] = source_label
+        myprogress_payload = self._myprogress_preview_payload(run)
+        if myprogress_payload is not None:
+            summary_payload.update(myprogress_payload)
         summary = ImportPreviewSummary(
             id=uuid4(),
             data_import_run_id=run.id,
@@ -444,6 +486,77 @@ class DataImportApplicationService:
         self._db.add(summary)
         self._db.flush()
         return summary
+
+    def _myprogress_preview_payload(self, run: DataImportRun) -> dict[str, object] | None:
+        if run.import_type is not DataImportType.DEGREE_AUDIT_EXPORT:
+            return None
+        record = self._db.scalar(
+            select(ImportedRecord)
+            .where(
+                ImportedRecord.data_import_run_id == run.id,
+                ImportedRecord.record_type == ImportedRecordType.PROGRAM,
+            )
+            .order_by(ImportedRecord.row_number, ImportedRecord.id)
+        )
+        if record is None:
+            return None
+        payload = record.normalized_payload
+        if payload.get("source_page_type") != "KEAN_MY_PROGRESS_PAGE":
+            return None
+        validation = payload.get("validation")
+        validation_payload = validation if isinstance(validation, dict) else {}
+        status = str(validation_payload.get("status") or "FAILED")
+        exception_count = int(validation_payload.get("exceptionCount") or 0)
+        downstream_allowed = bool(validation_payload.get("downstreamAnalysisAllowed"))
+        real_import_status = (
+            "REAL_IMPORTED_DATA_AUTO_VERIFIED"
+            if status == "AUTO_VERIFIED"
+            else "REAL_IMPORTED_DATA_REQUIRES_EXCEPTION_REVIEW"
+            if exception_count > 0
+            else "REAL_IMPORTED_DATA_PENDING_REVIEW"
+        )
+        return {
+            "real_import_status": real_import_status,
+            "mock_data_mixed_with_real_import": False,
+            "can_apply_verified_import": status == "AUTO_VERIFIED",
+            "downstream_analysis_allowed": downstream_allowed,
+            "exception_count": exception_count,
+            "exceptions": validation_payload.get("exceptions") or [],
+            "auto_confirmed_field_count": int(
+                validation_payload.get("autoConfirmedFieldCount") or 0
+            ),
+            "auto_confirmed_course_row_count": int(
+                validation_payload.get("autoConfirmedCourseRowCount") or 0
+            ),
+            "overall_confidence_score": float(
+                validation_payload.get("overallConfidenceScore") or 0
+            ),
+            "program_summary": payload.get("programSummary") or {},
+            "credit_summary": payload.get("creditSummary") or {},
+            "field_provenance": payload.get("fieldProvenance") or {},
+            "progress_bar_segments": payload.get("progressBarSegments") or [],
+            "requirement_groups": self._myprogress_requirement_groups(run),
+            "raw_snapshot": payload.get("rawSnapshot") or {},
+        }
+
+    def _myprogress_requirement_groups(self, run: DataImportRun) -> list[object]:
+        records = self._db.scalars(
+            select(ImportedRecord)
+            .where(
+                ImportedRecord.data_import_run_id == run.id,
+                ImportedRecord.record_type == ImportedRecordType.REQUIREMENT,
+            )
+            .order_by(ImportedRecord.row_number, ImportedRecord.id)
+        ).all()
+        groups: list[object] = []
+        for record in records:
+            payload = record.normalized_payload
+            if payload.get("source_page_type") != "KEAN_MY_PROGRESS_PAGE":
+                continue
+            group = payload.get("requirementGroup")
+            if group is not None:
+                groups.append(group)
+        return groups
 
     def _source_label(self, run: DataImportRun) -> str | None:
         reference = run.source_reference or ""

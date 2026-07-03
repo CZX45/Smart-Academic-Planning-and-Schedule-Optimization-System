@@ -4,6 +4,7 @@ import csv
 import io
 import json
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from app.models.academic import DataImportType, ImportedRecordType
@@ -17,7 +18,9 @@ class ParsedImportRecord:
     record_type: ImportedRecordType
     raw_label: str
     external_identifier: str | None
-    normalized_payload: dict[str, str]
+    normalized_payload: dict[str, Any]
+    confidence_score: Decimal = Decimal("0.80")
+    requires_review: bool = True
 
 
 def parse_import_content(
@@ -75,6 +78,9 @@ def _parse_json(import_type: DataImportType, content: str) -> list[ParsedImportR
             "invalid_json", "Import content is not valid JSON."
         ) from error
 
+    if _is_kean_myprogress_payload(import_type, payload):
+        return _parse_kean_myprogress_payload(payload)
+
     rows = _json_rows(payload)
     records: list[ParsedImportRecord] = []
     for index, row in enumerate(rows, start=1):
@@ -98,6 +104,103 @@ def _json_rows(payload: Any) -> list[dict[str, Any]]:
         "unsupported_json_shape",
         "JSON imports must be an object or a list of objects.",
     )
+
+
+def _is_kean_myprogress_payload(import_type: DataImportType, payload: Any) -> bool:
+    return (
+        import_type is DataImportType.DEGREE_AUDIT_EXPORT
+        and isinstance(payload, dict)
+        and payload.get("page_type") == "KEAN_MY_PROGRESS_PAGE"
+    )
+
+
+def _parse_kean_myprogress_payload(payload: dict[str, Any]) -> list[ParsedImportRecord]:
+    program_summary = object_value(payload.get("programSummary"))
+    credit_summary = object_value(payload.get("creditSummary"))
+    validation = object_value(payload.get("validation"))
+    requirement_groups = list_value(payload.get("requirementGroups"))
+    course_rows = list_value(payload.get("courseRows"))
+    source_page_type = str(payload.get("page_type") or "KEAN_MY_PROGRESS_PAGE")
+    validation_status = str(validation.get("status") or "")
+    confidence = decimal_confidence(validation.get("overallConfidenceScore"))
+    requires_review = validation_status != "AUTO_VERIFIED"
+    program_name = str(program_summary.get("programName") or "Kean MyProgress summary")
+    records = [
+        ParsedImportRecord(
+            row_number=1,
+            record_type=ImportedRecordType.PROGRAM,
+            raw_label=program_name,
+            external_identifier=program_name,
+            normalized_payload={
+                "source_page_type": source_page_type,
+                "record_kind": "MY_PROGRESS_PROGRAM_SUMMARY",
+                "programSummary": program_summary,
+                "creditSummary": credit_summary,
+                "progressBarSegments": list_value(payload.get("progressBarSegments")),
+                "fieldProvenance": object_value(payload.get("fieldProvenance")),
+                "rawSnapshot": object_value(payload.get("rawSnapshot")),
+                "validation": validation,
+                "requiresReview": requires_review,
+                "source_label": "KEAN_STUDENT_PORTAL",
+            },
+            confidence_score=confidence,
+            requires_review=requires_review,
+        )
+    ]
+    row_number = 2
+    for group in requirement_groups:
+        if not isinstance(group, dict):
+            continue
+        name = str(group.get("name") or f"MyProgress requirement group {row_number}")
+        status_text = str(group.get("statusText") or "")
+        group_requires_review = bool(group.get("requiresReview") or requires_review)
+        group_confidence = Decimal("0.95") if not group_requires_review else Decimal("0.60")
+        records.append(
+            ParsedImportRecord(
+                row_number=row_number,
+                record_type=ImportedRecordType.REQUIREMENT,
+                raw_label=name,
+                external_identifier=name,
+                normalized_payload={
+                    "source_page_type": source_page_type,
+                    "record_kind": "MY_PROGRESS_REQUIREMENT_GROUP",
+                    "requirements": name,
+                    "status_text": status_text,
+                    "requirementGroup": group,
+                    "requiresReview": group_requires_review,
+                    "source_label": "KEAN_STUDENT_PORTAL",
+                },
+                confidence_score=group_confidence,
+                requires_review=group_requires_review,
+            )
+        )
+        row_number += 1
+    for course_row in course_rows:
+        if not isinstance(course_row, dict):
+            continue
+        normalized = _normalize_row(course_row)
+        row_requires_review = requires_review or _course_row_requires_review(normalized)
+        records.append(
+            ParsedImportRecord(
+                row_number=row_number,
+                record_type=ImportedRecordType.REQUIREMENT,
+                raw_label=normalized.get("course_code")
+                or normalized.get("requirements")
+                or f"MyProgress row {row_number}",
+                external_identifier=normalized.get("course_code") or None,
+                normalized_payload={
+                    **normalized,
+                    "source_page_type": source_page_type,
+                    "record_kind": "MY_PROGRESS_COURSE_ROW",
+                    "requiresReview": row_requires_review,
+                    "source_label": "KEAN_STUDENT_PORTAL",
+                },
+                confidence_score=Decimal("0.95") if not row_requires_review else Decimal("0.60"),
+                requires_review=row_requires_review,
+            )
+        )
+        row_number += 1
+    return records
 
 
 def _normalize_row(row: dict[str, Any]) -> dict[str, str]:
@@ -142,7 +245,7 @@ def _first_value(row: dict[str, str], *keys: str) -> str | None:
 def _parsed_record(
     import_type: DataImportType,
     row_number: int,
-    row: dict[str, str],
+    row: dict[str, Any],
 ) -> ParsedImportRecord:
     course_code = row.get("course_code")
     title = row.get("title")
@@ -155,3 +258,31 @@ def _parsed_record(
         external_identifier=course_code or row.get("external_identifier") or None,
         normalized_payload=row,
     )
+
+
+def object_value(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def list_value(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def decimal_confidence(value: Any) -> Decimal:
+    try:
+        parsed = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return Decimal("0.00")
+    if parsed < 0:
+        return Decimal("0.00")
+    if parsed > 1:
+        return Decimal("1.00")
+    return parsed.quantize(Decimal("0.01"))
+
+
+def _course_row_requires_review(row: dict[str, str]) -> bool:
+    return not row.get("course_code") or row.get("status", "").upper() in {
+        "",
+        "UNKNOWN",
+        "MANUAL_REVIEW_REQUIRED",
+    }

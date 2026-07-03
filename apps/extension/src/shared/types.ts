@@ -98,7 +98,7 @@ export type BrowserExtensionExtraction = {
   records: ExtractedRecord[];
   warnings: ExtensionExtractionWarning[];
   diagnostics: ExtensionDiagnostics;
-  requiresReview: true;
+  requiresReview: boolean;
   extractedAt: string;
 };
 

@@ -125,12 +125,17 @@ class DataReviewApplicationService:
                 record,
                 candidate,
             )
+            decision = (
+                ImportedRecordReviewDecision.CONFIRMED
+                if self._record_auto_confirmed(record)
+                else ImportedRecordReviewDecision.UNREVIEWED
+            )
             record_review = ImportedRecordReview(
                 id=uuid4(),
                 review_session_id=review.id,
                 imported_record_id=record.id,
                 selected_mapping_candidate_id=candidate.id if candidate is not None else None,
-                decision=ImportedRecordReviewDecision.UNREVIEWED,
+                decision=decision,
                 edited_normalized_payload=None,
                 review_note=None,
                 requires_advisor_confirmation=requires_advisor_confirmation,
@@ -165,6 +170,7 @@ class DataReviewApplicationService:
             True,
         )
         self._copy_import_warnings(review.id, record_reviews_by_record_id)
+        self._sync_review_status(review)
         self._db.commit()
         self._db.refresh(review)
         return review
@@ -344,6 +350,18 @@ class DataReviewApplicationService:
         dry_run: bool,
     ) -> AppliedImportedRecordResult:
         record = self._get_imported_record(record_review.imported_record_id)
+        if self._run_blocks_downstream(run):
+            return self._outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.SKIPPED_UNSUPPORTED,
+                AppliedImportStatus.SKIPPED,
+                "IMPORT_VALIDATION_FAILED",
+                (
+                    "The imported MyProgress snapshot failed validation and cannot be used "
+                    "for downstream academic analysis."
+                ),
+            )
         if record_review.decision is ImportedRecordReviewDecision.REJECTED:
             return self._outcome(
                 application_id,
@@ -554,6 +572,8 @@ class DataReviewApplicationService:
         record: ImportedRecord,
         candidate: ImportMappingCandidate | None,
     ) -> bool:
+        if self._record_auto_confirmed(record):
+            return False
         if record.status not in {
             ImportedRecordStatus.VALID,
             ImportedRecordStatus.VALID_WITH_WARNINGS,
@@ -562,6 +582,32 @@ class DataReviewApplicationService:
         if candidate is None:
             return True
         return candidate.target_entity_type is ImportTargetEntityType.UNKNOWN
+
+    def _record_auto_confirmed(self, record: ImportedRecord) -> bool:
+        payload = record.normalized_payload
+        if payload.get("source_page_type") != "KEAN_MY_PROGRESS_PAGE":
+            return False
+        if payload.get("requiresReview") is True:
+            return False
+        return record.status is ImportedRecordStatus.VALID
+
+    def _run_blocks_downstream(self, run: DataImportRun) -> bool:
+        record = self._db.scalar(
+            select(ImportedRecord)
+            .where(
+                ImportedRecord.data_import_run_id == run.id,
+                ImportedRecord.record_type == ImportedRecordType.PROGRAM,
+            )
+            .order_by(ImportedRecord.row_number, ImportedRecord.id)
+        )
+        if record is None or record.normalized_payload.get("source_page_type") != (
+            "KEAN_MY_PROGRESS_PAGE"
+        ):
+            return False
+        validation = record.normalized_payload.get("validation")
+        if not isinstance(validation, dict):
+            return True
+        return validation.get("downstreamAnalysisAllowed") is not True
 
     def _sync_review_status(self, review: DataImportReviewSession) -> None:
         unreviewed_count = (

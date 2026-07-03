@@ -63,8 +63,121 @@ type MyProgressParseResult = {
   diagnostics: ParserDiagnostics;
 };
 
+type ConfidenceLevel = "high" | "medium" | "low";
+
+type FieldProvenance = {
+  value: string | number;
+  rawText: string;
+  source: string;
+  confidence: ConfidenceLevel;
+  requiresReview: boolean;
+};
+
+type MyProgressProgramSummary = {
+  programName?: string;
+  degree?: string;
+  major?: string;
+  department?: string;
+  catalogYear?: number;
+  cumulativeGpa?: number;
+  institutionGpa?: number;
+  anticipatedCompletionDate?: string;
+};
+
+type MyProgressCreditSummary = {
+  totalAppliedCredits?: number;
+  totalRequiredCredits?: number;
+  completedCredits?: number;
+  inProgressCredits?: number;
+  plannedCredits?: number;
+  remainingCredits?: number;
+  completionPercent?: number;
+};
+
+type MyProgressSegmentClassification =
+  | "COMPLETED"
+  | "IN_PROGRESS"
+  | "PLANNED"
+  | "UNKNOWN";
+
+type MyProgressProgressSegment = {
+  value: number | null;
+  rawText: string;
+  classification: MyProgressSegmentClassification;
+  source: string;
+  confidence: ConfidenceLevel;
+  requiresReview: boolean;
+};
+
+type MyProgressRequirementGroup = {
+  name: string;
+  statusText: string;
+  source: string;
+  confidence: ConfidenceLevel;
+  requiresReview: boolean;
+};
+
+type MyProgressValidationException = {
+  code: string;
+  message: string;
+  source: string;
+  severity: "WARNING" | "ERROR";
+  rawText?: string;
+};
+
+type MyProgressValidation = {
+  status: "AUTO_VERIFIED" | "REQUIRES_EXCEPTION_REVIEW" | "FAILED";
+  exceptionCount: number;
+  exceptions: MyProgressValidationException[];
+  autoConfirmedFieldCount: number;
+  autoConfirmedCourseRowCount: number;
+  overallConfidenceScore: number;
+  downstreamAnalysisAllowed: boolean;
+};
+
+type MyProgressRawSnapshot = {
+  pageTitle: string;
+  pageUrl: string;
+  capturedAt: string;
+  visibleTextSample: string;
+  headings: string[];
+  visibleTables: Array<{
+    caption: string;
+    headers: string[];
+    rows: string[][];
+  }>;
+  visibleRows: string[][];
+  requirementLikeBlocks: string[];
+  courseLikeRows: string[];
+  progressBarText: string;
+  progressSegmentText: string[];
+  diagnostics: {
+    tableCount: number;
+    rowCount: number;
+    requirementGroupCount: number;
+    courseLikeRowCount: number;
+    truncated: boolean;
+  };
+};
+
+type MyProgressContent = {
+  source_type: typeof SOURCE_TYPE;
+  staging_only: true;
+  page_type: "KEAN_MY_PROGRESS_PAGE";
+  programSummary: MyProgressProgramSummary;
+  creditSummary: MyProgressCreditSummary;
+  progressBarSegments: MyProgressProgressSegment[];
+  fieldProvenance: Record<string, FieldProvenance>;
+  requirementGroups: MyProgressRequirementGroup[];
+  courseRows: ExtractedRecord[];
+  rawSnapshot: MyProgressRawSnapshot;
+  validation: MyProgressValidation;
+  requirements: ExtractedRecord[];
+  disclaimers: typeof EXTENSION_STAGING_DISCLAIMERS;
+};
+
 function cleanText(value: string | null | undefined): string {
-  return (value ?? "").replace(/\s+/g, " ").trim();
+  return (value ?? "").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 }
 
 const DEGREE_AUDIT_MANUAL_REVIEW_WARNING: ExtensionExtractionWarning = {
@@ -311,11 +424,23 @@ export function extractAcademicPageFromTables(
     );
   }
 
+  const warnings: ExtensionExtractionWarning[] = [...(snapshot.warnings ?? [])];
   const candidateTables = tablesForExtraction(snapshot);
+  const isKeanMyProgress = keanDefinition?.extractionStrategy === "MY_PROGRESS";
   const candidate = keanDefinition
     ? bestCandidate(candidateTables, specsForKeanDefinition(keanDefinition))
     : bestCandidate(candidateTables);
   if (!candidate) {
+    if (isKeanMyProgress && keanDefinition) {
+      return extractKeanMyProgressPage(
+        snapshot,
+        candidateTables,
+        specForKeanDefinition(keanDefinition, MY_PROGRESS_COURSE_SPEC),
+        warnings,
+        extractedAt,
+        keanDefinition,
+      );
+    }
     return noDataExtraction(
       snapshot,
       keanDefinition
@@ -327,7 +452,17 @@ export function extractAcademicPageFromTables(
     );
   }
 
-  const warnings: ExtensionExtractionWarning[] = [...(snapshot.warnings ?? [])];
+  if (isKeanMyProgress && keanDefinition) {
+    return extractKeanMyProgressPage(
+      snapshot,
+      candidateTables,
+      candidate.spec,
+      warnings,
+      extractedAt,
+      keanDefinition,
+    );
+  }
+
   const parseResult = isMyProgressCourseSpec(candidate.spec)
     ? recordsFromMyProgressTables(candidate.spec, candidateTables, warnings)
     : {
@@ -379,6 +514,69 @@ export function extractAcademicPageFromTables(
       parseResult.diagnostics,
     ),
     requiresReview: true,
+    extractedAt,
+  };
+}
+
+function extractKeanMyProgressPage(
+  snapshot: AcademicPageSnapshot,
+  candidateTables: readonly TableSnapshot[],
+  spec: ExtractionSpec,
+  warnings: ExtensionExtractionWarning[],
+  extractedAt: string,
+  keanDefinition: KeanPageDefinition,
+): BrowserExtensionExtraction {
+  const parseResult = recordsFromMyProgressTables(
+    spec,
+    candidateTables,
+    warnings,
+  );
+  const content = myProgressContentFromSnapshot(
+    snapshot,
+    parseResult.records,
+    extractedAt,
+  );
+  if (
+    parseResult.records.length === 0 &&
+    content.requirementGroups.length === 0
+  ) {
+    pushUniqueWarning(warnings, {
+      code: "NO_IMPORTABLE_ROWS",
+      severity: "WARNING",
+      message:
+        "The visible MyProgress page did not contain importable academic rows.",
+    });
+  }
+  for (const exception of content.validation.exceptions) {
+    pushUniqueWarning(warnings, {
+      code: exception.code,
+      severity: exception.severity,
+      message: exception.message,
+    });
+  }
+  return {
+    pageType: spec.pageType,
+    importType: spec.importType,
+    sourceType: SOURCE_TYPE,
+    ...(spec.sourceLabel ? { sourceLabel: spec.sourceLabel } : {}),
+    isOfficial: false,
+    title: snapshot.title,
+    url: safeUrl(snapshot.url),
+    fileName: fileName(spec),
+    fileMimeType: spec.mimeType,
+    content: `${JSON.stringify(content, null, 2)}\n`,
+    records: parseResult.records,
+    warnings,
+    diagnostics: diagnosticsForExtraction(
+      snapshot,
+      spec.pageType,
+      matchedPageMarker(snapshot, keanDefinition),
+      parseResult.records,
+      spec.fields,
+      warnings,
+      parseResult.diagnostics,
+    ),
+    requiresReview: content.validation.status !== "AUTO_VERIFIED",
     extractedAt,
   };
 }
@@ -750,6 +948,624 @@ function myProgressCourseRow(
   return [requirement, status, course, details, grade, term, credits];
 }
 
+function myProgressContentFromSnapshot(
+  snapshot: AcademicPageSnapshot,
+  courseRows: ExtractedRecord[],
+  capturedAt: string,
+): MyProgressContent {
+  const visibleText = cleanText(
+    snapshot.visibleText ?? visibleTextForDetection(snapshot),
+  );
+  const headings = (snapshot.headings ?? []).map(cleanText).filter(Boolean);
+  const programSummary = myProgressProgramSummary(visibleText, headings);
+  const totalCredits = myProgressTotalCredits(visibleText);
+  const segments = myProgressProgressSegments(visibleText, totalCredits);
+  const creditSummary = myProgressCreditSummary(totalCredits, segments);
+  const requirementGroups = myProgressRequirementGroups(snapshot);
+  const rawSnapshot = myProgressRawSnapshot(
+    snapshot,
+    requirementGroups,
+    segments,
+    capturedAt,
+  );
+  const fieldProvenance = myProgressFieldProvenance(
+    programSummary,
+    creditSummary,
+    totalCredits?.rawText ?? "",
+    segments,
+  );
+  const validation = validateMyProgressContent({
+    programSummary,
+    creditSummary,
+    segments,
+    requirementGroups,
+    courseRows,
+    rawSnapshot,
+    fieldProvenance,
+  });
+  return {
+    source_type: SOURCE_TYPE,
+    staging_only: true,
+    page_type: "KEAN_MY_PROGRESS_PAGE",
+    programSummary,
+    creditSummary,
+    progressBarSegments: segments,
+    fieldProvenance,
+    requirementGroups,
+    courseRows,
+    rawSnapshot,
+    validation,
+    requirements: courseRows,
+    disclaimers: EXTENSION_STAGING_DISCLAIMERS,
+  };
+}
+
+function myProgressProgramSummary(
+  visibleText: string,
+  headings: readonly string[],
+): MyProgressProgramSummary {
+  const labels = [
+    "Program",
+    "Degree",
+    "Major",
+    "Department",
+    "Catalog",
+    "Catalog Year",
+    "Cumulative GPA",
+    "Institution GPA",
+    "Anticipated Completion Date",
+    "Total Credits",
+  ];
+  const programName =
+    labelValue(visibleText, "Program", labels) ??
+    headings.find((heading) => /,\s*(?:B[AS]|BS|BA)\b/i.test(heading));
+  const catalog =
+    labelValue(visibleText, "Catalog", labels) ??
+    labelValue(visibleText, "Catalog Year", labels);
+  const summary: MyProgressProgramSummary = {};
+  assignString(summary, "programName", programName);
+  assignString(summary, "degree", labelValue(visibleText, "Degree", labels));
+  assignString(summary, "major", labelValue(visibleText, "Major", labels));
+  assignString(
+    summary,
+    "department",
+    labelValue(visibleText, "Department", labels),
+  );
+  assignNumber(summary, "catalogYear", numberValue(catalog));
+  assignNumber(
+    summary,
+    "cumulativeGpa",
+    numberValue(labelValue(visibleText, "Cumulative GPA", labels)),
+  );
+  assignNumber(
+    summary,
+    "institutionGpa",
+    numberValue(labelValue(visibleText, "Institution GPA", labels)),
+  );
+  assignString(
+    summary,
+    "anticipatedCompletionDate",
+    labelValue(visibleText, "Anticipated Completion Date", labels),
+  );
+  return summary;
+}
+
+function myProgressTotalCredits(
+  visibleText: string,
+): { applied: number; required: number; rawText: string } | null {
+  const match = visibleText.match(
+    /\bTotal Credits\s+(\d+(?:\.\d+)?)\s+of\s+(\d+(?:\.\d+)?)/i,
+  );
+  if (!match?.[1] || !match[2]) {
+    return null;
+  }
+  return {
+    applied: Number(match[1]),
+    required: Number(match[2]),
+    rawText: `${match[1]} of ${match[2]}`,
+  };
+}
+
+function myProgressProgressSegments(
+  visibleText: string,
+  totalCredits: { applied: number; required: number; rawText: string } | null,
+): MyProgressProgressSegment[] {
+  const match = visibleText.match(
+    /\bTotal Credits\s+\d+(?:\.\d+)?\s+of\s+\d+(?:\.\d+)?\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)/i,
+  );
+  const rawValues =
+    match?.[1] && match[2] && match[3] ? [match[1], match[2], match[3]] : [];
+  const values = rawValues.map(Number);
+  const reconciles =
+    totalCredits !== null &&
+    values.length === 3 &&
+    nearlyEqual(
+      values.reduce((sum, value) => sum + value, 0),
+      totalCredits.applied,
+    );
+  const classifications: MyProgressSegmentClassification[] = [
+    "COMPLETED",
+    "IN_PROGRESS",
+    "PLANNED",
+  ];
+  return rawValues.map((rawText, index) => {
+    const value = values[index];
+    return {
+      value: typeof value === "number" && Number.isFinite(value) ? value : null,
+      rawText,
+      classification: reconciles
+        ? (classifications[index] ?? "UNKNOWN")
+        : "UNKNOWN",
+      source: "MyProgress Total Credits progress bar",
+      confidence: reconciles ? "high" : "low",
+      requiresReview: !reconciles,
+    };
+  });
+}
+
+function myProgressCreditSummary(
+  totalCredits: { applied: number; required: number; rawText: string } | null,
+  segments: readonly MyProgressProgressSegment[],
+): MyProgressCreditSummary {
+  const completed = segmentValue(segments, "COMPLETED");
+  const inProgress = segmentValue(segments, "IN_PROGRESS");
+  const planned = segmentValue(segments, "PLANNED");
+  const summary: MyProgressCreditSummary = {};
+  assignNumber(summary, "totalAppliedCredits", totalCredits?.applied);
+  assignNumber(summary, "totalRequiredCredits", totalCredits?.required);
+  assignNumber(summary, "completedCredits", completed);
+  assignNumber(summary, "inProgressCredits", inProgress);
+  assignNumber(summary, "plannedCredits", planned);
+  assignNumber(
+    summary,
+    "remainingCredits",
+    totalCredits === null
+      ? undefined
+      : roundCredits(totalCredits.required - totalCredits.applied),
+  );
+  assignNumber(
+    summary,
+    "completionPercent",
+    totalCredits === null || totalCredits.required === 0
+      ? undefined
+      : roundCredits((totalCredits.applied / totalCredits.required) * 100),
+  );
+  return summary;
+}
+
+function myProgressRequirementGroups(
+  snapshot: AcademicPageSnapshot,
+): MyProgressRequirementGroup[] {
+  const groups: MyProgressRequirementGroup[] = [];
+  for (const table of snapshot.tables) {
+    const name =
+      cleanText(table.caption) || requirementHeadingForTable(snapshot, table);
+    if (!name || !/\brequirements?\b/i.test(name)) {
+      continue;
+    }
+    const statusText = cleanText(
+      table.rows.map((row) => row.join(" ")).join(" "),
+    );
+    groups.push({
+      name,
+      statusText,
+      source: "Requirement Group",
+      confidence: "high",
+      requiresReview: false,
+    });
+  }
+  const existing = new Set(groups.map((group) => group.name));
+  for (const block of snapshot.rowLikeBlocks ?? []) {
+    const text = cleanText(block.text);
+    const name = requirementLabelFromBlock(text);
+    if (name && !existing.has(name)) {
+      existing.add(name);
+      groups.push({
+        name,
+        statusText: text,
+        source: "Requirement-like block",
+        confidence: "medium",
+        requiresReview: false,
+      });
+    }
+  }
+  return groups;
+}
+
+function myProgressRawSnapshot(
+  snapshot: AcademicPageSnapshot,
+  requirementGroups: readonly MyProgressRequirementGroup[],
+  segments: readonly MyProgressProgressSegment[],
+  capturedAt: string,
+): MyProgressRawSnapshot {
+  const visibleRows = snapshot.tables.flatMap((table) => table.rows);
+  const courseLikeRows = visibleRows
+    .map((row) => cleanText(row.join(" ")))
+    .filter((row) => myProgressCourseLikePattern().test(row));
+  return {
+    pageTitle: snapshot.title,
+    pageUrl: safeUrl(snapshot.url),
+    capturedAt,
+    visibleTextSample: cleanText(
+      snapshot.visibleText ?? visibleTextForDetection(snapshot),
+    ).slice(0, 2000),
+    headings: (snapshot.headings ?? [])
+      .map(cleanText)
+      .filter(Boolean)
+      .slice(0, 40),
+    visibleTables: snapshot.tables.map((table) => ({
+      caption: table.caption,
+      headers: table.headers,
+      rows: table.rows,
+    })),
+    visibleRows,
+    requirementLikeBlocks: [
+      ...requirementGroups.map((group) => group.name),
+      ...(snapshot.rowLikeBlocks ?? [])
+        .map((block) => requirementLabelFromBlock(cleanText(block.text)))
+        .filter(Boolean),
+    ],
+    courseLikeRows,
+    progressBarText: segments.map((segment) => segment.rawText).join(" "),
+    progressSegmentText: segments.map((segment) => segment.rawText),
+    diagnostics: {
+      tableCount: snapshot.tables.length,
+      rowCount: visibleRows.length + (snapshot.rowLikeBlocks?.length ?? 0),
+      requirementGroupCount: requirementGroups.length,
+      courseLikeRowCount: courseLikeRows.length,
+      truncated:
+        snapshot.snapshotMetadata?.bounded === true ||
+        snapshot.warnings?.some(
+          (warning) => warning.code === "EXTRACTION_LIMIT_REACHED",
+        ) === true,
+    },
+  };
+}
+
+function myProgressFieldProvenance(
+  programSummary: MyProgressProgramSummary,
+  creditSummary: MyProgressCreditSummary,
+  totalCreditsRawText: string,
+  segments: readonly MyProgressProgressSegment[],
+): Record<string, FieldProvenance> {
+  const fields: Record<string, FieldProvenance> = {};
+  for (const [key, value] of Object.entries(programSummary)) {
+    if (value !== undefined) {
+      fields[key] = {
+        value,
+        rawText: String(value),
+        source: "MyProgress At a Glance summary",
+        confidence: "high",
+        requiresReview: false,
+      };
+    }
+  }
+  for (const key of ["totalAppliedCredits", "totalRequiredCredits"] as const) {
+    const value = creditSummary[key];
+    if (value !== undefined) {
+      fields[key] = {
+        value,
+        rawText: totalCreditsRawText || String(value),
+        source: "MyProgress Total Credits summary",
+        confidence: "high",
+        requiresReview: false,
+      };
+    }
+  }
+  const segmentSources: Record<MyProgressSegmentClassification, string> = {
+    COMPLETED: "MyProgress Total Credits progress bar green segment",
+    IN_PROGRESS: "MyProgress Total Credits progress bar in-progress segment",
+    PLANNED: "MyProgress Total Credits progress bar planned segment",
+    UNKNOWN: "MyProgress Total Credits progress bar unclassified segment",
+  };
+  for (const segment of segments) {
+    if (segment.value === null) {
+      continue;
+    }
+    const key =
+      segment.classification === "COMPLETED"
+        ? "completedCredits"
+        : segment.classification === "IN_PROGRESS"
+          ? "inProgressCredits"
+          : segment.classification === "PLANNED"
+            ? "plannedCredits"
+            : "unknownProgressCredits";
+    fields[key] = {
+      value: segment.value,
+      rawText: segment.rawText,
+      source: segmentSources[segment.classification],
+      confidence: segment.confidence,
+      requiresReview: segment.requiresReview,
+    };
+  }
+  for (const key of ["remainingCredits", "completionPercent"] as const) {
+    const value = creditSummary[key];
+    if (value !== undefined) {
+      fields[key] = {
+        value,
+        rawText: String(value),
+        source: "Reconciled from MyProgress Total Credits summary",
+        confidence: "high",
+        requiresReview: false,
+      };
+    }
+  }
+  return fields;
+}
+
+function validateMyProgressContent({
+  programSummary,
+  creditSummary,
+  segments,
+  requirementGroups,
+  rawSnapshot,
+  fieldProvenance,
+}: {
+  programSummary: MyProgressProgramSummary;
+  creditSummary: MyProgressCreditSummary;
+  segments: readonly MyProgressProgressSegment[];
+  requirementGroups: readonly MyProgressRequirementGroup[];
+  courseRows: readonly ExtractedRecord[];
+  rawSnapshot: MyProgressRawSnapshot;
+  fieldProvenance: Record<string, FieldProvenance>;
+}): MyProgressValidation {
+  const exceptions: MyProgressValidationException[] = [];
+  const requireField = (
+    value: unknown,
+    code: string,
+    message: string,
+    source: string,
+  ): void => {
+    if (value === undefined || value === null || value === "") {
+      exceptions.push({ code, message, source, severity: "ERROR" });
+    }
+  };
+  requireField(
+    programSummary.programName,
+    "MY_PROGRESS_PROGRAM_MISSING",
+    "Program was not detected.",
+    "At a Glance",
+  );
+  requireField(
+    programSummary.catalogYear,
+    "MY_PROGRESS_CATALOG_YEAR_MISSING",
+    "Catalog year was not detected.",
+    "At a Glance",
+  );
+  requireField(
+    creditSummary.totalRequiredCredits,
+    "MY_PROGRESS_TOTAL_REQUIRED_MISSING",
+    "Total required credits were not detected.",
+    "Total Credits",
+  );
+  requireField(
+    creditSummary.totalAppliedCredits,
+    "MY_PROGRESS_TOTAL_APPLIED_MISSING",
+    "Total applied credits were not detected.",
+    "Total Credits",
+  );
+  if (typeof programSummary.cumulativeGpa !== "number") {
+    exceptions.push({
+      code: "MY_PROGRESS_CUMULATIVE_GPA_INVALID",
+      message: "Cumulative GPA was missing or non-numeric.",
+      source: "At a Glance",
+      severity: "ERROR",
+    });
+  }
+  if (typeof programSummary.institutionGpa !== "number") {
+    exceptions.push({
+      code: "MY_PROGRESS_INSTITUTION_GPA_INVALID",
+      message: "Institution GPA was missing or non-numeric.",
+      source: "At a Glance",
+      severity: "ERROR",
+    });
+  }
+  if (
+    segments.length > 0 &&
+    segments.some((segment) => segment.requiresReview)
+  ) {
+    exceptions.push({
+      code: "MY_PROGRESS_SEGMENT_CLASSIFICATION_UNCERTAIN",
+      message: "Progress bar segments could not be confidently reconciled.",
+      source: "Progress Bar",
+      severity: "WARNING",
+      rawText: segments.map((segment) => segment.rawText).join(" "),
+    });
+  }
+  if (
+    creditSummary.completedCredits !== undefined &&
+    creditSummary.inProgressCredits !== undefined &&
+    creditSummary.plannedCredits !== undefined &&
+    creditSummary.totalAppliedCredits !== undefined &&
+    !nearlyEqual(
+      creditSummary.completedCredits +
+        creditSummary.inProgressCredits +
+        creditSummary.plannedCredits,
+      creditSummary.totalAppliedCredits,
+    )
+  ) {
+    exceptions.push({
+      code: "MY_PROGRESS_SEGMENTS_DO_NOT_MATCH_TOTAL",
+      message:
+        "Completed, in-progress, and planned credits do not equal total applied credits.",
+      source: "Progress Bar",
+      severity: "ERROR",
+    });
+  }
+  if (
+    creditSummary.totalAppliedCredits !== undefined &&
+    creditSummary.totalRequiredCredits !== undefined &&
+    creditSummary.remainingCredits !== undefined &&
+    !nearlyEqual(
+      creditSummary.totalRequiredCredits - creditSummary.totalAppliedCredits,
+      creditSummary.remainingCredits,
+    )
+  ) {
+    exceptions.push({
+      code: "MY_PROGRESS_REMAINING_CREDITS_MISMATCH",
+      message: "Remaining credits do not reconcile with total credits.",
+      source: "Total Credits",
+      severity: "ERROR",
+    });
+  }
+  if (
+    creditSummary.totalAppliedCredits !== undefined &&
+    creditSummary.totalRequiredCredits !== undefined &&
+    creditSummary.completionPercent !== undefined &&
+    !nearlyEqual(
+      (creditSummary.totalAppliedCredits / creditSummary.totalRequiredCredits) *
+        100,
+      creditSummary.completionPercent,
+      0.02,
+    )
+  ) {
+    exceptions.push({
+      code: "MY_PROGRESS_COMPLETION_PERCENT_MISMATCH",
+      message: "Completion percentage does not reconcile with total credits.",
+      source: "Total Credits",
+      severity: "ERROR",
+    });
+  }
+  if (requirementGroups.length === 0) {
+    exceptions.push({
+      code: "MY_PROGRESS_REQUIREMENT_GROUPS_MISSING",
+      message: "No requirement groups were detected.",
+      source: "Requirement Group",
+      severity: "ERROR",
+    });
+  }
+  if (rawSnapshot.diagnostics.courseLikeRowCount === 0) {
+    exceptions.push({
+      code: "MY_PROGRESS_COURSE_ROWS_MISSING",
+      message: "No course-like rows were detected.",
+      source: "Course Row",
+      severity: "WARNING",
+    });
+  }
+  if (rawSnapshot.diagnostics.truncated) {
+    exceptions.push({
+      code: "MY_PROGRESS_SNAPSHOT_TRUNCATED",
+      message: "The browser snapshot was truncated before parsing completed.",
+      source: "Raw Snapshot",
+      severity: "ERROR",
+    });
+  }
+
+  const hasErrors = exceptions.some(
+    (exception) => exception.severity === "ERROR",
+  );
+  const status =
+    exceptions.length === 0
+      ? "AUTO_VERIFIED"
+      : hasErrors
+        ? "FAILED"
+        : "REQUIRES_EXCEPTION_REVIEW";
+  const highConfidenceFields = Object.values(fieldProvenance).filter(
+    (field) => field.confidence === "high" && !field.requiresReview,
+  );
+  return {
+    status,
+    exceptionCount: exceptions.length,
+    exceptions,
+    autoConfirmedFieldCount: highConfidenceFields.length,
+    autoConfirmedCourseRowCount: 0,
+    overallConfidenceScore:
+      status === "AUTO_VERIFIED" ? 1 : hasErrors ? 0 : 0.75,
+    downstreamAnalysisAllowed: status === "AUTO_VERIFIED",
+  };
+}
+
+function labelValue(
+  text: string,
+  label: string,
+  allLabels: readonly string[],
+): string | undefined {
+  const laterLabels = allLabels
+    .filter((current) => current !== label)
+    .map(escapeRegExp)
+    .join("|");
+  const pattern = new RegExp(
+    `\\b${escapeRegExp(label)}\\s+(.+?)(?=\\s+(?:${laterLabels})\\b|$)`,
+    "i",
+  );
+  const match = text.match(pattern);
+  const value = cleanText(match?.[1]);
+  return value || undefined;
+}
+
+function numberValue(value: string | undefined): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const match = value.match(/\d+(?:\.\d+)?/);
+  if (!match?.[0]) {
+    return undefined;
+  }
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function segmentValue(
+  segments: readonly MyProgressProgressSegment[],
+  classification: MyProgressSegmentClassification,
+): number | undefined {
+  const segment = segments.find(
+    (current) => current.classification === classification,
+  );
+  return segment?.value ?? undefined;
+}
+
+function roundCredits(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function nearlyEqual(left: number, right: number, tolerance = 0.01): boolean {
+  return Math.abs(left - right) <= tolerance;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function assignString<T extends object, K extends keyof T>(
+  target: T,
+  key: K,
+  value: string | undefined,
+): void {
+  if (value !== undefined) {
+    target[key] = value as T[K];
+  }
+}
+
+function assignNumber<T extends object, K extends keyof T>(
+  target: T,
+  key: K,
+  value: number | undefined,
+): void {
+  if (value !== undefined) {
+    target[key] = value as T[K];
+  }
+}
+
+function requirementHeadingForTable(
+  snapshot: AcademicPageSnapshot,
+  table: TableSnapshot,
+): string {
+  const caption = cleanText(table.caption);
+  if (caption) {
+    return caption;
+  }
+  return (
+    (snapshot.headings ?? []).find((heading) =>
+      /\brequirements?\b/i.test(heading),
+    ) ?? ""
+  );
+}
+
+function myProgressCourseLikePattern(): RegExp {
+  return /\b[A-Z]{2,6}[*\s-]?\d{3,4}(?:[A-Z]?|\/\d{3,4}[A-Z]?)\b/i;
+}
+
 function scoreTable(spec: ExtractionSpec, table: TableSnapshot): number {
   const headerKeys = new Set(table.headers.map(normalizeHeader));
   const aliasEntries = Object.entries(spec.aliases);
@@ -845,7 +1661,8 @@ function buildMyProgressColumnMap(
     spec.aliases.course_code?.includes(normalizedHeaders[courseIndex] ?? "") ===
       true &&
     normalizedHeaders[titleIndex] === "" &&
-    spec.aliases.grade?.includes(normalizedHeaders[gradeIndex] ?? "") === true &&
+    spec.aliases.grade?.includes(normalizedHeaders[gradeIndex] ?? "") ===
+      true &&
     spec.aliases.term_code?.includes(normalizedHeaders[termIndex] ?? "") ===
       true &&
     spec.aliases.credits?.includes(normalizedHeaders[creditsIndex] ?? "") ===

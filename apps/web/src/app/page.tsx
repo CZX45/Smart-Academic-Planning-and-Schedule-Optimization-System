@@ -249,6 +249,45 @@ type DataImportSample = {
   fileMimeType: string;
   content: string;
 };
+type MyProgressProgramSummary = {
+  programName?: string;
+  degree?: string;
+  major?: string;
+  department?: string;
+  catalogYear?: number;
+  cumulativeGpa?: number;
+  institutionGpa?: number;
+  anticipatedCompletionDate?: string;
+};
+type MyProgressCreditSummary = {
+  totalAppliedCredits?: number;
+  totalRequiredCredits?: number;
+  completedCredits?: number;
+  inProgressCredits?: number;
+  plannedCredits?: number;
+  remainingCredits?: number;
+  completionPercent?: number;
+};
+type MyProgressException = {
+  code: string;
+  message: string;
+  source?: string;
+  severity?: string;
+};
+type MyProgressPreviewDisplay = {
+  realImportStatus: string;
+  programSummary: MyProgressProgramSummary;
+  creditSummary: MyProgressCreditSummary;
+  requirementGroups: Record<string, unknown>[];
+  exceptions: MyProgressException[];
+  autoConfirmedFieldCount: number;
+  autoConfirmedCourseRowCount: number;
+  overallConfidenceScore: number;
+  downstreamAnalysisAllowed: boolean;
+  canApplyVerifiedImport: boolean;
+  rawSnapshot: Record<string, unknown>;
+  fieldProvenance: Record<string, unknown>;
+};
 type ProductStatusCard = {
   ariaLabel: string;
   title: string;
@@ -568,6 +607,124 @@ function statusLabel(status: string): string {
   return status.replaceAll("_", " ");
 }
 
+function recordFromUnknown(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function recordsFromUnknown(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value
+        .map(recordFromUnknown)
+        .filter((item) => Object.keys(item).length > 0)
+    : [];
+}
+
+function numberFromUnknown(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function stringFromUnknown(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0
+    ? value
+    : undefined;
+}
+
+function myProgressPreviewFromSummary(
+  preview: ImportPreviewSummary,
+): MyProgressPreviewDisplay | null {
+  const payload = preview.summary_payload;
+  const realImportStatus = stringFromUnknown(payload.real_import_status);
+  if (!realImportStatus?.startsWith("REAL_IMPORTED_DATA")) {
+    return null;
+  }
+  const program = recordFromUnknown(payload.program_summary);
+  const credits = recordFromUnknown(payload.credit_summary);
+  const exceptions = recordsFromUnknown(payload.exceptions).map(
+    (exception) => ({
+      code: stringFromUnknown(exception.code) ?? "UNKNOWN_EXCEPTION",
+      message:
+        stringFromUnknown(exception.message) ?? "Manual review is required.",
+      source: stringFromUnknown(exception.source),
+      severity: stringFromUnknown(exception.severity),
+    }),
+  );
+  return {
+    realImportStatus,
+    programSummary: {
+      programName: stringFromUnknown(program.programName),
+      degree: stringFromUnknown(program.degree),
+      major: stringFromUnknown(program.major),
+      department: stringFromUnknown(program.department),
+      catalogYear: numberFromUnknown(program.catalogYear),
+      cumulativeGpa: numberFromUnknown(program.cumulativeGpa),
+      institutionGpa: numberFromUnknown(program.institutionGpa),
+      anticipatedCompletionDate: stringFromUnknown(
+        program.anticipatedCompletionDate,
+      ),
+    },
+    creditSummary: {
+      totalAppliedCredits: numberFromUnknown(credits.totalAppliedCredits),
+      totalRequiredCredits: numberFromUnknown(credits.totalRequiredCredits),
+      completedCredits: numberFromUnknown(credits.completedCredits),
+      inProgressCredits: numberFromUnknown(credits.inProgressCredits),
+      plannedCredits: numberFromUnknown(credits.plannedCredits),
+      remainingCredits: numberFromUnknown(credits.remainingCredits),
+      completionPercent: numberFromUnknown(credits.completionPercent),
+    },
+    requirementGroups: recordsFromUnknown(payload.requirement_groups),
+    exceptions,
+    autoConfirmedFieldCount:
+      numberFromUnknown(payload.auto_confirmed_field_count) ?? 0,
+    autoConfirmedCourseRowCount:
+      numberFromUnknown(payload.auto_confirmed_course_row_count) ?? 0,
+    overallConfidenceScore:
+      numberFromUnknown(payload.overall_confidence_score) ?? 0,
+    downstreamAnalysisAllowed: payload.downstream_analysis_allowed === true,
+    canApplyVerifiedImport: payload.can_apply_verified_import === true,
+    rawSnapshot: recordFromUnknown(payload.raw_snapshot),
+    fieldProvenance: recordFromUnknown(payload.field_provenance),
+  };
+}
+
+function myProgressPreviewFromState(
+  state: DataImportPreviewState,
+): MyProgressPreviewDisplay | null {
+  return state.status === "ready"
+    ? myProgressPreviewFromSummary(state.preview)
+    : null;
+}
+
+function importModeLabel(
+  display: MyProgressPreviewDisplay | null,
+  reviewState: DataReviewState,
+): string {
+  if (!display) {
+    return "Demo / Mock Data";
+  }
+  if (
+    reviewState.status === "ready" &&
+    ["APPLIED", "APPLIED_WITH_WARNINGS"].includes(reviewState.review.status)
+  ) {
+    return "Real Imported Data - Confirmed";
+  }
+  if (display.realImportStatus === "REAL_IMPORTED_DATA_AUTO_VERIFIED") {
+    return "Real Imported Data - Auto Verified";
+  }
+  if (display.exceptions.length > 0) {
+    return "Real Imported Data - Requires Exception Review";
+  }
+  return "Real Imported Data - Pending Review";
+}
+
 export default function Home() {
   const [health, setHealth] = useState<HealthState>(() =>
     apiBaseUrl
@@ -800,10 +957,63 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!apiBaseUrl) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    async function loadLatestImportPreview(baseUrl: string): Promise<void> {
+      try {
+        const savedImports = await fetchStudentDataImports(
+          baseUrl,
+          mockStudentId,
+          { timeoutMs: 5_000 },
+        );
+        if (cancelled || savedImports.length === 0) {
+          return;
+        }
+        const run = savedImports[0];
+        const [records, candidates, warnings, preview] = await Promise.all([
+          fetchDataImportRecords(baseUrl, run.id, { timeoutMs: 5_000 }),
+          fetchDataImportMappingCandidates(baseUrl, run.id, {
+            timeoutMs: 5_000,
+          }),
+          fetchDataImportWarnings(baseUrl, run.id, { timeoutMs: 5_000 }),
+          fetchDataImportPreview(baseUrl, run.id, { timeoutMs: 5_000 }),
+        ]);
+        if (!cancelled) {
+          setDataImportState({
+            status: "ready",
+            run,
+            records,
+            candidates,
+            warnings,
+            preview,
+            savedImports,
+          });
+        }
+      } catch {
+        // The explicit import preview controls surface load errors on demand.
+      }
+    }
+
+    void loadLatestImportPreview(apiBaseUrl);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const warnings =
     auditState.status === "ready"
       ? auditState.requirements.flatMap((requirement) => requirement.warnings)
       : [];
+  const myProgressPreview = myProgressPreviewFromState(dataImportState);
+  const currentImportMode = importModeLabel(myProgressPreview, dataReviewState);
 
   return (
     <main>
@@ -816,9 +1026,7 @@ export default function Home() {
                 ? "API connected"
                 : "API unavailable"}
           </p>
-          <p className="notice compact">
-            Mock data — not official university policy.
-          </p>
+          <p className="notice compact">{currentImportMode}</p>
         </div>
 
         <h1>Degree Progress</h1>
@@ -828,6 +1036,8 @@ export default function Home() {
 
         <ProductStatusDashboard
           auditState={auditState}
+          dataImportState={dataImportState}
+          myProgressPreview={myProgressPreview}
           dataReviewState={dataReviewState}
           scenarioState={scenarioState}
           scheduleState={scheduleState}
@@ -838,6 +1048,7 @@ export default function Home() {
           <DegreeProgress
             audit={auditState.audit}
             requirements={auditState.requirements}
+            myProgressPreview={myProgressPreview}
           />
         ) : (
           <AuditFallback state={auditState} health={health} />
@@ -968,10 +1179,17 @@ function AuditFallback({
 function DegreeProgress({
   audit,
   requirements,
+  myProgressPreview,
 }: {
   audit: DegreeAuditRun;
   requirements: RequirementEvaluation[];
+  myProgressPreview: MyProgressPreviewDisplay | null;
 }) {
+  const program = myProgressPreview?.programSummary;
+  const credits = myProgressPreview?.creditSummary;
+  const hasRealMyProgress = myProgressPreview !== null;
+  const myProgressRequirementGroups =
+    myProgressPreview?.requirementGroups ?? [];
   return (
     <>
       <section
@@ -979,98 +1197,215 @@ function DegreeProgress({
         id="degree-audit"
         aria-label="Degree audit summary"
       >
-        <SummaryMetric label="Program" value="Mock BS Finance" />
-        <SummaryMetric label="Catalog Year" value="2024" />
-        <SummaryMetric label="Audit Mode" value={audit.calculation_mode} />
+        <SummaryMetric
+          label="Program"
+          value={program?.programName ?? "Mock BS Finance"}
+        />
+        <SummaryMetric
+          label="Data Mode"
+          value={hasRealMyProgress ? "Real Imported Data" : "Demo / Mock Data"}
+        />
+        <SummaryMetric
+          label="Catalog Year"
+          value={program?.catalogYear ? String(program.catalogYear) : "2024"}
+        />
+        {program?.degree ? (
+          <SummaryMetric label="Degree" value={program.degree} />
+        ) : null}
+        {program?.department ? (
+          <SummaryMetric label="Department" value={program.department} />
+        ) : null}
+        {program?.cumulativeGpa ? (
+          <SummaryMetric label="GPA" value={program.cumulativeGpa.toFixed(3)} />
+        ) : null}
+        {program?.institutionGpa ? (
+          <SummaryMetric
+            label="Institution GPA"
+            value={program.institutionGpa.toFixed(3)}
+          />
+        ) : null}
+        <SummaryMetric
+          label="Audit Mode"
+          value={statusLabel(audit.calculation_mode)}
+        />
+        {credits?.totalAppliedCredits !== undefined &&
+        credits.totalRequiredCredits !== undefined ? (
+          <SummaryMetric
+            label="Total Credits"
+            value={`${formatCredits(String(credits.totalAppliedCredits))} / ${formatCredits(
+              String(credits.totalRequiredCredits),
+            )}`}
+          />
+        ) : null}
         <SummaryMetric
           label="Completed Credits"
-          value={formatCredits(audit.completed_credits)}
+          value={formatCredits(
+            String(credits?.completedCredits ?? audit.completed_credits),
+          )}
         />
         <SummaryMetric
           label="In-Progress Credits"
-          value={formatCredits(audit.in_progress_credits)}
+          value={formatCredits(
+            String(credits?.inProgressCredits ?? audit.in_progress_credits),
+          )}
         />
         <SummaryMetric
           label="Planned Credits"
-          value={formatCredits(audit.planned_credits)}
+          value={formatCredits(
+            String(credits?.plannedCredits ?? audit.planned_credits),
+          )}
         />
         <SummaryMetric
           label="Remaining Credits"
-          value={formatCredits(audit.remaining_credits)}
+          value={formatCredits(
+            String(credits?.remainingCredits ?? audit.remaining_credits),
+          )}
         />
         <SummaryMetric
           label="Completion"
-          value={`${Number(audit.completion_percentage).toFixed(2)}%`}
+          value={`${Number(
+            credits?.completionPercent ?? audit.completion_percentage,
+          ).toFixed(2)}%`}
         />
+        {program?.anticipatedCompletionDate ? (
+          <SummaryMetric
+            label="Expected Completion"
+            value={program.anticipatedCompletionDate}
+          />
+        ) : null}
       </section>
 
       <section className="requirement-tree" aria-label="Requirement Tree">
-        <h2>Requirement Tree</h2>
-        {requirements.map((requirement) => (
-          <details key={requirement.id} className="requirement-row">
-            <summary>
-              <span>{requirement.requirement_name}</span>
-              <span
-                className={`status-pill ${requirement.status.toLowerCase()}`}
-              >
-                {statusLabel(requirement.status)}
-              </span>
-            </summary>
-            <div className="requirement-detail">
-              <dl>
-                <div>
-                  <dt>Required</dt>
-                  <dd>
-                    {requirement.required_courses ?? "—"} courses /{" "}
-                    {requirement.required_credits
-                      ? formatCredits(requirement.required_credits)
-                      : "—"}{" "}
-                    credits
-                  </dd>
-                </div>
-                <div>
-                  <dt>Satisfied</dt>
-                  <dd>
-                    {requirement.satisfied_courses} courses /{" "}
-                    {formatCredits(requirement.satisfied_credits)} credits
-                  </dd>
-                </div>
-                <div>
-                  <dt>Remaining</dt>
-                  <dd>
-                    {requirement.remaining_courses} courses /{" "}
-                    {formatCredits(requirement.remaining_credits)} credits
-                  </dd>
-                </div>
-              </dl>
-              <p>{requirement.explanation}</p>
-              {requirement.applications.length > 0 ? (
-                <ul className="applications">
-                  {requirement.applications.map((application) => (
-                    <li key={application.id}>
-                      <strong>
-                        {application.course_code ??
-                          application.application_type}
-                      </strong>
-                      <span>
-                        {statusLabel(application.application_type)} ·{" "}
-                        {formatCredits(application.credit_amount)} credits
-                        {application.grade
-                          ? ` · grade ${application.grade}`
-                          : ""}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              {requirement.warnings.some(
-                (warning) => warning.requires_advisor_confirmation,
-              ) ? (
-                <p className="advisor-note">Advisor confirmation required.</p>
-              ) : null}
-            </div>
-          </details>
-        ))}
+        <h2>
+          {hasRealMyProgress
+            ? "MyProgress Requirement Summary"
+            : "Requirement Tree"}
+        </h2>
+        {hasRealMyProgress ? (
+          <>
+            <p className="subtle">
+              Showing high-confidence requirement groups from the staged
+              MyProgress import. The older mock requirement snapshot is not used
+              for the real imported summary.
+            </p>
+            <ul className="compact-list">
+              <li>
+                <strong>Downstream analysis</strong>
+                <span>
+                  {myProgressPreview.downstreamAnalysisAllowed
+                    ? "Auto-verification passed with 0 exceptions."
+                    : "Validation exceptions must be reviewed before use."}
+                </span>
+              </li>
+              <li>
+                <strong>Review scope</strong>
+                <span>
+                  Exception queue only; high-confidence rows do not require
+                  manual row-by-row review.
+                </span>
+              </li>
+            </ul>
+            {myProgressRequirementGroups.length > 0 ? (
+              myProgressRequirementGroups.map((group, index) => {
+                const name =
+                  stringFromUnknown(group.name) ??
+                  stringFromUnknown(group.requirements) ??
+                  `MyProgress requirement group ${index + 1}`;
+                const statusText =
+                  stringFromUnknown(group.statusText) ??
+                  stringFromUnknown(group.status_text) ??
+                  "High-confidence requirement group.";
+                const confidence =
+                  stringFromUnknown(group.confidence) ?? "high";
+                return (
+                  <article key={`${name}-${index}`} className="requirement-row">
+                    <div className="requirement-detail">
+                      <h3>{name}</h3>
+                      <p>{statusText}</p>
+                      <p className="advisor-note">
+                        Auto-confirmed requirement row · {confidence} confidence
+                      </p>
+                    </div>
+                  </article>
+                );
+              })
+            ) : (
+              <section className="state-panel">
+                <h3>No MyProgress requirement groups</h3>
+                <p>
+                  The summary still preserves program, GPA, and credit fields;
+                  missing requirement groups enter exception review.
+                </p>
+              </section>
+            )}
+          </>
+        ) : (
+          requirements.map((requirement) => (
+            <details key={requirement.id} className="requirement-row">
+              <summary>
+                <span>{requirement.requirement_name}</span>
+                <span
+                  className={`status-pill ${requirement.status.toLowerCase()}`}
+                >
+                  {statusLabel(requirement.status)}
+                </span>
+              </summary>
+              <div className="requirement-detail">
+                <dl>
+                  <div>
+                    <dt>Required</dt>
+                    <dd>
+                      {requirement.required_courses ?? "—"} courses /{" "}
+                      {requirement.required_credits
+                        ? formatCredits(requirement.required_credits)
+                        : "—"}{" "}
+                      credits
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Satisfied</dt>
+                    <dd>
+                      {requirement.satisfied_courses} courses /{" "}
+                      {formatCredits(requirement.satisfied_credits)} credits
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Remaining</dt>
+                    <dd>
+                      {requirement.remaining_courses} courses /{" "}
+                      {formatCredits(requirement.remaining_credits)} credits
+                    </dd>
+                  </div>
+                </dl>
+                <p>{requirement.explanation}</p>
+                {requirement.applications.length > 0 ? (
+                  <ul className="applications">
+                    {requirement.applications.map((application) => (
+                      <li key={application.id}>
+                        <strong>
+                          {application.course_code ??
+                            application.application_type}
+                        </strong>
+                        <span>
+                          {statusLabel(application.application_type)} ·{" "}
+                          {formatCredits(application.credit_amount)} credits
+                          {application.grade
+                            ? ` · grade ${application.grade}`
+                            : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {requirement.warnings.some(
+                  (warning) => warning.requires_advisor_confirmation,
+                ) ? (
+                  <p className="advisor-note">Advisor confirmation required.</p>
+                ) : null}
+              </div>
+            </details>
+          ))
+        )}
       </section>
     </>
   );
@@ -1087,17 +1422,22 @@ function SummaryMetric({ label, value }: { label: string; value: string }) {
 
 function ProductStatusDashboard({
   auditState,
+  dataImportState,
+  myProgressPreview,
   dataReviewState,
   scenarioState,
   scheduleState,
   sectionMonitoringState,
 }: {
   auditState: AuditState;
+  dataImportState: DataImportPreviewState;
+  myProgressPreview: MyProgressPreviewDisplay | null;
   dataReviewState: DataReviewState;
   scenarioState: ScenarioState;
   scheduleState: ScheduleState;
   sectionMonitoringState: SectionMonitoringState;
 }) {
+  const dataImportMode = importModeLabel(myProgressPreview, dataReviewState);
   const cards: ProductStatusCard[] = [
     {
       ariaLabel: "Degree audit status card",
@@ -1118,40 +1458,56 @@ function ProductStatusDashboard({
     {
       ariaLabel: "Data import review status card",
       title: "Data import review",
-      explanation: "Manual confirmation gate for staged imported records.",
-      status:
-        dataReviewState.status === "ready"
+      explanation: "Exception review gate for staged imported records.",
+      status: myProgressPreview
+        ? myProgressPreview.realImportStatus
+        : dataReviewState.status === "ready"
           ? dataReviewState.review.status
           : dataReviewState.status === "idle"
             ? null
             : dataReviewState.status,
-      statusLabel:
-        dataReviewState.status === "idle" || dataReviewState.status === "empty"
+      statusLabel: myProgressPreview
+        ? dataImportMode
+        : dataReviewState.status === "idle" ||
+            dataReviewState.status === "empty"
           ? "No confirmed imports yet"
           : undefined,
-      nextAction:
-        dataReviewState.status === "ready"
+      nextAction: myProgressPreview?.canApplyVerifiedImport
+        ? "High-confidence MyProgress import is auto-verified; high-impact advice still needs school or advisor confirmation."
+        : dataReviewState.status === "ready"
           ? "Review warnings before applying confirmed internal records."
-          : "Preview or load a staging import, then review records manually.",
+          : "Preview or load a staging import, then review exceptions only.",
       href: "#data-import-preview",
       actionLabel: "Open review",
-      advisoryLabels: ["MANUAL_REVIEW_REQUIRED", "ADVISORY_ONLY"],
+      advisoryLabels: myProgressPreview?.canApplyVerifiedImport
+        ? ["NON_OFFICIAL_IMPORTED_DATA", "ADVISORY_ONLY"]
+        : ["MANUAL_REVIEW_REQUIRED", "ADVISORY_ONLY"],
     },
     {
       ariaLabel: "Browser extension import status card",
       title: "Browser extension import",
       explanation: "Visible-page import source that stays in staging first.",
-      status: "MANUAL_REVIEW_REQUIRED",
-      statusLabel: "Non-official imported data",
+      status:
+        dataImportState.status === "ready" && myProgressPreview
+          ? myProgressPreview.realImportStatus
+          : "MANUAL_REVIEW_REQUIRED",
+      statusLabel:
+        dataImportState.status === "ready" && myProgressPreview
+          ? dataImportMode
+          : "Non-official imported data",
       nextAction:
-        "Inspect only user-opened pages, then stage imported data for manual review.",
+        dataImportState.status === "ready" && myProgressPreview
+          ? "MyProgress summary is staged; review the validation summary and exception queue."
+          : "Inspect only user-opened pages, then stage imported data for exception review.",
       href: "#data-import-preview",
       actionLabel: "Review import",
-      advisoryLabels: [
-        "NON_OFFICIAL_IMPORTED_DATA",
-        "MANUAL_REVIEW_REQUIRED",
-        "ADVISORY_ONLY",
-      ],
+      advisoryLabels: myProgressPreview?.canApplyVerifiedImport
+        ? ["NON_OFFICIAL_IMPORTED_DATA", "ADVISORY_ONLY"]
+        : [
+            "NON_OFFICIAL_IMPORTED_DATA",
+            "MANUAL_REVIEW_REQUIRED",
+            "ADVISORY_ONLY",
+          ],
     },
     {
       ariaLabel: "Section monitoring status card",
@@ -3238,6 +3594,7 @@ function DataImportResultView({
 }: {
   state: Extract<DataImportPreviewState, { status: "ready" }>;
 }) {
+  const myProgressPreview = myProgressPreviewFromSummary(state.preview);
   const selectedCandidateCount = state.candidates.filter(
     (candidate) => candidate.is_selected,
   ).length;
@@ -3251,16 +3608,44 @@ function DataImportResultView({
           label="Import Status"
           value={statusLabel(state.run.status)}
         />
+        <SummaryMetric
+          label="Data Mode"
+          value={importModeLabel(myProgressPreview, { status: "idle" })}
+        />
         <SummaryMetric label="Records" value={String(state.run.record_count)} />
         <SummaryMetric
           label="Mapped Candidates"
           value={String(selectedCandidateCount)}
         />
         <SummaryMetric label="Warnings" value={String(state.warnings.length)} />
+        {myProgressPreview ? (
+          <>
+            <SummaryMetric
+              label="Auto-Confirmed Fields"
+              value={String(myProgressPreview.autoConfirmedFieldCount)}
+            />
+            <SummaryMetric
+              label="Auto-Confirmed Course Rows"
+              value={String(myProgressPreview.autoConfirmedCourseRowCount)}
+            />
+            <SummaryMetric
+              label="Exceptions"
+              value={String(myProgressPreview.exceptions.length)}
+            />
+            <SummaryMetric
+              label="Overall Confidence"
+              value={`${Math.round(myProgressPreview.overallConfidenceScore * 100)}%`}
+            />
+          </>
+        ) : null}
         <SummaryMetric
           label="Official Application"
           value={
-            state.preview.official_application_ready ? "Ready" : "Disabled"
+            myProgressPreview?.canApplyVerifiedImport
+              ? "Verified"
+              : state.preview.official_application_ready
+                ? "Ready"
+                : "Disabled"
           }
         />
         <SummaryMetric
@@ -3272,6 +3657,10 @@ function DataImportResultView({
           value={String(state.savedImports.length)}
         />
       </section>
+
+      {myProgressPreview ? (
+        <MyProgressImportPreview display={myProgressPreview} />
+      ) : null}
 
       <section
         className="comparison-table"
@@ -3292,38 +3681,65 @@ function DataImportResultView({
       </section>
 
       <section className="data-import-grid">
-        <section aria-label="Data import records">
-          <h2>Imported Records</h2>
-          <div className="comparison-rows">
-            {state.records.map((record) => (
-              <div key={record.id} className="comparison-row">
-                <strong>
-                  {payloadValue(record.normalized_payload, "course_code") ??
-                    record.raw_label}
-                </strong>
-                <span>
-                  Row {record.row_number} · {statusLabel(record.status)} ·{" "}
-                  {payloadValue(record.normalized_payload, "credits") ?? "0.0"}{" "}
-                  credits
-                </span>
+        {myProgressPreview ? (
+          <section aria-label="MyProgress exception queue">
+            <h2>Exception Queue</h2>
+            {myProgressPreview.exceptions.length > 0 ? (
+              <div className="comparison-rows">
+                {myProgressPreview.exceptions.map((exception) => (
+                  <div key={exception.code} className="comparison-row">
+                    <strong>{exception.code}</strong>
+                    <span>
+                      {exception.source ?? "MyProgress"} ·{" "}
+                      {exception.severity ?? "WARNING"}
+                    </span>
+                    <span>{exception.message}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
-        <section aria-label="Data import mapping candidates">
-          <h2>Mapping Candidates</h2>
-          <div className="comparison-rows">
-            {state.candidates.map((candidate) => (
-              <div key={candidate.id} className="comparison-row">
-                <strong>{candidate.reason_code}</strong>
-                <span>
-                  {statusLabel(candidate.target_entity_type)} · confidence{" "}
-                  {candidate.confidence_score} · {candidate.explanation}
-                </span>
+            ) : (
+              <p className="subtle">
+                No import exceptions require manual handling.
+              </p>
+            )}
+          </section>
+        ) : (
+          <>
+            <section aria-label="Data import records">
+              <h2>Imported Records</h2>
+              <div className="comparison-rows">
+                {state.records.map((record) => (
+                  <div key={record.id} className="comparison-row">
+                    <strong>
+                      {payloadValue(record.normalized_payload, "course_code") ??
+                        record.raw_label}
+                    </strong>
+                    <span>
+                      Row {record.row_number} · {statusLabel(record.status)} ·{" "}
+                      {payloadValue(record.normalized_payload, "credits") ??
+                        "0.0"}{" "}
+                      credits
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
+            </section>
+            <section aria-label="Data import mapping candidates">
+              <h2>Mapping Candidates</h2>
+              <div className="comparison-rows">
+                {state.candidates.map((candidate) => (
+                  <div key={candidate.id} className="comparison-row">
+                    <strong>{candidate.reason_code}</strong>
+                    <span>
+                      {statusLabel(candidate.target_entity_type)} · confidence{" "}
+                      {candidate.confidence_score} · {candidate.explanation}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
       </section>
 
       <section className="comparison-table" aria-label="Data import warnings">
@@ -3347,6 +3763,160 @@ function DataImportResultView({
         )}
       </section>
     </div>
+  );
+}
+
+function MyProgressImportPreview({
+  display,
+}: {
+  display: MyProgressPreviewDisplay;
+}) {
+  const { programSummary, creditSummary } = display;
+  const provenanceEntries = Object.entries(display.fieldProvenance).slice(0, 6);
+  const visibleTextSample = stringFromUnknown(
+    display.rawSnapshot.visibleTextSample,
+  );
+  const progressBarText = stringFromUnknown(
+    display.rawSnapshot.progressBarText,
+  );
+  return (
+    <section
+      className="comparison-table"
+      aria-label="MyProgress import verification summary"
+    >
+      <h2>MyProgress Verification Summary</h2>
+      <div className="summary-grid compact-summary">
+        <SummaryMetric
+          label="Program"
+          value={programSummary.programName ?? "Not detected"}
+        />
+        <SummaryMetric
+          label="Degree"
+          value={programSummary.degree ?? "Not detected"}
+        />
+        <SummaryMetric
+          label="Major"
+          value={programSummary.major ?? "Not detected"}
+        />
+        <SummaryMetric
+          label="Department"
+          value={programSummary.department ?? "Not detected"}
+        />
+        <SummaryMetric
+          label="Catalog"
+          value={
+            programSummary.catalogYear
+              ? String(programSummary.catalogYear)
+              : "Not detected"
+          }
+        />
+        <SummaryMetric
+          label="GPA"
+          value={
+            programSummary.cumulativeGpa
+              ? programSummary.cumulativeGpa.toFixed(3)
+              : "Not detected"
+          }
+        />
+        <SummaryMetric
+          label="Institution GPA"
+          value={
+            programSummary.institutionGpa
+              ? programSummary.institutionGpa.toFixed(3)
+              : "Not detected"
+          }
+        />
+        <SummaryMetric
+          label="Expected Completion"
+          value={programSummary.anticipatedCompletionDate ?? "Not detected"}
+        />
+        <SummaryMetric
+          label="Total Credits"
+          value={
+            creditSummary.totalAppliedCredits !== undefined &&
+            creditSummary.totalRequiredCredits !== undefined
+              ? `${creditSummary.totalAppliedCredits} / ${creditSummary.totalRequiredCredits}`
+              : "Not detected"
+          }
+        />
+        <SummaryMetric
+          label="Completed"
+          value={String(creditSummary.completedCredits ?? "Not detected")}
+        />
+        <SummaryMetric
+          label="In Progress"
+          value={String(creditSummary.inProgressCredits ?? "Not detected")}
+        />
+        <SummaryMetric
+          label="Planned"
+          value={String(creditSummary.plannedCredits ?? "Not detected")}
+        />
+        <SummaryMetric
+          label="Remaining"
+          value={String(creditSummary.remainingCredits ?? "Not detected")}
+        />
+        <SummaryMetric
+          label="Completion"
+          value={
+            creditSummary.completionPercent !== undefined
+              ? `${creditSummary.completionPercent.toFixed(2)}%`
+              : "Not detected"
+          }
+        />
+        <SummaryMetric
+          label="Requirement Groups"
+          value={String(display.requirementGroups.length)}
+        />
+        <SummaryMetric
+          label="Downstream Analysis"
+          value={display.downstreamAnalysisAllowed ? "Allowed" : "Blocked"}
+        />
+      </div>
+
+      <section className="comparison-rows" aria-label="MyProgress groups">
+        {display.requirementGroups.map((group, index) => (
+          <div
+            key={`${stringFromUnknown(group.name) ?? "group"}-${index}`}
+            className="comparison-row"
+          >
+            <strong>{stringFromUnknown(group.name) ?? "Unnamed group"}</strong>
+            <span>
+              {stringFromUnknown(group.statusText) ?? "No status text"}
+            </span>
+          </div>
+        ))}
+      </section>
+
+      <section className="comparison-rows" aria-label="MyProgress source text">
+        {progressBarText ? (
+          <div className="comparison-row">
+            <strong>Progress Bar</strong>
+            <span>{progressBarText}</span>
+          </div>
+        ) : null}
+        {visibleTextSample ? (
+          <div className="comparison-row">
+            <strong>Visible Text</strong>
+            <span>{visibleTextSample.slice(0, 280)}</span>
+          </div>
+        ) : null}
+        {provenanceEntries.map(([field, value]) => {
+          const provenance = recordFromUnknown(value);
+          return (
+            <div key={field} className="comparison-row">
+              <strong>{field}</strong>
+              <span>
+                {stringFromUnknown(provenance.source) ?? "MyProgress"} ·{" "}
+                {stringFromUnknown(provenance.confidence) ?? "unknown"}
+              </span>
+              <span>
+                {String(provenance.rawText ?? provenance.value ?? "")}
+              </span>
+            </div>
+          );
+        })}
+      </section>
+    </section>
   );
 }
 
@@ -3528,6 +4098,23 @@ function DataReviewPanel({
   dataReviewState: DataReviewState;
   setDataReviewState: Dispatch<SetStateAction<DataReviewState>>;
 }) {
+  const myProgressPreview = myProgressPreviewFromState(dataImportState);
+  const reviewRecordsForDisplay =
+    dataReviewState.status === "ready" && myProgressPreview
+      ? dataReviewState.records.filter(
+          (record) =>
+            record.requires_advisor_confirmation ||
+            record.decision === "UNREVIEWED" ||
+            record.decision === "NEEDS_ADVISOR_REVIEW",
+        )
+      : dataReviewState.status === "ready"
+        ? dataReviewState.records
+        : [];
+  const autoConfirmedReviewCount =
+    dataReviewState.status === "ready" && myProgressPreview
+      ? dataReviewState.records.length - reviewRecordsForDisplay.length
+      : 0;
+
   const [gradeEdits, setGradeEdits] = useState<Record<string, string>>({});
 
   async function loadReviewDetail(
@@ -3784,6 +4371,18 @@ function DataReviewPanel({
               label="Records"
               value={String(dataReviewState.records.length)}
             />
+            {myProgressPreview ? (
+              <SummaryMetric
+                label="Auto-Confirmed"
+                value={String(autoConfirmedReviewCount)}
+              />
+            ) : null}
+            {myProgressPreview ? (
+              <SummaryMetric
+                label="Exception Queue"
+                value={String(reviewRecordsForDisplay.length)}
+              />
+            ) : null}
             <SummaryMetric
               label="Warnings"
               value={String(dataReviewState.warnings.length)}
@@ -3807,9 +4406,17 @@ function DataReviewPanel({
           </section>
 
           <section className="comparison-table" aria-label="Review records">
-            <h2>Record Decisions</h2>
+            <h2>
+              {myProgressPreview ? "Exception Decisions" : "Record Decisions"}
+            </h2>
             <div className="comparison-rows">
-              {dataReviewState.records.map((recordReview) => {
+              {reviewRecordsForDisplay.length === 0 && myProgressPreview ? (
+                <p className="subtle">
+                  High-confidence MyProgress fields were auto-confirmed; there
+                  are no exceptions requiring row-by-row review.
+                </p>
+              ) : null}
+              {reviewRecordsForDisplay.map((recordReview) => {
                 const courseCode =
                   payloadValue(
                     recordReview.imported_record.normalized_payload,
