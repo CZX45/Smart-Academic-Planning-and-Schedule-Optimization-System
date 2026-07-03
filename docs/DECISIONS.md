@@ -377,3 +377,38 @@ Consequences:
   cookies or session tokens, bypass SAML/MFA/CAPTCHA, submit portal forms,
   automate registration, add/drop/swap courses, join waitlists, reserve seats,
   grab seats, poll portals, or publish a browser-store workflow.
+
+## ADR-0025: Verify Kean MyProgress imports by exception, not by every row
+
+Status: Accepted
+
+Context: MyProgress pages include a top summary and progress bar that are more
+authoritative for total-credit progress than summing visible requirement rows,
+because the same course can appear in multiple requirement groups. Requiring
+students to confirm every imported row defeats the purpose of reducing manual
+checking, while blindly trusting low-confidence parser output would create
+academic-planning risk.
+
+Decision: For Kean MyProgress browser-extension imports, preserve the top
+summary, progress-bar segments, field-level provenance, raw bounded snapshot
+evidence, and validation diagnostics in the staging JSON payload. Validate
+program, catalog year, GPA, total credits, segment reconciliation, remaining
+credits, completion percentage, requirement groups, course-like evidence,
+truncation state, and mock/real mixing before any downstream academic use.
+Automatically confirm high-confidence fields and staging records when values
+reconcile and no conflicts exist. Create manual-review work only for exception
+items such as missing critical fields, conflicts, low confidence, unsupported
+rows, truncation, duplicate/ambiguous applications, and failed validation.
+
+Consequences:
+
+- MyProgress preview can display `Real Imported Data - Auto Verified`,
+  `Pending Review`, `Requires Exception Review`, or `Confirmed` instead of
+  silently falling back to mock data.
+- Degree progress display may use auto-verified MyProgress summary values for
+  visible dashboard metrics, while the data remains non-official and advisory.
+- Failed MyProgress validation blocks downstream academic analysis and returns
+  structured reason codes.
+- The import remains read-only: no registration, add/drop/swap, waitlist,
+  seat-reservation, portal form submission, polling, credential handling, or
+  official-source mutation is introduced.

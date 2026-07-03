@@ -142,6 +142,15 @@ preview metadata, but it must not mark the data official, bypass Phase 7B
 review, store portal credentials, store cookies or session tokens, or mutate
 official academic, section, seat, waitlist, or registration records.
 
+Kean MyProgress summary-first imports reuse the same tables and store structured
+program summary, credit summary, progress-bar segments, field provenance, raw
+snapshot diagnostics, validation results, and exception queues in
+`imported_records.normalized_payload` and
+`import_preview_summaries.summary_payload`. High-confidence MyProgress records
+can be auto-confirmed in `imported_record_reviews`; failed validation blocks
+downstream academic analysis with a structured reason code. These rows remain
+non-official staging data and keep `official_application_ready = false`.
+
 Phase 8B section monitoring rows are advisory, non-official, and student-scoped. Targets identify a course, section, and term the student wants to compare manually. Snapshots preserve imported section-search state such as status, seats, waitlist counts, meeting time, instructor, and location, plus a deterministic snapshot hash for deduplication. Alerts compare two snapshots and store the changed field, previous/current values, severity, acknowledgement state, advisory/manual-review flags, and a manual verification message. These rows do not mutate `sections`, seat counts, waitlists, student records, or registration state.
 
 Important Phase 2A constraints include:

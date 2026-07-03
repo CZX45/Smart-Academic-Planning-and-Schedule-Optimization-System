@@ -132,6 +132,28 @@ The extension must show a preview before import. The preview includes detected
 page type, row counts by import type, warnings, non-official/manual-review
 labels, and sample extracted rows. No silent import is allowed.
 
+## MyProgress Summary Verification
+
+Kean MyProgress imports treat the top MyProgress summary and visible progress
+bar as first-class source evidence. The browser-extension payload preserves:
+
+- program, degree, major, department, catalog year, GPA, anticipated completion
+  date, and total-credit summary fields;
+- progress-bar segment text and reconciled completed, in-progress, planned,
+  remaining, and completion-percentage values;
+- field-level provenance with raw text, source area, confidence, and
+  `requiresReview`;
+- bounded raw snapshot evidence such as page title, safe URL, visible text
+  sample, headings, visible tables and rows, requirement-like blocks,
+  course-like rows, progress text, counts, and truncation diagnostics.
+
+High-confidence MyProgress fields are auto-confirmed when formats are valid,
+summary totals reconcile, no conflicts are detected, and the snapshot is not
+truncated. Manual review is exception-based: missing critical fields,
+conflicting values, unsupported or ambiguous rows, low parser confidence,
+truncation, and mock/real mixing create exception items. The student should not
+be asked to review every high-confidence MyProgress row.
+
 ## Local App Handoff
 
 After confirmation, the extension sends academic staging data to:
@@ -155,11 +177,12 @@ preview metadata; no new database table or migration is required.
 ## Phase 7B Review Requirement
 
 Kean portal imports enter the same Phase 7A/7B path as other staging imports.
-A student or reviewer must create a Phase 7B review session, inspect each row,
-make explicit decisions, optionally run a dry run, and explicitly apply only
-supported reviewed rows. Unsupported catalog, section, requirement, ambiguous,
-rejected, deferred, advisor-review, and duplicate records remain skipped with
-warnings.
+For MyProgress, high-confidence records may start as auto-confirmed staging
+records and the UI should show only the exception queue. Failed MyProgress
+validation blocks downstream academic analysis. Unsupported catalog, section,
+requirement, ambiguous, rejected, deferred, advisor-review, and duplicate
+records remain skipped with warnings. High-impact academic conclusions still
+need Kean or advisor confirmation.
 
 ## Safety Boundaries
 

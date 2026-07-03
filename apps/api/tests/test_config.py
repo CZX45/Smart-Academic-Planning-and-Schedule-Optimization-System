@@ -5,12 +5,18 @@ from app.config import LOCAL_DEVELOPMENT_DATABASE_URL, Settings
 
 
 def test_settings_accept_local_development_defaults() -> None:
-    settings = Settings()
+    settings = Settings(_env_file=None)
 
     assert settings.environment == "development"
     assert settings.cors_origin_list == [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+        "http://localhost:3010",
+        "http://127.0.0.1:3010",
+        "http://localhost:3011",
+        "http://127.0.0.1:3011",
     ]
 
 

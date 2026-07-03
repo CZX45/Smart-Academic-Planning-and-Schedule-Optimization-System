@@ -222,7 +222,7 @@ describe("popup browser actions", () => {
 
     expect(extraction.diagnostics).toMatchObject({
       currentUrl: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress`,
-      detectedPageType: "UNKNOWN_PAGE",
+      detectedPageType: "KEAN_MY_PROGRESS_PAGE",
       tablesFound: 0,
       rowsFound: 0,
       visibleTextLength: 0,
@@ -231,7 +231,7 @@ describe("popup browser actions", () => {
       bounded: false,
     });
     expect(extraction.diagnostics.warningCodes).toContain(
-      "KEAN_WHITELISTED_PAGE_NO_ACADEMIC_TABLE_FOUND",
+      "MY_PROGRESS_PROGRAM_MISSING",
     );
   });
 

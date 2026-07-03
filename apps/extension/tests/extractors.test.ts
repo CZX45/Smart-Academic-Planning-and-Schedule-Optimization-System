@@ -368,6 +368,98 @@ describe("browser extension academic table extractors", () => {
     });
   });
 
+  it("extracts the sanitized Kean Finance MyProgress summary, progress bar, and provenance", () => {
+    const visibleText = textOnly(
+      fixture("kean-my-progress-finance-summary.html"),
+    );
+    const extraction = extractAcademicPageFromTables({
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      tables: tablesFromFixture("kean-my-progress-finance-summary.html"),
+      headings: [
+        "My Progress",
+        "Finance, BS",
+        "GE Foundation Requirements 13 S.H.",
+      ],
+      visibleText,
+      snapshotMetadata: {
+        directSnapshotRan: true,
+        visibleTextLength: visibleText.length,
+        rowLikeBlocksFound: 0,
+        bounded: false,
+      },
+    });
+    const content = JSON.parse(extraction.content);
+
+    expect(extraction.pageType).toBe("KEAN_MY_PROGRESS_PAGE");
+    expect(extraction.importType).toBe("DEGREE_AUDIT_EXPORT");
+    expect(extraction.requiresReview).toBe(false);
+    expect(content.programSummary).toMatchObject({
+      programName: "Finance, BS",
+      degree: "Bachelor of Science",
+      major: "Finance",
+      department: "Accounting & Finance",
+      catalogYear: 2024,
+      cumulativeGpa: 3.916,
+      institutionGpa: 3.916,
+      anticipatedCompletionDate: "12/20/2028",
+    });
+    expect(content.creditSummary).toMatchObject({
+      totalAppliedCredits: 104,
+      totalRequiredCredits: 120,
+      completedCredits: 67,
+      inProgressCredits: 24,
+      plannedCredits: 13,
+      remainingCredits: 16,
+    });
+    expect(content.creditSummary.completionPercent).toBeCloseTo(86.67, 2);
+    expect(content.progressBarSegments).toEqual([
+      expect.objectContaining({
+        value: 67,
+        classification: "COMPLETED",
+        requiresReview: false,
+      }),
+      expect.objectContaining({
+        value: 24,
+        classification: "IN_PROGRESS",
+        requiresReview: false,
+      }),
+      expect.objectContaining({
+        value: 13,
+        classification: "PLANNED",
+        requiresReview: false,
+      }),
+    ]);
+    expect(content.fieldProvenance.completedCredits).toMatchObject({
+      value: 67,
+      rawText: "67",
+      confidence: "high",
+      requiresReview: false,
+    });
+    expect(content.requirementGroups[0]).toMatchObject({
+      name: "GE Foundation Requirements 13 S.H.",
+      statusText: "GE*1000/3000 4 of 5 Completed 13",
+    });
+    expect(content.validation).toMatchObject({
+      status: "AUTO_VERIFIED",
+      exceptionCount: 0,
+      downstreamAnalysisAllowed: true,
+    });
+    expect(content.rawSnapshot).toMatchObject({
+      pageTitle: "MyProgress",
+      pageUrl: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress`,
+      diagnostics: expect.objectContaining({
+        tableCount: 1,
+        rowCount: 1,
+        requirementGroupCount: 1,
+        courseLikeRowCount: 1,
+        truncated: false,
+      }),
+    });
+    expect(content.rawSnapshot.visibleTextSample).toContain("Finance, BS");
+    expect(content.rawSnapshot.progressBarText).toBe("67 24 13");
+  });
+
   it("extracts sanitized Kean MyProgress course rows across visible requirement tables", () => {
     const extraction = extractFixture(
       "kean-my-progress-multi-table-page.html",
@@ -505,7 +597,7 @@ describe("browser extension academic table extractors", () => {
     });
   });
 
-  it("preserves direct snapshot diagnostics when MyProgress parsing finds no rows", () => {
+  it("preserves direct snapshot diagnostics when MyProgress parsing finds no course rows", () => {
     const visibleText = "My Progress Requirements Cumulative GPA Total Credits";
     const extraction = extractAcademicPageFromTables({
       title: "My Progress",
@@ -520,18 +612,25 @@ describe("browser extension academic table extractors", () => {
       },
     });
 
-    expect(extraction.pageType).toBe("UNKNOWN_PAGE");
+    expect(extraction.pageType).toBe("KEAN_MY_PROGRESS_PAGE");
+    expect(extraction.importType).toBe("DEGREE_AUDIT_EXPORT");
     expect(extraction.records).toHaveLength(0);
+    expect(extraction.requiresReview).toBe(true);
     expect(extraction.diagnostics).toMatchObject({
       currentUrl: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress`,
+      detectedPageType: "KEAN_MY_PROGRESS_PAGE",
       tablesFound: 0,
       rowsFound: 1,
       visibleTextLength: visibleText.length,
       rowLikeBlocksFound: 1,
       directSnapshotRan: true,
     });
+    expect(JSON.parse(extraction.content).validation).toMatchObject({
+      status: "FAILED",
+      downstreamAnalysisAllowed: false,
+    });
     expect(extraction.warnings.map((warning) => warning.code)).toContain(
-      "KEAN_WHITELISTED_PAGE_NO_ACADEMIC_TABLE_FOUND",
+      "MY_PROGRESS_PROGRAM_MISSING",
     );
   });
 

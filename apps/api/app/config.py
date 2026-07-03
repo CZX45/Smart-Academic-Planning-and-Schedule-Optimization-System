@@ -7,7 +7,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 LOCAL_DEVELOPMENT_DATABASE_URL = (
     "postgresql+psycopg://sapsos:sapsos_dev_password@localhost:5432/sapsos"
 )
-LOCAL_DEVELOPMENT_CORS_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
+LOCAL_DEVELOPMENT_WEB_PORTS = (3000, 3001, 3010, 3011)
+LOCAL_DEVELOPMENT_CORS_ORIGINS = ",".join(
+    f"http://{host}:{port}"
+    for port in LOCAL_DEVELOPMENT_WEB_PORTS
+    for host in ("localhost", "127.0.0.1")
+)
 ALLOWED_ENVIRONMENTS = {"development", "test", "staging", "production"}
 LOCALHOST_NAMES = {"localhost", "127.0.0.1", "::1"}
 
