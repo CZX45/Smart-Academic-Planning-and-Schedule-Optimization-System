@@ -38,10 +38,6 @@ import {
   fetchStudentEligibilityChecks,
   fetchStudentAcademicScenarios,
   formatAcademicTimestamp,
-  formatBeforeAfterValue,
-  getAcademicEmptyStateCopy,
-  getAcademicStatusBadge,
-  getAdvisoryLabels,
   updateImportedRecordReview,
   validateDataImport,
   type AcademicPlanComparison,
@@ -77,6 +73,14 @@ import {
 } from "@sapsos/shared";
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 import { parsePublicEnv } from "../lib/env";
+import {
+  formatZhCnBeforeAfterValue,
+  getZhCnAdvisoryLabels,
+  getZhCnEmptyStateCopy,
+  localizeDemoOptionLabel,
+  localizeStatusBadge,
+  localizeStatusLabel,
+} from "../lib/zh-cn";
 
 type HealthState =
   | { status: "loading" }
@@ -463,92 +467,82 @@ const dataImportSamples: DataImportSample[] = [
 
 function describeHealthError(error: unknown): string {
   if (error instanceof ApiResponseSchemaError) {
-    return "API returned an unexpected health response shape.";
+    return "API 返回了意外的健康检查响应结构。";
   }
   if (error instanceof ApiRequestError) {
     return error.message;
   }
-  return error instanceof Error ? error.message : "Unknown API health error";
+  return error instanceof Error ? error.message : "未知 API 健康检查错误";
 }
 
 function describeAuditError(error: unknown): string {
   if (error instanceof ApiResponseSchemaError) {
-    return "API returned an unexpected degree audit response shape.";
+    return "API 返回了意外的学业审核响应结构。";
   }
   if (error instanceof ApiRequestError) {
     return error.message;
   }
-  return error instanceof Error ? error.message : "Unknown degree audit error";
+  return error instanceof Error ? error.message : "未知学业审核错误";
 }
 
 function describeScenarioError(error: unknown): string {
   if (error instanceof ApiResponseSchemaError) {
-    return "API returned an unexpected academic scenario response shape.";
+    return "API 返回了意外的假设方案响应结构。";
   }
   if (error instanceof ApiRequestError) {
     return error.message;
   }
-  return error instanceof Error
-    ? error.message
-    : "Unknown what-if scenario error";
+  return error instanceof Error ? error.message : "未知假设方案错误";
 }
 
 function describeEligibilityError(error: unknown): string {
   if (error instanceof ApiResponseSchemaError) {
-    return "API returned an unexpected course eligibility response shape.";
+    return "API 返回了意外的课程资格响应结构。";
   }
   if (error instanceof ApiRequestError) {
     return error.message;
   }
-  return error instanceof Error
-    ? error.message
-    : "Unknown course eligibility error";
+  return error instanceof Error ? error.message : "未知课程资格错误";
 }
 
 function describePlannerError(error: unknown): string {
   if (error instanceof ApiResponseSchemaError) {
-    return "API returned an unexpected academic plan response shape.";
+    return "API 返回了意外的学业规划响应结构。";
   }
   if (error instanceof ApiRequestError) {
     return error.message;
   }
-  return error instanceof Error
-    ? error.message
-    : "Unknown academic planner error";
+  return error instanceof Error ? error.message : "未知学业规划错误";
 }
 
 function describeScheduleError(error: unknown): string {
   if (error instanceof ApiResponseSchemaError) {
-    return "API returned an unexpected schedule optimization response shape.";
+    return "API 返回了意外的课表优化响应结构。";
   }
   if (error instanceof ApiRequestError) {
     return error.message;
   }
-  return error instanceof Error
-    ? error.message
-    : "Unknown schedule optimizer error";
+  return error instanceof Error ? error.message : "未知课表优化错误";
 }
 
 function describeDataImportError(error: unknown): string {
   if (error instanceof ApiResponseSchemaError) {
-    return "API returned an unexpected data import response shape.";
+    return "API 返回了意外的数据导入响应结构。";
   }
   if (error instanceof ApiRequestError) {
     return error.message;
   }
-  return error instanceof Error ? error.message : "Unknown data import error";
+  return error instanceof Error ? error.message : "未知数据导入错误";
 }
 
 function describeSectionMonitoringError(error: unknown): string {
   if (error instanceof ApiResponseSchemaError) {
-    return "API returned an unexpected section monitoring response shape.";
+    return "API 返回了意外的课节监控响应结构。";
   }
   if (error instanceof ApiRequestError) {
     return error.message;
   }
-  return error instanceof Error
-    ? error.message
-    : "Unknown section monitoring error";
+  return error instanceof Error ? error.message : "未知课节监控错误";
 }
 
 function isNotFound(error: unknown): boolean {
@@ -565,7 +559,27 @@ function formatCredits(value: string): string {
 }
 
 function statusLabel(status: string): string {
-  return status.replaceAll("_", " ");
+  return localizeStatusLabel(status);
+}
+
+function formatDisplayTimestamp(value: string | null | undefined): string {
+  const formatted = formatAcademicTimestamp(value);
+  if (formatted === "Not available") {
+    return "不可用";
+  }
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.valueOf())) {
+    return "不可用";
+  }
+  return `${new Intl.DateTimeFormat("zh-CN", {
+    day: "numeric",
+    hour: "2-digit",
+    hourCycle: "h23",
+    minute: "2-digit",
+    month: "short",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(date)} UTC`;
 }
 
 export default function Home() {
@@ -574,7 +588,7 @@ export default function Home() {
       ? { status: "loading" }
       : {
           status: "offline",
-          message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+          message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
         },
   );
   const [auditState, setAuditState] = useState<AuditState>(() =>
@@ -582,7 +596,7 @@ export default function Home() {
       ? { status: "loading" }
       : {
           status: "failed",
-          message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+          message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
         },
   );
   const [selectedCandidateId, setSelectedCandidateId] = useState(
@@ -600,7 +614,7 @@ export default function Home() {
         ? { status: "idle" }
         : {
             status: "offline",
-            message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+            message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
           },
   );
   const [selectedPlannerScopeId, setSelectedPlannerScopeId] = useState(
@@ -618,7 +632,7 @@ export default function Home() {
       ? { status: "idle" }
       : {
           status: "offline",
-          message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+          message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
         },
   );
   const [selectedSchedulePresetId, setSelectedSchedulePresetId] = useState(
@@ -647,7 +661,7 @@ export default function Home() {
       ? { status: "idle" }
       : {
           status: "offline",
-          message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+          message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
         },
   );
   const [selectedDataImportSampleId, setSelectedDataImportSampleId] = useState(
@@ -659,7 +673,7 @@ export default function Home() {
         ? { status: "idle" }
         : {
             status: "offline",
-            message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+            message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
           },
     );
   const [dataReviewState, setDataReviewState] = useState<DataReviewState>(() =>
@@ -667,7 +681,7 @@ export default function Home() {
       ? { status: "idle" }
       : {
           status: "offline",
-          message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+          message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
         },
   );
   const [sectionMonitoringState, setSectionMonitoringState] =
@@ -676,7 +690,7 @@ export default function Home() {
         ? { status: "loading" }
         : {
             status: "offline",
-            message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+            message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
           },
     );
 
@@ -729,8 +743,7 @@ export default function Home() {
             requirements.length === 0
               ? {
                   status: "empty",
-                  message:
-                    "No degree audit snapshot results are available yet.",
+                  message: "还没有可用的学业审核快照结果。",
                 }
               : { status: "ready", audit, requirements },
           );
@@ -811,20 +824,16 @@ export default function Home() {
         <div className="topbar">
           <p className={`badge ${health.status === "online" ? "ok" : "warn"}`}>
             {health.status === "loading"
-              ? "API checking"
+              ? "正在检查 API"
               : health.status === "online"
-                ? "API connected"
-                : "API unavailable"}
+                ? "API 已连接"
+                : "API 不可用"}
           </p>
-          <p className="notice compact">
-            Mock data — not official university policy.
-          </p>
+          <p className="notice compact">模拟数据 — 不是官方学校政策。</p>
         </div>
 
-        <h1>Degree Progress</h1>
-        <p className="subtle">
-          Advisor confirmation is required for high-impact academic guidance.
-        </p>
+        <h1>学业进度</h1>
+        <p className="subtle">高风险学业建议需要学校或顾问确认。</p>
 
         <ProductStatusDashboard
           auditState={auditState}
@@ -844,8 +853,8 @@ export default function Home() {
         )}
 
         {warnings.length > 0 ? (
-          <section className="warning-panel" aria-label="Advisor warnings">
-            <h2>Warnings</h2>
+          <section className="warning-panel" aria-label="顾问警告">
+            <h2>警告</h2>
             <ul>
               {warnings.map((warning) => (
                 <li key={warning.id}>
@@ -945,13 +954,13 @@ function AuditFallback({
 }) {
   const title =
     state.status === "loading"
-      ? "Loading audit"
+      ? "正在加载学业审核"
       : state.status === "empty"
-        ? "No degree audit snapshot yet"
-        : "Audit unavailable";
+        ? "还没有学业审核快照"
+        : "学业审核不可用";
   const message =
     state.status === "loading"
-      ? "Checking for the latest mock degree audit snapshot."
+      ? "正在检查最新的模拟学业审核快照。"
       : state.status === "empty"
         ? state.message
         : state.message;
@@ -977,35 +986,38 @@ function DegreeProgress({
       <section
         className="summary-grid"
         id="degree-audit"
-        aria-label="Degree audit summary"
+        aria-label="学业审核摘要"
       >
-        <SummaryMetric label="Program" value="Mock BS Finance" />
-        <SummaryMetric label="Catalog Year" value="2024" />
-        <SummaryMetric label="Audit Mode" value={audit.calculation_mode} />
+        <SummaryMetric label="项目" value="Mock BS Finance" />
+        <SummaryMetric label="目录年份" value="2024" />
         <SummaryMetric
-          label="Completed Credits"
+          label="审核模式"
+          value={statusLabel(audit.calculation_mode)}
+        />
+        <SummaryMetric
+          label="已完成学分"
           value={formatCredits(audit.completed_credits)}
         />
         <SummaryMetric
-          label="In-Progress Credits"
+          label="进行中学分"
           value={formatCredits(audit.in_progress_credits)}
         />
         <SummaryMetric
-          label="Planned Credits"
+          label="已规划学分"
           value={formatCredits(audit.planned_credits)}
         />
         <SummaryMetric
-          label="Remaining Credits"
+          label="剩余学分"
           value={formatCredits(audit.remaining_credits)}
         />
         <SummaryMetric
-          label="Completion"
+          label="完成度"
           value={`${Number(audit.completion_percentage).toFixed(2)}%`}
         />
       </section>
 
-      <section className="requirement-tree" aria-label="Requirement Tree">
-        <h2>Requirement Tree</h2>
+      <section className="requirement-tree" aria-label="毕业要求树">
+        <h2>毕业要求树</h2>
         {requirements.map((requirement) => (
           <details key={requirement.id} className="requirement-row">
             <summary>
@@ -1019,27 +1031,27 @@ function DegreeProgress({
             <div className="requirement-detail">
               <dl>
                 <div>
-                  <dt>Required</dt>
+                  <dt>要求</dt>
                   <dd>
-                    {requirement.required_courses ?? "—"} courses /{" "}
+                    {requirement.required_courses ?? "—"} 门课程 /{" "}
                     {requirement.required_credits
                       ? formatCredits(requirement.required_credits)
                       : "—"}{" "}
-                    credits
+                    学分
                   </dd>
                 </div>
                 <div>
-                  <dt>Satisfied</dt>
+                  <dt>已满足</dt>
                   <dd>
-                    {requirement.satisfied_courses} courses /{" "}
-                    {formatCredits(requirement.satisfied_credits)} credits
+                    {requirement.satisfied_courses} 门课程 /{" "}
+                    {formatCredits(requirement.satisfied_credits)} 学分
                   </dd>
                 </div>
                 <div>
-                  <dt>Remaining</dt>
+                  <dt>剩余</dt>
                   <dd>
-                    {requirement.remaining_courses} courses /{" "}
-                    {formatCredits(requirement.remaining_credits)} credits
+                    {requirement.remaining_courses} 门课程 /{" "}
+                    {formatCredits(requirement.remaining_credits)} 学分
                   </dd>
                 </div>
               </dl>
@@ -1054,9 +1066,9 @@ function DegreeProgress({
                       </strong>
                       <span>
                         {statusLabel(application.application_type)} ·{" "}
-                        {formatCredits(application.credit_amount)} credits
+                        {formatCredits(application.credit_amount)} 学分
                         {application.grade
-                          ? ` · grade ${application.grade}`
+                          ? ` · 成绩 ${application.grade}`
                           : ""}
                       </span>
                     </li>
@@ -1066,7 +1078,7 @@ function DegreeProgress({
               {requirement.warnings.some(
                 (warning) => warning.requires_advisor_confirmation,
               ) ? (
-                <p className="advisor-note">Advisor confirmation required.</p>
+                <p className="advisor-note">需要顾问确认。</p>
               ) : null}
             </div>
           </details>
@@ -1100,25 +1112,25 @@ function ProductStatusDashboard({
 }) {
   const cards: ProductStatusCard[] = [
     {
-      ariaLabel: "Degree audit status card",
-      title: "Degree audit",
-      explanation: "Latest deterministic audit snapshot and requirement tree.",
+      ariaLabel: "学业审核状态卡片",
+      title: "学业审核",
+      explanation: "最新的确定性学业审核快照和毕业要求树。",
       status:
         auditState.status === "ready"
           ? auditState.audit.status
           : auditState.status,
       nextAction:
         auditState.status === "ready"
-          ? "Review requirement warnings and confirm high-impact guidance with an advisor."
-          : "Load or generate a degree audit snapshot.",
+          ? "查看毕业要求警告，并与顾问确认高风险学业建议。"
+          : "加载或生成学业审核快照。",
       href: "#degree-audit",
-      actionLabel: "Review audit",
+      actionLabel: "查看学业审核",
       advisoryLabels: ["ADVISORY_ONLY"],
     },
     {
-      ariaLabel: "Data import review status card",
-      title: "Data import review",
-      explanation: "Manual confirmation gate for staged imported records.",
+      ariaLabel: "数据导入审核状态卡片",
+      title: "数据导入审核",
+      explanation: "staging 导入记录进入正式应用前的人工确认入口。",
       status:
         dataReviewState.status === "ready"
           ? dataReviewState.review.status
@@ -1127,26 +1139,26 @@ function ProductStatusDashboard({
             : dataReviewState.status,
       statusLabel:
         dataReviewState.status === "idle" || dataReviewState.status === "empty"
-          ? "No confirmed imports yet"
+          ? "还没有已确认的导入"
           : undefined,
       nextAction:
         dataReviewState.status === "ready"
-          ? "Review warnings before applying confirmed internal records."
-          : "Preview or load a staging import, then review records manually.",
+          ? "应用已确认的内部记录前，先查看警告。"
+          : "预览或加载 staging 导入，然后人工审核记录。",
       href: "#data-import-preview",
-      actionLabel: "Open review",
+      actionLabel: "打开审核",
       advisoryLabels: ["MANUAL_REVIEW_REQUIRED", "ADVISORY_ONLY"],
     },
     {
-      ariaLabel: "Browser extension import status card",
-      title: "Browser extension import",
-      explanation: "Visible-page import source that stays in staging first.",
+      ariaLabel: "浏览器插件导入状态卡片",
+      title: "浏览器插件导入",
+      explanation: "仅从用户已打开页面读取；导入数据先进入 staging。",
       status: "MANUAL_REVIEW_REQUIRED",
-      statusLabel: "Non-official imported data",
+      statusLabel: "非官方导入数据",
       nextAction:
-        "Inspect only user-opened pages, then stage imported data for manual review.",
+        "只检查用户已打开并明确要求检查的页面，然后进入 staging 等待人工审核。",
       href: "#data-import-preview",
-      actionLabel: "Review import",
+      actionLabel: "查看导入",
       advisoryLabels: [
         "NON_OFFICIAL_IMPORTED_DATA",
         "MANUAL_REVIEW_REQUIRED",
@@ -1154,9 +1166,9 @@ function ProductStatusDashboard({
       ],
     },
     {
-      ariaLabel: "Section monitoring status card",
-      title: "Section monitoring",
-      explanation: "Advisory comparison of user-triggered section snapshots.",
+      ariaLabel: "课节监控状态卡片",
+      title: "课节监控",
+      explanation: "对用户触发导入的课节快照进行仅供参考的比较。",
       status:
         sectionMonitoringState.status === "ready"
           ? sectionMonitoringState.alerts.length > 0
@@ -1168,18 +1180,18 @@ function ProductStatusDashboard({
       statusLabel:
         sectionMonitoringState.status === "ready"
           ? sectionMonitoringState.alerts.length > 0
-            ? "Advisory alerts ready"
+            ? "参考提醒已就绪"
             : sectionMonitoringState.targets.length > 0
-              ? "Monitoring targets ready"
-              : "No section monitoring targets"
+              ? "监控目标已就绪"
+              : "还没有课节监控目标"
           : undefined,
       nextAction:
         sectionMonitoringState.status === "ready" &&
         sectionMonitoringState.alerts.length > 0
-          ? "Verify any section change manually in the official portal."
-          : "Import section-search data and choose sections to monitor manually.",
+          ? "在官方门户人工核对任何课节变化。"
+          : "导入课节搜索数据，并手动选择要监控的课节。",
       href: "#section-monitoring",
-      actionLabel: "Review alerts",
+      actionLabel: "查看提醒",
       advisoryLabels: [
         "NON_OFFICIAL_IMPORTED_DATA",
         "ADVISORY_ONLY",
@@ -1187,9 +1199,9 @@ function ProductStatusDashboard({
       ],
     },
     {
-      ariaLabel: "Schedule optimization status card",
-      title: "Schedule optimization",
-      explanation: "Section-level schedule options separate from planning.",
+      ariaLabel: "课表优化状态卡片",
+      title: "课表优化",
+      explanation: "独立于长期规划的课节级课表选项。",
       status:
         scheduleState.status === "ready"
           ? scheduleState.schedule.status
@@ -1198,20 +1210,20 @@ function ProductStatusDashboard({
             : scheduleState.status,
       statusLabel:
         scheduleState.status === "idle" || scheduleState.status === "empty"
-          ? "No generated schedule plans"
+          ? "还没有生成课表方案"
           : undefined,
       nextAction:
         scheduleState.status === "ready"
-          ? "Compare advisory schedule options and warnings."
-          : "Build a schedule from a manually selected course set.",
+          ? "比较仅供参考的课表选项和警告。"
+          : "从手动选择的课程集合生成课表。",
       href: "#schedule-optimization",
-      actionLabel: "Build a schedule",
+      actionLabel: "生成课表",
       advisoryLabels: ["ADVISORY_ONLY"],
     },
     {
-      ariaLabel: "What-if planning status card",
-      title: "What-if planning",
-      explanation: "Scenario comparison for hypothetical program changes.",
+      ariaLabel: "假设规划状态卡片",
+      title: "假设规划",
+      explanation: "用于比较假设项目变更的方案。",
       status:
         scenarioState.status === "ready"
           ? scenarioState.detail.scenario.status
@@ -1220,20 +1232,20 @@ function ProductStatusDashboard({
             : scenarioState.status,
       statusLabel:
         scenarioState.status === "idle" || scenarioState.status === "empty"
-          ? "No what-if scenarios"
+          ? "还没有假设方案"
           : undefined,
       nextAction:
         scenarioState.status === "ready"
-          ? "Compare saved scenario assumptions and advisor warnings."
-          : "Create scenario from a candidate program.",
+          ? "比较已保存方案的假设和顾问警告。"
+          : "从候选项目创建假设方案。",
       href: "#what-if-planning",
-      actionLabel: "Create scenario",
+      actionLabel: "创建假设方案",
       advisoryLabels: ["ADVISORY_ONLY"],
     },
   ];
 
   return (
-    <section className="product-status" aria-label="Product status dashboard">
+    <section className="product-status" aria-label="产品状态仪表盘">
       {cards.map((card) => (
         <StatusCard key={card.ariaLabel} card={card} />
       ))}
@@ -1242,7 +1254,7 @@ function ProductStatusDashboard({
 }
 
 function StatusCard({ card }: { card: ProductStatusCard }) {
-  const badge = getAcademicStatusBadge(card.status);
+  const badge = localizeStatusBadge(card.status);
   const displayBadge = {
     ...badge,
     label: card.statusLabel ?? badge.label,
@@ -1255,7 +1267,7 @@ function StatusCard({ card }: { card: ProductStatusCard }) {
       </div>
       <p>{card.explanation}</p>
       <p>
-        <strong>Next action:</strong> {card.nextAction}
+        <strong>下一步：</strong> {card.nextAction}
       </p>
       {card.advisoryLabels ? (
         <AdvisoryLabels keys={card.advisoryLabels} />
@@ -1272,7 +1284,7 @@ function StatusBadge({
   tone,
 }: {
   label: string;
-  tone: ReturnType<typeof getAcademicStatusBadge>["tone"];
+  tone: ReturnType<typeof localizeStatusBadge>["tone"];
 }) {
   return <span className={`ui-status-badge tone-${tone}`}>{label}</span>;
 }
@@ -1280,7 +1292,7 @@ function StatusBadge({
 function AdvisoryLabels({ keys }: { keys: AdvisoryLabelKey[] }) {
   return (
     <ul className="advisory-labels">
-      {getAdvisoryLabels(keys).map((label) => (
+      {getZhCnAdvisoryLabels(keys).map((label) => (
         <li key={label.text} className={`advisory-label tone-${label.tone}`}>
           {label.text}
         </li>
@@ -1296,16 +1308,16 @@ function EmptyState({
   copyKey: AcademicEmptyStateKey;
   ariaLabel: string;
 }) {
-  const copy = getAcademicEmptyStateCopy(copyKey);
+  const copy = getZhCnEmptyStateCopy(copyKey);
   return (
     <section className="state-panel empty-state" aria-label={ariaLabel}>
       <h2>{copy.title}</h2>
       <p>{copy.explanation}</p>
       <p>
-        <strong>Reason:</strong> {copy.reason}
+        <strong>原因：</strong> {copy.reason}
       </p>
       <p>
-        <strong>Next step:</strong> {copy.nextAction}
+        <strong>下一步：</strong> {copy.nextAction}
       </p>
       <p className="advisory-note">{copy.disclaimer}</p>
     </section>
@@ -1332,7 +1344,7 @@ function WhatIfAnalysis({
     if (!apiBaseUrl) {
       setScenarioState({
         status: "failed",
-        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
       });
       return;
     }
@@ -1391,7 +1403,7 @@ function WhatIfAnalysis({
     if (!apiBaseUrl) {
       setScenarioState({
         status: "failed",
-        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
       });
       return;
     }
@@ -1404,7 +1416,7 @@ function WhatIfAnalysis({
       if (savedScenarios.length < 2) {
         setScenarioState({
           status: "empty",
-          message: "At least two saved scenarios are needed.",
+          message: "至少需要两个已保存的假设方案。",
         });
         return;
       }
@@ -1419,7 +1431,7 @@ function WhatIfAnalysis({
           ? { ...current, comparisons, savedScenarios }
           : {
               status: "empty",
-              message: "Create a scenario before comparing saved results.",
+              message: "请先创建一个假设方案，再比较已保存结果。",
             },
       );
     } catch (error: unknown) {
@@ -1434,66 +1446,62 @@ function WhatIfAnalysis({
     <section
       className="what-if-panel"
       id="what-if-planning"
-      aria-label="Explore Programs What-if Analysis"
+      aria-label="项目探索与假设分析"
     >
       <div className="section-heading">
         <div>
-          <h2>Explore Programs / What-if Analysis</h2>
-          <p className="subtle">
-            Estimated additional credits do not predict graduation timing.
-          </p>
+          <h2>项目探索 / 假设分析</h2>
+          <p className="subtle">预计额外学分不等同于毕业时间预测。</p>
         </div>
-        <p className="notice compact">Advisor confirmation may be required.</p>
+        <p className="notice compact">可能需要顾问确认。</p>
       </div>
 
       <div className="scenario-controls">
         <label>
-          Candidate program
+          候选项目
           <select
             value={selectedCandidateId}
             onChange={(event) => setSelectedCandidateId(event.target.value)}
           >
             {candidatePrograms.map((candidate) => (
               <option key={candidate.id} value={candidate.id}>
-                {candidate.label}
+                {localizeDemoOptionLabel(
+                  "candidateProgram",
+                  candidate.id,
+                  candidate.label,
+                )}
               </option>
             ))}
           </select>
         </label>
         <button type="button" onClick={() => void handleCreateScenario()}>
-          Create scenario
+          创建假设方案
         </button>
         <button type="button" onClick={() => void handleCompareSaved()}>
-          Compare saved scenarios
+          比较已保存方案
         </button>
       </div>
 
       {scenarioState.status === "idle" ? (
-        <EmptyState
-          copyKey="NO_WHAT_IF_SCENARIOS"
-          ariaLabel="What-if scenarios empty state"
-        />
+        <EmptyState copyKey="NO_WHAT_IF_SCENARIOS" ariaLabel="假设方案空状态" />
       ) : null}
 
       {scenarioState.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Creating scenario</h2>
-          <p>Running mock what-if audits and allocation.</p>
+          <h2>正在创建假设方案</h2>
+          <p>正在运行模拟假设审核和课程分配。</p>
         </section>
       ) : null}
 
       {scenarioState.status === "failed" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>What-if scenario unavailable</h2>
+          <h2>假设方案不可用</h2>
           <p>{scenarioState.message}</p>
         </section>
       ) : null}
 
       {scenarioState.status === "empty" ? (
-        <EmptyState
-          copyKey="NO_WHAT_IF_SCENARIOS"
-          ariaLabel="What-if scenarios empty state"
-        />
+        <EmptyState copyKey="NO_WHAT_IF_SCENARIOS" ariaLabel="假设方案空状态" />
       ) : null}
 
       {scenarioState.status === "ready" ? (
@@ -1525,7 +1533,7 @@ function CourseEligibilityChecker({
     if (!apiBaseUrl) {
       setEligibilityState({
         status: "offline",
-        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
       });
       return;
     }
@@ -1565,7 +1573,7 @@ function CourseEligibilityChecker({
     if (!apiBaseUrl) {
       setEligibilityState({
         status: "offline",
-        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
       });
       return;
     }
@@ -1581,7 +1589,7 @@ function CourseEligibilityChecker({
       if (history.length === 0) {
         setEligibilityState({
           status: "empty",
-          message: "No course eligibility checks have been created yet.",
+          message: "还没有创建课程资格检查。",
         });
         return;
       }
@@ -1600,76 +1608,72 @@ function CourseEligibilityChecker({
   }
 
   return (
-    <section
-      className="eligibility-panel"
-      aria-label="Course Eligibility Checker"
-    >
+    <section className="eligibility-panel" aria-label="课程资格检查">
       <div className="section-heading">
         <div>
-          <h2>Course Eligibility</h2>
-          <p className="subtle">
-            Mock estimate only; confirm official rules with the school or an
-            advisor.
-          </p>
+          <h2>课程资格</h2>
+          <p className="subtle">仅为模拟估算；官方规则请向学校或顾问确认。</p>
         </div>
-        <p className="notice compact">
-          Section seats are separate from academic eligibility.
-        </p>
+        <p className="notice compact">课节座位状态与学业资格分开判断。</p>
       </div>
 
       <div className="scenario-controls">
         <label>
-          Course check
+          检查课程
           <select
             value={selectedCourseId}
             onChange={(event) => setSelectedCourseId(event.target.value)}
           >
             {candidateCourses.map((candidate) => (
               <option key={candidate.id} value={candidate.id}>
-                {candidate.label}
+                {localizeDemoOptionLabel(
+                  "candidateCourse",
+                  candidate.id,
+                  candidate.label,
+                )}
               </option>
             ))}
           </select>
         </label>
         <button type="button" onClick={() => void handleRunEligibility()}>
-          Check eligibility
+          检查资格
         </button>
         <button type="button" onClick={() => void handleLoadHistory()}>
-          Load history
+          加载历史
         </button>
       </div>
 
       {eligibilityState.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Checking eligibility</h2>
-          <p>Evaluating stored mock course rules and expression evidence.</p>
+          <h2>正在检查资格</h2>
+          <p>正在评估已保存的模拟课程规则和表达式证据。</p>
         </section>
       ) : null}
 
       {eligibilityState.status === "offline" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Eligibility API offline</h2>
+          <h2>课程资格 API 离线</h2>
           <p>{eligibilityState.message}</p>
         </section>
       ) : null}
 
       {eligibilityState.status === "failed" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Eligibility check failed</h2>
+          <h2>课程资格检查失败</h2>
           <p>{eligibilityState.message}</p>
         </section>
       ) : null}
 
       {eligibilityState.status === "schema-error" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Eligibility schema error</h2>
+          <h2>课程资格结构错误</h2>
           <p>{eligibilityState.message}</p>
         </section>
       ) : null}
 
       {eligibilityState.status === "empty" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>No eligibility checks</h2>
+          <h2>还没有资格检查</h2>
           <p>{eligibilityState.message}</p>
         </section>
       ) : null}
@@ -1690,58 +1694,44 @@ function EligibilityResultView({
   const availability = result.registration_availability;
   return (
     <div className="eligibility-result">
-      <section className="summary-grid" aria-label="Course eligibility summary">
-        <SummaryMetric label="Mode" value={statusLabel(result.mode)} />
+      <section className="summary-grid" aria-label="课程资格摘要">
+        <SummaryMetric label="模式" value={statusLabel(result.mode)} />
         <SummaryMetric
-          label="Result"
+          label="结果"
           value={statusLabel(result.overall_result)}
         />
         <SummaryMetric
-          label="Academic Result"
+          label="学业资格结果"
           value={statusLabel(result.academic_eligibility_result)}
         />
         <SummaryMetric
-          label="Section Status"
+          label="课节状态"
           value={
-            availability
-              ? statusLabel(availability.section_status)
-              : "Course only"
+            availability ? statusLabel(availability.section_status) : "仅课程"
           }
         />
         <SummaryMetric
-          label="Available Seats"
+          label="可用座位"
           value={
             availability?.available_seats === undefined ||
             availability?.available_seats === null
-              ? "Not reported"
+              ? "未报告"
               : String(availability.available_seats)
           }
         />
-        <SummaryMetric
-          label="Warnings"
-          value={String(result.warnings.length)}
-        />
+        <SummaryMetric label="警告" value={String(result.warnings.length)} />
       </section>
 
       <section className="eligibility-columns">
         <div>
-          <h2>Reasons</h2>
-          <ReasonList title="Blocking" reasons={result.blocking_reasons} />
-          <ReasonList
-            title="Conditional"
-            reasons={result.conditional_reasons}
-          />
-          <ReasonList
-            title="Permission"
-            reasons={result.permissions_required}
-          />
-          <ReasonList
-            title="Manual Review"
-            reasons={result.manual_review_reasons}
-          />
+          <h2>原因</h2>
+          <ReasonList title="阻塞原因" reasons={result.blocking_reasons} />
+          <ReasonList title="条件原因" reasons={result.conditional_reasons} />
+          <ReasonList title="许可要求" reasons={result.permissions_required} />
+          <ReasonList title="人工审核" reasons={result.manual_review_reasons} />
         </div>
         <div>
-          <h2>Rule Evidence</h2>
+          <h2>规则证据</h2>
           {result.rule_evaluations.length > 0 ? (
             result.rule_evaluations.map((rule) => (
               <details key={rule.id} className="eligibility-rule">
@@ -1763,13 +1753,11 @@ function EligibilityResultView({
               </details>
             ))
           ) : (
-            <p className="subtle">
-              No stored rules were found for this course scope.
-            </p>
+            <p className="subtle">当前课程范围没有找到已保存的规则。</p>
           )}
         </div>
         <div>
-          <h2>Warnings</h2>
+          <h2>警告</h2>
           {result.warnings.length > 0 ? (
             <ul className="compact-list">
               {result.warnings.map((warning) => (
@@ -1780,14 +1768,14 @@ function EligibilityResultView({
               ))}
             </ul>
           ) : (
-            <p className="subtle">No eligibility warnings.</p>
+            <p className="subtle">没有资格警告。</p>
           )}
         </div>
       </section>
 
       {state.history.length > 1 ? (
-        <section className="comparison-table" aria-label="Eligibility history">
-          <h2>Recent Eligibility Checks</h2>
+        <section className="comparison-table" aria-label="资格检查历史">
+          <h2>最近的资格检查</h2>
           <div className="comparison-rows">
             {state.history.slice(0, 4).map((item) => (
               <div key={item.id} className="comparison-row">
@@ -1878,9 +1866,7 @@ function AcademicPlanner({
       (program) => program.id === scope.candidateProgramId,
     );
     if (!candidate) {
-      throw new ApiRequestError(
-        "Planner what-if candidate program is not configured.",
-      );
+      throw new ApiRequestError("规划器的假设候选项目未配置。");
     }
 
     const scenario = await createAcademicScenario(
@@ -1924,7 +1910,7 @@ function AcademicPlanner({
     if (!apiBaseUrl) {
       setPlannerState({
         status: "offline",
-        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
       });
       return;
     }
@@ -1966,7 +1952,7 @@ function AcademicPlanner({
     if (!apiBaseUrl) {
       setPlannerState({
         status: "offline",
-        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
       });
       return;
     }
@@ -1981,7 +1967,7 @@ function AcademicPlanner({
       if (savedPlans.length < 2) {
         setPlannerState({
           status: "empty",
-          message: "At least two saved academic plans are needed.",
+          message: "至少需要两个已保存的学业规划。",
         });
         return;
       }
@@ -1995,7 +1981,7 @@ function AcademicPlanner({
           ? { ...current, comparisons, savedPlans }
           : {
               status: "empty",
-              message: "Create an academic plan before comparing saved plans.",
+              message: "请先创建学业规划，再比较已保存规划。",
             },
       );
     } catch (error: unknown) {
@@ -2008,42 +1994,39 @@ function AcademicPlanner({
   }
 
   return (
-    <section className="planner-panel" aria-label="Long-Term Academic Planner">
+    <section className="planner-panel" aria-label="长期学业规划">
       <div className="section-heading">
         <div>
-          <h2>Long-Term Academic Planner</h2>
-          <p className="subtle">
-            Generate an explainable term-by-term mock plan from remaining degree
-            requirements.
-          </p>
+          <h2>长期学业规划</h2>
+          <p className="subtle">根据剩余毕业要求生成可解释的逐学期模拟规划。</p>
         </div>
-        <p className="notice compact">This plan is not registration.</p>
+        <p className="notice compact">此规划不会注册课程。</p>
       </div>
 
-      <ul className="disclaimer-list" aria-label="Academic planner disclaimers">
-        <li>Mock data — not official university policy.</li>
-        <li>This plan is not registration.</li>
-        <li>This plan does not check weekly schedule conflicts.</li>
-        <li>Course offering predictions are estimates.</li>
-        <li>Advisor confirmation may be required.</li>
+      <ul className="disclaimer-list" aria-label="学业规划免责声明">
+        <li>模拟数据 — 不是官方学校政策。</li>
+        <li>此规划不会注册课程，也不会 add/drop/swap/waitlist。</li>
+        <li>此规划不会检查每周课表冲突。</li>
+        <li>课程开设预测仅为估算。</li>
+        <li>可能需要顾问确认。</li>
       </ul>
 
       <div className="scenario-controls planner-controls">
         <label>
-          Planning scope
+          规划范围
           <select
             value={selectedPlannerScopeId}
             onChange={(event) => setSelectedPlannerScopeId(event.target.value)}
           >
             {plannerScopes.map((scope) => (
               <option key={scope.id} value={scope.id}>
-                {scope.label}
+                {localizeDemoOptionLabel("plannerScope", scope.id, scope.label)}
               </option>
             ))}
           </select>
         </label>
         <label>
-          Start term
+          开始学期
           <select
             value={selectedPlannerStartTermId}
             onChange={(event) =>
@@ -2052,13 +2035,13 @@ function AcademicPlanner({
           >
             {plannerStartTerms.map((term) => (
               <option key={term.id} value={term.id}>
-                {term.label}
+                {localizeDemoOptionLabel("term", term.label, term.label)}
               </option>
             ))}
           </select>
         </label>
         <label>
-          Terms
+          学期数
           <input
             min={1}
             max={16}
@@ -2068,7 +2051,7 @@ function AcademicPlanner({
           />
         </label>
         <label>
-          Min credits
+          最低学分
           <input
             min={0}
             type="number"
@@ -2077,7 +2060,7 @@ function AcademicPlanner({
           />
         </label>
         <label>
-          Preferred credits
+          偏好学分
           <input
             min={0}
             type="number"
@@ -2088,7 +2071,7 @@ function AcademicPlanner({
           />
         </label>
         <label>
-          Max credits
+          最高学分
           <input
             min={0}
             type="number"
@@ -2097,47 +2080,44 @@ function AcademicPlanner({
           />
         </label>
         <button type="button" onClick={() => void handleCreatePlan()}>
-          Create plan
+          创建规划
         </button>
         <button type="button" onClick={() => void handleComparePlans()}>
-          Compare saved plans
+          比较已保存规划
         </button>
       </div>
 
       {plannerState.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Creating academic plan</h2>
-          <p>
-            Evaluating degree audit gaps, prerequisite unlocks, and term
-            capacity.
-          </p>
+          <h2>正在创建学业规划</h2>
+          <p>正在评估学业审核缺口、先修解锁情况和学期容量。</p>
         </section>
       ) : null}
 
       {plannerState.status === "offline" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Academic planner API offline</h2>
+          <h2>学业规划 API 离线</h2>
           <p>{plannerState.message}</p>
         </section>
       ) : null}
 
       {plannerState.status === "failed" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Academic planner failed</h2>
+          <h2>学业规划失败</h2>
           <p>{plannerState.message}</p>
         </section>
       ) : null}
 
       {plannerState.status === "schema-error" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Academic planner schema error</h2>
+          <h2>学业规划结构错误</h2>
           <p>{plannerState.message}</p>
         </section>
       ) : null}
 
       {plannerState.status === "empty" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>No saved plans</h2>
+          <h2>还没有已保存规划</h2>
           <p>{plannerState.message}</p>
         </section>
       ) : null}
@@ -2162,33 +2142,28 @@ function AcademicPlanResultView({
 
   return (
     <div className="planner-result">
-      <section className="summary-grid" aria-label="Academic plan summary">
-        <SummaryMetric label="Plan Status" value={statusLabel(plan.status)} />
+      <section className="summary-grid" aria-label="学业规划摘要">
+        <SummaryMetric label="规划状态" value={statusLabel(plan.status)} />
         <SummaryMetric
-          label="Planning Mode"
+          label="规划模式"
           value={statusLabel(plan.planning_mode)}
         />
-        <SummaryMetric label="Terms" value={String(plan.terms.length)} />
+        <SummaryMetric label="学期数" value={String(plan.terms.length)} />
         <SummaryMetric
-          label="Planned Courses"
+          label="已规划课程"
           value={String(plan.planned_courses.length)}
         />
         <SummaryMetric
-          label="Planned Credits"
+          label="已规划学分"
           value={formatCredits(String(totalPlannedCredits))}
         />
-        <SummaryMetric label="Warnings" value={String(plan.warnings.length)} />
+        <SummaryMetric label="警告" value={String(plan.warnings.length)} />
       </section>
 
-      <section
-        className="planner-term-grid"
-        aria-label="Term-by-term academic plan"
-      >
-        <h2>Term-by-Term Plan</h2>
+      <section className="planner-term-grid" aria-label="逐学期学业规划">
+        <h2>逐学期规划</h2>
         {plan.planned_courses.length === 0 ? (
-          <p className="subtle">
-            No planner courses were generated for the selected settings.
-          </p>
+          <p className="subtle">当前设置没有生成规划课程。</p>
         ) : null}
         <div className="term-columns">
           {plan.terms.map((term) => {
@@ -2203,7 +2178,7 @@ function AcademicPlanResultView({
                     {statusLabel(term.status)}
                   </span>
                 </div>
-                <p>{formatCredits(term.planned_credits)} planned credits</p>
+                <p>{formatCredits(term.planned_credits)} 已规划学分</p>
                 {courses.length > 0 ? (
                   <ul className="compact-list">
                     {courses.map((course) => (
@@ -2211,7 +2186,7 @@ function AcademicPlanResultView({
                         <strong>{course.course_code}</strong>
                         <span>
                           {course.course_title} ·{" "}
-                          {formatCredits(course.credits)} credits
+                          {formatCredits(course.credits)} 学分
                         </span>
                         <span>
                           {statusLabel(course.planning_status)} ·{" "}
@@ -2221,7 +2196,7 @@ function AcademicPlanResultView({
                     ))}
                   </ul>
                 ) : (
-                  <p className="subtle">No courses placed in this term.</p>
+                  <p className="subtle">此学期没有放入课程。</p>
                 )}
               </section>
             );
@@ -2231,7 +2206,7 @@ function AcademicPlanResultView({
 
       <section className="planner-columns">
         <div>
-          <h2>Requirement Coverage</h2>
+          <h2>毕业要求覆盖</h2>
           {plan.requirement_coverage.length > 0 ? (
             <ul className="compact-list">
               {plan.requirement_coverage.map((coverage) => (
@@ -2240,17 +2215,17 @@ function AcademicPlanResultView({
                   <span>
                     {statusLabel(coverage.coverage_type)} ·{" "}
                     {formatCredits(coverage.credits)}
-                    credits
+                    学分
                   </span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="subtle">No requirement coverage was created.</p>
+            <p className="subtle">还没有生成毕业要求覆盖。</p>
           )}
         </div>
         <div>
-          <h2>Planner Warnings</h2>
+          <h2>规划警告</h2>
           {plan.warnings.length > 0 ? (
             <ul className="compact-list">
               {plan.warnings.map((warning) => (
@@ -2261,17 +2236,14 @@ function AcademicPlanResultView({
               ))}
             </ul>
           ) : (
-            <p className="subtle">No planner warnings.</p>
+            <p className="subtle">没有规划警告。</p>
           )}
         </div>
       </section>
 
       {state.comparisons.length > 0 ? (
-        <section
-          className="comparison-table"
-          aria-label="Saved academic plan comparison"
-        >
-          <h2>Saved Plan Comparison</h2>
+        <section className="comparison-table" aria-label="已保存学业规划比较">
+          <h2>已保存规划比较</h2>
           <div className="comparison-rows">
             {state.comparisons.map((comparison) => {
               const savedPlan = state.savedPlans.find(
@@ -2287,8 +2259,8 @@ function AcademicPlanResultView({
                       comparison.academic_plan_run_id}
                   </strong>
                   <span>
-                    {formatCredits(comparison.total_planned_credits)} planned
-                    credits · {comparison.warning_count} warnings
+                    {formatCredits(comparison.total_planned_credits)} 已规划学分
+                    · {comparison.warning_count} 个警告
                   </span>
                 </div>
               );
@@ -2373,7 +2345,7 @@ function SemesterScheduleBuilder({
     if (!apiBaseUrl) {
       setScheduleState({
         status: "offline",
-        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
       });
       return;
     }
@@ -2459,7 +2431,7 @@ function SemesterScheduleBuilder({
     if (!apiBaseUrl) {
       setScheduleState({
         status: "offline",
-        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
       });
       return;
     }
@@ -2474,7 +2446,7 @@ function SemesterScheduleBuilder({
       if (savedRuns.length < 2) {
         setScheduleState({
           status: "empty",
-          message: "At least two saved schedule runs are needed.",
+          message: "至少需要两个已保存的课表运行结果。",
         });
         return;
       }
@@ -2492,8 +2464,7 @@ function SemesterScheduleBuilder({
           ? { ...current, comparisons, savedRuns }
           : {
               status: "empty",
-              message:
-                "Create a schedule before comparing saved schedule runs.",
+              message: "请先生成课表，再比较已保存的课表运行结果。",
             },
       );
     } catch (error: unknown) {
@@ -2509,30 +2480,28 @@ function SemesterScheduleBuilder({
     <section
       className="schedule-panel"
       id="schedule-optimization"
-      aria-label="Semester Schedule Builder"
+      aria-label="学期课表优化"
     >
       <div className="section-heading">
         <div>
-          <h2>Semester Schedule Builder</h2>
-          <p className="subtle">
-            Build explainable single-term section options from mock section
-            data.
-          </p>
+          <h2>学期课表优化</h2>
+          <p className="subtle">根据模拟课节数据生成可解释的单学期课表选项。</p>
         </div>
-        <p className="notice compact">This is not registration.</p>
+        <p className="notice compact">这不是选课注册。</p>
       </div>
 
-      <ul className="disclaimer-list" aria-label="Schedule builder disclaimers">
-        <li>Mock data — not official university policy.</li>
-        <li>Generated schedules are not registration.</li>
-        <li>Seat availability is separate from academic eligibility.</li>
-        <li>This tool does not perform add/drop or waitlist actions.</li>
-        <li>Advisor confirmation may be required.</li>
+      <ul className="disclaimer-list" aria-label="课表优化免责声明">
+        <li>模拟数据 — 不是官方学校政策。</li>
+        <li>生成的课表不是选课注册。</li>
+        <li>座位可用性与学业资格分开判断。</li>
+        <li>此工具不会 add/drop/swap/waitlist。</li>
+        <li>此工具不会抢课或占座。</li>
+        <li>可能需要顾问确认。</li>
       </ul>
 
       <div className="scenario-controls schedule-controls">
         <label>
-          Course set
+          课程集合
           <select
             value={selectedSchedulePresetId}
             onChange={(event) =>
@@ -2541,7 +2510,11 @@ function SemesterScheduleBuilder({
           >
             {schedulePresets.map((preset) => (
               <option key={preset.id} value={preset.id}>
-                {preset.label}
+                {localizeDemoOptionLabel(
+                  "schedulePreset",
+                  preset.id,
+                  preset.label,
+                )}
               </option>
             ))}
           </select>
@@ -2552,7 +2525,7 @@ function SemesterScheduleBuilder({
             type="checkbox"
             onChange={(event) => setScheduleNoFriday(event.target.checked)}
           />
-          No Friday
+          避开周五
         </label>
         <label className="toggle-row">
           <input
@@ -2562,7 +2535,7 @@ function SemesterScheduleBuilder({
               setScheduleAvoidTuesdayBlock(event.target.checked)
             }
           />
-          Tue 11:00 block
+          周二 11:00 不可用
         </label>
         <label className="toggle-row">
           <input
@@ -2570,7 +2543,7 @@ function SemesterScheduleBuilder({
             type="checkbox"
             onChange={(event) => setSchedulePreferOnline(event.target.checked)}
           />
-          Prefer online
+          偏好在线
         </label>
         <label className="toggle-row">
           <input
@@ -2578,7 +2551,7 @@ function SemesterScheduleBuilder({
             type="checkbox"
             onChange={(event) => setSchedulePreferCompact(event.target.checked)}
           />
-          Compact
+          紧凑课表
         </label>
         <label className="toggle-row">
           <input
@@ -2588,7 +2561,7 @@ function SemesterScheduleBuilder({
               setSchedulePreferFewerDays(event.target.checked)
             }
           />
-          Fewer days
+          更少上课天数
         </label>
         <label className="toggle-row">
           <input
@@ -2596,7 +2569,7 @@ function SemesterScheduleBuilder({
             type="checkbox"
             onChange={(event) => setSchedulePreferNoGaps(event.target.checked)}
           />
-          No gaps
+          减少空档
         </label>
         <label className="toggle-row">
           <input
@@ -2604,7 +2577,7 @@ function SemesterScheduleBuilder({
             type="checkbox"
             onChange={(event) => setSchedulePreferMorning(event.target.checked)}
           />
-          Morning
+          上午
         </label>
         <label className="toggle-row">
           <input
@@ -2614,10 +2587,10 @@ function SemesterScheduleBuilder({
               setSchedulePreferAfternoon(event.target.checked)
             }
           />
-          Afternoon
+          下午
         </label>
         <label>
-          Pinned section
+          固定课节
           <select
             value={schedulePinnedSectionChoiceId}
             onChange={(event) =>
@@ -2626,13 +2599,17 @@ function SemesterScheduleBuilder({
           >
             {scheduleSectionChoices.slice(0, 3).map((choice) => (
               <option key={choice.id} value={choice.id}>
-                {choice.label}
+                {localizeDemoOptionLabel(
+                  "scheduleSectionChoice",
+                  choice.id,
+                  choice.label,
+                )}
               </option>
             ))}
           </select>
         </label>
         <label>
-          Excluded section
+          排除课节
           <select
             value={scheduleExcludedSectionChoiceId}
             onChange={(event) =>
@@ -2646,13 +2623,17 @@ function SemesterScheduleBuilder({
               )
               .map((choice) => (
                 <option key={choice.id} value={choice.id}>
-                  {choice.label}
+                  {localizeDemoOptionLabel(
+                    "scheduleSectionChoice",
+                    choice.id,
+                    choice.label,
+                  )}
                 </option>
               ))}
           </select>
         </label>
         <label>
-          Diversity
+          多样性
           <select
             value={scheduleDiversityMode}
             onChange={(event) =>
@@ -2661,8 +2642,8 @@ function SemesterScheduleBuilder({
               )
             }
           >
-            <option value="HIGH">High</option>
-            <option value="STANDARD">Standard</option>
+            <option value="HIGH">高</option>
+            <option value="STANDARD">标准</option>
           </select>
         </label>
         <label className="toggle-row">
@@ -2673,50 +2654,47 @@ function SemesterScheduleBuilder({
               setScheduleAllowPartialOptions(event.target.checked)
             }
           />
-          Partial options
+          允许部分方案
         </label>
         <button type="button" onClick={() => void handleCreateSchedule()}>
-          Build schedule
+          生成课表
         </button>
         <button type="button" onClick={() => void handleCompareSchedules()}>
-          Compare saved schedules
+          比较已保存课表
         </button>
       </div>
 
       {scheduleState.status === "idle" ? (
         <EmptyState
           copyKey="NO_GENERATED_SCHEDULE_PLANS"
-          ariaLabel="Schedule plans empty state"
+          ariaLabel="课表方案空状态"
         />
       ) : null}
 
       {scheduleState.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Building semester schedule</h2>
-          <p>
-            Checking mock section meetings, eligibility, conflicts, and
-            preferences.
-          </p>
+          <h2>正在生成学期课表</h2>
+          <p>正在检查模拟课节时间、资格、冲突和偏好。</p>
         </section>
       ) : null}
 
       {scheduleState.status === "offline" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Schedule optimizer API offline</h2>
+          <h2>课表优化 API 离线</h2>
           <p>{scheduleState.message}</p>
         </section>
       ) : null}
 
       {scheduleState.status === "failed" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Schedule optimizer failed</h2>
+          <h2>课表优化失败</h2>
           <p>{scheduleState.message}</p>
         </section>
       ) : null}
 
       {scheduleState.status === "schema-error" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Schedule optimizer schema error</h2>
+          <h2>课表优化结构错误</h2>
           <p>{scheduleState.message}</p>
         </section>
       ) : null}
@@ -2724,7 +2702,7 @@ function SemesterScheduleBuilder({
       {scheduleState.status === "empty" ? (
         <EmptyState
           copyKey="NO_GENERATED_SCHEDULE_PLANS"
-          ariaLabel="Schedule plans empty state"
+          ariaLabel="课表方案空状态"
         />
       ) : null}
 
@@ -2745,91 +2723,74 @@ function ScheduleResultView({
 
   return (
     <div className="schedule-result">
-      <section
-        className="summary-grid"
-        aria-label="Schedule optimization summary"
-      >
+      <section className="summary-grid" aria-label="课表优化摘要">
+        <SummaryMetric label="运行状态" value={statusLabel(schedule.status)} />
+        <SummaryMetric label="方案数" value={String(schedule.options.length)} />
+        <SummaryMetric label="冲突" value={String(schedule.conflicts.length)} />
+        <SummaryMetric label="警告" value={String(schedule.warnings.length)} />
         <SummaryMetric
-          label="Run Status"
-          value={statusLabel(schedule.status)}
-        />
-        <SummaryMetric
-          label="Options"
-          value={String(schedule.options.length)}
-        />
-        <SummaryMetric
-          label="Conflicts"
-          value={String(schedule.conflicts.length)}
-        />
-        <SummaryMetric
-          label="Warnings"
-          value={String(schedule.warnings.length)}
-        />
-        <SummaryMetric
-          label="Best Credits"
+          label="最佳方案学分"
           value={bestOption ? formatCredits(bestOption.total_credits) : "0.0"}
         />
         <SummaryMetric
-          label="Best Score"
+          label="最佳分数"
           value={bestOption ? Number(bestOption.score).toFixed(2) : "0.00"}
         />
       </section>
 
-      <section className="schedule-options" aria-label="Schedule options">
-        <h2>Section Options</h2>
+      <section className="schedule-options" aria-label="课表方案">
+        <h2>课节方案</h2>
         {schedule.options.length === 0 ? (
-          <p className="subtle">No feasible section option was created.</p>
+          <p className="subtle">没有生成可行的课节方案。</p>
         ) : null}
         <div className="schedule-option-grid">
           {schedule.options.map((option) => (
             <section key={option.id} className="schedule-option">
               <div className="term-heading">
-                <h3>Option {option.option_rank}</h3>
+                <h3>方案 {option.option_rank}</h3>
                 <span className={`status-pill ${option.status.toLowerCase()}`}>
                   {statusLabel(option.status)}
                 </span>
               </div>
               <p>
-                {formatCredits(option.total_credits)} credits -{" "}
-                {option.class_days_count} class days - score{" "}
+                {formatCredits(option.total_credits)} 学分 -{" "}
+                {option.class_days_count} 个上课日 - 分数{" "}
                 {Number(option.total_score).toFixed(2)}
               </p>
               <p className="subtle">{option.explanation}</p>
               <p className="subtle">
-                Diversity {option.diversity_rank}: {option.difference_summary}
+                多样性 {option.diversity_rank}：{option.difference_summary}
               </p>
               <div className="score-breakdown">
                 <span>
-                  Credits{" "}
-                  {Number(option.score_breakdown.credit_score).toFixed(2)}
+                  学分 {Number(option.score_breakdown.credit_score).toFixed(2)}
                 </span>
                 <span>
-                  Compact{" "}
+                  紧凑{" "}
                   {Number(option.score_breakdown.compactness_score).toFixed(2)}
                 </span>
                 <span>
-                  Days {Number(option.score_breakdown.days_score).toFixed(2)}
+                  天数 {Number(option.score_breakdown.days_score).toFixed(2)}
                 </span>
                 <span>
-                  Gaps {Number(option.score_breakdown.gap_score).toFixed(2)}
+                  空档 {Number(option.score_breakdown.gap_score).toFixed(2)}
                 </span>
                 <span>
-                  Modality{" "}
+                  授课形式{" "}
                   {Number(option.score_breakdown.modality_score).toFixed(2)}
                 </span>
                 <span>
-                  Time{" "}
+                  时间{" "}
                   {Number(option.score_breakdown.time_preference_score).toFixed(
                     2,
                   )}
                 </span>
                 <span>
-                  Priority{" "}
+                  优先级{" "}
                   {Number(option.score_breakdown.priority_score).toFixed(2)}
                 </span>
                 <span>
-                  Penalty{" "}
-                  {Number(option.score_breakdown.penalty_score).toFixed(2)}
+                  惩罚 {Number(option.score_breakdown.penalty_score).toFixed(2)}
                 </span>
               </div>
               {option.score_explanation.length > 0 ? (
@@ -2864,19 +2825,17 @@ function ScheduleResultView({
       </section>
 
       {schedule.options.length >= 2 ? (
-        <section
-          className="comparison-table"
-          aria-label="Top schedule option comparison"
-        >
-          <h2>Top Option Comparison</h2>
+        <section className="comparison-table" aria-label="前两个课表方案比较">
+          <h2>前两个方案比较</h2>
           <div className="comparison-rows">
             {schedule.options.slice(0, 2).map((option) => (
               <div key={`${option.id}-top-compare`} className="comparison-row">
-                <strong>Option {option.option_rank}</strong>
+                <strong>方案 {option.option_rank}</strong>
                 <span>
-                  score {Number(option.total_score).toFixed(2)} -{" "}
-                  {option.shared_section_count_with_previous_option} shared with
-                  previous - {option.difference_summary}
+                  分数 {Number(option.total_score).toFixed(2)} -{" "}
+                  与前一个方案共享{" "}
+                  {option.shared_section_count_with_previous_option} 个课节 -{" "}
+                  {option.difference_summary}
                 </span>
               </div>
             ))}
@@ -2886,7 +2845,7 @@ function ScheduleResultView({
 
       <section className="planner-columns">
         <div>
-          <h2>Conflicts</h2>
+          <h2>冲突</h2>
           {schedule.conflicts.length > 0 ? (
             <ul className="compact-list">
               {schedule.conflicts.map((conflict) => (
@@ -2897,11 +2856,11 @@ function ScheduleResultView({
               ))}
             </ul>
           ) : (
-            <p className="subtle">No conflicts were recorded.</p>
+            <p className="subtle">没有记录到冲突。</p>
           )}
         </div>
         <div>
-          <h2>Schedule Warnings</h2>
+          <h2>课表警告</h2>
           {schedule.warnings.length > 0 ? (
             <ul className="compact-list">
               {schedule.warnings.map((warning) => (
@@ -2912,17 +2871,14 @@ function ScheduleResultView({
               ))}
             </ul>
           ) : (
-            <p className="subtle">No schedule warnings.</p>
+            <p className="subtle">没有课表警告。</p>
           )}
         </div>
       </section>
 
       {schedule.repair_suggestions.length > 0 ? (
-        <section
-          className="comparison-table"
-          aria-label="Schedule repair suggestions"
-        >
-          <h2>Repair Suggestions</h2>
+        <section className="comparison-table" aria-label="课表修复建议">
+          <h2>修复建议</h2>
           <div className="comparison-rows">
             {schedule.repair_suggestions.map((suggestion) => (
               <div key={suggestion.id} className="comparison-row">
@@ -2930,7 +2886,7 @@ function ScheduleResultView({
                 <span>
                   {suggestion.message}{" "}
                   {suggestion.requires_advisor_confirmation
-                    ? "Advisor confirmation may be required."
+                    ? "可能需要顾问确认。"
                     : ""}
                 </span>
               </div>
@@ -2940,11 +2896,8 @@ function ScheduleResultView({
       ) : null}
 
       {state.comparisons.length > 0 ? (
-        <section
-          className="comparison-table"
-          aria-label="Saved schedule comparison"
-        >
-          <h2>Saved Schedule Comparison</h2>
+        <section className="comparison-table" aria-label="已保存课表比较">
+          <h2>已保存课表比较</h2>
           <div className="comparison-rows">
             {state.comparisons.map((comparison) => {
               const savedRun = state.savedRuns.find(
@@ -2959,11 +2912,11 @@ function ScheduleResultView({
                     {savedRun?.planning_mode ?? comparison.status}
                   </strong>
                   <span>
-                    {comparison.option_count} options -{" "}
+                    {comparison.option_count} 个方案 -{" "}
                     {comparison.best_total_credits
                       ? formatCredits(comparison.best_total_credits)
                       : "0.0"}{" "}
-                    best credits - {comparison.warning_count} warnings
+                    最佳方案学分 - {comparison.warning_count} 个警告
                   </span>
                 </div>
               );
@@ -2999,7 +2952,7 @@ function DataImportPreviewPanel({
     if (!apiBaseUrl) {
       setDataImportState({
         status: "offline",
-        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
       });
       return;
     }
@@ -3052,7 +3005,7 @@ function DataImportPreviewPanel({
     if (!apiBaseUrl) {
       setDataImportState({
         status: "offline",
-        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
       });
       return;
     }
@@ -3066,7 +3019,7 @@ function DataImportPreviewPanel({
       if (savedImports.length === 0) {
         setDataImportState({
           status: "empty",
-          message: "No saved staging imports are available.",
+          message: "没有可用的已保存 staging 导入。",
         });
         return;
       }
@@ -3101,39 +3054,30 @@ function DataImportPreviewPanel({
     <section
       className="data-import-panel"
       id="data-import-preview"
-      aria-label="Data Import Preview"
+      aria-label="数据导入预览"
     >
       <div className="section-heading">
         <div>
-          <h2>Data Import Preview</h2>
-          <p className="subtle">
-            Staged records stay separate from official academic records.
-          </p>
+          <h2>数据导入预览</h2>
+          <p className="subtle">staging 记录与正式学业记录保持分离。</p>
         </div>
-        <p className="notice compact">Read-only staging boundary.</p>
+        <p className="notice compact">只读 staging 边界。</p>
       </div>
 
-      <ul className="disclaimer-list" aria-label="Data import disclaimers">
-        <li>Imported preview data is not official school policy.</li>
-        <li>
-          No transcript, catalog, section, registration, seat, or waitlist
-          records are changed.
-        </li>
-        <li>
-          Advisor or school confirmation is required before using imported
-          records for high-impact guidance.
-        </li>
+      <ul className="disclaimer-list" aria-label="数据导入免责声明">
+        <li>导入预览数据不是官方学校政策。</li>
+        <li>不会更改成绩单、目录、课节、注册、座位或候补名单记录。</li>
+        <li>导入数据先进入 staging，不直接写入正式记录。</li>
+        <li>将导入记录用于高风险学业指导前，需要顾问或学校确认。</li>
       </ul>
 
       <section
         className="browser-extension-status"
-        aria-label="Browser extension import status"
+        aria-label="浏览器插件导入状态"
       >
         <div>
-          <h2>Browser Extension Import</h2>
-          <p className="subtle">
-            Experimental source for visible-page academic tables.
-          </p>
+          <h2>浏览器插件导入</h2>
+          <p className="subtle">用于当前可见页面学业表格的实验性来源。</p>
         </div>
         <AdvisoryLabels
           keys={[
@@ -3144,17 +3088,21 @@ function DataImportPreviewPanel({
         />
         <ul className="compact-list">
           <li>
-            <strong>Experimental</strong>
-            <span>Extension extracts must enter staging import first.</span>
+            <strong>实验功能</strong>
+            <span>插件提取的数据必须先进入 staging 导入。</span>
           </li>
           <li>
-            <strong>Review</strong>
-            <span>Phase 7B review is required before application.</span>
+            <strong>人工审核</strong>
+            <span>应用前必须先完成人工审核。</span>
           </li>
           <li>
-            <strong>Boundary</strong>
+            <strong>边界</strong>
+            <span>只检查用户已经登录、主动打开并明确要求检查的页面。</span>
+          </li>
+          <li>
+            <strong>不会操作门户</strong>
             <span>
-              No registration automation, add/drop, swap, or waitlist actions.
+              不会自动注册课程，不会 add/drop/swap/waitlist，也不会抢课或占座。
             </span>
           </li>
         </ul>
@@ -3162,7 +3110,7 @@ function DataImportPreviewPanel({
 
       <div className="scenario-controls data-import-controls">
         <label>
-          Sample import
+          示例导入
           <select
             value={selectedDataImportSampleId}
             onChange={(event) =>
@@ -3171,32 +3119,31 @@ function DataImportPreviewPanel({
           >
             {dataImportSamples.map((sample) => (
               <option key={sample.id} value={sample.id}>
-                {sample.label}
+                {localizeDemoOptionLabel(
+                  "dataImportSample",
+                  sample.id,
+                  sample.label,
+                )}
               </option>
             ))}
           </select>
         </label>
         <button type="button" onClick={() => void handlePreviewImport()}>
-          Preview import
+          预览导入
         </button>
         <button type="button" onClick={() => void handleLoadSavedImports()}>
-          Load saved imports
+          加载已保存导入
         </button>
       </div>
 
       {dataImportState.status === "idle" ? (
-        <EmptyState
-          copyKey="NO_DATA_IMPORTS"
-          ariaLabel="Data import empty state"
-        />
+        <EmptyState copyKey="NO_DATA_IMPORTS" ariaLabel="数据导入空状态" />
       ) : null}
 
       {dataImportState.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Parsing import</h2>
-          <p>
-            Creating a staging preview with mapping candidates and warnings.
-          </p>
+          <h2>正在解析导入</h2>
+          <p>正在创建包含映射候选和警告的 staging 预览。</p>
         </section>
       ) : null}
 
@@ -3206,18 +3153,15 @@ function DataImportPreviewPanel({
         <section className="state-panel" aria-live="polite">
           <h2>
             {dataImportState.status === "schema-error"
-              ? "Data import schema error"
-              : "Data import unavailable"}
+              ? "数据导入结构错误"
+              : "数据导入不可用"}
           </h2>
           <p>{dataImportState.message}</p>
         </section>
       ) : null}
 
       {dataImportState.status === "empty" ? (
-        <EmptyState
-          copyKey="NO_DATA_IMPORTS"
-          ariaLabel="Data import empty state"
-        />
+        <EmptyState copyKey="NO_DATA_IMPORTS" ariaLabel="数据导入空状态" />
       ) : null}
 
       {dataImportState.status === "ready" ? (
@@ -3243,48 +3187,37 @@ function DataImportResultView({
   ).length;
   return (
     <div className="data-import-result">
-      <section
-        className="summary-grid"
-        aria-label="Data import preview summary"
-      >
+      <section className="summary-grid" aria-label="数据导入预览摘要">
+        <SummaryMetric label="导入状态" value={statusLabel(state.run.status)} />
+        <SummaryMetric label="记录数" value={String(state.run.record_count)} />
         <SummaryMetric
-          label="Import Status"
-          value={statusLabel(state.run.status)}
-        />
-        <SummaryMetric label="Records" value={String(state.run.record_count)} />
-        <SummaryMetric
-          label="Mapped Candidates"
+          label="已映射候选"
           value={String(selectedCandidateCount)}
         />
-        <SummaryMetric label="Warnings" value={String(state.warnings.length)} />
+        <SummaryMetric label="警告" value={String(state.warnings.length)} />
         <SummaryMetric
-          label="Official Application"
-          value={
-            state.preview.official_application_ready ? "Ready" : "Disabled"
-          }
+          label="正式应用"
+          value={state.preview.official_application_ready ? "就绪" : "已禁用"}
         />
         <SummaryMetric
-          label="Source Type"
-          value={state.run.source.source_type}
+          label="来源类型"
+          value={statusLabel(state.run.source.source_type)}
         />
         <SummaryMetric
-          label="Saved Imports"
+          label="已保存导入"
           value={String(state.savedImports.length)}
         />
       </section>
 
-      <section
-        className="comparison-table"
-        aria-label="Import preview disclaimers"
-      >
-        <h2>Preview Boundary</h2>
+      <section className="comparison-table" aria-label="导入预览边界">
+        <h2>预览边界</h2>
         <AdvisoryLabels
           keys={["NON_OFFICIAL_IMPORTED_DATA", "MANUAL_REVIEW_REQUIRED"]}
         />
         <ul className="compact-list">
           {state.preview.disclaimers.map((disclaimer) => (
             <li key={disclaimer}>
-              <strong>Review</strong>
+              <strong>审核</strong>
               <span>{disclaimer}</span>
             </li>
           ))}
@@ -3292,8 +3225,8 @@ function DataImportResultView({
       </section>
 
       <section className="data-import-grid">
-        <section aria-label="Data import records">
-          <h2>Imported Records</h2>
+        <section aria-label="数据导入记录">
+          <h2>导入记录</h2>
           <div className="comparison-rows">
             {state.records.map((record) => (
               <div key={record.id} className="comparison-row">
@@ -3302,22 +3235,22 @@ function DataImportResultView({
                     record.raw_label}
                 </strong>
                 <span>
-                  Row {record.row_number} · {statusLabel(record.status)} ·{" "}
+                  第 {record.row_number} 行 · {statusLabel(record.status)} ·{" "}
                   {payloadValue(record.normalized_payload, "credits") ?? "0.0"}{" "}
-                  credits
+                  学分
                 </span>
               </div>
             ))}
           </div>
         </section>
-        <section aria-label="Data import mapping candidates">
-          <h2>Mapping Candidates</h2>
+        <section aria-label="数据导入映射候选">
+          <h2>映射候选</h2>
           <div className="comparison-rows">
             {state.candidates.map((candidate) => (
               <div key={candidate.id} className="comparison-row">
                 <strong>{candidate.reason_code}</strong>
                 <span>
-                  {statusLabel(candidate.target_entity_type)} · confidence{" "}
+                  {statusLabel(candidate.target_entity_type)} · 置信度{" "}
                   {candidate.confidence_score} · {candidate.explanation}
                 </span>
               </div>
@@ -3326,8 +3259,8 @@ function DataImportResultView({
         </section>
       </section>
 
-      <section className="comparison-table" aria-label="Data import warnings">
-        <h2>Warnings</h2>
+      <section className="comparison-table" aria-label="数据导入警告">
+        <h2>警告</h2>
         {state.warnings.length > 0 ? (
           <div className="comparison-rows">
             {state.warnings.map((warning) => (
@@ -3336,14 +3269,14 @@ function DataImportResultView({
                 <span>
                   {warning.message}{" "}
                   {warning.requires_advisor_confirmation
-                    ? "Advisor confirmation required."
+                    ? "需要顾问确认。"
                     : ""}
                 </span>
               </div>
             ))}
           </div>
         ) : (
-          <p className="subtle">No import warnings.</p>
+          <p className="subtle">没有导入警告。</p>
         )}
       </section>
     </div>
@@ -3360,31 +3293,24 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
     <section
       className="section-monitoring-panel"
       id="section-monitoring"
-      aria-label="Section Monitoring"
+      aria-label="课节监控"
     >
       <div className="section-heading">
         <div>
-          <h2>Section Monitoring</h2>
-          <p className="subtle">
-            Advisory alerts from user-triggered section-search imports.
-          </p>
+          <h2>课节监控</h2>
+          <p className="subtle">来自用户触发的课节搜索导入的仅供参考提醒。</p>
         </div>
-        <p className="notice compact">Manual review required.</p>
+        <p className="notice compact">需要人工审核。</p>
       </div>
 
-      <ul
-        className="disclaimer-list"
-        aria-label="Section monitoring disclaimers"
-      >
+      <ul className="disclaimer-list" aria-label="课节监控免责声明">
         <li>
-          Section monitoring is based on user-triggered imported data and may
-          differ from the official portal. Always verify information manually in
-          the official registration portal.
+          课节监控基于用户触发的导入数据，可能不同于官方门户。请始终在官方注册门户人工核对信息。
         </li>
         <li>
-          This system does not register, drop, swap, waitlist, submit forms, or
-          perform any portal action.
+          本系统不会注册课程、drop、swap、waitlist、提交表单，也不会执行任何门户操作。
         </li>
+        <li>本系统不会抢课或占座；所有提醒仅供参考。</li>
       </ul>
 
       <AdvisoryLabels
@@ -3397,8 +3323,8 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
 
       {state.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Loading section monitoring</h2>
-          <p>Retrieving monitored sections and advisory alerts.</p>
+          <h2>正在加载课节监控</h2>
+          <p>正在获取监控课节和参考提醒。</p>
         </section>
       ) : null}
 
@@ -3408,8 +3334,8 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
         <section className="state-panel" aria-live="polite">
           <h2>
             {state.status === "schema-error"
-              ? "Section monitoring schema error"
-              : "Section monitoring unavailable"}
+              ? "课节监控结构错误"
+              : "课节监控不可用"}
           </h2>
           <p>{state.message}</p>
         </section>
@@ -3417,15 +3343,15 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
 
       {state.status === "empty" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>No section alerts</h2>
+          <h2>还没有课节提醒</h2>
           <p>{state.message}</p>
         </section>
       ) : null}
 
       {state.status === "ready" ? (
         <div className="section-monitoring-grid">
-          <section className="comparison-table" aria-label="Monitored sections">
-            <h2>Monitored Sections</h2>
+          <section className="comparison-table" aria-label="已监控课节">
+            <h2>已监控课节</h2>
             {state.targets.length > 0 ? (
               <div className="comparison-rows">
                 {state.targets.map((target) => (
@@ -3434,21 +3360,18 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
                       {target.course_code} {target.section_code}
                     </strong>
                     <span>
-                      {target.term} · {target.title ?? "Untitled section"} ·{" "}
-                      {target.status ? statusLabel(target.status) : "Unknown"}
+                      {target.term} · {target.title ?? "未命名课节"} ·{" "}
+                      {target.status ? statusLabel(target.status) : "未知"}
                     </span>
                     <span>
-                      Latest imported snapshot:{" "}
-                      {formatAcademicTimestamp(
+                      最新导入快照：{" "}
+                      {formatDisplayTimestamp(
                         target.latest_snapshot_created_at,
                       )}
                     </span>
                     <span>
-                      {target.is_active ? "Active" : "Archived"} · Advisory only
-                      ·{" "}
-                      {target.is_official
-                        ? "Official source"
-                        : "Non-official imported data"}
+                      {target.is_active ? "启用中" : "已归档"} · 仅供参考 ·{" "}
+                      {target.is_official ? "官方来源" : "非官方导入数据"}
                     </span>
                   </div>
                 ))}
@@ -3456,13 +3379,13 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
             ) : (
               <EmptyState
                 copyKey="NO_SECTION_MONITORING_TARGETS"
-                ariaLabel="Section monitoring targets empty state"
+                ariaLabel="课节监控目标空状态"
               />
             )}
           </section>
 
-          <section className="comparison-table" aria-label="Advisory alerts">
-            <h2>Advisory Alerts</h2>
+          <section className="comparison-table" aria-label="参考提醒">
+            <h2>参考提醒</h2>
             {state.alerts.length > 0 ? (
               <div className="comparison-rows">
                 {state.alerts.map((alert) => {
@@ -3475,13 +3398,11 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
                           ? `${target.course_code} ${target.section_code}`
                           : alert.target_id}{" "}
                         · {statusLabel(alert.severity)} ·{" "}
-                        {alert.is_acknowledged
-                          ? "acknowledged"
-                          : "manual review"}
+                        {alert.is_acknowledged ? "已确认" : "人工审核"}
                       </span>
                       <span>
-                        {alert.field_name ?? "Unknown section change"}:{" "}
-                        {formatBeforeAfterValue(
+                        {alert.field_name ?? "未知课节变化"}：{" "}
+                        {formatZhCnBeforeAfterValue(
                           alert.previous_value,
                           alert.current_value,
                         )}
@@ -3494,23 +3415,18 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
             ) : (
               <EmptyState
                 copyKey="NO_SECTION_MONITORING_ALERTS"
-                ariaLabel="Section monitoring alerts empty state"
+                ariaLabel="课节监控提醒空状态"
               />
             )}
           </section>
 
-          <section
-            className="comparison-table"
-            aria-label="Manual registration checklist"
-          >
-            <h2>Manual Checklist</h2>
+          <section className="comparison-table" aria-label="人工注册检查清单">
+            <h2>人工检查清单</h2>
             <ul className="compact-list">
-              <li>Open the official registration portal manually.</li>
-              <li>Verify the section status manually.</li>
-              <li>Confirm prerequisites, restrictions, and holds manually.</li>
-              <li>
-                Register manually through the official portal if appropriate.
-              </li>
+              <li>手动打开官方注册门户。</li>
+              <li>手动核对课节状态。</li>
+              <li>手动确认先修、限制和 hold。</li>
+              <li>如确实合适，请通过官方门户手动注册。</li>
             </ul>
           </section>
         </div>
@@ -3537,7 +3453,7 @@ function DataReviewPanel({
     if (!apiBaseUrl) {
       setDataReviewState({
         status: "offline",
-        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
       });
       return;
     }
@@ -3566,14 +3482,14 @@ function DataReviewPanel({
     if (!apiBaseUrl) {
       setDataReviewState({
         status: "offline",
-        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
       });
       return;
     }
     if (dataImportState.status !== "ready") {
       setDataReviewState({
         status: "empty",
-        message: "Preview or load a staging import before creating a review.",
+        message: "创建人工审核前，请先预览或加载 staging 导入。",
       });
       return;
     }
@@ -3601,7 +3517,7 @@ function DataReviewPanel({
     if (!apiBaseUrl) {
       setDataReviewState({
         status: "offline",
-        message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
       });
       return;
     }
@@ -3615,7 +3531,7 @@ function DataReviewPanel({
       if (reviews.length === 0) {
         setDataReviewState({
           status: "empty",
-          message: "No data import reviews are available for the mock student.",
+          message: "该模拟学生没有可用的数据导入审核。",
         });
         return;
       }
@@ -3697,59 +3613,49 @@ function DataReviewPanel({
   }
 
   return (
-    <section
-      className="data-review-panel"
-      aria-label="Data Review and Confirmation"
-    >
+    <section className="data-review-panel" aria-label="数据审核与确认">
       <div className="section-heading">
         <div>
-          <h2>Data Review &amp; Confirmation</h2>
-          <p className="subtle">
-            Confirmed records apply only to internal planning data.
-          </p>
+          <h2>数据审核与确认</h2>
+          <p className="subtle">已确认记录只应用到内部规划数据。</p>
         </div>
-        <p className="notice compact">Explicit apply required.</p>
+        <p className="notice compact">必须明确点击应用。</p>
       </div>
 
-      <ul className="disclaimer-list" aria-label="Data review disclaimers">
-        <li>Review decisions do not create official transcript records.</li>
-        <li>Dry run shows proposed writes without creating domain records.</li>
-        <li>
-          Rejected, deferred, duplicate, and advisor-review records are logged.
-        </li>
+      <ul className="disclaimer-list" aria-label="数据审核免责声明">
+        <li>审核决定不会创建官方成绩单记录。</li>
+        <li>试运行只显示拟写入内容，不会创建正式领域记录。</li>
+        <li>已拒绝、暂缓、重复和顾问审核记录会被记录下来。</li>
       </ul>
       <AdvisoryLabels keys={["MANUAL_REVIEW_REQUIRED", "ADVISORY_ONLY"]} />
 
       <div className="scenario-controls data-import-controls">
         <button type="button" onClick={() => void handleCreateReview()}>
-          Create review
+          创建人工审核
         </button>
         <button type="button" onClick={() => void handleLoadLatestReviews()}>
-          Load latest reviews
+          加载最新审核
         </button>
         {dataReviewState.status === "ready" ? (
           <>
             <button type="button" onClick={() => void handleApply(true)}>
-              Dry run
+              试运行
             </button>
             <button type="button" onClick={() => void handleApply(false)}>
-              Apply confirmed
+              应用已确认记录
             </button>
           </>
         ) : null}
       </div>
 
       {dataReviewState.status === "idle" ? (
-        <EmptyState
-          copyKey="NO_CONFIRMED_IMPORTS"
-          ariaLabel="Data review empty state"
-        />
+        <EmptyState copyKey="NO_CONFIRMED_IMPORTS" ariaLabel="数据审核空状态" />
       ) : null}
 
       {dataReviewState.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
-          <h2>Loading review</h2>
-          <p>Retrieving review records, warnings, and application logs.</p>
+          <h2>正在加载审核</h2>
+          <p>正在获取审核记录、警告和应用日志。</p>
         </section>
       ) : null}
 
@@ -3759,55 +3665,52 @@ function DataReviewPanel({
         <section className="state-panel" aria-live="polite">
           <h2>
             {dataReviewState.status === "schema-error"
-              ? "Data review schema error"
-              : "Data review unavailable"}
+              ? "数据审核结构错误"
+              : "数据审核不可用"}
           </h2>
           <p>{dataReviewState.message}</p>
         </section>
       ) : null}
 
       {dataReviewState.status === "empty" ? (
-        <EmptyState
-          copyKey="NO_CONFIRMED_IMPORTS"
-          ariaLabel="Data review empty state"
-        />
+        <EmptyState copyKey="NO_CONFIRMED_IMPORTS" ariaLabel="数据审核空状态" />
       ) : null}
 
       {dataReviewState.status === "ready" ? (
         <div className="data-import-result">
-          <section className="summary-grid" aria-label="Data review summary">
+          <section className="summary-grid" aria-label="数据审核摘要">
             <SummaryMetric
-              label="Review Status"
+              label="审核状态"
               value={statusLabel(dataReviewState.review.status)}
             />
             <SummaryMetric
-              label="Records"
+              label="记录数"
               value={String(dataReviewState.records.length)}
             />
             <SummaryMetric
-              label="Warnings"
+              label="警告"
               value={String(dataReviewState.warnings.length)}
             />
             <SummaryMetric
-              label="Applications"
+              label="已应用记录"
               value={String(dataReviewState.applications.length)}
             />
             <SummaryMetric
-              label="Last Result"
+              label="最近结果"
               value={
                 dataReviewState.applicationResult?.dry_run
-                  ? "Dry run"
+                  ? "试运行"
                   : dataReviewState.applicationResult?.application?.status
                     ? statusLabel(
                         dataReviewState.applicationResult.application.status,
                       )
-                    : "None"
+                    : "无"
               }
             />
           </section>
 
-          <section className="comparison-table" aria-label="Review records">
-            <h2>Record Decisions</h2>
+          <section className="comparison-table" aria-label="审核记录">
+            <h2>记录决定</h2>
             <div className="comparison-rows">
               {dataReviewState.records.map((recordReview) => {
                 const courseCode =
@@ -3828,16 +3731,16 @@ function DataReviewPanel({
                     <span>
                       {statusLabel(recordReview.decision)} ·{" "}
                       {recordReview.requires_advisor_confirmation
-                        ? "advisor review flagged"
-                        : "student-reviewable"}
+                        ? "已标记顾问审核"
+                        : "学生可审核"}
                     </span>
                     <span>
                       {recordReview.selected_mapping_candidate?.explanation ??
-                        "No selected mapping candidate."}
+                        "没有选中的映射候选。"}
                     </span>
                     <div className="record-review-actions">
                       <label className="review-edit-field">
-                        Grade
+                        成绩
                         <input
                           value={grade}
                           onChange={(event) =>
@@ -3854,7 +3757,7 @@ function DataReviewPanel({
                           void handleDecision(recordReview, "CONFIRMED")
                         }
                       >
-                        Confirm
+                        确认
                       </button>
                       <button
                         type="button"
@@ -3862,7 +3765,7 @@ function DataReviewPanel({
                           void handleDecision(recordReview, "REJECTED")
                         }
                       >
-                        Reject
+                        拒绝
                       </button>
                       <button
                         type="button"
@@ -3870,7 +3773,7 @@ function DataReviewPanel({
                           void handleDecision(recordReview, "DEFERRED")
                         }
                       >
-                        Defer
+                        暂缓
                       </button>
                       <button
                         type="button"
@@ -3881,7 +3784,7 @@ function DataReviewPanel({
                           )
                         }
                       >
-                        Advisor review
+                        顾问审核
                       </button>
                       <button
                         type="button"
@@ -3892,7 +3795,7 @@ function DataReviewPanel({
                           )
                         }
                       >
-                        Edit + confirm
+                        编辑并确认
                       </button>
                     </div>
                   </div>
@@ -3902,11 +3805,8 @@ function DataReviewPanel({
           </section>
 
           {dataReviewState.applicationResult ? (
-            <section
-              className="comparison-table"
-              aria-label="Data application result"
-            >
-              <h2>Application Result</h2>
+            <section className="comparison-table" aria-label="数据应用结果">
+              <h2>应用结果</h2>
               <div className="comparison-rows">
                 {dataReviewState.applicationResult.applied_records.map(
                   (appliedRecord) => (
@@ -3925,8 +3825,8 @@ function DataReviewPanel({
             </section>
           ) : null}
 
-          <section className="comparison-table" aria-label="Review warnings">
-            <h2>Review Warnings</h2>
+          <section className="comparison-table" aria-label="审核警告">
+            <h2>审核警告</h2>
             {dataReviewState.warnings.length > 0 ? (
               <div className="comparison-rows">
                 {dataReviewState.warnings.map((warning) => (
@@ -3935,14 +3835,14 @@ function DataReviewPanel({
                     <span>
                       {warning.message}{" "}
                       {warning.requires_advisor_confirmation
-                        ? "Advisor confirmation required."
+                        ? "需要顾问确认。"
                         : ""}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="subtle">No review warnings.</p>
+              <p className="subtle">没有审核警告。</p>
             )}
           </section>
         </div>
@@ -3969,12 +3869,12 @@ function formatMeetingList(
   meetings: ScheduleOptimizationDetail["options"][number]["selected_sections"][number]["meetings"],
 ): string {
   if (meetings.length === 0) {
-    return "Meeting time not available";
+    return "会议时间不可用";
   }
   return meetings
     .map((meeting) => {
       if (meeting.is_online && !meeting.day_of_week) {
-        return "Online async";
+        return "在线异步";
       }
       if (!meeting.day_of_week || !meeting.start_time || !meeting.end_time) {
         return statusLabel(meeting.meeting_type);
@@ -4016,33 +3916,40 @@ function ScenarioResult({
   );
   return (
     <div className="scenario-result">
-      <section className="summary-grid" aria-label="What-if scenario summary">
-        <SummaryMetric label="Candidate" value={selectedCandidate.label} />
+      <section className="summary-grid" aria-label="假设方案摘要">
         <SummaryMetric
-          label="Scenario Status"
+          label="候选项目"
+          value={localizeDemoOptionLabel(
+            "candidateProgram",
+            selectedCandidate.id,
+            selectedCandidate.label,
+          )}
+        />
+        <SummaryMetric
+          label="方案状态"
           value={statusLabel(detail.scenario.status)}
         />
         <SummaryMetric
-          label="Shared Credits"
+          label="共享学分"
           value={formatCredits(detail.comparison.shared_credits)}
         />
         <SummaryMetric
-          label="Unique Secondary Credits"
+          label="第二项目独有学分"
           value={formatCredits(detail.comparison.unique_secondary_credits)}
         />
         <SummaryMetric
-          label="Estimated Additional Credits"
+          label="预计额外学分"
           value={formatCredits(detail.comparison.estimated_additional_credits)}
         />
         <SummaryMetric
-          label="Manual Review"
+          label="人工审核"
           value={String(detail.comparison.manual_review_count)}
         />
       </section>
 
       <section className="scenario-columns">
         <div>
-          <h2>Programs</h2>
+          <h2>项目</h2>
           <ul className="compact-list">
             {detail.programs.map((program) => (
               <li key={program.id}>
@@ -4053,7 +3960,7 @@ function ScenarioResult({
           </ul>
         </div>
         <div>
-          <h2>Course Allocation</h2>
+          <h2>课程分配</h2>
           {selectedAllocations.length > 0 ? (
             <ul className="compact-list">
               {selectedAllocations.map((allocation) => (
@@ -4063,17 +3970,17 @@ function ScenarioResult({
                   </strong>
                   <span>
                     {statusLabel(allocation.allocation_type)} ·{" "}
-                    {formatCredits(allocation.credit_amount)} credits
+                    {formatCredits(allocation.credit_amount)} 学分
                   </span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="subtle">No course allocations are available.</p>
+            <p className="subtle">没有可用的课程分配。</p>
           )}
         </div>
         <div>
-          <h2>Warnings</h2>
+          <h2>警告</h2>
           {detail.warnings.length > 0 ? (
             <ul className="compact-list">
               {detail.warnings.map((warning) => (
@@ -4084,17 +3991,14 @@ function ScenarioResult({
               ))}
             </ul>
           ) : (
-            <p className="subtle">No manual review warnings.</p>
+            <p className="subtle">没有人工审核警告。</p>
           )}
         </div>
       </section>
 
       {state.comparisons.length > 0 ? (
-        <section
-          className="comparison-table"
-          aria-label="Saved scenario comparison"
-        >
-          <h2>Saved Scenario Comparison</h2>
+        <section className="comparison-table" aria-label="已保存方案比较">
+          <h2>已保存方案比较</h2>
           <div className="comparison-rows">
             {state.comparisons.map((comparison) => {
               const scenario = state.savedScenarios.find(
@@ -4110,7 +4014,7 @@ function ScenarioResult({
                   </strong>
                   <span>
                     {formatCredits(comparison.estimated_additional_credits)}{" "}
-                    estimated additional credits
+                    预计额外学分
                   </span>
                 </div>
               );
