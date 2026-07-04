@@ -986,6 +986,28 @@ const myProgressDataImportPreview = {
   },
 };
 
+const myProgressRequiresReviewPreview = {
+  ...myProgressDataImportPreview,
+  id: "00000000-0000-4000-8000-000000000745",
+  warning_count: 1,
+  summary_payload: {
+    ...myProgressDataImportPreview.summary_payload,
+    real_import_status: "REAL_IMPORTED_DATA_REQUIRES_REVIEW",
+    can_apply_verified_import: false,
+    downstream_analysis_allowed: false,
+    exception_count: 1,
+    exceptions: [
+      {
+        code: "LOW_CONFIDENCE_REQUIREMENT_GROUP",
+        message:
+          "One MyProgress requirement group needs review before downstream use.",
+        severity: "WARNING",
+        source: "sanitized-kean-myprogress-finance-summary.html",
+      },
+    ],
+  },
+};
+
 const mockSectionMonitorTarget = {
   id: "00000000-0000-4000-8000-000000000801",
   student_profile_id: mockDataImportRun.student_profile_id,
@@ -1626,7 +1648,10 @@ async function waitForClientReady(page: Page) {
   await expect(page.getByText("API connected")).toBeVisible();
 }
 
-async function mockSavedMyProgressImportApis(page: Page) {
+async function mockSavedMyProgressImportApis(
+  page: Page,
+  preview = myProgressDataImportPreview,
+) {
   await page.route(
     "http://localhost:8000/api/v1/students/*/data-imports",
     async (route) => {
@@ -1684,7 +1709,7 @@ async function mockSavedMyProgressImportApis(page: Page) {
     async (route) => {
       await route.fulfill({
         contentType: "application/json",
-        body: JSON.stringify(myProgressDataImportPreview),
+        body: JSON.stringify(preview),
       });
     },
   );
@@ -1693,7 +1718,7 @@ async function mockSavedMyProgressImportApis(page: Page) {
     async (route) => {
       await route.fulfill({
         contentType: "application/json",
-        body: JSON.stringify(myProgressDataImportPreview),
+        body: JSON.stringify(preview),
       });
     },
   );
@@ -1805,6 +1830,21 @@ test("home page clearly marks the degree dashboard as demo data when no MyProgre
   await expect(auditSummary.getByText("6.0")).toHaveCount(0);
   await expect(auditSummary.getByText("93.0")).toHaveCount(0);
   await expect(auditSummary.getByText("22.50%")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: /Create scenario/ }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: /Create plan/ }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: /Build schedule/ }),
+  ).toBeDisabled();
+  await expect(page.getByLabel("Development diagnostics")).toContainText(
+    "Import source status",
+  );
+  await expect(page.getByLabel("Development diagnostics")).toContainText(
+    "Demo / Mock Data",
+  );
 });
 
 test("saved auto-verified MyProgress import overrides mock dashboard values", async ({
@@ -1832,6 +1872,34 @@ test("saved auto-verified MyProgress import overrides mock dashboard values", as
   await expect(auditSummary.getByText("27.0")).toHaveCount(0);
   await expect(auditSummary.getByText("93.0")).toHaveCount(0);
   await expect(auditSummary.getByText("22.50%")).toHaveCount(0);
+});
+
+test("saved MyProgress import with exceptions is marked as requiring review", async ({
+  page,
+}) => {
+  await mockSuccessfulAuditApis(page);
+  await mockSavedMyProgressImportApis(page, myProgressRequiresReviewPreview);
+
+  await page.goto("/");
+
+  const auditSummary = page.getByLabel("Degree audit summary");
+  await expect(
+    auditSummary.getByText("Real Imported Data - Requires Review"),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("MyProgress exception queue")
+      .getByText("LOW_CONFIDENCE_REQUIREMENT_GROUP"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Create scenario/ }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: /Create plan/ }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: /Build schedule/ }),
+  ).toBeDisabled();
 });
 
 test("home page shows product status cards with advisory labels", async ({
@@ -1958,10 +2026,22 @@ test("home page reports when the API health request is unavailable", async ({
 
   await expect(page.getByText("API unavailable")).toBeVisible();
   await expect(
-    page.locator("section[aria-live='polite'] > p").filter({
-      hasText: /Health check request failed|Failed to fetch|NetworkError/,
-    }),
+    page.getByText("No Import Loaded", { exact: true }),
   ).toBeVisible();
+  await expect(
+    page
+      .locator("section[aria-live='polite'] > p")
+      .filter({
+        hasText: /Health check request failed|Failed to fetch|NetworkError/,
+      })
+      .first(),
+  ).toBeVisible();
+  const diagnostics = page.getByLabel("Development diagnostics");
+  await expect(diagnostics).toContainText("API base URL");
+  await expect(diagnostics).toContainText("http://localhost:8000");
+  await expect(diagnostics).toContainText("Web origin");
+  await expect(diagnostics).toContainText("API may be stale or not restarted");
+  await expect(diagnostics).toContainText("browser port is allowed by CORS");
 });
 
 test("home page reports when degree audit responses fail schema validation", async ({
@@ -1989,10 +2069,14 @@ test("home page creates and compares what-if academic scenarios", async ({
   page,
 }) => {
   await mockSuccessfulAuditApis(page);
+  await mockSavedMyProgressImportApis(page);
   await mockSuccessfulScenarioApis(page);
 
   await page.goto("/");
   await waitForClientReady(page);
+  await expect(
+    page.getByText("Real Imported Data - Auto Verified").first(),
+  ).toBeVisible();
 
   await expect(
     page.getByRole("heading", { name: /Explore Programs \/ What-if Analysis/ }),
@@ -2026,6 +2110,7 @@ test("home page creates and compares what-if academic scenarios", async ({
 
 test("home page reports what-if API and schema failures", async ({ page }) => {
   await mockSuccessfulAuditApis(page);
+  await mockSavedMyProgressImportApis(page);
   await page.route(
     "http://localhost:8000/api/v1/academic-scenarios",
     async (route) => {
@@ -2038,6 +2123,9 @@ test("home page reports what-if API and schema failures", async ({ page }) => {
 
   await page.goto("/");
   await waitForClientReady(page);
+  await expect(
+    page.getByText("Real Imported Data - Auto Verified").first(),
+  ).toBeVisible();
   await page.getByRole("button", { name: /Create scenario/ }).click();
 
   await expect(page.getByText("What-if scenario unavailable")).toBeVisible();
@@ -2103,10 +2191,14 @@ test("home page creates and compares long-term academic plans", async ({
   page,
 }) => {
   await mockSuccessfulAuditApis(page);
+  await mockSavedMyProgressImportApis(page);
   await mockSuccessfulPlannerApis(page);
 
   await page.goto("/");
   await waitForClientReady(page);
+  await expect(
+    page.getByText("Real Imported Data - Auto Verified").first(),
+  ).toBeVisible();
 
   await expect(
     page.getByRole("heading", { name: /Long-Term Academic Planner/ }),
@@ -2151,6 +2243,7 @@ test("home page creates and compares long-term academic plans", async ({
 
 test("home page reports academic planner schema failures", async ({ page }) => {
   await mockSuccessfulAuditApis(page);
+  await mockSavedMyProgressImportApis(page);
   await page.route(
     "http://localhost:8000/api/v1/academic-plans",
     async (route) => {
@@ -2163,6 +2256,9 @@ test("home page reports academic planner schema failures", async ({ page }) => {
 
   await page.goto("/");
   await waitForClientReady(page);
+  await expect(
+    page.getByText("Real Imported Data - Auto Verified").first(),
+  ).toBeVisible();
   await page.getByRole("button", { name: /Create plan/ }).click();
 
   await expect(page.getByText("Academic planner schema error")).toBeVisible();
@@ -2173,10 +2269,14 @@ test("home page reports academic planner schema failures", async ({ page }) => {
 
 test("home page builds and compares semester schedules", async ({ page }) => {
   await mockSuccessfulAuditApis(page);
+  await mockSavedMyProgressImportApis(page);
   await mockSuccessfulScheduleApis(page);
 
   await page.goto("/");
   await waitForClientReady(page);
+  await expect(
+    page.getByText("Real Imported Data - Auto Verified").first(),
+  ).toBeVisible();
 
   await expect(
     page.getByRole("heading", { name: /Semester Schedule Builder/ }),
@@ -2435,6 +2535,7 @@ test("home page reports schedule optimizer schema failures", async ({
   page,
 }) => {
   await mockSuccessfulAuditApis(page);
+  await mockSavedMyProgressImportApis(page);
   await page.route(
     "http://localhost:8000/api/v1/schedule-optimizations",
     async (route) => {
@@ -2447,6 +2548,9 @@ test("home page reports schedule optimizer schema failures", async ({
 
   await page.goto("/");
   await waitForClientReady(page);
+  await expect(
+    page.getByText("Real Imported Data - Auto Verified").first(),
+  ).toBeVisible();
   await page.getByRole("button", { name: /Build schedule/ }).click();
 
   await expect(page.getByText("Schedule optimizer schema error")).toBeVisible();

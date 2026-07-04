@@ -61,9 +61,12 @@ Docker command documented by the stop script.
 
 ### Use The Dashboard
 
-Open <http://localhost:3000>. The dashboard shows the current local API status
-and workflow cards for degree audit, data import review, browser-extension
-import, section monitoring, schedule optimization, and what-if planning.
+Open <http://localhost:3000>, or set `LOCAL_WEB_PORT` before startup when using
+another supported local port such as `3001`, `3010`, or `3011`. The dashboard
+shows the current local API status, the API base URL, the current web origin,
+the active import source state, and workflow cards for degree audit, data
+import review, browser-extension import, section monitoring, schedule
+optimization, and what-if planning.
 
 Use the in-page workflow links to jump to:
 
@@ -78,6 +81,12 @@ Use the in-page workflow links to jump to:
 
 Browser-extension imports go into staging first. They are non-official and
 require Phase 7B review before use inside planning workflows.
+
+For local MyProgress testing, use **Load sanitized MyProgress sample** in Data
+Import Preview. The sample is sanitized, local-only, not official school data,
+and is not mixed with real portal data. If a saved usable Kean MyProgress
+import already exists in the local database, the dashboard loads the latest
+usable preview before showing demo/mock data.
 
 ### Build And Load The Browser Extension
 
@@ -120,7 +129,7 @@ To run a Kean academic import:
 4. Navigate manually to a supported academic page.
 5. Open the extension.
 6. Click `Start Kean Academic Import` for guided import, or `Extract current
-   page` for a single page.
+page` for a single page.
 7. Verify detected page type, diagnostic mode, warnings, and preview rows.
 8. Click `Confirm staging import`.
 9. Review the imported data in the local app's Data Import Preview and Data
@@ -160,7 +169,7 @@ and extension package output.
 - If the API is not ready, run `docker compose logs api`.
 - If the database is not ready, run `docker compose logs db`.
 - If the extension build folder is missing, run `corepack pnpm
-  extension:package`.
+extension:package`.
 - If Kean selectors do not match a real page, follow
   [Kean Portal Real-Page QA](KEAN_PORTAL_REAL_PAGE_QA.md) and update fake
   fixtures first.
@@ -213,7 +222,8 @@ Smart Academic Planner 是一个可以在本机运行的学业规划和课表优
 
 ### 打开哪个网址
 
-- Web app: <http://localhost:3000>
+- Web app: <http://localhost:3000> by default; set `LOCAL_WEB_PORT` to use
+  `3001`, `3010`, or `3011`.
 - API: <http://localhost:8000>
 - API docs: <http://localhost:8000/docs>
 - API readiness: <http://localhost:8000/ready>
@@ -229,9 +239,10 @@ Smart Academic Planner 是一个可以在本机运行的学业规划和课表优
 
 ### 如何使用 dashboard
 
-打开 <http://localhost:3000>。页面会显示本地 API 状态，以及 degree audit、data import
-review、browser extension import、section monitoring、schedule optimization、what-if planning
-等工作流入口。
+打开 <http://localhost:3000>。如果需要其他本地端口，可以在启动前设置
+`LOCAL_WEB_PORT` 为 `3001`、`3010` 或 `3011`。页面会显示本地 API 状态、API base
+URL、当前 web origin、当前 import source 状态，以及 degree audit、data import review、browser
+extension import、section monitoring、schedule optimization、what-if planning 等工作流入口。
 
 ### 如何导入 Kean 数据
 

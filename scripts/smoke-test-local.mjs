@@ -3,13 +3,16 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const webPort =
+  process.env.LOCAL_WEB_PORT ?? process.env.PLAYWRIGHT_WEB_PORT ?? "3000";
+const webUrl = process.env.LOCAL_WEB_URL ?? `http://localhost:${webPort}`;
 
 const checks = [
   {
     name: "Web app",
-    url: "http://localhost:3000",
+    url: webUrl,
     suggestion:
-      "Start the local stack with corepack pnpm app:up and confirm Docker Desktop is running.",
+      "Start the local stack with corepack pnpm app:up and confirm Docker Desktop is running. Set LOCAL_WEB_PORT when using a non-3000 web port.",
   },
   {
     name: "API health",
@@ -57,7 +60,9 @@ async function checkEndpoint(check) {
       console.log(`[PASS] ${check.name}: ${check.url}`);
       return true;
     }
-    console.error(`[FAIL] ${check.name}: HTTP ${response.status} at ${check.url}`);
+    console.error(
+      `[FAIL] ${check.name}: HTTP ${response.status} at ${check.url}`,
+    );
     console.error(`       ${check.suggestion}`);
     return false;
   } catch (error) {
@@ -105,7 +110,9 @@ if (endpointResults.every(Boolean)) {
   console.log("Local smoke test passed.");
 } else {
   console.error("");
-  console.error("Local smoke test failed. Fix the failed checks above and re-run:");
+  console.error(
+    "Local smoke test failed. Fix the failed checks above and re-run:",
+  );
   console.error("corepack pnpm app:smoke");
   process.exitCode = 1;
 }

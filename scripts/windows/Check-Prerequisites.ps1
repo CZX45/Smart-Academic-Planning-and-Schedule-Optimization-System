@@ -2,6 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path (Join-Path $ScriptDir "..\..")
+$WebPort = if ($env:LOCAL_WEB_PORT) { [int]$env:LOCAL_WEB_PORT } elseif ($env:PLAYWRIGHT_WEB_PORT) { [int]$env:PLAYWRIGHT_WEB_PORT } else { 3000 }
 $Failures = 0
 
 function Write-Check {
@@ -123,7 +124,7 @@ try {
         Write-Check "FAIL" ".env.example is missing. Cannot create safe local defaults."
     }
 
-    foreach ($Port in @(3000, 8000, 5432)) {
+    foreach ($Port in @($WebPort, 8000, 5432)) {
         Test-Port $Port
     }
 
