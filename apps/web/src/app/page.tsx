@@ -183,6 +183,10 @@ type DataImportPreviewState =
   | { status: "offline"; message: string }
   | { status: "failed"; message: string }
   | { status: "schema-error"; message: string };
+type ReadyDataImportPreviewState = Extract<
+  DataImportPreviewState,
+  { status: "ready" }
+>;
 type DataReviewState =
   | { status: "idle" }
   | { status: "loading" }
@@ -460,6 +464,84 @@ const scheduleSectionChoices: ScheduleSectionChoice[] = [
     sectionId: "2c2da55d-20aa-521c-938d-f35caee39eba",
   },
 ];
+const sanitizedMyProgressSampleId = "sanitized-kean-myprogress-sample";
+const sanitizedMyProgressSampleContent = JSON.stringify({
+  page_type: "KEAN_MY_PROGRESS_PAGE",
+  sampleNotice:
+    "Sanitized local test data only. Not official school policy and not portal-sourced real student data.",
+  programSummary: {
+    programName: "Finance, BS",
+    degree: "Bachelor of Science",
+    major: "Finance",
+    department: "Accounting & Finance",
+    catalogYear: 2024,
+    cumulativeGpa: 3.916,
+    institutionGpa: 3.916,
+    anticipatedCompletionDate: "12/20/2028",
+  },
+  creditSummary: {
+    totalAppliedCredits: 104,
+    totalRequiredCredits: 120,
+    completedCredits: 67,
+    inProgressCredits: 24,
+    plannedCredits: 13,
+    remainingCredits: 16,
+    completionPercent: 86.67,
+  },
+  progressBarSegments: [
+    { label: "Completed", credits: 67 },
+    { label: "In Progress", credits: 24 },
+    { label: "Planned", credits: 13 },
+  ],
+  fieldProvenance: {
+    programName: {
+      source: "sanitized-kean-my-progress-finance-summary.html",
+      confidence: "high",
+      rawText: "Finance, BS",
+    },
+    catalogYear: {
+      source: "sanitized-kean-my-progress-finance-summary.html",
+      confidence: "high",
+      rawText: "2024",
+    },
+    totalAppliedCredits: {
+      source: "sanitized-kean-my-progress-finance-summary.html",
+      confidence: "high",
+      rawText: "104 of 120",
+    },
+    completionPercent: {
+      source: "sanitized-kean-my-progress-finance-summary.html",
+      confidence: "high",
+      rawText: "67 + 24 + 13 of 120",
+    },
+  },
+  requirementGroups: [
+    {
+      name: "GE Foundation Requirements 13 S.H.",
+      statusText: "4 of 5 Completed",
+      credits: 13,
+      confidence: "high",
+      requiresReview: false,
+    },
+  ],
+  courseRows: [],
+  validation: {
+    status: "AUTO_VERIFIED",
+    exceptionCount: 0,
+    exceptions: [],
+    autoConfirmedFieldCount: 14,
+    autoConfirmedCourseRowCount: 0,
+    overallConfidenceScore: 0.98,
+    downstreamAnalysisAllowed: true,
+  },
+  rawSnapshot: {
+    fixture:
+      "apps/extension/tests/fixtures/kean-my-progress-finance-summary.html",
+    progressBarText: "67 24 13",
+    visibleTextSample:
+      "My Progress Finance, BS Catalog 2024 GPA 3.916 Total Credits 104 of 120",
+  },
+});
 const dataImportSamples: DataImportSample[] = [
   {
     id: "mock-transcript-csv",
@@ -497,6 +579,14 @@ const dataImportSamples: DataImportSample[] = [
         },
       ],
     }),
+  },
+  {
+    id: sanitizedMyProgressSampleId,
+    label: "Sanitized Kean MyProgress sample (local test only)",
+    importType: "DEGREE_AUDIT_EXPORT",
+    fileName: "sanitized-kean-myprogress-finance.json",
+    fileMimeType: "application/json",
+    content: sanitizedMyProgressSampleContent,
   },
 ];
 
@@ -701,6 +791,61 @@ function myProgressPreviewFromState(
   return state.status === "ready"
     ? myProgressPreviewFromSummary(state.preview)
     : null;
+}
+
+function preferMyProgressImports(
+  savedImports: DataImportRun[],
+): DataImportRun[] {
+  const degreeAuditRuns = savedImports.filter(
+    (run) => run.import_type === "DEGREE_AUDIT_EXPORT",
+  );
+  const otherRuns = savedImports.filter(
+    (run) => run.import_type !== "DEGREE_AUDIT_EXPORT",
+  );
+  return [...degreeAuditRuns, ...otherRuns];
+}
+
+async function loadDataImportPreviewState(
+  baseUrl: string,
+  run: DataImportRun,
+  savedImports: DataImportRun[],
+): Promise<ReadyDataImportPreviewState> {
+  const [records, candidates, warnings, preview] = await Promise.all([
+    fetchDataImportRecords(baseUrl, run.id, { timeoutMs: 5_000 }),
+    fetchDataImportMappingCandidates(baseUrl, run.id, {
+      timeoutMs: 5_000,
+    }),
+    fetchDataImportWarnings(baseUrl, run.id, { timeoutMs: 5_000 }),
+    fetchDataImportPreview(baseUrl, run.id, { timeoutMs: 5_000 }),
+  ]);
+  return {
+    status: "ready",
+    run,
+    records,
+    candidates,
+    warnings,
+    preview,
+    savedImports,
+  };
+}
+
+async function loadPreferredDataImportPreviewState(
+  baseUrl: string,
+  savedImports: DataImportRun[],
+): Promise<ReadyDataImportPreviewState | null> {
+  let fallback: ReadyDataImportPreviewState | null = null;
+  for (const run of preferMyProgressImports(savedImports)) {
+    const previewState = await loadDataImportPreviewState(
+      baseUrl,
+      run,
+      savedImports,
+    );
+    if (myProgressPreviewFromSummary(previewState.preview)) {
+      return previewState;
+    }
+    fallback ??= previewState;
+  }
+  return fallback;
 }
 
 function importModeLabel(
@@ -976,25 +1121,15 @@ export default function Home() {
         if (cancelled || savedImports.length === 0) {
           return;
         }
-        const run = savedImports[0];
-        const [records, candidates, warnings, preview] = await Promise.all([
-          fetchDataImportRecords(baseUrl, run.id, { timeoutMs: 5_000 }),
-          fetchDataImportMappingCandidates(baseUrl, run.id, {
-            timeoutMs: 5_000,
-          }),
-          fetchDataImportWarnings(baseUrl, run.id, { timeoutMs: 5_000 }),
-          fetchDataImportPreview(baseUrl, run.id, { timeoutMs: 5_000 }),
-        ]);
+        const previewState = await loadPreferredDataImportPreviewState(
+          baseUrl,
+          savedImports,
+        );
+        if (!previewState) {
+          return;
+        }
         if (!cancelled) {
-          setDataImportState({
-            status: "ready",
-            run,
-            records,
-            candidates,
-            warnings,
-            preview,
-            savedImports,
-          });
+          setDataImportState(previewState);
         }
       } catch {
         // The explicit import preview controls surface load errors on demand.
@@ -1198,88 +1333,119 @@ function DegreeProgress({
         aria-label="Degree audit summary"
       >
         <SummaryMetric
-          label="Program"
-          value={program?.programName ?? "Mock BS Finance"}
-        />
-        <SummaryMetric
           label="Data Mode"
-          value={hasRealMyProgress ? "Real Imported Data" : "Demo / Mock Data"}
+          value={importModeLabel(myProgressPreview, { status: "idle" })}
         />
         <SummaryMetric
-          label="Catalog Year"
-          value={program?.catalogYear ? String(program.catalogYear) : "2024"}
+          label="Program"
+          value={program?.programName ?? "No real MyProgress import loaded"}
         />
-        {program?.degree ? (
-          <SummaryMetric label="Degree" value={program.degree} />
-        ) : null}
-        {program?.department ? (
-          <SummaryMetric label="Department" value={program.department} />
-        ) : null}
-        {program?.cumulativeGpa ? (
-          <SummaryMetric label="GPA" value={program.cumulativeGpa.toFixed(3)} />
-        ) : null}
-        {program?.institutionGpa ? (
-          <SummaryMetric
-            label="Institution GPA"
-            value={program.institutionGpa.toFixed(3)}
-          />
-        ) : null}
         <SummaryMetric
           label="Audit Mode"
           value={statusLabel(audit.calculation_mode)}
         />
-        {credits?.totalAppliedCredits !== undefined &&
-        credits.totalRequiredCredits !== undefined ? (
-          <SummaryMetric
-            label="Total Credits"
-            value={`${formatCredits(String(credits.totalAppliedCredits))} / ${formatCredits(
-              String(credits.totalRequiredCredits),
-            )}`}
-          />
-        ) : null}
-        <SummaryMetric
-          label="Completed Credits"
-          value={formatCredits(
-            String(credits?.completedCredits ?? audit.completed_credits),
-          )}
-        />
-        <SummaryMetric
-          label="In-Progress Credits"
-          value={formatCredits(
-            String(credits?.inProgressCredits ?? audit.in_progress_credits),
-          )}
-        />
-        <SummaryMetric
-          label="Planned Credits"
-          value={formatCredits(
-            String(credits?.plannedCredits ?? audit.planned_credits),
-          )}
-        />
-        <SummaryMetric
-          label="Remaining Credits"
-          value={formatCredits(
-            String(credits?.remainingCredits ?? audit.remaining_credits),
-          )}
-        />
-        <SummaryMetric
-          label="Completion"
-          value={`${Number(
-            credits?.completionPercent ?? audit.completion_percentage,
-          ).toFixed(2)}%`}
-        />
-        {program?.anticipatedCompletionDate ? (
-          <SummaryMetric
-            label="Expected Completion"
-            value={program.anticipatedCompletionDate}
-          />
-        ) : null}
+        {hasRealMyProgress ? (
+          <>
+            <SummaryMetric
+              label="Catalog"
+              value={
+                program?.catalogYear
+                  ? String(program.catalogYear)
+                  : "Not loaded"
+              }
+            />
+            {program?.degree ? (
+              <SummaryMetric label="Degree" value={program.degree} />
+            ) : null}
+            {program?.department ? (
+              <SummaryMetric label="Department" value={program.department} />
+            ) : null}
+            {program?.cumulativeGpa ? (
+              <SummaryMetric
+                label="GPA"
+                value={program.cumulativeGpa.toFixed(3)}
+              />
+            ) : null}
+            {program?.institutionGpa ? (
+              <SummaryMetric
+                label="Institution GPA"
+                value={program.institutionGpa.toFixed(3)}
+              />
+            ) : null}
+            {credits?.totalAppliedCredits !== undefined &&
+            credits.totalRequiredCredits !== undefined ? (
+              <SummaryMetric
+                label="Total Credits"
+                value={`${formatCredits(String(credits.totalAppliedCredits))} / ${formatCredits(
+                  String(credits.totalRequiredCredits),
+                )}`}
+              />
+            ) : null}
+            <SummaryMetric
+              label="Completed"
+              value={formatCredits(String(credits?.completedCredits ?? 0))}
+            />
+            <SummaryMetric
+              label="In Progress"
+              value={formatCredits(String(credits?.inProgressCredits ?? 0))}
+            />
+            <SummaryMetric
+              label="Planned"
+              value={formatCredits(String(credits?.plannedCredits ?? 0))}
+            />
+            <SummaryMetric
+              label="Remaining"
+              value={formatCredits(String(credits?.remainingCredits ?? 0))}
+            />
+            <SummaryMetric
+              label="Completion"
+              value={`${Number(credits?.completionPercent ?? 0).toFixed(2)}%`}
+            />
+            {program?.anticipatedCompletionDate ? (
+              <SummaryMetric
+                label="Expected Completion"
+                value={program.anticipatedCompletionDate}
+              />
+            ) : null}
+          </>
+        ) : (
+          <>
+            <SummaryMetric
+              label="Current MyProgress Import"
+              value="Not loaded"
+            />
+            <SummaryMetric label="Mock Values" value="Sample data only" />
+          </>
+        )}
       </section>
+
+      {!hasRealMyProgress ? (
+        <section
+          className="state-panel"
+          aria-label="No real MyProgress import loaded"
+        >
+          <h2>No real MyProgress import has been loaded yet</h2>
+          <p>
+            Demo / Mock Data is visible only as sample planning data. Mock
+            values are sample data only and are not the active real academic
+            state.
+          </p>
+          <ul className="compact-list">
+            <li>Use the browser extension import from Kean MyProgress.</li>
+            <li>Load a saved staging import from this local database.</li>
+            <li>
+              Load sanitized MyProgress sample for local testing only; it is not
+              official school data.
+            </li>
+          </ul>
+        </section>
+      ) : null}
 
       <section className="requirement-tree" aria-label="Requirement Tree">
         <h2>
           {hasRealMyProgress
             ? "MyProgress Requirement Summary"
-            : "Requirement Tree"}
+            : "Demo Requirement Tree"}
         </h2>
         {hasRealMyProgress ? (
           <>
@@ -1340,71 +1506,79 @@ function DegreeProgress({
             )}
           </>
         ) : (
-          requirements.map((requirement) => (
-            <details key={requirement.id} className="requirement-row">
-              <summary>
-                <span>{requirement.requirement_name}</span>
-                <span
-                  className={`status-pill ${requirement.status.toLowerCase()}`}
-                >
-                  {statusLabel(requirement.status)}
-                </span>
-              </summary>
-              <div className="requirement-detail">
-                <dl>
-                  <div>
-                    <dt>Required</dt>
-                    <dd>
-                      {requirement.required_courses ?? "—"} courses /{" "}
-                      {requirement.required_credits
-                        ? formatCredits(requirement.required_credits)
-                        : "—"}{" "}
-                      credits
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Satisfied</dt>
-                    <dd>
-                      {requirement.satisfied_courses} courses /{" "}
-                      {formatCredits(requirement.satisfied_credits)} credits
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Remaining</dt>
-                    <dd>
-                      {requirement.remaining_courses} courses /{" "}
-                      {formatCredits(requirement.remaining_credits)} credits
-                    </dd>
-                  </div>
-                </dl>
-                <p>{requirement.explanation}</p>
-                {requirement.applications.length > 0 ? (
-                  <ul className="applications">
-                    {requirement.applications.map((application) => (
-                      <li key={application.id}>
-                        <strong>
-                          {application.course_code ??
-                            application.application_type}
-                        </strong>
-                        <span>
-                          {statusLabel(application.application_type)} ·{" "}
-                          {formatCredits(application.credit_amount)} credits
-                          {application.grade
-                            ? ` · grade ${application.grade}`
-                            : ""}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-                {requirement.warnings.some(
-                  (warning) => warning.requires_advisor_confirmation,
-                ) ? (
-                  <p className="advisor-note">Advisor confirmation required.</p>
-                ) : null}
-              </div>
-            </details>
-          ))
+          <>
+            <p className="subtle">
+              Sample requirement rows are shown only for development context
+              until a real MyProgress import is loaded or confirmed.
+            </p>
+            {requirements.map((requirement) => (
+              <details key={requirement.id} className="requirement-row">
+                <summary>
+                  <span>{requirement.requirement_name}</span>
+                  <span
+                    className={`status-pill ${requirement.status.toLowerCase()}`}
+                  >
+                    {statusLabel(requirement.status)}
+                  </span>
+                </summary>
+                <div className="requirement-detail">
+                  <dl>
+                    <div>
+                      <dt>Required</dt>
+                      <dd>
+                        {requirement.required_courses ?? "—"} courses /{" "}
+                        {requirement.required_credits
+                          ? formatCredits(requirement.required_credits)
+                          : "—"}{" "}
+                        credits
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Satisfied</dt>
+                      <dd>
+                        {requirement.satisfied_courses} courses /{" "}
+                        {formatCredits(requirement.satisfied_credits)} credits
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Remaining</dt>
+                      <dd>
+                        {requirement.remaining_courses} courses /{" "}
+                        {formatCredits(requirement.remaining_credits)} credits
+                      </dd>
+                    </div>
+                  </dl>
+                  <p>{requirement.explanation}</p>
+                  {requirement.applications.length > 0 ? (
+                    <ul className="applications">
+                      {requirement.applications.map((application) => (
+                        <li key={application.id}>
+                          <strong>
+                            {application.course_code ??
+                              application.application_type}
+                          </strong>
+                          <span>
+                            {statusLabel(application.application_type)} ·{" "}
+                            {formatCredits(application.credit_amount)} credits
+                            {application.grade
+                              ? ` · grade ${application.grade}`
+                              : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {requirement.warnings.some(
+                    (warning) => warning.requires_advisor_confirmation,
+                  ) ? (
+                    <p className="advisor-note">
+                      Advisor confirmation required.
+                    </p>
+                  ) : null}
+                </div>
+              </details>
+            ))}
+          </>
         )}
       </section>
     </>
@@ -3350,8 +3524,11 @@ function DataImportPreviewPanel({
     dataImportSamples.find(
       (sample) => sample.id === selectedDataImportSampleId,
     ) ?? dataImportSamples[0];
+  const sanitizedMyProgressSample = dataImportSamples.find(
+    (sample) => sample.id === sanitizedMyProgressSampleId,
+  );
 
-  async function handlePreviewImport(): Promise<void> {
+  async function handlePreviewImport(sample = selectedSample): Promise<void> {
     if (!apiBaseUrl) {
       setDataImportState({
         status: "offline",
@@ -3365,36 +3542,27 @@ function DataImportPreviewPanel({
         apiBaseUrl,
         {
           student_profile_id: mockStudentId,
-          import_type: selectedSample.importType,
-          file_name: selectedSample.fileName,
-          file_mime_type: selectedSample.fileMimeType,
-          content: selectedSample.content,
+          import_type: sample.importType,
+          file_name: sample.fileName,
+          file_mime_type: sample.fileMimeType,
+          content: sample.content,
           source_type: "STUDENT_PROVIDED",
-          source_reference: `Built-in Phase 7A fixture: ${selectedSample.label}`,
+          source_reference:
+            sample.id === sanitizedMyProgressSampleId
+              ? `Sanitized local test data from KEAN_STUDENT_PORTAL fixture: ${sample.label}`
+              : `Built-in Phase 7A fixture: ${sample.label}`,
         },
         { timeoutMs: 8_000 },
       );
-      const [records, candidates, warnings, preview, savedImports] =
-        await Promise.all([
-          fetchDataImportRecords(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
-          fetchDataImportMappingCandidates(apiBaseUrl, run.id, {
-            timeoutMs: 5_000,
-          }),
-          fetchDataImportWarnings(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
-          validateDataImport(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
-          fetchStudentDataImports(apiBaseUrl, mockStudentId, {
-            timeoutMs: 5_000,
-          }),
-        ]);
-      setDataImportState({
-        status: "ready",
-        run,
-        records,
-        candidates,
-        warnings,
-        preview,
-        savedImports,
-      });
+      await validateDataImport(apiBaseUrl, run.id, { timeoutMs: 5_000 });
+      const savedImports = await fetchStudentDataImports(
+        apiBaseUrl,
+        mockStudentId,
+        { timeoutMs: 5_000 },
+      );
+      setDataImportState(
+        await loadDataImportPreviewState(apiBaseUrl, run, savedImports),
+      );
     } catch (error: unknown) {
       setDataImportState({
         status:
@@ -3426,24 +3594,18 @@ function DataImportPreviewPanel({
         });
         return;
       }
-      const run = savedImports[0];
-      const [records, candidates, warnings, preview] = await Promise.all([
-        fetchDataImportRecords(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
-        fetchDataImportMappingCandidates(apiBaseUrl, run.id, {
-          timeoutMs: 5_000,
-        }),
-        fetchDataImportWarnings(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
-        fetchDataImportPreview(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
-      ]);
-      setDataImportState({
-        status: "ready",
-        run,
-        records,
-        candidates,
-        warnings,
-        preview,
+      const previewState = await loadPreferredDataImportPreviewState(
+        apiBaseUrl,
         savedImports,
-      });
+      );
+      if (!previewState) {
+        setDataImportState({
+          status: "empty",
+          message: "No saved staging imports could be previewed.",
+        });
+        return;
+      }
+      setDataImportState(previewState);
     } catch (error: unknown) {
       setDataImportState({
         status:
@@ -3535,10 +3697,21 @@ function DataImportPreviewPanel({
         <button type="button" onClick={() => void handlePreviewImport()}>
           Preview import
         </button>
+        {sanitizedMyProgressSample ? (
+          <button
+            type="button"
+            onClick={() => void handlePreviewImport(sanitizedMyProgressSample)}
+          >
+            Load sanitized MyProgress sample
+          </button>
+        ) : null}
         <button type="button" onClick={() => void handleLoadSavedImports()}>
           Load saved imports
         </button>
       </div>
+      <p className="notice compact">
+        Sanitized local test data is sample-only and not official school data.
+      </p>
 
       {dataImportState.status === "idle" ? (
         <EmptyState
@@ -3872,6 +4045,24 @@ function MyProgressImportPreview({
           value={display.downstreamAnalysisAllowed ? "Allowed" : "Blocked"}
         />
       </div>
+      <ul className="compact-list">
+        <li>
+          <strong>Review scope</strong>
+          <span>
+            {display.exceptions.length === 0
+              ? "Exception count is 0; high-confidence fields and rows are auto-confirmed."
+              : "Low-confidence exceptions must be reviewed before use."}
+          </span>
+        </li>
+        <li>
+          <strong>Apply path</strong>
+          <span>
+            {display.canApplyVerifiedImport
+              ? "Verified import can be applied without manual row-by-row review."
+              : "Failed or exception-bearing validation blocks degree audit and planning use."}
+          </span>
+        </li>
+      </ul>
 
       <section className="comparison-rows" aria-label="MyProgress groups">
         {display.requirementGroups.map((group, index) => (

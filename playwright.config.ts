@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const webPort = process.env.PLAYWRIGHT_WEB_PORT ?? "3000";
+const webBaseUrl = `http://localhost:${webPort}`;
+
 const webServer =
   process.env.PLAYWRIGHT_SKIP_WEBSERVER === "1"
     ? undefined
@@ -15,8 +18,8 @@ const webServer =
           },
         },
         {
-          command: "pnpm --filter @sapsos/web dev",
-          url: "http://127.0.0.1:3000",
+          command: `cd apps/web && node ./node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port ${webPort}`,
+          url: `http://127.0.0.1:${webPort}`,
           reuseExistingServer: true,
           env: {
             NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000",
@@ -27,7 +30,7 @@ const webServer =
 export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 30_000,
-  use: { baseURL: "http://localhost:3000", trace: "on-first-retry" },
+  use: { baseURL: webBaseUrl, trace: "on-first-retry" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer,
 });
