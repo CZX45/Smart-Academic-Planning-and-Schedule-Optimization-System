@@ -15,6 +15,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.academic import (
+    AppliedImportStatus,
     AuditWarningSeverity,
     DataImportFile,
     DataImportReviewStatus,
@@ -223,6 +224,152 @@ def kean_finance_myprogress_json() -> str:
             },
         }
     )
+
+
+def myprogress_course_row(
+    index: int,
+    *,
+    course_code: str,
+    title: str,
+    status: str,
+    term: str = "",
+    requirement: str = "Open Electives Requirements",
+    confidence: str = "high",
+) -> dict[str, Any]:
+    return {
+        "requirements": requirement,
+        "requirement_section": requirement,
+        "status": status,
+        "raw_course_code": course_code.replace(" ", "*"),
+        "course_code": course_code,
+        "course_title": title,
+        "term_code": term,
+        "credits": "3",
+        "source_page_type": "KEAN_MY_PROGRESS_PAGE",
+        "type": "DEGREE_AUDIT_EXPORT",
+        "source_label": requirement,
+        "raw_row_text": f"{status} {course_code} {title} {term} 3",
+        "source_table_index": str(1 + (index // 5)),
+        "source_row_index": str(index),
+        "field_provenance": {
+            "course_code": {
+                "rawText": course_code,
+                "source": f"visible table {1 + (index // 5)} row {index}",
+                "confidence": confidence,
+            }
+        },
+        "confidence": confidence,
+        "warnings": [],
+    }
+
+
+def kean_myprogress_with_85_rows_json() -> str:
+    payload = json.loads(kean_finance_myprogress_json())
+    examples = [
+        myprogress_course_row(
+            1,
+            course_code="MATH 1044",
+            title="Precalculus for Business",
+            status="NOT_STARTED",
+            requirement="Mathematics Requirements",
+        ),
+        myprogress_course_row(
+            2,
+            course_code="MATH 1054",
+            title="Pre-Calculus",
+            status="NOT_STARTED",
+            requirement="Mathematics Requirements",
+        ),
+        myprogress_course_row(
+            3,
+            course_code="ENG 2403",
+            title="World Literature",
+            status="PLANNED",
+            term="2026SUW",
+            requirement="Open Electives Requirements",
+        ),
+        myprogress_course_row(
+            4,
+            course_code="GE 1855",
+            title="First Year Seminar",
+            status="NOT_STARTED",
+            requirement="GE Foundation Requirements 13 S.H.",
+        ),
+        myprogress_course_row(
+            5,
+            course_code="AH 1700",
+            title="Art-Prehist to Middle Ages",
+            status="NOT_STARTED",
+            requirement="Humanities Requirements",
+        ),
+        myprogress_course_row(
+            6,
+            course_code="AH 1701",
+            title="Hist Art-Renssce to Mod. Wrld",
+            status="NOT_STARTED",
+            requirement="Humanities Requirements",
+        ),
+    ]
+    generated = [
+        myprogress_course_row(
+            index,
+            course_code=f"FIN {3000 + index}",
+            title=f"Finance Requirement {index}",
+            status="COMPLETED" if index % 3 == 0 else "IN_PROGRESS",
+            term="2025FAW" if index % 3 == 0 else "2026SPW",
+            requirement="Finance Major Requirements",
+        )
+        for index in range(7, 85)
+    ]
+    exception_row = {
+        "requirements": "Unsupported Requirement Format",
+        "requirement_section": "Unsupported Requirement Format",
+        "status": "NEEDS_REVIEW",
+        "course_title": "Ambiguous placeholder row",
+        "raw_row_text": "Needs review Ambiguous placeholder row",
+        "source_table_index": "17",
+        "source_row_index": "85",
+        "confidence": "low",
+        "warnings": ["unsupported requirement format"],
+    }
+    payload["courseRows"] = [*examples, *generated, exception_row]
+    payload["rawSnapshot"]["visibleRows"] = [
+        [str(row.get("raw_row_text", ""))] for row in payload["courseRows"]
+    ]
+    payload["rawSnapshot"]["courseLikeRows"] = [
+        str(row.get("raw_row_text", "")) for row in payload["courseRows"]
+    ]
+    payload["rawSnapshot"]["diagnostics"] = {
+        "tableCount": 17,
+        "rowCount": 85,
+        "requirementGroupCount": 1,
+        "courseLikeRowCount": 85,
+        "truncated": True,
+        "bounded": True,
+        "academicRowsSkipped": 1,
+    }
+    payload["validation"] = {
+        "status": "AUTO_VERIFIED",
+        "exceptionCount": 0,
+        "exceptions": [],
+        "autoConfirmedFieldCount": 14,
+        "autoConfirmedCourseRowCount": 84,
+        "overallConfidenceScore": 1.0,
+        "downstreamAnalysisAllowed": True,
+    }
+    payload["warnings"] = [
+        {
+            "code": "EXTRACTION_LIMIT_REACHED",
+            "severity": "WARNING",
+            "message": "Extraction stopped early because the page is large.",
+        },
+        {
+            "code": "MY_PROGRESS_PARTIAL_TABLE_PARSE",
+            "severity": "WARNING",
+            "message": "Only a subset of visible MyProgress rows was parsed.",
+        },
+    ]
+    return json.dumps(payload)
 
 
 def failed_kean_myprogress_json() -> str:
@@ -755,6 +902,96 @@ def test_kean_myprogress_summary_is_auto_verified_and_exception_review_only(
     assert all(
         record_review.requires_advisor_confirmation is False for record_review in review_records
     )
+
+    attempts_before = count_rows(session, StudentCourseAttempt)
+    result = DataReviewApplicationService(session).apply_review_session(review.id, dry_run=True)
+    assert count_rows(session, StudentCourseAttempt) == attempts_before
+    assert {record.reason_code for record in result.applied_records} == {
+        "APPLIED_MYPROGRESS_PROGRAM_SUMMARY",
+        "APPLIED_MYPROGRESS_REQUIREMENT_SUMMARY",
+    }
+    assert all(record.status is AppliedImportStatus.SUCCESS for record in result.applied_records)
+    assert all(record.reason_code != "UNSUPPORTED_TARGET_TYPE" for record in result.applied_records)
+
+
+def test_kean_myprogress_preserves_85_rows_and_marks_course_readiness_partial(
+    session: Session,
+) -> None:
+    service = DataImportApplicationService(session)
+
+    run = service.create_import(
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        import_type=DataImportType.DEGREE_AUDIT_EXPORT,
+        file_name="kean-student-portal-my-progress-85-rows.json",
+        file_mime_type="application/json",
+        content=kean_myprogress_with_85_rows_json(),
+        source_type=SourceType.BROWSER_EXTENSION,
+        source_reference=(
+            "KEAN_STUDENT_PORTAL browser extension import: "
+            "https://kean-ss.colleague.elluciancloud.com/Student/Planning/Programs/MyProgress"
+        ),
+    )
+
+    assert run.record_count == 87
+    assert run.valid_record_count == 86
+    assert run.error_count == 1
+
+    preview = session.scalar(
+        select(ImportPreviewSummary).where(ImportPreviewSummary.data_import_run_id == run.id)
+    )
+    assert preview is not None
+    payload = cast(dict[str, Any], preview.summary_payload)
+    assert payload["extracted_degree_audit_row_count"] == 85
+    assert payload["parsed_course_like_row_count"] == 84
+    assert payload["parsed_requirement_row_count"] == 1
+    assert payload["exception_row_count"] == 1
+    assert payload["ignored_row_count"] == 0
+    assert payload["extraction_bounded"] is True
+    assert payload["extraction_truncated"] is True
+
+    readiness = cast(dict[str, Any], payload["readiness"])
+    assert readiness["summary"]["status"] == "AUTO_VERIFIED"
+    assert readiness["requirement_summary"]["status"] == "APPLIED_OR_READY"
+    assert readiness["course_rows"]["status"] == "PARTIAL_REQUIRES_REVIEW"
+    assert readiness["planner"]["status"] == "BLOCKED"
+    assert readiness["course_eligibility"]["status"] == "DEMO_ONLY"
+    assert readiness["schedule_builder"]["status"] == "DEMO_ONLY"
+
+    course_rows = cast(list[dict[str, Any]], payload["course_rows"])
+    assert len(course_rows) == 85
+    assert course_rows[0]["course_code"] == "MATH 1044"
+    assert course_rows[0]["status"] == "NOT_STARTED"
+    assert course_rows[0]["source_table_index"] == "1"
+    assert course_rows[2]["course_code"] == "ENG 2403"
+    assert course_rows[2]["term"] == "2026SUW"
+    assert course_rows[2]["status"] == "PLANNED"
+
+    records = session.scalars(
+        select(ImportedRecord)
+        .where(ImportedRecord.data_import_run_id == run.id)
+        .order_by(ImportedRecord.row_number)
+    ).all()
+    math_1044 = next(
+        record for record in records if record.normalized_payload.get("course_code") == "MATH 1044"
+    )
+    assert math_1044.status is ImportedRecordStatus.VALID
+    assert math_1044.normalized_payload["record_kind"] == "MY_PROGRESS_COURSE_ROW"
+    math_raw_row_text = math_1044.normalized_payload["raw_row_text"]
+    assert isinstance(math_raw_row_text, str)
+    assert math_raw_row_text.startswith("NOT_STARTED MATH 1044")
+    assert math_1044.normalized_payload["requirement_group_context"] == ("Mathematics Requirements")
+
+    exception = next(
+        record
+        for record in records
+        if record.normalized_payload.get("raw_row_text") == "Needs review Ambiguous placeholder row"
+    )
+    assert exception.status is ImportedRecordStatus.INVALID
+    row_validation = cast(dict[str, Any], exception.normalized_payload["row_validation"])
+    assert row_validation["reason_codes"] == [
+        "MISSING_COURSE_CODE",
+        "UNKNOWN_STATUS",
+    ]
 
 
 def test_failed_kean_myprogress_validation_blocks_downstream_application(

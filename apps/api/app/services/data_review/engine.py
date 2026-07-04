@@ -354,8 +354,8 @@ class DataReviewApplicationService:
             return self._outcome(
                 application_id,
                 record_review,
-                AppliedImportAction.SKIPPED_UNSUPPORTED,
-                AppliedImportStatus.SKIPPED,
+                AppliedImportAction.SKIPPED_DEFERRED,
+                AppliedImportStatus.FAILED,
                 "IMPORT_VALIDATION_FAILED",
                 (
                     "The imported MyProgress snapshot failed validation and cannot be used "
@@ -410,6 +410,13 @@ class DataReviewApplicationService:
                 "UNSUPPORTED_REVIEW_DECISION",
                 f"Decision {record_review.decision.value} is not applyable.",
             )
+        myprogress_result = self._myprogress_application_result(
+            application_id,
+            record_review,
+            record,
+        )
+        if myprogress_result is not None:
+            return myprogress_result
         if record.record_type is not ImportedRecordType.COURSE_ATTEMPT:
             return self._outcome(
                 application_id,
@@ -566,6 +573,82 @@ class DataReviewApplicationService:
             "Created an internal student course attempt from a confirmed imported record.",
             attempt.id,
         )
+
+    def _myprogress_application_result(
+        self,
+        application_id: UUID | None,
+        record_review: ImportedRecordReview,
+        record: ImportedRecord,
+    ) -> AppliedImportedRecordResult | None:
+        payload = record.normalized_payload
+        if payload.get("source_page_type") != "KEAN_MY_PROGRESS_PAGE":
+            return None
+        record_kind = str(payload.get("record_kind") or "")
+        if record.record_type is ImportedRecordType.PROGRAM:
+            return self._outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.UPDATED,
+                AppliedImportStatus.SUCCESS,
+                "APPLIED_MYPROGRESS_PROGRAM_SUMMARY",
+                (
+                    "Applied MyProgress program summary to internal imported planning snapshot; "
+                    "no official school record was created or modified."
+                ),
+            )
+        if record_kind == "MY_PROGRESS_REQUIREMENT_GROUP":
+            return self._outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.UPDATED,
+                AppliedImportStatus.SUCCESS,
+                "APPLIED_MYPROGRESS_REQUIREMENT_SUMMARY",
+                (
+                    "Applied MyProgress requirement summary to the internal imported audit "
+                    "snapshot; detailed course-row audit remains advisory."
+                ),
+            )
+        if record_kind == "MY_PROGRESS_COURSE_ROW":
+            row_validation = payload.get("row_validation")
+            reason_codes = (
+                row_validation.get("reason_codes", []) if isinstance(row_validation, dict) else []
+            )
+            if reason_codes:
+                return self._outcome(
+                    application_id,
+                    record_review,
+                    AppliedImportAction.SKIPPED_ADVISOR_REVIEW,
+                    AppliedImportStatus.WARNING,
+                    "MYPROGRESS_COURSE_ROW_REQUIRES_REVIEW",
+                    (
+                        "Course row was preserved but not applied to internal planning because "
+                        f"it requires review: {', '.join(str(code) for code in reason_codes)}."
+                    ),
+                )
+            return self._outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.UPDATED,
+                AppliedImportStatus.WARNING,
+                "APPLIED_MYPROGRESS_COURSE_ROW_PARTIAL",
+                (
+                    "Preserved MyProgress course row in the internal imported audit snapshot; "
+                    "planner and eligibility remain gated until course-row coverage is reliable."
+                ),
+            )
+        if record.record_type is ImportedRecordType.REQUIREMENT:
+            return self._outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.UPDATED,
+                AppliedImportStatus.WARNING,
+                "APPLIED_MYPROGRESS_REQUIREMENT_PARTIAL",
+                (
+                    "Applied supported MyProgress requirement record partially to internal "
+                    "imported audit state."
+                ),
+            )
+        return None
 
     def _record_requires_advisor_review(
         self,
