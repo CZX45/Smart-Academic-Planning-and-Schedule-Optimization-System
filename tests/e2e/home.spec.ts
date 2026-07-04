@@ -873,10 +873,10 @@ const myProgressDataImportRun = {
   file_name: "sanitized-kean-myprogress-finance.json",
   file_mime_type: "application/json",
   file_size_bytes: 4096,
-  record_count: 2,
-  valid_record_count: 2,
-  warning_count: 0,
-  source: { source_type: "STUDENT_PROVIDED", is_official: false },
+  record_count: 87,
+  valid_record_count: 86,
+  warning_count: 1,
+  source: { source_type: "BROWSER_EXTENSION", is_official: false },
 };
 
 const myProgressProgramRecord = {
@@ -918,13 +918,112 @@ const myProgressRequirementRecord = {
   confidence_score: "0.95",
 };
 
+const myProgressSeedCourseRows = [
+  {
+    course_code: "MATH 1044",
+    course_title: "Precalculus for Business",
+    status: "NOT_STARTED",
+    term: null,
+    requirement_group_context: "Quantitative Requirements",
+    raw_row_text: "MATH 1044 Precalculus for Business Not Started",
+  },
+  {
+    course_code: "MATH 1054",
+    course_title: "Pre-Calculus",
+    status: "NOT_STARTED",
+    term: null,
+    requirement_group_context: "Quantitative Requirements",
+    raw_row_text: "MATH 1054 Pre-Calculus Not Started",
+  },
+  {
+    course_code: "ENG 2403",
+    course_title: "World Literature",
+    status: "PLANNED",
+    term: "2026SUW",
+    requirement_group_context: "Major Requirements",
+    raw_row_text: "ENG 2403 World Literature Planned 2026SUW",
+  },
+  {
+    course_code: "GE 1855",
+    course_title: "First Year Seminar",
+    status: "NOT_STARTED",
+    term: null,
+    requirement_group_context: "GE Foundation Requirements 13 S.H.",
+    raw_row_text: "GE 1855 First Year Seminar Not Started",
+  },
+  {
+    course_code: "AH 1700",
+    course_title: "History of Art",
+    status: "COMPLETED",
+    term: "2025SP",
+    requirement_group_context: "GE Disciplinary Distribution",
+    raw_row_text: "AH 1700 History of Art Completed 2025SP",
+  },
+  {
+    course_code: "AH 1701",
+    course_title: "World Art",
+    status: "IN_PROGRESS",
+    term: "2025FA",
+    requirement_group_context: "GE Disciplinary Distribution",
+    raw_row_text: "AH 1701 World Art In Progress 2025FA",
+  },
+];
+
+const myProgressGeneratedCourseRows = Array.from({ length: 78 }, (_, index) => {
+  const courseNumber = String(2000 + index).padStart(4, "0");
+  return {
+    course_code: `FIN ${courseNumber}`,
+    course_title: `Finance Requirement Row ${index + 1}`,
+    status:
+      index % 3 === 0
+        ? "COMPLETED"
+        : index % 3 === 1
+          ? "IN_PROGRESS"
+          : "PLANNED",
+    term: index % 3 === 2 ? "2026SP" : index % 3 === 1 ? "2025FA" : "2024FA",
+    requirement_group_context: "Finance Major Requirements",
+    raw_row_text: `FIN ${courseNumber} Finance Requirement Row ${index + 1}`,
+  };
+});
+
+const myProgressExceptionCourseRow = {
+  course_code: "",
+  course_title: "Unparsed elective row",
+  status: "UNKNOWN_STATUS",
+  term: null,
+  requirement_group_context: "Electives",
+  raw_row_text: "Elective row with missing course code",
+  requires_review: true,
+  reason_codes: ["MISSING_COURSE_CODE", "UNKNOWN_STATUS"],
+  warnings: ["Row requires review before downstream use."],
+};
+
+const myProgressCourseRows = [
+  ...myProgressSeedCourseRows,
+  ...myProgressGeneratedCourseRows,
+  myProgressExceptionCourseRow,
+].map((row, index) => {
+  const requiresReview =
+    "requires_review" in row && row.requires_review === true;
+  return {
+    row_number: index + 3,
+    source_table_index: index < 40 ? "1" : "2",
+    source_row_index: String(index + 1),
+    confidence: requiresReview ? "low" : "high",
+    warnings: "warnings" in row ? row.warnings : [],
+    reason_codes: "reason_codes" in row ? row.reason_codes : [],
+    requires_review: requiresReview,
+    ...row,
+  };
+});
+
 const myProgressDataImportPreview = {
   ...mockDataImportPreview,
   id: "00000000-0000-4000-8000-000000000744",
   data_import_run_id: myProgressDataImportRun.id,
-  record_count: 2,
-  valid_record_count: 2,
-  warning_count: 0,
+  record_count: 87,
+  valid_record_count: 86,
+  warning_count: 1,
   official_application_ready: false,
   disclaimers: [
     "Sanitized MyProgress sample data is for local testing only and is not official school policy.",
@@ -938,8 +1037,36 @@ const myProgressDataImportPreview = {
     exception_count: 0,
     exceptions: [],
     auto_confirmed_field_count: 14,
-    auto_confirmed_course_row_count: 0,
+    auto_confirmed_course_row_count: 84,
     overall_confidence_score: 0.98,
+    extracted_degree_audit_row_count: 85,
+    parsed_course_like_row_count: 84,
+    parsed_requirement_row_count: 1,
+    ignored_row_count: 0,
+    exception_row_count: 1,
+    extraction_bounded: true,
+    extraction_truncated: true,
+    course_rows: myProgressCourseRows,
+    readiness: {
+      summary: { status: "AUTO_VERIFIED", reason_codes: [] },
+      requirement_summary: { status: "APPLIED_OR_READY", reason_codes: [] },
+      course_rows: {
+        status: "PARTIAL_REQUIRES_REVIEW",
+        reason_codes: ["COURSE_ROW_EXCEPTIONS_PRESENT"],
+      },
+      planner: {
+        status: "BLOCKED",
+        reason_codes: ["WAITING_FOR_RELIABLE_MYPROGRESS_COURSE_ROWS"],
+      },
+      course_eligibility: {
+        status: "DEMO_ONLY",
+        reason_codes: ["REAL_COURSE_HISTORY_NOT_READY"],
+      },
+      schedule_builder: {
+        status: "DEMO_ONLY",
+        reason_codes: ["REAL_SECTION_SEARCH_DATA_NOT_IMPORTED"],
+      },
+    },
     program_summary: {
       programName: "Finance, BS",
       degree: "Bachelor of Science",
@@ -1005,6 +1132,42 @@ const myProgressRequiresReviewPreview = {
         source: "sanitized-kean-myprogress-finance-summary.html",
       },
     ],
+    readiness: {
+      ...myProgressDataImportPreview.summary_payload.readiness,
+      summary: {
+        status: "REVIEW_REQUIRED",
+        reason_codes: ["MY_PROGRESS_SUMMARY_NOT_VERIFIED"],
+      },
+      planner: {
+        status: "BLOCKED",
+        reason_codes: ["MY_PROGRESS_SUMMARY_NOT_VERIFIED"],
+      },
+    },
+  },
+};
+
+const myProgressPlanningReadyPreview = {
+  ...myProgressDataImportPreview,
+  id: "00000000-0000-4000-8000-000000000746",
+  summary_payload: {
+    ...myProgressDataImportPreview.summary_payload,
+    extracted_degree_audit_row_count: 84,
+    parsed_course_like_row_count: 84,
+    exception_row_count: 0,
+    extraction_bounded: false,
+    extraction_truncated: false,
+    course_rows: myProgressCourseRows.filter((row) => !row.requires_review),
+    readiness: {
+      ...myProgressDataImportPreview.summary_payload.readiness,
+      course_rows: {
+        status: "READY",
+        reason_codes: [],
+      },
+      planner: {
+        status: "WARNING",
+        reason_codes: ["IMPORTED_ROWS_NEED_ADVISOR_CONFIRMATION"],
+      },
+    },
   },
 };
 
@@ -1160,6 +1323,111 @@ function mockApplicationResult(dryRun: boolean) {
       },
     ],
     warnings: mockDataReviewWarnings,
+  };
+}
+
+const myProgressDataImportReview = {
+  ...mockDataImportReview,
+  id: "00000000-0000-4000-8000-000000000751",
+  data_import_run_id: myProgressDataImportRun.id,
+  status: "READY_TO_APPLY",
+};
+
+const myProgressImportedRecordReviews = [
+  {
+    ...mockImportedRecordReviews[0],
+    id: "00000000-0000-4000-8000-000000000752",
+    review_session_id: myProgressDataImportReview.id,
+    imported_record_id: myProgressProgramRecord.id,
+    selected_mapping_candidate_id: null,
+    decision: "CONFIRMED",
+    requires_advisor_confirmation: false,
+    imported_record: myProgressProgramRecord,
+    selected_mapping_candidate: null,
+  },
+  {
+    ...mockImportedRecordReviews[1],
+    id: "00000000-0000-4000-8000-000000000753",
+    review_session_id: myProgressDataImportReview.id,
+    imported_record_id: myProgressRequirementRecord.id,
+    selected_mapping_candidate_id: null,
+    decision: "CONFIRMED",
+    requires_advisor_confirmation: false,
+    imported_record: myProgressRequirementRecord,
+    selected_mapping_candidate: null,
+  },
+];
+
+const myProgressDataApplicationRun = {
+  ...mockDataApplicationRun,
+  id: "00000000-0000-4000-8000-000000000754",
+  review_session_id: myProgressDataImportReview.id,
+  status: "APPLIED_WITH_WARNINGS",
+  applied_count: 2,
+  skipped_count: 0,
+  warning_count: 1,
+};
+
+const myProgressDataReviewWarnings = [
+  {
+    ...mockDataReviewWarnings[0],
+    id: "00000000-0000-4000-8000-000000000755",
+    review_session_id: myProgressDataImportReview.id,
+    message:
+      "Applied MyProgress summaries to the internal imported snapshot; high-risk guidance still needs school confirmation.",
+  },
+];
+
+function mockMyProgressApplicationResult(dryRun: boolean) {
+  return {
+    review_session: {
+      ...myProgressDataImportReview,
+      status: dryRun ? "READY_TO_APPLY" : "APPLIED_WITH_WARNINGS",
+      completed_at: dryRun ? null : "2026-06-30T00:00:03Z",
+    },
+    dry_run: dryRun,
+    application: dryRun ? null : myProgressDataApplicationRun,
+    applied_records: [
+      {
+        id: dryRun ? null : "00000000-0000-4000-8000-000000000756",
+        data_application_run_id: dryRun
+          ? null
+          : myProgressDataApplicationRun.id,
+        imported_record_review_id: myProgressImportedRecordReviews[0].id,
+        imported_record_id: myProgressProgramRecord.id,
+        target_entity_type: "UNKNOWN",
+        target_entity_id: null,
+        action: "UPDATED",
+        status: "SUCCESS",
+        reason_code: dryRun
+          ? "WOULD_APPLY_MYPROGRESS_PROGRAM_SUMMARY"
+          : "APPLIED_MYPROGRESS_PROGRAM_SUMMARY",
+        message: dryRun
+          ? "Dry run would apply the MyProgress program summary to the internal imported planning snapshot."
+          : "Applied MyProgress program summary to the internal imported planning snapshot with advisory warnings.",
+        created_at: dryRun ? null : "2026-06-30T00:00:03Z",
+      },
+      {
+        id: dryRun ? null : "00000000-0000-4000-8000-000000000757",
+        data_application_run_id: dryRun
+          ? null
+          : myProgressDataApplicationRun.id,
+        imported_record_review_id: myProgressImportedRecordReviews[1].id,
+        imported_record_id: myProgressRequirementRecord.id,
+        target_entity_type: "UNKNOWN",
+        target_entity_id: null,
+        action: "UPDATED",
+        status: "SUCCESS",
+        reason_code: dryRun
+          ? "WOULD_APPLY_MYPROGRESS_REQUIREMENT_SUMMARY"
+          : "APPLIED_MYPROGRESS_REQUIREMENT_SUMMARY",
+        message: dryRun
+          ? "Dry run would apply the MyProgress requirement summary to the internal imported audit snapshot."
+          : "Applied MyProgress requirement summary to the internal imported audit snapshot with advisory warnings.",
+        created_at: dryRun ? null : "2026-06-30T00:00:03Z",
+      },
+    ],
+    warnings: myProgressDataReviewWarnings,
   };
 }
 
@@ -1645,7 +1913,7 @@ async function mockNoSavedDataImports(page: Page) {
 }
 
 async function waitForClientReady(page: Page) {
-  await expect(page.getByText("API connected")).toBeVisible();
+  await expect(page.getByText("API 已连接")).toBeVisible();
 }
 
 async function mockSavedMyProgressImportApis(
@@ -1724,6 +1992,83 @@ async function mockSavedMyProgressImportApis(
   );
 }
 
+async function mockMyProgressReviewApis(page: Page) {
+  let applications = [] as Array<typeof myProgressDataApplicationRun>;
+
+  await page.route(
+    "http://localhost:8000/api/v1/data-import-reviews",
+    async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify(myProgressDataImportReview),
+        });
+        return;
+      }
+      await route.continue();
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-import-reviews/*/records",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(myProgressImportedRecordReviews),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-import-reviews/*/warnings",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(myProgressDataReviewWarnings),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-import-reviews/*/applications",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(applications),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-import-reviews/*/apply",
+    async (route) => {
+      const body = route.request().postDataJSON() as { dry_run?: boolean };
+      const dryRun = body.dry_run ?? false;
+      if (!dryRun) {
+        applications = [myProgressDataApplicationRun];
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(mockMyProgressApplicationResult(dryRun)),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/data-import-reviews/*",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(myProgressDataImportReview),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/students/*/data-import-reviews",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([myProgressDataImportReview]),
+      });
+    },
+  );
+}
+
 async function mockSuccessfulSectionMonitoringApis(page: Page) {
   await page.unroute(
     "http://localhost:8000/api/v1/section-monitoring/targets*",
@@ -1788,19 +2133,14 @@ test("home page shows degree progress shell and required mock warnings", async (
 
   await page.goto("/");
 
+  await expect(page.getByRole("heading", { name: /学业进度/ })).toBeVisible();
+  await expect(page.getByText("API 已连接")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: /Degree Progress/ }),
+    page
+      .getByText("高风险学业建议需要 advisor / registrar / 学校确认。")
+      .first(),
   ).toBeVisible();
-  await expect(page.getByText("API connected")).toBeVisible();
-  await expect(
-    page.getByText("Mock data — not official university policy.").first(),
-  ).toBeVisible();
-  await expect(
-    page.getByText(
-      "Advisor confirmation is required for high-impact academic guidance.",
-    ),
-  ).toBeVisible();
-  await expect(page.getByText("Audit Mode")).toBeVisible();
+  await expect(page.getByText("审核模式")).toBeVisible();
   await expect(page.getByText("Mock Finance Foundations")).toBeVisible();
   await expect(page.getByText("PENDING_TRANSFER")).toBeVisible();
 });
@@ -1813,16 +2153,14 @@ test("home page clearly marks the degree dashboard as demo data when no MyProgre
 
   await page.goto("/");
 
-  const auditSummary = page.getByLabel("Degree audit summary");
-  await expect(auditSummary.getByText("Demo / Mock Data")).toBeVisible();
+  const auditSummary = page.getByLabel("学业审核汇总");
+  await expect(auditSummary.getByText("演示 / 模拟数据")).toBeVisible();
   await expect(
-    page.getByText("No real MyProgress import has been loaded yet"),
+    page.getByRole("heading", { name: "尚未加载真实 MyProgress 导入" }),
   ).toBeVisible();
+  await expect(page.getByText("仅示例数据")).toBeVisible();
   await expect(
-    page.getByText("Mock values are sample data only"),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /Load sanitized MyProgress sample/i }),
+    page.getByRole("button", { name: /加载脱敏 MyProgress 示例/ }),
   ).toBeVisible();
   await expect(auditSummary.getByText("Mock BS Finance")).toHaveCount(0);
   await expect(auditSummary.getByText("27.0")).toHaveCount(0);
@@ -1831,20 +2169,12 @@ test("home page clearly marks the degree dashboard as demo data when no MyProgre
   await expect(auditSummary.getByText("93.0")).toHaveCount(0);
   await expect(auditSummary.getByText("22.50%")).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: /Create scenario/ }),
+    page.getByRole("button", { name: /创建假设方案/ }),
   ).toBeDisabled();
-  await expect(
-    page.getByRole("button", { name: /Create plan/ }),
-  ).toBeDisabled();
-  await expect(
-    page.getByRole("button", { name: /Build schedule/ }),
-  ).toBeDisabled();
-  await expect(page.getByLabel("Development diagnostics")).toContainText(
-    "Import source status",
-  );
-  await expect(page.getByLabel("Development diagnostics")).toContainText(
-    "Demo / Mock Data",
-  );
+  await expect(page.getByRole("button", { name: /创建规划/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /生成课表/ })).toBeDisabled();
+  await expect(page.getByLabel("本地诊断")).toContainText("导入来源状态");
+  await expect(page.getByLabel("本地诊断")).toContainText("演示 / 模拟数据");
 });
 
 test("saved auto-verified MyProgress import overrides mock dashboard values", async ({
@@ -1855,9 +2185,9 @@ test("saved auto-verified MyProgress import overrides mock dashboard values", as
 
   await page.goto("/");
 
-  const auditSummary = page.getByLabel("Degree audit summary");
+  const auditSummary = page.getByLabel("学业审核汇总");
   await expect(
-    auditSummary.getByText("Real Imported Data - Auto Verified"),
+    auditSummary.getByText("真实导入数据 - 已自动验证"),
   ).toBeVisible();
   await expect(auditSummary.getByText("Finance, BS")).toBeVisible();
   await expect(auditSummary.getByText("2024")).toBeVisible();
@@ -1872,6 +2202,117 @@ test("saved auto-verified MyProgress import overrides mock dashboard values", as
   await expect(auditSummary.getByText("27.0")).toHaveCount(0);
   await expect(auditSummary.getByText("93.0")).toHaveCount(0);
   await expect(auditSummary.getByText("22.50%")).toHaveCount(0);
+  const importSummary = page.getByLabel("数据导入预览汇总");
+  await expect(
+    importSummary
+      .locator(".metric")
+      .filter({ hasText: "提取的 MyProgress 行" }),
+  ).toContainText("85");
+  await expect(
+    importSummary.locator(".metric").filter({ hasText: "已解析课程行" }),
+  ).toContainText("84");
+  await expect(
+    importSummary.locator(".metric").filter({ hasText: "要求摘要行" }),
+  ).toContainText("1");
+  await expect(
+    importSummary.locator(".metric").filter({ hasText: "异常行" }),
+  ).toContainText("1");
+  await expect(
+    importSummary.locator(".metric").filter({ hasText: "忽略行" }),
+  ).toContainText("0");
+  await expect(
+    importSummary.locator(".metric").filter({ hasText: "提取有边界 / 截断" }),
+  ).toContainText("是");
+  await expect(page.getByText("截断/边界警告需要人工核对")).toBeVisible();
+  const myProgressRows = page.getByLabel("MyProgress 课程行");
+  await expect(
+    myProgressRows.locator(".comparison-row").filter({ hasText: "MATH 1044" }),
+  ).toContainText("Precalculus for Business");
+  await expect(
+    myProgressRows.locator(".comparison-row").filter({ hasText: "MATH 1044" }),
+  ).toContainText("尚未开始");
+  await expect(
+    myProgressRows.locator(".comparison-row").filter({ hasText: "MATH 1054" }),
+  ).toContainText("Pre-Calculus");
+  await expect(
+    myProgressRows.locator(".comparison-row").filter({ hasText: "MATH 1054" }),
+  ).toContainText("尚未开始");
+  await expect(
+    myProgressRows.locator(".comparison-row").filter({ hasText: "ENG 2403" }),
+  ).toContainText("World Literature");
+  await expect(
+    myProgressRows.locator(".comparison-row").filter({ hasText: "ENG 2403" }),
+  ).toContainText("2026SUW");
+  await expect(
+    myProgressRows.locator(".comparison-row").filter({ hasText: "ENG 2403" }),
+  ).toContainText("已规划");
+  await expect(
+    myProgressRows.locator(".comparison-row").filter({ hasText: "GE 1855" }),
+  ).toContainText("First Year Seminar");
+  await expect(
+    myProgressRows.locator(".comparison-row").filter({ hasText: "GE 1855" }),
+  ).toContainText("尚未开始");
+  await expect(page.getByLabel("MyProgress 分项就绪状态")).toContainText(
+    "课程行",
+  );
+  await expect(page.getByLabel("MyProgress 分项就绪状态")).toContainText(
+    "部分解析 / 需要审核",
+  );
+});
+
+test("home page reviews and applies confirmed MyProgress import summaries", async ({
+  page,
+}) => {
+  await mockSuccessfulAuditApis(page);
+  await mockSavedMyProgressImportApis(page);
+  await mockMyProgressReviewApis(page);
+
+  await page.goto("/");
+  await waitForClientReady(page);
+
+  await expect(
+    page.getByText("真实导入数据 - 已自动验证").first(),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: /^创建审核$/ }).click();
+  const reviewSummary = page.getByLabel("数据审核汇总");
+  await expect(reviewSummary.getByText("可应用")).toBeVisible();
+  await expect(reviewSummary.getByText("已自动确认")).toBeVisible();
+  await expect(
+    reviewSummary.locator(".metric").filter({ hasText: "已自动确认" }),
+  ).toContainText("2");
+  await expect(
+    page.getByText("高置信度 MyProgress 字段已自动确认"),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: /^加载最新审核$/ }).click();
+  await expect(reviewSummary.getByText("可应用")).toBeVisible();
+
+  await page.getByRole("button", { name: /^试运行$/ }).click();
+  const applicationResult = page.getByLabel("数据应用结果");
+  await expect(
+    applicationResult.getByText("WOULD_APPLY_MYPROGRESS_PROGRAM_SUMMARY"),
+  ).toBeVisible();
+  await expect(
+    applicationResult.getByText("WOULD_APPLY_MYPROGRESS_REQUIREMENT_SUMMARY"),
+  ).toBeVisible();
+  await expect(
+    applicationResult.getByText("UNSUPPORTED_TARGET_TYPE"),
+  ).toHaveCount(0);
+  await expect(applicationResult.getByText("已跳过不支持项")).toHaveCount(0);
+
+  await page.getByRole("button", { name: /^应用已确认记录$/ }).click();
+  await expect(reviewSummary.getByText("已应用但有警告").first()).toBeVisible();
+  await expect(
+    applicationResult.getByText("APPLIED_MYPROGRESS_PROGRAM_SUMMARY"),
+  ).toBeVisible();
+  await expect(
+    applicationResult.getByText("APPLIED_MYPROGRESS_REQUIREMENT_SUMMARY"),
+  ).toBeVisible();
+  await expect(
+    applicationResult.getByText("UNSUPPORTED_TARGET_TYPE"),
+  ).toHaveCount(0);
+  await expect(applicationResult.getByText("已跳过不支持项")).toHaveCount(0);
 });
 
 test("saved MyProgress import with exceptions is marked as requiring review", async ({
@@ -1882,24 +2323,18 @@ test("saved MyProgress import with exceptions is marked as requiring review", as
 
   await page.goto("/");
 
-  const auditSummary = page.getByLabel("Degree audit summary");
-  await expect(
-    auditSummary.getByText("Real Imported Data - Requires Review"),
-  ).toBeVisible();
+  const auditSummary = page.getByLabel("学业审核汇总");
+  await expect(auditSummary.getByText("真实导入数据 - 需要审核")).toBeVisible();
   await expect(
     page
-      .getByLabel("MyProgress exception queue")
+      .getByLabel("MyProgress 异常队列")
       .getByText("LOW_CONFIDENCE_REQUIREMENT_GROUP"),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Create scenario/ }),
+    page.getByRole("button", { name: /创建假设方案/ }),
   ).toBeDisabled();
-  await expect(
-    page.getByRole("button", { name: /Create plan/ }),
-  ).toBeDisabled();
-  await expect(
-    page.getByRole("button", { name: /Build schedule/ }),
-  ).toBeDisabled();
+  await expect(page.getByRole("button", { name: /创建规划/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /生成课表/ })).toBeDisabled();
 });
 
 test("home page shows product status cards with advisory labels", async ({
@@ -1911,46 +2346,38 @@ test("home page shows product status cards with advisory labels", async ({
 
   await page.goto("/");
 
-  const dashboard = page.getByLabel("Product status dashboard");
+  const dashboard = page.getByLabel("产品状态概览");
   await expect(dashboard).toBeVisible();
 
-  const degreeAuditCard = page.getByLabel("Degree audit status card");
-  await expect(degreeAuditCard).toContainText("Degree audit");
-  await expect(degreeAuditCard).toContainText("Completed with warnings");
-  await expect(degreeAuditCard).toContainText("Review requirement warnings");
+  const degreeAuditCard = page.getByLabel("学业审核状态卡片");
+  await expect(degreeAuditCard).toContainText("学业审核");
+  await expect(degreeAuditCard).toContainText("已完成但有警告");
+  await expect(degreeAuditCard).toContainText("查看要求警告");
 
-  const dataReviewCard = page.getByLabel("Data import review status card");
-  await expect(dataReviewCard).toContainText("Data import review");
-  await expect(dataReviewCard).toContainText("No confirmed imports yet");
-  await expect(dataReviewCard).toContainText("Manual review required");
+  const dataReviewCard = page.getByLabel("数据导入审核状态卡片");
+  await expect(dataReviewCard).toContainText("数据导入审核");
+  await expect(dataReviewCard).toContainText("尚无已确认导入");
+  await expect(dataReviewCard).toContainText("需要人工审核");
 
-  const browserExtensionCard = page.getByLabel(
-    "Browser extension import status card",
-  );
-  await expect(browserExtensionCard).toContainText("Browser extension import");
-  await expect(browserExtensionCard).toContainText(
-    "Non-official imported data",
-  );
-  await expect(browserExtensionCard).toContainText("Advisory only");
+  const browserExtensionCard = page.getByLabel("浏览器插件导入状态卡片");
+  await expect(browserExtensionCard).toContainText("浏览器插件导入");
+  await expect(browserExtensionCard).toContainText("非官方导入数据");
+  await expect(browserExtensionCard).toContainText("仅供参考");
 
-  const sectionMonitoringCard = page.getByLabel(
-    "Section monitoring status card",
-  );
-  await expect(sectionMonitoringCard).toContainText("Section monitoring");
-  await expect(sectionMonitoringCard).toContainText("Advisory alerts ready");
-  await expect(sectionMonitoringCard).toContainText(
-    "Verify in official portal",
-  );
+  const sectionMonitoringCard = page.getByLabel("课节监控状态卡片");
+  await expect(sectionMonitoringCard).toContainText("课节监控");
+  await expect(sectionMonitoringCard).toContainText("参考性提醒已就绪");
+  await expect(sectionMonitoringCard).toContainText("请在官方门户人工核对");
 
-  const scheduleCard = page.getByLabel("Schedule optimization status card");
-  await expect(scheduleCard).toContainText("Schedule optimization");
-  await expect(scheduleCard).toContainText("No generated schedule plans");
-  await expect(scheduleCard).toContainText("Build a schedule");
+  const scheduleCard = page.getByLabel("课表优化状态卡片");
+  await expect(scheduleCard).toContainText("课表优化");
+  await expect(scheduleCard).toContainText("等待真实课节数据 / 演示模式");
+  await expect(scheduleCard).toContainText("生成课表");
 
-  const whatIfCard = page.getByLabel("What-if planning status card");
-  await expect(whatIfCard).toContainText("What-if planning");
-  await expect(whatIfCard).toContainText("No what-if scenarios");
-  await expect(whatIfCard).toContainText("Create scenario");
+  const whatIfCard = page.getByLabel("假设规划状态卡片");
+  await expect(whatIfCard).toContainText("假设规划");
+  await expect(whatIfCard).toContainText("没有假设方案");
+  await expect(whatIfCard).toContainText("创建假设方案");
 });
 
 test("home page explains empty states with reasons and manual next steps", async ({
@@ -1960,35 +2387,33 @@ test("home page explains empty states with reasons and manual next steps", async
 
   await page.goto("/");
 
-  await expect(page.getByLabel("Data import empty state")).toContainText(
-    "No data imports yet",
+  await expect(page.getByLabel("数据导入空状态")).toContainText(
+    "还没有数据导入",
   );
-  await expect(page.getByLabel("Data import empty state")).toContainText(
-    "No staging imports have been created or loaded for the mock student.",
+  await expect(page.getByLabel("数据导入空状态")).toContainText(
+    "当前还没有为模拟学生创建或加载 staging 导入。",
   );
-  await expect(page.getByLabel("Data import empty state")).toContainText(
-    "Preview an import manually before review.",
-  );
-
-  await expect(page.getByLabel("Data review empty state")).toContainText(
-    "No confirmed imports yet",
-  );
-  await expect(page.getByLabel("Data review empty state")).toContainText(
-    "Manual review required",
+  await expect(page.getByLabel("数据导入空状态")).toContainText(
+    "先手动预览一次导入，再进入人工审核。",
   );
 
-  await expect(
-    page.getByLabel("Section monitoring targets empty state"),
-  ).toContainText("No section monitoring targets");
-  await expect(
-    page.getByLabel("Section monitoring alerts empty state"),
-  ).toContainText("No section monitoring alerts");
-
-  await expect(page.getByLabel("Schedule plans empty state")).toContainText(
-    "No generated schedule plans",
+  await expect(page.getByLabel("数据审核空状态")).toContainText(
+    "还没有已确认的导入",
   );
-  await expect(page.getByLabel("What-if scenarios empty state")).toContainText(
-    "No what-if scenarios",
+  await expect(page.getByLabel("数据审核空状态")).toContainText("需要人工审核");
+
+  await expect(page.getByLabel("课节监控目标空状态")).toContainText(
+    "还没有监控的课节",
+  );
+  await expect(page.getByLabel("课节监控提醒空状态")).toContainText(
+    "还没有课节提醒",
+  );
+
+  await expect(page.getByLabel("课表方案空状态")).toContainText(
+    "还没有生成课表方案",
+  );
+  await expect(page.getByLabel("假设方案空状态")).toContainText(
+    "还没有假设方案",
   );
 });
 
@@ -2024,10 +2449,8 @@ test("home page reports when the API health request is unavailable", async ({
 
   await page.goto("/");
 
-  await expect(page.getByText("API unavailable")).toBeVisible();
-  await expect(
-    page.getByText("No Import Loaded", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("API 不可用")).toBeVisible();
+  await expect(page.getByText("尚未加载导入", { exact: true })).toBeVisible();
   await expect(
     page
       .locator("section[aria-live='polite'] > p")
@@ -2036,12 +2459,12 @@ test("home page reports when the API health request is unavailable", async ({
       })
       .first(),
   ).toBeVisible();
-  const diagnostics = page.getByLabel("Development diagnostics");
-  await expect(diagnostics).toContainText("API base URL");
+  const diagnostics = page.getByLabel("本地诊断");
+  await expect(diagnostics).toContainText("API 基础地址");
   await expect(diagnostics).toContainText("http://localhost:8000");
-  await expect(diagnostics).toContainText("Web origin");
-  await expect(diagnostics).toContainText("API may be stale or not restarted");
-  await expect(diagnostics).toContainText("browser port is allowed by CORS");
+  await expect(diagnostics).toContainText("网页来源");
+  await expect(diagnostics).toContainText("API 可能未重启");
+  await expect(diagnostics).toContainText("CORS");
 });
 
 test("home page reports when degree audit responses fail schema validation", async ({
@@ -2059,58 +2482,48 @@ test("home page reports when degree audit responses fail schema validation", asy
 
   await page.goto("/");
 
-  await expect(page.getByText("Audit unavailable")).toBeVisible();
-  await expect(
-    page.getByText(/unexpected degree audit response shape/i),
-  ).toBeVisible();
+  await expect(page.getByText("学业审核不可用")).toBeVisible();
+  await expect(page.getByText(/意外的学业审核响应结构/)).toBeVisible();
 });
 
 test("home page creates and compares what-if academic scenarios", async ({
   page,
 }) => {
   await mockSuccessfulAuditApis(page);
-  await mockSavedMyProgressImportApis(page);
+  await mockSavedMyProgressImportApis(page, myProgressPlanningReadyPreview);
   await mockSuccessfulScenarioApis(page);
 
   await page.goto("/");
   await waitForClientReady(page);
   await expect(
-    page.getByText("Real Imported Data - Auto Verified").first(),
+    page.getByText("真实导入数据 - 已自动验证").first(),
   ).toBeVisible();
 
   await expect(
-    page.getByRole("heading", { name: /Explore Programs \/ What-if Analysis/ }),
+    page
+      .getByLabel("假设规划", { exact: true })
+      .getByRole("heading", { name: "假设规划" }),
   ).toBeVisible();
-  await expect(
-    page.getByText(
-      "Estimated additional credits do not predict graduation timing.",
-    ),
-  ).toBeVisible();
+  await expect(page.getByText("额外学分估算不会预测毕业时间。")).toBeVisible();
 
-  await page.getByLabel("Candidate program").selectOption("accounting-minor");
-  await page.getByRole("button", { name: /Create scenario/ }).click();
+  await page.getByLabel("候选项目").selectOption("accounting-minor");
+  await page.getByRole("button", { name: /创建假设方案/ }).click();
 
-  const scenarioSummary = page.getByLabel("What-if scenario summary");
-  await expect(
-    scenarioSummary.getByText("Mock Accounting Minor"),
-  ).toBeVisible();
-  await expect(scenarioSummary.getByText("Shared Credits")).toBeVisible();
-  await expect(
-    scenarioSummary.getByText("Unique Secondary Credits"),
-  ).toBeVisible();
-  await expect(
-    scenarioSummary.getByText("Estimated Additional Credits"),
-  ).toBeVisible();
+  const scenarioSummary = page.getByLabel("假设方案汇总");
+  await expect(scenarioSummary.getByText("模拟会计辅修")).toBeVisible();
+  await expect(scenarioSummary.getByText("共享学分")).toBeVisible();
+  await expect(scenarioSummary.getByText("第二项目独有学分")).toBeVisible();
+  await expect(scenarioSummary.getByText("预计额外学分")).toBeVisible();
   await expect(page.getByText("ACCT 300")).toBeVisible();
   await expect(page.getByText("ESTIMATED_ADDITIONAL_CREDITS")).toBeVisible();
 
-  await page.getByRole("button", { name: /Compare saved scenarios/ }).click();
+  await page.getByRole("button", { name: /比较已保存方案/ }).click();
   await expect(page.getByText("Add Economics Minor")).toBeVisible();
 });
 
 test("home page reports what-if API and schema failures", async ({ page }) => {
   await mockSuccessfulAuditApis(page);
-  await mockSavedMyProgressImportApis(page);
+  await mockSavedMyProgressImportApis(page, myProgressPlanningReadyPreview);
   await page.route(
     "http://localhost:8000/api/v1/academic-scenarios",
     async (route) => {
@@ -2124,14 +2537,12 @@ test("home page reports what-if API and schema failures", async ({ page }) => {
   await page.goto("/");
   await waitForClientReady(page);
   await expect(
-    page.getByText("Real Imported Data - Auto Verified").first(),
+    page.getByText("真实导入数据 - 已自动验证").first(),
   ).toBeVisible();
-  await page.getByRole("button", { name: /Create scenario/ }).click();
+  await page.getByRole("button", { name: /创建假设方案/ }).click();
 
-  await expect(page.getByText("What-if scenario unavailable")).toBeVisible();
-  await expect(
-    page.getByText(/unexpected academic scenario response shape/i),
-  ).toBeVisible();
+  await expect(page.getByText("假设方案不可用")).toBeVisible();
+  await expect(page.getByText(/意外的假设方案响应结构/)).toBeVisible();
 });
 
 test("home page checks course eligibility without recalculating section seats", async ({
@@ -2143,22 +2554,20 @@ test("home page checks course eligibility without recalculating section seats", 
   await page.goto("/");
   await waitForClientReady(page);
 
+  await expect(page.getByRole("heading", { name: /课程资格/ })).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: /Course Eligibility/ }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Section seats are separate from academic eligibility."),
+    page
+      .getByLabel("课程资格检查")
+      .getByText("课节座位状态必须在官方门户人工核对。"),
   ).toBeVisible();
 
-  await page.getByLabel("Course check").selectOption("fin-400-registration");
-  await page.getByRole("button", { name: /Check eligibility/ }).click();
+  await page.getByLabel("课程检查").selectOption("fin-400-registration");
+  await page.getByRole("button", { name: /检查资格/ }).click();
 
-  const eligibilitySummary = page.getByLabel("Course eligibility summary");
-  await expect(
-    eligibilitySummary.getByText(/permission required/i).first(),
-  ).toBeVisible();
-  await expect(eligibilitySummary.getByText(/waitlist/i)).toBeVisible();
-  await expect(eligibilitySummary.getByText("Available Seats")).toBeVisible();
+  const eligibilitySummary = page.getByLabel("课程资格汇总");
+  await expect(eligibilitySummary.getByText("需要许可").first()).toBeVisible();
+  await expect(eligibilitySummary.getByText("候补名单")).toBeVisible();
+  await expect(eligibilitySummary.getByText("可用座位")).toBeVisible();
   await expect(page.getByText("PERMISSION_REQUIRED")).toBeVisible();
   await expect(page.getByText("MOCK_ELIGIBILITY_ESTIMATE")).toBeVisible();
 });
@@ -2179,71 +2588,65 @@ test("home page reports course eligibility schema failures", async ({
 
   await page.goto("/");
   await waitForClientReady(page);
-  await page.getByRole("button", { name: /Check eligibility/ }).click();
+  await page.getByRole("button", { name: /检查资格/ }).click();
 
-  await expect(page.getByText("Eligibility schema error")).toBeVisible();
-  await expect(
-    page.getByText(/unexpected course eligibility response shape/i),
-  ).toBeVisible();
+  await expect(page.getByText("课程资格结构错误")).toBeVisible();
+  await expect(page.getByText(/意外的课程资格响应结构/)).toBeVisible();
 });
 
 test("home page creates and compares long-term academic plans", async ({
   page,
 }) => {
   await mockSuccessfulAuditApis(page);
-  await mockSavedMyProgressImportApis(page);
+  await mockSavedMyProgressImportApis(page, myProgressPlanningReadyPreview);
   await mockSuccessfulPlannerApis(page);
 
   await page.goto("/");
   await waitForClientReady(page);
   await expect(
-    page.getByText("Real Imported Data - Auto Verified").first(),
+    page.getByText("真实导入数据 - 已自动验证").first(),
   ).toBeVisible();
 
   await expect(
-    page.getByRole("heading", { name: /Long-Term Academic Planner/ }),
+    page.getByRole("heading", { name: /长期学业规划/ }),
   ).toBeVisible();
   await expect(
     page
-      .getByLabel("Academic planner disclaimers")
-      .getByText("Mock data — not official university policy."),
+      .getByLabel("长期学业规划边界")
+      .getByText("演示数据 / 模拟数据，不是官方学校政策。"),
   ).toBeVisible();
+  await expect(page.getByText("这不是注册课程。").first()).toBeVisible();
+  await expect(page.getByText("长期规划不检查每周课表冲突。")).toBeVisible();
+  await expect(page.getByText("课程开设预测只是估算。")).toBeVisible();
   await expect(
-    page.getByText("This plan is not registration.").first(),
-  ).toBeVisible();
-  await expect(
-    page.getByText("This plan does not check weekly schedule conflicts."),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Course offering predictions are estimates."),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Advisor confirmation may be required.").first(),
+    page
+      .getByText("高风险学业建议需要 advisor / registrar / 学校确认。")
+      .first(),
   ).toBeVisible();
 
-  await page.getByLabel("Planning scope").selectOption("current-program");
-  await page.getByLabel("Terms").fill("2");
-  await page.getByLabel("Min credits").fill("3");
-  await page.getByLabel("Preferred credits").fill("6");
-  await page.getByLabel("Max credits").fill("9");
-  await page.getByRole("button", { name: /Create plan/ }).click();
+  await page.getByLabel("规划范围").selectOption("current-program");
+  await page.getByLabel("学期数").fill("2");
+  await page.getByLabel("最低学分").fill("3");
+  await page.getByLabel("偏好学分").fill("6");
+  await page.getByLabel("最高学分").fill("9");
+  await page.getByRole("button", { name: /创建规划/ }).click();
 
-  const planSummary = page.getByLabel("Academic plan summary");
-  await expect(planSummary.getByText(/completed with warnings/i)).toBeVisible();
-  await expect(planSummary.getByText("Planned Credits")).toBeVisible();
+  const planSummary = page.getByLabel("学业规划汇总");
+  await expect(planSummary.getByText("已完成但有警告")).toBeVisible();
+  await expect(planSummary.getByText("规划学分")).toBeVisible();
   await expect(
-    page.getByLabel("Term-by-term academic plan").getByText("FIN 400"),
+    page.getByLabel("逐学期学业规划").getByText("FIN 400"),
   ).toBeVisible();
   await expect(page.getByText("PREREQUISITE_PLANNED_EARLIER")).toBeVisible();
   await expect(page.getByText("MOCK_PLAN_NOT_OFFICIAL")).toBeVisible();
 
-  await page.getByRole("button", { name: /Compare saved plans/ }).click();
+  await page.getByRole("button", { name: /比较已保存规划/ }).click();
   await expect(page.getByText("WHAT_IF_SCENARIO")).toBeVisible();
 });
 
 test("home page reports academic planner schema failures", async ({ page }) => {
   await mockSuccessfulAuditApis(page);
-  await mockSavedMyProgressImportApis(page);
+  await mockSavedMyProgressImportApis(page, myProgressPlanningReadyPreview);
   await page.route(
     "http://localhost:8000/api/v1/academic-plans",
     async (route) => {
@@ -2257,82 +2660,74 @@ test("home page reports academic planner schema failures", async ({ page }) => {
   await page.goto("/");
   await waitForClientReady(page);
   await expect(
-    page.getByText("Real Imported Data - Auto Verified").first(),
+    page.getByText("真实导入数据 - 已自动验证").first(),
   ).toBeVisible();
-  await page.getByRole("button", { name: /Create plan/ }).click();
+  await page.getByRole("button", { name: /创建规划/ }).click();
 
-  await expect(page.getByText("Academic planner schema error")).toBeVisible();
-  await expect(
-    page.getByText(/unexpected academic plan response shape/i),
-  ).toBeVisible();
+  await expect(page.getByText("学业规划结构错误")).toBeVisible();
+  await expect(page.getByText(/意外的学业规划响应结构/)).toBeVisible();
 });
 
 test("home page builds and compares semester schedules", async ({ page }) => {
   await mockSuccessfulAuditApis(page);
-  await mockSavedMyProgressImportApis(page);
+  await mockSavedMyProgressImportApis(page, myProgressPlanningReadyPreview);
   await mockSuccessfulScheduleApis(page);
 
   await page.goto("/");
   await waitForClientReady(page);
   await expect(
-    page.getByText("Real Imported Data - Auto Verified").first(),
+    page.getByText("真实导入数据 - 已自动验证").first(),
   ).toBeVisible();
 
   await expect(
-    page.getByRole("heading", { name: /Semester Schedule Builder/ }),
+    page.getByRole("heading", { name: /学期课表生成器/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("课表生成器边界").getByText("生成课表不是注册课程。"),
   ).toBeVisible();
   await expect(
     page
-      .getByLabel("Schedule builder disclaimers")
-      .getByText("Generated schedules are not registration."),
+      .getByLabel("课表生成器边界")
+      .getByText("课节座位状态必须在官方门户人工核对。"),
   ).toBeVisible();
   await expect(
     page
-      .getByLabel("Schedule builder disclaimers")
-      .getByText("Seat availability is separate from academic eligibility."),
-  ).toBeVisible();
-  await expect(
-    page
-      .getByLabel("Schedule builder disclaimers")
-      .getByText("This tool does not perform add/drop or waitlist actions."),
+      .getByLabel("课表生成器边界")
+      .getByText("不会 add/drop/swap，不会加入 waitlist。"),
   ).toBeVisible();
 
-  await page.getByLabel("Course set").selectOption("fall-fin-300-403");
-  await page.getByLabel("Pinned section").selectOption("fin-403-002");
-  await page.getByLabel("Excluded section").selectOption("fin-300-web");
-  await page.getByLabel("Diversity").selectOption("HIGH");
-  await expect(page.getByLabel("No gaps")).toBeChecked();
-  await expect(page.getByLabel("Morning")).toBeChecked();
-  await page.getByRole("button", { name: /Build schedule/ }).click();
+  await page.getByLabel("课程集合").selectOption("fall-fin-300-403");
+  await page.getByLabel("固定课节").selectOption("fin-403-002");
+  await page.getByLabel("排除课节").selectOption("fin-300-web");
+  await page.getByLabel("差异度").selectOption("HIGH");
+  await expect(page.getByLabel("减少空档")).toBeChecked();
+  await expect(page.getByLabel("上午")).toBeChecked();
+  await page.getByRole("button", { name: /生成课表/ }).click();
 
-  const scheduleSummary = page.getByLabel("Schedule optimization summary");
+  const scheduleSummary = page.getByLabel("课表优化汇总");
+  await expect(scheduleSummary.getByText("已完成但有警告")).toBeVisible();
+  await expect(scheduleSummary.getByText("最佳学分")).toBeVisible();
   await expect(
-    scheduleSummary.getByText(/completed with warnings/i),
-  ).toBeVisible();
-  await expect(scheduleSummary.getByText("Best Credits")).toBeVisible();
-  await expect(
-    page.getByLabel("Schedule options").getByText("FIN 300 001"),
+    page.getByLabel("课表选项").getByText("FIN 300 001"),
   ).toBeVisible();
   await expect(
-    page
-      .getByLabel("Schedule options")
-      .getByText("FIN 403 002", { exact: true }),
+    page.getByLabel("课表选项").getByText("FIN 403 002", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Priority 20.00")).toBeVisible();
+  await expect(page.getByText("优先级 20.00")).toBeVisible();
   await expect(page.getByText("SECTION_PRIORITY_WEIGHT")).toBeVisible();
   await expect(
-    page.getByText("Diversity 2: uses FIN 403 section ONL instead of 002"),
+    page.getByText("差异度 2: uses FIN 403 section ONL instead of 002"),
   ).toBeVisible();
-  await expect(page.getByLabel("Top schedule option comparison")).toBeVisible();
-  await expect(page.getByLabel("Schedule repair suggestions")).toContainText(
+  await expect(page.getByLabel("课表选项比较")).toBeVisible();
+  await expect(page.getByLabel("课表修复建议")).toContainText(
     "RELAX UNAVAILABLE BLOCK",
   );
   await expect(page.getByText("TIME_OVERLAP")).toBeVisible();
   await expect(page.getByText("MOCK_SECTION_DATA_NOT_OFFICIAL")).toBeVisible();
 
-  await page.getByRole("button", { name: /Compare saved schedules/ }).click();
+  await page.getByRole("button", { name: /比较已保存课表/ }).click();
   await expect(
-    page.getByLabel("Saved schedule comparison").getByText("CUSTOM_COURSE_SET"),
+    page.getByLabel("已保存课表比较").getByText("CUSTOM_COURSE_SET"),
   ).toHaveCount(2);
 });
 
@@ -2343,72 +2738,60 @@ test("home page previews read-only data imports", async ({ page }) => {
   await page.goto("/");
 
   await expect(
-    page.getByRole("heading", { name: /Data Import Preview/ }),
+    page.getByRole("heading", { name: /数据导入预览/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("数据导入边界").getByText("导入预览数据不是官方学校政策。"),
   ).toBeVisible();
   await expect(
     page
-      .getByLabel("Data import disclaimers")
-      .getByText("Imported preview data is not official school policy."),
+      .getByLabel("数据导入边界")
+      .getByText("不会修改成绩单、目录、课节、注册、座位或 waitlist 记录。"),
   ).toBeVisible();
   await expect(
     page
-      .getByLabel("Data import disclaimers")
-      .getByText(
-        "No transcript, catalog, section, registration, seat, or waitlist records are changed.",
-      ),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: /Browser Extension Import/ }),
+      .getByLabel("数据导入预览")
+      .getByRole("heading", { name: /浏览器插件导入/ }),
   ).toBeVisible();
   const browserExtensionStatus = page.getByRole("region", {
-    name: "Browser extension import status",
+    name: "浏览器插件导入状态",
   });
-  await expect(browserExtensionStatus).toContainText("Experimental");
-  await expect(browserExtensionStatus).toContainText("staging import first");
-  await expect(browserExtensionStatus).toContainText(
-    "Phase 7B review is required",
-  );
-  await expect(browserExtensionStatus).toContainText(
-    "No registration automation",
-  );
+  await expect(browserExtensionStatus).toContainText("非官方导入数据");
+  await expect(browserExtensionStatus).toContainText("staging");
+  await expect(browserExtensionStatus).toContainText("需要明确点击应用");
+  await expect(browserExtensionStatus).toContainText("不会注册课程");
 
-  await page.getByLabel("Sample import").selectOption("mock-transcript-csv");
-  await page.getByRole("button", { name: /Preview import/ }).click();
+  await page.getByLabel("示例导入").selectOption("mock-transcript-csv");
+  await page.getByRole("button", { name: /预览导入/ }).click();
 
-  const importSummary = page.getByLabel("Data import preview summary");
-  await expect(importSummary.getByText(/parsed with warnings/i)).toBeVisible();
-  await expect(importSummary.getByText("Mapped Candidates")).toBeVisible();
-  await expect(importSummary.getByText("Disabled")).toBeVisible();
-  await expect(importSummary.getByText("STUDENT_PROVIDED")).toBeVisible();
+  const importSummary = page.getByLabel("数据导入预览汇总");
+  await expect(importSummary.getByText("已解析但有警告")).toBeVisible();
+  await expect(importSummary.getByText("映射候选项")).toBeVisible();
+  await expect(importSummary.getByText("已禁用")).toBeVisible();
+  await expect(importSummary.getByText("学生提供")).toBeVisible();
 
   await expect(
-    page.getByLabel("Data import records").getByText("FIN 300", {
+    page.getByLabel("导入记录").getByText("FIN 300", {
       exact: true,
     }),
   ).toBeVisible();
   await expect(
-    page.getByLabel("Data import records").getByText("FIN 999", {
+    page.getByLabel("导入记录").getByText("FIN 999", {
       exact: true,
     }),
   ).toBeVisible();
   await expect(
-    page
-      .getByLabel("Data import mapping candidates")
-      .getByText("EXACT_COURSE_CODE"),
+    page.getByLabel("导入映射候选项").getByText("EXACT_COURSE_CODE"),
   ).toBeVisible();
   await expect(
-    page
-      .getByLabel("Data import mapping candidates")
-      .getByText("UNMATCHED_COURSE_CODE"),
+    page.getByLabel("导入映射候选项").getByText("UNMATCHED_COURSE_CODE"),
   ).toBeVisible();
   await expect(
-    page
-      .getByLabel("Import preview disclaimers")
-      .getByText(/not official school policy/i),
+    page.getByLabel("数据导入边界").getByText("导入预览数据不是官方学校政策。"),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: /Load saved imports/ }).click();
-  await expect(importSummary.getByText("Saved Imports")).toBeVisible();
+  await page.getByRole("button", { name: /加载已保存导入/ }).click();
+  await expect(importSummary.getByText("已保存导入")).toBeVisible();
 });
 
 test("home page loads the sanitized MyProgress sample for local verification", async ({
@@ -2419,23 +2802,23 @@ test("home page loads the sanitized MyProgress sample for local verification", a
 
   await page.goto("/");
 
-  await page
-    .getByRole("button", { name: /Load sanitized MyProgress sample/i })
-    .click();
+  await page.getByRole("button", { name: /加载脱敏 MyProgress 示例/ }).click();
 
-  const auditSummary = page.getByLabel("Degree audit summary");
+  const auditSummary = page.getByLabel("学业审核汇总");
   await expect(
-    auditSummary.getByText("Real Imported Data - Auto Verified"),
+    auditSummary.getByText("真实导入数据 - 已自动验证"),
   ).toBeVisible();
   await expect(
-    page.getByText("Sanitized local test data").first(),
+    page.getByText("脱敏本地测试数据仅为示例").first(),
   ).toBeVisible();
-  const importSummary = page.getByLabel("Data import preview summary");
-  await expect(importSummary.getByText("Auto-Confirmed Fields")).toBeVisible();
-  await expect(importSummary.getByText("Exceptions")).toBeVisible();
+  const importSummary = page.getByLabel("数据导入预览汇总");
+  await expect(importSummary.getByText("自动确认字段")).toBeVisible();
+  await expect(importSummary.getByText("异常", { exact: true })).toBeVisible();
   await expect(
-    importSummary.getByText("Verified", { exact: true }),
+    importSummary.getByText("已通过", { exact: true }),
   ).toBeVisible();
+  await expect(importSummary.getByText("提取的 MyProgress 行")).toBeVisible();
+  await expect(importSummary.getByText("85")).toBeVisible();
   await expect(auditSummary.getByText("Finance, BS")).toBeVisible();
   await expect(auditSummary.getByText("104.0 / 120.0")).toBeVisible();
   await expect(auditSummary.getByText("86.67%")).toBeVisible();
@@ -2450,33 +2833,31 @@ test("home page shows read-only section monitoring alerts and manual checklist",
   await page.goto("/");
 
   await expect(
-    page.getByRole("heading", { name: /Section Monitoring/ }),
+    page
+      .getByLabel("课节监控", { exact: true })
+      .getByRole("heading", { name: "课节监控", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByText(
-      "Section monitoring is based on user-triggered imported data and may differ from the official portal. Always verify information manually in the official registration portal.",
+      "课节监控基于用户触发的导入数据，可能与官方门户不同。 必须在官方注册门户人工核对。",
     ),
   ).toBeVisible();
   await expect(
     page.getByText(
-      "This system does not register, drop, swap, waitlist, submit forms, or perform any portal action.",
+      "本系统不会注册、drop、swap、waitlist、提交表单或执行任何门户操作。",
     ),
   ).toBeVisible();
 
   await expect(
-    page.getByLabel("Monitored sections").getByText("FIN 403 001"),
+    page.getByLabel("已监控课节").getByText("FIN 403 001"),
   ).toBeVisible();
-  await expect(page.getByLabel("Advisory alerts")).toContainText(
-    "SECTION OPENED",
+  await expect(page.getByLabel("参考性提醒")).toContainText("课节已开放");
+  await expect(page.getByLabel("参考性提醒")).toContainText("已关闭 -> 开放");
+  await expect(page.getByLabel("人工注册核对清单")).toContainText(
+    "手动打开官方注册门户。",
   );
-  await expect(page.getByLabel("Advisory alerts")).toContainText(
-    "CLOSED -> OPEN",
-  );
-  await expect(page.getByLabel("Manual registration checklist")).toContainText(
-    "Open the official registration portal manually.",
-  );
-  await expect(page.getByLabel("Manual registration checklist")).toContainText(
-    "Register manually through the official portal if appropriate.",
+  await expect(page.getByLabel("人工注册核对清单")).toContainText(
+    "如适合，必须由学生本人通过官方门户手动注册。",
   );
 });
 
@@ -2488,46 +2869,40 @@ test("home page reviews and applies confirmed data import records", async ({
 
   await page.goto("/");
   await waitForClientReady(page);
-  await page.getByLabel("Sample import").selectOption("mock-transcript-csv");
-  await page.getByRole("button", { name: /Preview import/ }).click();
+  await page.getByLabel("示例导入").selectOption("mock-transcript-csv");
+  await page.getByRole("button", { name: /预览导入/ }).click();
 
   await expect(
-    page.getByRole("heading", { name: /Data Review/ }),
+    page.getByRole("heading", { name: /数据审核与确认/ }),
   ).toBeVisible();
-  await page.getByRole("button", { name: /^Create review$/ }).click();
+  await page.getByRole("button", { name: /^创建审核$/ }).click();
 
-  const reviewSummary = page.getByLabel("Data review summary");
-  await expect(reviewSummary.getByText(/in review/i)).toBeVisible();
+  const reviewSummary = page.getByLabel("数据审核汇总");
+  await expect(reviewSummary.getByText("审核中")).toBeVisible();
   await expect(
-    page.getByLabel("Review records").getByText("FIN 300", { exact: true }),
+    page.getByLabel("审核记录").getByText("FIN 300", { exact: true }),
   ).toBeVisible();
 
   await page
-    .getByLabel("Review records")
-    .getByRole("button", { name: /^Confirm$/ })
+    .getByLabel("审核记录")
+    .getByRole("button", { name: /^确认$/ })
     .first()
     .click();
-  await expect(
-    page.getByLabel("Review records").getByText(/confirmed/i),
-  ).toBeVisible();
+  await expect(page.getByLabel("审核记录").getByText("已确认")).toBeVisible();
 
-  await page.getByRole("button", { name: /^Dry run$/ }).click();
+  await page.getByRole("button", { name: /^试运行$/ }).click();
   await expect(
     page
-      .getByLabel("Data application result")
+      .getByLabel("数据应用结果")
       .getByText("WOULD_CREATE_STUDENT_COURSE_ATTEMPT"),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: /^Apply confirmed$/ }).click();
+  await page.getByRole("button", { name: /^应用已确认记录$/ }).click();
   await expect(
-    page
-      .getByLabel("Data application result")
-      .getByText("CREATED_STUDENT_COURSE_ATTEMPT"),
+    page.getByLabel("数据应用结果").getByText("CREATED_STUDENT_COURSE_ATTEMPT"),
   ).toBeVisible();
   await expect(
-    page
-      .getByLabel("Data application result")
-      .getByText("ADVISOR_REVIEW_REQUIRED"),
+    page.getByLabel("数据应用结果").getByText("ADVISOR_REVIEW_REQUIRED"),
   ).toBeVisible();
 });
 
@@ -2535,7 +2910,7 @@ test("home page reports schedule optimizer schema failures", async ({
   page,
 }) => {
   await mockSuccessfulAuditApis(page);
-  await mockSavedMyProgressImportApis(page);
+  await mockSavedMyProgressImportApis(page, myProgressPlanningReadyPreview);
   await page.route(
     "http://localhost:8000/api/v1/schedule-optimizations",
     async (route) => {
@@ -2549,12 +2924,12 @@ test("home page reports schedule optimizer schema failures", async ({
   await page.goto("/");
   await waitForClientReady(page);
   await expect(
-    page.getByText("Real Imported Data - Auto Verified").first(),
+    page.getByText("真实导入数据 - 已自动验证").first(),
   ).toBeVisible();
-  await page.getByRole("button", { name: /Build schedule/ }).click();
+  await page.getByRole("button", { name: /生成课表/ }).click();
 
-  await expect(page.getByText("Schedule optimizer schema error")).toBeVisible();
   await expect(
-    page.getByText(/unexpected schedule optimization response shape/i),
+    page.getByRole("heading", { name: "课表优化结构错误" }),
   ).toBeVisible();
+  await expect(page.getByText(/意外的课表优化响应结构/)).toBeVisible();
 });

@@ -11,6 +11,24 @@ from app.models.academic import DataImportType, ImportedRecordType
 from app.services.data_imports.exceptions import DataImportValidationError
 from app.services.data_imports.normalizers import normalize_course_code
 
+SUPPORTED_MYPROGRESS_STATUSES = {
+    "COMPLETED",
+    "IN_PROGRESS",
+    "PLANNED",
+    "NOT_STARTED",
+    "TRANSFERRED",
+    "WAIVED",
+    "SUBSTITUTED",
+    "UNKNOWN",
+}
+MYPROGRESS_STATUS_ALIASES = {
+    "CURRENT": "IN_PROGRESS",
+    "REGISTERED": "IN_PROGRESS",
+    "FULLY_PLANNED": "PLANNED",
+    "SATISFIED": "COMPLETED",
+    "ATTEMPTED": "COMPLETED",
+}
+
 
 @dataclass(frozen=True)
 class ParsedImportRecord:
@@ -120,7 +138,22 @@ def _parse_kean_myprogress_payload(payload: dict[str, Any]) -> list[ParsedImport
     validation = object_value(payload.get("validation"))
     requirement_groups = list_value(payload.get("requirementGroups"))
     course_rows = list_value(payload.get("courseRows"))
+    raw_snapshot = object_value(payload.get("rawSnapshot"))
+    raw_diagnostics = object_value(raw_snapshot.get("diagnostics"))
+    extraction_bounded = bool(
+        payload.get("bounded")
+        or raw_diagnostics.get("bounded")
+        or raw_diagnostics.get("truncated")
+        or object_value(payload.get("diagnostics")).get("bounded")
+    )
+    extraction_truncated = bool(
+        payload.get("truncated")
+        or raw_diagnostics.get("truncated")
+        or object_value(payload.get("diagnostics")).get("truncated")
+    )
+    extraction_warnings = list_value(payload.get("warnings"))
     source_page_type = str(payload.get("page_type") or "KEAN_MY_PROGRESS_PAGE")
+    source_type = str(payload.get("source_type") or "BROWSER_EXTENSION")
     validation_status = str(validation.get("status") or "")
     confidence = decimal_confidence(validation.get("overallConfidenceScore"))
     requires_review = validation_status != "AUTO_VERIFIED"
@@ -138,10 +171,16 @@ def _parse_kean_myprogress_payload(payload: dict[str, Any]) -> list[ParsedImport
                 "creditSummary": credit_summary,
                 "progressBarSegments": list_value(payload.get("progressBarSegments")),
                 "fieldProvenance": object_value(payload.get("fieldProvenance")),
-                "rawSnapshot": object_value(payload.get("rawSnapshot")),
+                "rawSnapshot": raw_snapshot,
                 "validation": validation,
+                "extractionWarnings": extraction_warnings,
+                "extractionBounded": extraction_bounded,
+                "extractionTruncated": extraction_truncated,
                 "requiresReview": requires_review,
                 "source_label": "KEAN_STUDENT_PORTAL",
+                "source_type": source_type,
+                "is_official": False,
+                "advisory_only": True,
             },
             confidence_score=confidence,
             requires_review=requires_review,
@@ -167,8 +206,13 @@ def _parse_kean_myprogress_payload(payload: dict[str, Any]) -> list[ParsedImport
                     "requirements": name,
                     "status_text": status_text,
                     "requirementGroup": group,
+                    "raw_text": str(group.get("rawText") or status_text or name),
+                    "confidence": str(group.get("confidence") or "high"),
                     "requiresReview": group_requires_review,
                     "source_label": "KEAN_STUDENT_PORTAL",
+                    "source_type": source_type,
+                    "is_official": False,
+                    "advisory_only": True,
                 },
                 confidence_score=group_confidence,
                 requires_review=group_requires_review,
@@ -178,8 +222,17 @@ def _parse_kean_myprogress_payload(payload: dict[str, Any]) -> list[ParsedImport
     for course_row in course_rows:
         if not isinstance(course_row, dict):
             continue
-        normalized = _normalize_row(course_row)
-        row_requires_review = requires_review or _course_row_requires_review(normalized)
+        normalized = _normalize_myprogress_course_row(
+            course_row,
+            source_page_type=source_page_type,
+            source_type=source_type,
+            extraction_bounded=extraction_bounded,
+            extraction_truncated=extraction_truncated,
+        )
+        row_validation = object_value(normalized.get("row_validation"))
+        reason_codes = list_value(row_validation.get("reason_codes"))
+        row_requires_review = requires_review or bool(reason_codes)
+        row_confidence = decimal_confidence(normalized.get("confidence_score"))
         records.append(
             ParsedImportRecord(
                 row_number=row_number,
@@ -194,8 +247,11 @@ def _parse_kean_myprogress_payload(payload: dict[str, Any]) -> list[ParsedImport
                     "record_kind": "MY_PROGRESS_COURSE_ROW",
                     "requiresReview": row_requires_review,
                     "source_label": "KEAN_STUDENT_PORTAL",
+                    "source_type": source_type,
+                    "is_official": False,
+                    "advisory_only": True,
                 },
-                confidence_score=Decimal("0.95") if not row_requires_review else Decimal("0.60"),
+                confidence_score=row_confidence,
                 requires_review=row_requires_review,
             )
         )
@@ -278,6 +334,88 @@ def decimal_confidence(value: Any) -> Decimal:
     if parsed > 1:
         return Decimal("1.00")
     return parsed.quantize(Decimal("0.01"))
+
+
+def _normalize_myprogress_course_row(
+    row: dict[str, Any],
+    *,
+    source_page_type: str,
+    source_type: str,
+    extraction_bounded: bool,
+    extraction_truncated: bool,
+) -> dict[str, Any]:
+    normalized_strings = _normalize_row(row)
+    normalized: dict[str, Any] = dict(normalized_strings)
+    status = _normalize_myprogress_status(normalized_strings.get("status", ""))
+    if status is not None:
+        normalized["status"] = status
+
+    requirement_context = _first_value(
+        normalized_strings,
+        "requirement_group_context",
+        "requirement_section",
+        "requirements",
+        "requirement",
+    )
+    raw_row_text = _first_value(normalized_strings, "raw_row_text", "raw_text") or " ".join(
+        part
+        for part in (
+            normalized_strings.get("status"),
+            normalized_strings.get("course_code"),
+            normalized_strings.get("title"),
+            normalized_strings.get("term"),
+            normalized_strings.get("credits"),
+        )
+        if part
+    )
+    confidence_label = _first_value(normalized_strings, "confidence", "confidence_level") or "high"
+    reason_codes: list[str] = []
+    warnings: list[str] = []
+    if not normalized.get("course_code"):
+        reason_codes.append("MISSING_COURSE_CODE")
+    if normalized.get("course_code") and not normalized.get("title"):
+        reason_codes.append("MISSING_TITLE")
+    if status is None:
+        reason_codes.append("UNKNOWN_STATUS")
+    if confidence_label.lower() not in {"high", "medium"}:
+        warnings.append("LOW_CONFIDENCE_COURSE_ROW")
+    if extraction_bounded or extraction_truncated:
+        warnings.append("BOUNDED_OR_TRUNCATED_EXTRACTION")
+
+    normalized.update(
+        {
+            "term": normalized.get("term", ""),
+            "title": normalized.get("title", ""),
+            "requirement_group_context": requirement_context or "",
+            "raw_row_text": raw_row_text,
+            "source_table_index": normalized.get("source_table_index", ""),
+            "source_row_index": normalized.get("source_row_index", ""),
+            "source_field_provenance": object_value(
+                row.get("field_provenance") or row.get("fieldProvenance")
+            ),
+            "source_page_type": source_page_type,
+            "source_type": source_type,
+            "extraction_bounded": extraction_bounded,
+            "extraction_truncated": extraction_truncated,
+            "row_warnings": [*warnings, *[str(item) for item in list_value(row.get("warnings"))]],
+            "row_validation": {
+                "reason_codes": reason_codes,
+                "warnings": warnings,
+            },
+            "confidence_score": "0.95"
+            if confidence_label.lower() == "high" and not reason_codes
+            else "0.70"
+            if confidence_label.lower() == "medium" and not reason_codes
+            else "0.30",
+        }
+    )
+    return normalized
+
+
+def _normalize_myprogress_status(value: str) -> str | None:
+    status = value.strip().upper().replace("-", "_").replace(" ", "_")
+    status = MYPROGRESS_STATUS_ALIASES.get(status, status)
+    return status if status in SUPPORTED_MYPROGRESS_STATUSES else None
 
 
 def _course_row_requires_review(row: dict[str, str]) -> bool:
