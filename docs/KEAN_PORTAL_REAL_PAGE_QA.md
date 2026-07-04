@@ -37,6 +37,10 @@ work at origin scope, but extraction code still enforces the narrower
    http://localhost:3000
    ```
 
+   If `LOCAL_WEB_PORT` is set for local testing, use the matching supported
+   port instead, such as `http://localhost:3001`, `http://localhost:3010`, or
+   `http://localhost:3011`.
+
 3. Build the browser extension package:
 
    ```powershell
@@ -81,7 +85,8 @@ work at origin scope, but extraction code still enforces the narrower
 
 18. Verify extracted fields in the preview table before import.
 19. Confirm import only after reviewing the preview.
-20. Return to the local app at `http://localhost:3000`.
+20. Return to the local app at `http://localhost:3000`, or the supported
+    `LOCAL_WEB_PORT` URL used for this test run.
 21. Open Data Import Preview and Data Review.
 22. Confirm the imported run is non-official and requires manual review.
 23. Report missing selectors, unknown fields, or unexpected page types in a new

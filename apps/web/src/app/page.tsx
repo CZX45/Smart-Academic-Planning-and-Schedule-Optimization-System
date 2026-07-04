@@ -75,7 +75,13 @@ import {
   type ScenarioProgramAudit,
   type ScenarioWarning,
 } from "@sapsos/shared";
-import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { parsePublicEnv } from "../lib/env";
 
 type HealthState =
@@ -183,6 +189,16 @@ type DataImportPreviewState =
   | { status: "offline"; message: string }
   | { status: "failed"; message: string }
   | { status: "schema-error"; message: string };
+type ReadyDataImportPreviewState = Extract<
+  DataImportPreviewState,
+  { status: "ready" }
+>;
+type ImportSourceStateLabel =
+  | "Real Imported Data - Auto Verified"
+  | "Real Imported Data - Requires Review"
+  | "Real Imported Data - Pending Review"
+  | "Demo / Mock Data"
+  | "No Import Loaded";
 type DataReviewState =
   | { status: "idle" }
   | { status: "loading" }
@@ -311,6 +327,18 @@ function configuredApiBaseUrl(): string | undefined {
 }
 
 const apiBaseUrl = configuredApiBaseUrl();
+
+function subscribeToStableBrowserValue(): () => void {
+  return () => undefined;
+}
+
+function getBrowserOrigin(): string {
+  return window.location.origin;
+}
+
+function getServerOrigin(): string {
+  return "Detecting web origin";
+}
 const mockStudentId = "74874476-4024-5e2d-807a-fbb4ab620249";
 const mockProgramVersionId = "f65bee76-6061-515f-a3df-cdf5567514af";
 const fall2024TermId = "f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec";
@@ -460,6 +488,84 @@ const scheduleSectionChoices: ScheduleSectionChoice[] = [
     sectionId: "2c2da55d-20aa-521c-938d-f35caee39eba",
   },
 ];
+const sanitizedMyProgressSampleId = "sanitized-kean-myprogress-sample";
+const sanitizedMyProgressSampleContent = JSON.stringify({
+  page_type: "KEAN_MY_PROGRESS_PAGE",
+  sampleNotice:
+    "Sanitized local test data only. Not official school policy and not portal-sourced real student data.",
+  programSummary: {
+    programName: "Finance, BS",
+    degree: "Bachelor of Science",
+    major: "Finance",
+    department: "Accounting & Finance",
+    catalogYear: 2024,
+    cumulativeGpa: 3.916,
+    institutionGpa: 3.916,
+    anticipatedCompletionDate: "12/20/2028",
+  },
+  creditSummary: {
+    totalAppliedCredits: 104,
+    totalRequiredCredits: 120,
+    completedCredits: 67,
+    inProgressCredits: 24,
+    plannedCredits: 13,
+    remainingCredits: 16,
+    completionPercent: 86.67,
+  },
+  progressBarSegments: [
+    { label: "Completed", credits: 67 },
+    { label: "In Progress", credits: 24 },
+    { label: "Planned", credits: 13 },
+  ],
+  fieldProvenance: {
+    programName: {
+      source: "sanitized-kean-my-progress-finance-summary.html",
+      confidence: "high",
+      rawText: "Finance, BS",
+    },
+    catalogYear: {
+      source: "sanitized-kean-my-progress-finance-summary.html",
+      confidence: "high",
+      rawText: "2024",
+    },
+    totalAppliedCredits: {
+      source: "sanitized-kean-my-progress-finance-summary.html",
+      confidence: "high",
+      rawText: "104 of 120",
+    },
+    completionPercent: {
+      source: "sanitized-kean-my-progress-finance-summary.html",
+      confidence: "high",
+      rawText: "67 + 24 + 13 of 120",
+    },
+  },
+  requirementGroups: [
+    {
+      name: "GE Foundation Requirements 13 S.H.",
+      statusText: "4 of 5 Completed",
+      credits: 13,
+      confidence: "high",
+      requiresReview: false,
+    },
+  ],
+  courseRows: [],
+  validation: {
+    status: "AUTO_VERIFIED",
+    exceptionCount: 0,
+    exceptions: [],
+    autoConfirmedFieldCount: 14,
+    autoConfirmedCourseRowCount: 0,
+    overallConfidenceScore: 0.98,
+    downstreamAnalysisAllowed: true,
+  },
+  rawSnapshot: {
+    fixture:
+      "apps/extension/tests/fixtures/kean-my-progress-finance-summary.html",
+    progressBarText: "67 24 13",
+    visibleTextSample:
+      "My Progress Finance, BS Catalog 2024 GPA 3.916 Total Credits 104 of 120",
+  },
+});
 const dataImportSamples: DataImportSample[] = [
   {
     id: "mock-transcript-csv",
@@ -498,6 +604,14 @@ const dataImportSamples: DataImportSample[] = [
       ],
     }),
   },
+  {
+    id: sanitizedMyProgressSampleId,
+    label: "Sanitized Kean MyProgress sample (local test only)",
+    importType: "DEGREE_AUDIT_EXPORT",
+    fileName: "sanitized-kean-myprogress-finance.json",
+    fileMimeType: "application/json",
+    content: sanitizedMyProgressSampleContent,
+  },
 ];
 
 function describeHealthError(error: unknown): string {
@@ -505,7 +619,7 @@ function describeHealthError(error: unknown): string {
     return "API returned an unexpected health response shape.";
   }
   if (error instanceof ApiRequestError) {
-    return error.message;
+    return describeApiRequestFailure(error);
   }
   return error instanceof Error ? error.message : "Unknown API health error";
 }
@@ -515,7 +629,7 @@ function describeAuditError(error: unknown): string {
     return "API returned an unexpected degree audit response shape.";
   }
   if (error instanceof ApiRequestError) {
-    return error.message;
+    return describeApiRequestFailure(error);
   }
   return error instanceof Error ? error.message : "Unknown degree audit error";
 }
@@ -525,7 +639,7 @@ function describeScenarioError(error: unknown): string {
     return "API returned an unexpected academic scenario response shape.";
   }
   if (error instanceof ApiRequestError) {
-    return error.message;
+    return describeApiRequestFailure(error);
   }
   return error instanceof Error
     ? error.message
@@ -537,7 +651,7 @@ function describeEligibilityError(error: unknown): string {
     return "API returned an unexpected course eligibility response shape.";
   }
   if (error instanceof ApiRequestError) {
-    return error.message;
+    return describeApiRequestFailure(error);
   }
   return error instanceof Error
     ? error.message
@@ -549,7 +663,7 @@ function describePlannerError(error: unknown): string {
     return "API returned an unexpected academic plan response shape.";
   }
   if (error instanceof ApiRequestError) {
-    return error.message;
+    return describeApiRequestFailure(error);
   }
   return error instanceof Error
     ? error.message
@@ -561,7 +675,7 @@ function describeScheduleError(error: unknown): string {
     return "API returned an unexpected schedule optimization response shape.";
   }
   if (error instanceof ApiRequestError) {
-    return error.message;
+    return describeApiRequestFailure(error);
   }
   return error instanceof Error
     ? error.message
@@ -573,7 +687,7 @@ function describeDataImportError(error: unknown): string {
     return "API returned an unexpected data import response shape.";
   }
   if (error instanceof ApiRequestError) {
-    return error.message;
+    return describeApiRequestFailure(error);
   }
   return error instanceof Error ? error.message : "Unknown data import error";
 }
@@ -583,11 +697,21 @@ function describeSectionMonitoringError(error: unknown): string {
     return "API returned an unexpected section monitoring response shape.";
   }
   if (error instanceof ApiRequestError) {
-    return error.message;
+    return describeApiRequestFailure(error);
   }
   return error instanceof Error
     ? error.message
     : "Unknown section monitoring error";
+}
+
+function localApiRestartGuidance(): string {
+  return `API may be stale or not restarted. Restart API and web dev servers, check that the browser port is allowed by CORS, and verify the current API base URL: ${
+    apiBaseUrl ?? "not configured"
+  }.`;
+}
+
+function describeApiRequestFailure(error: ApiRequestError): string {
+  return `${error.message} ${localApiRestartGuidance()}`;
 }
 
 function isNotFound(error: unknown): boolean {
@@ -703,29 +827,122 @@ function myProgressPreviewFromState(
     : null;
 }
 
+function preferMyProgressImports(
+  savedImports: DataImportRun[],
+): DataImportRun[] {
+  const degreeAuditRuns = savedImports.filter(
+    (run) => run.import_type === "DEGREE_AUDIT_EXPORT",
+  );
+  const otherRuns = savedImports.filter(
+    (run) => run.import_type !== "DEGREE_AUDIT_EXPORT",
+  );
+  return [...degreeAuditRuns, ...otherRuns];
+}
+
+async function loadDataImportPreviewState(
+  baseUrl: string,
+  run: DataImportRun,
+  savedImports: DataImportRun[],
+): Promise<ReadyDataImportPreviewState> {
+  const [records, candidates, warnings, preview] = await Promise.all([
+    fetchDataImportRecords(baseUrl, run.id, { timeoutMs: 5_000 }),
+    fetchDataImportMappingCandidates(baseUrl, run.id, {
+      timeoutMs: 5_000,
+    }),
+    fetchDataImportWarnings(baseUrl, run.id, { timeoutMs: 5_000 }),
+    fetchDataImportPreview(baseUrl, run.id, { timeoutMs: 5_000 }),
+  ]);
+  return {
+    status: "ready",
+    run,
+    records,
+    candidates,
+    warnings,
+    preview,
+    savedImports,
+  };
+}
+
+async function loadPreferredDataImportPreviewState(
+  baseUrl: string,
+  savedImports: DataImportRun[],
+): Promise<ReadyDataImportPreviewState | null> {
+  let fallback: ReadyDataImportPreviewState | null = null;
+  for (const run of preferMyProgressImports(savedImports)) {
+    const previewState = await loadDataImportPreviewState(
+      baseUrl,
+      run,
+      savedImports,
+    );
+    if (myProgressPreviewFromSummary(previewState.preview)) {
+      return previewState;
+    }
+    fallback ??= previewState;
+  }
+  return fallback;
+}
+
 function importModeLabel(
   display: MyProgressPreviewDisplay | null,
-  reviewState: DataReviewState,
-): string {
+): ImportSourceStateLabel {
   if (!display) {
     return "Demo / Mock Data";
   }
   if (
-    reviewState.status === "ready" &&
-    ["APPLIED", "APPLIED_WITH_WARNINGS"].includes(reviewState.review.status)
+    display.realImportStatus === "REAL_IMPORTED_DATA_AUTO_VERIFIED" &&
+    display.downstreamAnalysisAllowed &&
+    display.canApplyVerifiedImport &&
+    display.exceptions.length === 0
   ) {
-    return "Real Imported Data - Confirmed";
-  }
-  if (display.realImportStatus === "REAL_IMPORTED_DATA_AUTO_VERIFIED") {
     return "Real Imported Data - Auto Verified";
   }
-  if (display.exceptions.length > 0) {
-    return "Real Imported Data - Requires Exception Review";
+  if (
+    display.exceptions.length > 0 ||
+    !display.downstreamAnalysisAllowed ||
+    !display.canApplyVerifiedImport
+  ) {
+    return "Real Imported Data - Requires Review";
   }
   return "Real Imported Data - Pending Review";
 }
 
+function dashboardSourceLabel(
+  display: MyProgressPreviewDisplay | null,
+  reviewState: DataReviewState,
+  auditState: AuditState,
+  dataImportState: DataImportPreviewState,
+): ImportSourceStateLabel {
+  if (display) {
+    return importModeLabel(display);
+  }
+  if (
+    dataImportState.status === "failed" ||
+    dataImportState.status === "offline" ||
+    dataImportState.status === "schema-error"
+  ) {
+    return "No Import Loaded";
+  }
+  return auditState.status === "ready"
+    ? "Demo / Mock Data"
+    : "No Import Loaded";
+}
+
+function canUseDownstreamAnalysis(
+  display: MyProgressPreviewDisplay | null,
+): boolean {
+  return Boolean(
+    display?.downstreamAnalysisAllowed &&
+    display.canApplyVerifiedImport &&
+    display.exceptions.length === 0,
+  );
+}
+
 export default function Home() {
+  const webOrigin = useSyncExternalStore(
+    subscribeToStableBrowserValue,
+    getBrowserOrigin,
+    getServerOrigin,
+  );
   const [health, setHealth] = useState<HealthState>(() =>
     apiBaseUrl
       ? { status: "loading" }
@@ -976,28 +1193,26 @@ export default function Home() {
         if (cancelled || savedImports.length === 0) {
           return;
         }
-        const run = savedImports[0];
-        const [records, candidates, warnings, preview] = await Promise.all([
-          fetchDataImportRecords(baseUrl, run.id, { timeoutMs: 5_000 }),
-          fetchDataImportMappingCandidates(baseUrl, run.id, {
-            timeoutMs: 5_000,
-          }),
-          fetchDataImportWarnings(baseUrl, run.id, { timeoutMs: 5_000 }),
-          fetchDataImportPreview(baseUrl, run.id, { timeoutMs: 5_000 }),
-        ]);
+        const previewState = await loadPreferredDataImportPreviewState(
+          baseUrl,
+          savedImports,
+        );
+        if (!previewState) {
+          return;
+        }
+        if (!cancelled) {
+          setDataImportState(previewState);
+        }
+      } catch (error: unknown) {
         if (!cancelled) {
           setDataImportState({
-            status: "ready",
-            run,
-            records,
-            candidates,
-            warnings,
-            preview,
-            savedImports,
+            status:
+              error instanceof ApiResponseSchemaError
+                ? "schema-error"
+                : "failed",
+            message: describeDataImportError(error),
           });
         }
-      } catch {
-        // The explicit import preview controls surface load errors on demand.
       }
     }
 
@@ -1013,7 +1228,13 @@ export default function Home() {
       ? auditState.requirements.flatMap((requirement) => requirement.warnings)
       : [];
   const myProgressPreview = myProgressPreviewFromState(dataImportState);
-  const currentImportMode = importModeLabel(myProgressPreview, dataReviewState);
+  const currentImportMode = dashboardSourceLabel(
+    myProgressPreview,
+    dataReviewState,
+    auditState,
+    dataImportState,
+  );
+  const downstreamAnalysisAllowed = canUseDownstreamAnalysis(myProgressPreview);
 
   return (
     <main>
@@ -1028,6 +1249,15 @@ export default function Home() {
           </p>
           <p className="notice compact">{currentImportMode}</p>
         </div>
+
+        <DevelopmentDiagnostics
+          apiBaseUrl={apiBaseUrl}
+          webOrigin={webOrigin}
+          health={health}
+          dataImportState={dataImportState}
+          sourceLabel={currentImportMode}
+          downstreamAnalysisAllowed={downstreamAnalysisAllowed}
+        />
 
         <h1>Degree Progress</h1>
         <p className="subtle">
@@ -1073,6 +1303,8 @@ export default function Home() {
           setSelectedCandidateId={setSelectedCandidateId}
           scenarioState={scenarioState}
           setScenarioState={setScenarioState}
+          canUseDownstreamAnalysis={downstreamAnalysisAllowed}
+          sourceLabel={currentImportMode}
         />
 
         <CourseEligibilityChecker
@@ -1097,6 +1329,8 @@ export default function Home() {
           setMaximumCredits={setMaximumCredits}
           plannerState={plannerState}
           setPlannerState={setPlannerState}
+          canUseDownstreamAnalysis={downstreamAnalysisAllowed}
+          sourceLabel={currentImportMode}
         />
 
         <SemesterScheduleBuilder
@@ -1130,6 +1364,8 @@ export default function Home() {
           setScheduleAllowPartialOptions={setScheduleAllowPartialOptions}
           scheduleState={scheduleState}
           setScheduleState={setScheduleState}
+          canUseDownstreamAnalysis={downstreamAnalysisAllowed}
+          sourceLabel={currentImportMode}
         />
 
         <DataImportPreviewPanel
@@ -1144,6 +1380,63 @@ export default function Home() {
         <SectionMonitoringPanel state={sectionMonitoringState} />
       </section>
     </main>
+  );
+}
+
+function DevelopmentDiagnostics({
+  apiBaseUrl,
+  webOrigin,
+  health,
+  dataImportState,
+  sourceLabel,
+  downstreamAnalysisAllowed,
+}: {
+  apiBaseUrl: string | undefined;
+  webOrigin: string;
+  health: HealthState;
+  dataImportState: DataImportPreviewState;
+  sourceLabel: ImportSourceStateLabel;
+  downstreamAnalysisAllowed: boolean;
+}) {
+  const shouldShowGuidance =
+    health.status === "offline" ||
+    dataImportState.status === "offline" ||
+    dataImportState.status === "failed" ||
+    dataImportState.status === "schema-error";
+  const importStatus =
+    dataImportState.status === "ready"
+      ? `${sourceLabel} from ${dataImportState.run.source.source_type}`
+      : `${sourceLabel}; import loader ${dataImportState.status}`;
+
+  return (
+    <section className="diagnostics-panel" aria-label="Development diagnostics">
+      <h2>Local Diagnostics</h2>
+      <dl>
+        <div>
+          <dt>API base URL</dt>
+          <dd>{apiBaseUrl ?? "Not configured"}</dd>
+        </div>
+        <div>
+          <dt>Web origin</dt>
+          <dd>{webOrigin}</dd>
+        </div>
+        <div>
+          <dt>API connection status</dt>
+          <dd>{health.status}</dd>
+        </div>
+        <div>
+          <dt>Import source status</dt>
+          <dd>{importStatus}</dd>
+        </div>
+        <div>
+          <dt>Downstream analysis</dt>
+          <dd>{downstreamAnalysisAllowed ? "Allowed" : "Blocked"}</dd>
+        </div>
+      </dl>
+      {shouldShowGuidance ? (
+        <p className="advisor-note">{localApiRestartGuidance()}</p>
+      ) : null}
+    </section>
   );
 }
 
@@ -1198,88 +1491,119 @@ function DegreeProgress({
         aria-label="Degree audit summary"
       >
         <SummaryMetric
-          label="Program"
-          value={program?.programName ?? "Mock BS Finance"}
-        />
-        <SummaryMetric
           label="Data Mode"
-          value={hasRealMyProgress ? "Real Imported Data" : "Demo / Mock Data"}
+          value={importModeLabel(myProgressPreview)}
         />
         <SummaryMetric
-          label="Catalog Year"
-          value={program?.catalogYear ? String(program.catalogYear) : "2024"}
+          label="Program"
+          value={program?.programName ?? "No real MyProgress import loaded"}
         />
-        {program?.degree ? (
-          <SummaryMetric label="Degree" value={program.degree} />
-        ) : null}
-        {program?.department ? (
-          <SummaryMetric label="Department" value={program.department} />
-        ) : null}
-        {program?.cumulativeGpa ? (
-          <SummaryMetric label="GPA" value={program.cumulativeGpa.toFixed(3)} />
-        ) : null}
-        {program?.institutionGpa ? (
-          <SummaryMetric
-            label="Institution GPA"
-            value={program.institutionGpa.toFixed(3)}
-          />
-        ) : null}
         <SummaryMetric
           label="Audit Mode"
           value={statusLabel(audit.calculation_mode)}
         />
-        {credits?.totalAppliedCredits !== undefined &&
-        credits.totalRequiredCredits !== undefined ? (
-          <SummaryMetric
-            label="Total Credits"
-            value={`${formatCredits(String(credits.totalAppliedCredits))} / ${formatCredits(
-              String(credits.totalRequiredCredits),
-            )}`}
-          />
-        ) : null}
-        <SummaryMetric
-          label="Completed Credits"
-          value={formatCredits(
-            String(credits?.completedCredits ?? audit.completed_credits),
-          )}
-        />
-        <SummaryMetric
-          label="In-Progress Credits"
-          value={formatCredits(
-            String(credits?.inProgressCredits ?? audit.in_progress_credits),
-          )}
-        />
-        <SummaryMetric
-          label="Planned Credits"
-          value={formatCredits(
-            String(credits?.plannedCredits ?? audit.planned_credits),
-          )}
-        />
-        <SummaryMetric
-          label="Remaining Credits"
-          value={formatCredits(
-            String(credits?.remainingCredits ?? audit.remaining_credits),
-          )}
-        />
-        <SummaryMetric
-          label="Completion"
-          value={`${Number(
-            credits?.completionPercent ?? audit.completion_percentage,
-          ).toFixed(2)}%`}
-        />
-        {program?.anticipatedCompletionDate ? (
-          <SummaryMetric
-            label="Expected Completion"
-            value={program.anticipatedCompletionDate}
-          />
-        ) : null}
+        {hasRealMyProgress ? (
+          <>
+            <SummaryMetric
+              label="Catalog"
+              value={
+                program?.catalogYear
+                  ? String(program.catalogYear)
+                  : "Not loaded"
+              }
+            />
+            {program?.degree ? (
+              <SummaryMetric label="Degree" value={program.degree} />
+            ) : null}
+            {program?.department ? (
+              <SummaryMetric label="Department" value={program.department} />
+            ) : null}
+            {program?.cumulativeGpa ? (
+              <SummaryMetric
+                label="GPA"
+                value={program.cumulativeGpa.toFixed(3)}
+              />
+            ) : null}
+            {program?.institutionGpa ? (
+              <SummaryMetric
+                label="Institution GPA"
+                value={program.institutionGpa.toFixed(3)}
+              />
+            ) : null}
+            {credits?.totalAppliedCredits !== undefined &&
+            credits.totalRequiredCredits !== undefined ? (
+              <SummaryMetric
+                label="Total Credits"
+                value={`${formatCredits(String(credits.totalAppliedCredits))} / ${formatCredits(
+                  String(credits.totalRequiredCredits),
+                )}`}
+              />
+            ) : null}
+            <SummaryMetric
+              label="Completed"
+              value={formatCredits(String(credits?.completedCredits ?? 0))}
+            />
+            <SummaryMetric
+              label="In Progress"
+              value={formatCredits(String(credits?.inProgressCredits ?? 0))}
+            />
+            <SummaryMetric
+              label="Planned"
+              value={formatCredits(String(credits?.plannedCredits ?? 0))}
+            />
+            <SummaryMetric
+              label="Remaining"
+              value={formatCredits(String(credits?.remainingCredits ?? 0))}
+            />
+            <SummaryMetric
+              label="Completion"
+              value={`${Number(credits?.completionPercent ?? 0).toFixed(2)}%`}
+            />
+            {program?.anticipatedCompletionDate ? (
+              <SummaryMetric
+                label="Expected Completion"
+                value={program.anticipatedCompletionDate}
+              />
+            ) : null}
+          </>
+        ) : (
+          <>
+            <SummaryMetric
+              label="Current MyProgress Import"
+              value="Not loaded"
+            />
+            <SummaryMetric label="Mock Values" value="Sample data only" />
+          </>
+        )}
       </section>
+
+      {!hasRealMyProgress ? (
+        <section
+          className="state-panel"
+          aria-label="No real MyProgress import loaded"
+        >
+          <h2>No real MyProgress import has been loaded yet</h2>
+          <p>
+            Demo / Mock Data is visible only as sample planning data. Mock
+            values are sample data only and are not the active real academic
+            state.
+          </p>
+          <ul className="compact-list">
+            <li>Use the browser extension import from Kean MyProgress.</li>
+            <li>Load a saved staging import from this local database.</li>
+            <li>
+              Load sanitized MyProgress sample for local testing only; it is not
+              official school data.
+            </li>
+          </ul>
+        </section>
+      ) : null}
 
       <section className="requirement-tree" aria-label="Requirement Tree">
         <h2>
           {hasRealMyProgress
             ? "MyProgress Requirement Summary"
-            : "Requirement Tree"}
+            : "Demo Requirement Tree"}
         </h2>
         {hasRealMyProgress ? (
           <>
@@ -1340,71 +1664,79 @@ function DegreeProgress({
             )}
           </>
         ) : (
-          requirements.map((requirement) => (
-            <details key={requirement.id} className="requirement-row">
-              <summary>
-                <span>{requirement.requirement_name}</span>
-                <span
-                  className={`status-pill ${requirement.status.toLowerCase()}`}
-                >
-                  {statusLabel(requirement.status)}
-                </span>
-              </summary>
-              <div className="requirement-detail">
-                <dl>
-                  <div>
-                    <dt>Required</dt>
-                    <dd>
-                      {requirement.required_courses ?? "—"} courses /{" "}
-                      {requirement.required_credits
-                        ? formatCredits(requirement.required_credits)
-                        : "—"}{" "}
-                      credits
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Satisfied</dt>
-                    <dd>
-                      {requirement.satisfied_courses} courses /{" "}
-                      {formatCredits(requirement.satisfied_credits)} credits
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Remaining</dt>
-                    <dd>
-                      {requirement.remaining_courses} courses /{" "}
-                      {formatCredits(requirement.remaining_credits)} credits
-                    </dd>
-                  </div>
-                </dl>
-                <p>{requirement.explanation}</p>
-                {requirement.applications.length > 0 ? (
-                  <ul className="applications">
-                    {requirement.applications.map((application) => (
-                      <li key={application.id}>
-                        <strong>
-                          {application.course_code ??
-                            application.application_type}
-                        </strong>
-                        <span>
-                          {statusLabel(application.application_type)} ·{" "}
-                          {formatCredits(application.credit_amount)} credits
-                          {application.grade
-                            ? ` · grade ${application.grade}`
-                            : ""}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-                {requirement.warnings.some(
-                  (warning) => warning.requires_advisor_confirmation,
-                ) ? (
-                  <p className="advisor-note">Advisor confirmation required.</p>
-                ) : null}
-              </div>
-            </details>
-          ))
+          <>
+            <p className="subtle">
+              Sample requirement rows are shown only for development context
+              until a real MyProgress import is loaded or confirmed.
+            </p>
+            {requirements.map((requirement) => (
+              <details key={requirement.id} className="requirement-row">
+                <summary>
+                  <span>{requirement.requirement_name}</span>
+                  <span
+                    className={`status-pill ${requirement.status.toLowerCase()}`}
+                  >
+                    {statusLabel(requirement.status)}
+                  </span>
+                </summary>
+                <div className="requirement-detail">
+                  <dl>
+                    <div>
+                      <dt>Required</dt>
+                      <dd>
+                        {requirement.required_courses ?? "—"} courses /{" "}
+                        {requirement.required_credits
+                          ? formatCredits(requirement.required_credits)
+                          : "—"}{" "}
+                        credits
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Satisfied</dt>
+                      <dd>
+                        {requirement.satisfied_courses} courses /{" "}
+                        {formatCredits(requirement.satisfied_credits)} credits
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Remaining</dt>
+                      <dd>
+                        {requirement.remaining_courses} courses /{" "}
+                        {formatCredits(requirement.remaining_credits)} credits
+                      </dd>
+                    </div>
+                  </dl>
+                  <p>{requirement.explanation}</p>
+                  {requirement.applications.length > 0 ? (
+                    <ul className="applications">
+                      {requirement.applications.map((application) => (
+                        <li key={application.id}>
+                          <strong>
+                            {application.course_code ??
+                              application.application_type}
+                          </strong>
+                          <span>
+                            {statusLabel(application.application_type)} ·{" "}
+                            {formatCredits(application.credit_amount)} credits
+                            {application.grade
+                              ? ` · grade ${application.grade}`
+                              : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {requirement.warnings.some(
+                    (warning) => warning.requires_advisor_confirmation,
+                  ) ? (
+                    <p className="advisor-note">
+                      Advisor confirmation required.
+                    </p>
+                  ) : null}
+                </div>
+              </details>
+            ))}
+          </>
         )}
       </section>
     </>
@@ -1437,7 +1769,7 @@ function ProductStatusDashboard({
   scheduleState: ScheduleState;
   sectionMonitoringState: SectionMonitoringState;
 }) {
-  const dataImportMode = importModeLabel(myProgressPreview, dataReviewState);
+  const dataImportMode = importModeLabel(myProgressPreview);
   const cards: ProductStatusCard[] = [
     {
       ariaLabel: "Degree audit status card",
@@ -1673,11 +2005,15 @@ function WhatIfAnalysis({
   setSelectedCandidateId,
   scenarioState,
   setScenarioState,
+  canUseDownstreamAnalysis,
+  sourceLabel,
 }: {
   selectedCandidateId: string;
   setSelectedCandidateId: (value: string) => void;
   scenarioState: ScenarioState;
   setScenarioState: Dispatch<SetStateAction<ScenarioState>>;
+  canUseDownstreamAnalysis: boolean;
+  sourceLabel: ImportSourceStateLabel;
 }) {
   const selectedCandidate =
     candidatePrograms.find(
@@ -1685,6 +2021,14 @@ function WhatIfAnalysis({
     ) ?? candidatePrograms[0];
 
   async function handleCreateScenario(): Promise<void> {
+    if (!canUseDownstreamAnalysis) {
+      setScenarioState({
+        status: "empty",
+        message:
+          "Load an auto-verified or confirmed MyProgress import before running what-if analysis.",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setScenarioState({
         status: "failed",
@@ -1744,6 +2088,14 @@ function WhatIfAnalysis({
   }
 
   async function handleCompareSaved(): Promise<void> {
+    if (!canUseDownstreamAnalysis) {
+      setScenarioState({
+        status: "empty",
+        message:
+          "Load an auto-verified or confirmed MyProgress import before comparing scenarios.",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setScenarioState({
         status: "failed",
@@ -1816,13 +2168,32 @@ function WhatIfAnalysis({
             ))}
           </select>
         </label>
-        <button type="button" onClick={() => void handleCreateScenario()}>
+        <button
+          type="button"
+          disabled={!canUseDownstreamAnalysis}
+          onClick={() => void handleCreateScenario()}
+        >
           Create scenario
         </button>
-        <button type="button" onClick={() => void handleCompareSaved()}>
+        <button
+          type="button"
+          disabled={!canUseDownstreamAnalysis}
+          onClick={() => void handleCompareSaved()}
+        >
           Compare saved scenarios
         </button>
       </div>
+
+      {!canUseDownstreamAnalysis ? (
+        <section className="state-panel" aria-label="What-if source gate">
+          <h2>Import required for what-if analysis</h2>
+          <p>
+            Current source is {sourceLabel}. What-if analysis only runs after an
+            auto-verified, confirmed, or explicitly loaded sanitized MyProgress
+            sample is available.
+          </p>
+        </section>
+      ) : null}
 
       {scenarioState.status === "idle" ? (
         <EmptyState
@@ -2203,6 +2574,8 @@ function AcademicPlanner({
   setMaximumCredits,
   plannerState,
   setPlannerState,
+  canUseDownstreamAnalysis,
+  sourceLabel,
 }: {
   selectedPlannerScopeId: string;
   setSelectedPlannerScopeId: (value: string) => void;
@@ -2218,6 +2591,8 @@ function AcademicPlanner({
   setMaximumCredits: Dispatch<SetStateAction<number>>;
   plannerState: PlannerState;
   setPlannerState: Dispatch<SetStateAction<PlannerState>>;
+  canUseDownstreamAnalysis: boolean;
+  sourceLabel: ImportSourceStateLabel;
 }) {
   const selectedScope =
     plannerScopes.find((scope) => scope.id === selectedPlannerScopeId) ??
@@ -2277,6 +2652,14 @@ function AcademicPlanner({
   }
 
   async function handleCreatePlan(): Promise<void> {
+    if (!canUseDownstreamAnalysis) {
+      setPlannerState({
+        status: "empty",
+        message:
+          "Load an auto-verified or confirmed MyProgress import before creating long-term plans.",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setPlannerState({
         status: "offline",
@@ -2319,6 +2702,14 @@ function AcademicPlanner({
   }
 
   async function handleComparePlans(): Promise<void> {
+    if (!canUseDownstreamAnalysis) {
+      setPlannerState({
+        status: "empty",
+        message:
+          "Load an auto-verified or confirmed MyProgress import before comparing plans.",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setPlannerState({
         status: "offline",
@@ -2452,13 +2843,32 @@ function AcademicPlanner({
             onChange={(event) => setMaximumCredits(Number(event.target.value))}
           />
         </label>
-        <button type="button" onClick={() => void handleCreatePlan()}>
+        <button
+          type="button"
+          disabled={!canUseDownstreamAnalysis}
+          onClick={() => void handleCreatePlan()}
+        >
           Create plan
         </button>
-        <button type="button" onClick={() => void handleComparePlans()}>
+        <button
+          type="button"
+          disabled={!canUseDownstreamAnalysis}
+          onClick={() => void handleComparePlans()}
+        >
           Compare saved plans
         </button>
       </div>
+
+      {!canUseDownstreamAnalysis ? (
+        <section className="state-panel" aria-label="Planner source gate">
+          <h2>Import required for planning</h2>
+          <p>
+            Current source is {sourceLabel}. Long-term planning only runs after
+            an auto-verified, confirmed, or explicitly loaded sanitized
+            MyProgress sample is available.
+          </p>
+        </section>
+      ) : null}
 
       {plannerState.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
@@ -2685,6 +3095,8 @@ function SemesterScheduleBuilder({
   setScheduleAllowPartialOptions,
   scheduleState,
   setScheduleState,
+  canUseDownstreamAnalysis,
+  sourceLabel,
 }: {
   selectedSchedulePresetId: string;
   setSelectedSchedulePresetId: (value: string) => void;
@@ -2714,6 +3126,8 @@ function SemesterScheduleBuilder({
   setScheduleAllowPartialOptions: Dispatch<SetStateAction<boolean>>;
   scheduleState: ScheduleState;
   setScheduleState: Dispatch<SetStateAction<ScheduleState>>;
+  canUseDownstreamAnalysis: boolean;
+  sourceLabel: ImportSourceStateLabel;
 }) {
   const selectedPreset =
     schedulePresets.find((preset) => preset.id === selectedSchedulePresetId) ??
@@ -2726,6 +3140,14 @@ function SemesterScheduleBuilder({
   );
 
   async function handleCreateSchedule(): Promise<void> {
+    if (!canUseDownstreamAnalysis) {
+      setScheduleState({
+        status: "empty",
+        message:
+          "Load an auto-verified or confirmed MyProgress import before building schedules.",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setScheduleState({
         status: "offline",
@@ -2812,6 +3234,14 @@ function SemesterScheduleBuilder({
   }
 
   async function handleCompareSchedules(): Promise<void> {
+    if (!canUseDownstreamAnalysis) {
+      setScheduleState({
+        status: "empty",
+        message:
+          "Load an auto-verified or confirmed MyProgress import before comparing schedules.",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setScheduleState({
         status: "offline",
@@ -3031,13 +3461,32 @@ function SemesterScheduleBuilder({
           />
           Partial options
         </label>
-        <button type="button" onClick={() => void handleCreateSchedule()}>
+        <button
+          type="button"
+          disabled={!canUseDownstreamAnalysis}
+          onClick={() => void handleCreateSchedule()}
+        >
           Build schedule
         </button>
-        <button type="button" onClick={() => void handleCompareSchedules()}>
+        <button
+          type="button"
+          disabled={!canUseDownstreamAnalysis}
+          onClick={() => void handleCompareSchedules()}
+        >
           Compare saved schedules
         </button>
       </div>
+
+      {!canUseDownstreamAnalysis ? (
+        <section className="state-panel" aria-label="Schedule source gate">
+          <h2>Import required for schedule recommendations</h2>
+          <p>
+            Current source is {sourceLabel}. Schedule recommendations only run
+            after an auto-verified, confirmed, or explicitly loaded sanitized
+            MyProgress sample is available.
+          </p>
+        </section>
+      ) : null}
 
       {scheduleState.status === "idle" ? (
         <EmptyState
@@ -3350,8 +3799,11 @@ function DataImportPreviewPanel({
     dataImportSamples.find(
       (sample) => sample.id === selectedDataImportSampleId,
     ) ?? dataImportSamples[0];
+  const sanitizedMyProgressSample = dataImportSamples.find(
+    (sample) => sample.id === sanitizedMyProgressSampleId,
+  );
 
-  async function handlePreviewImport(): Promise<void> {
+  async function handlePreviewImport(sample = selectedSample): Promise<void> {
     if (!apiBaseUrl) {
       setDataImportState({
         status: "offline",
@@ -3365,36 +3817,27 @@ function DataImportPreviewPanel({
         apiBaseUrl,
         {
           student_profile_id: mockStudentId,
-          import_type: selectedSample.importType,
-          file_name: selectedSample.fileName,
-          file_mime_type: selectedSample.fileMimeType,
-          content: selectedSample.content,
+          import_type: sample.importType,
+          file_name: sample.fileName,
+          file_mime_type: sample.fileMimeType,
+          content: sample.content,
           source_type: "STUDENT_PROVIDED",
-          source_reference: `Built-in Phase 7A fixture: ${selectedSample.label}`,
+          source_reference:
+            sample.id === sanitizedMyProgressSampleId
+              ? `Sanitized local test data from KEAN_STUDENT_PORTAL fixture: ${sample.label}`
+              : `Built-in Phase 7A fixture: ${sample.label}`,
         },
         { timeoutMs: 8_000 },
       );
-      const [records, candidates, warnings, preview, savedImports] =
-        await Promise.all([
-          fetchDataImportRecords(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
-          fetchDataImportMappingCandidates(apiBaseUrl, run.id, {
-            timeoutMs: 5_000,
-          }),
-          fetchDataImportWarnings(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
-          validateDataImport(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
-          fetchStudentDataImports(apiBaseUrl, mockStudentId, {
-            timeoutMs: 5_000,
-          }),
-        ]);
-      setDataImportState({
-        status: "ready",
-        run,
-        records,
-        candidates,
-        warnings,
-        preview,
-        savedImports,
-      });
+      await validateDataImport(apiBaseUrl, run.id, { timeoutMs: 5_000 });
+      const savedImports = await fetchStudentDataImports(
+        apiBaseUrl,
+        mockStudentId,
+        { timeoutMs: 5_000 },
+      );
+      setDataImportState(
+        await loadDataImportPreviewState(apiBaseUrl, run, savedImports),
+      );
     } catch (error: unknown) {
       setDataImportState({
         status:
@@ -3426,24 +3869,18 @@ function DataImportPreviewPanel({
         });
         return;
       }
-      const run = savedImports[0];
-      const [records, candidates, warnings, preview] = await Promise.all([
-        fetchDataImportRecords(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
-        fetchDataImportMappingCandidates(apiBaseUrl, run.id, {
-          timeoutMs: 5_000,
-        }),
-        fetchDataImportWarnings(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
-        fetchDataImportPreview(apiBaseUrl, run.id, { timeoutMs: 5_000 }),
-      ]);
-      setDataImportState({
-        status: "ready",
-        run,
-        records,
-        candidates,
-        warnings,
-        preview,
+      const previewState = await loadPreferredDataImportPreviewState(
+        apiBaseUrl,
         savedImports,
-      });
+      );
+      if (!previewState) {
+        setDataImportState({
+          status: "empty",
+          message: "No saved staging imports could be previewed.",
+        });
+        return;
+      }
+      setDataImportState(previewState);
     } catch (error: unknown) {
       setDataImportState({
         status:
@@ -3535,10 +3972,21 @@ function DataImportPreviewPanel({
         <button type="button" onClick={() => void handlePreviewImport()}>
           Preview import
         </button>
+        {sanitizedMyProgressSample ? (
+          <button
+            type="button"
+            onClick={() => void handlePreviewImport(sanitizedMyProgressSample)}
+          >
+            Load sanitized MyProgress sample
+          </button>
+        ) : null}
         <button type="button" onClick={() => void handleLoadSavedImports()}>
           Load saved imports
         </button>
       </div>
+      <p className="notice compact">
+        Sanitized local test data is sample-only and not official school data.
+      </p>
 
       {dataImportState.status === "idle" ? (
         <EmptyState
@@ -3610,7 +4058,7 @@ function DataImportResultView({
         />
         <SummaryMetric
           label="Data Mode"
-          value={importModeLabel(myProgressPreview, { status: "idle" })}
+          value={importModeLabel(myProgressPreview)}
         />
         <SummaryMetric label="Records" value={String(state.run.record_count)} />
         <SummaryMetric
@@ -3631,6 +4079,14 @@ function DataImportResultView({
             <SummaryMetric
               label="Exceptions"
               value={String(myProgressPreview.exceptions.length)}
+            />
+            <SummaryMetric
+              label="Downstream Analysis"
+              value={
+                myProgressPreview.downstreamAnalysisAllowed
+                  ? "Allowed"
+                  : "Blocked"
+              }
             />
             <SummaryMetric
               label="Overall Confidence"
@@ -3872,6 +4328,24 @@ function MyProgressImportPreview({
           value={display.downstreamAnalysisAllowed ? "Allowed" : "Blocked"}
         />
       </div>
+      <ul className="compact-list">
+        <li>
+          <strong>Review scope</strong>
+          <span>
+            {display.exceptions.length === 0
+              ? "Exception count is 0; high-confidence fields and rows are auto-confirmed."
+              : "Low-confidence exceptions must be reviewed before use."}
+          </span>
+        </li>
+        <li>
+          <strong>Apply path</strong>
+          <span>
+            {display.canApplyVerifiedImport
+              ? "Verified import can be applied without manual row-by-row review."
+              : "Failed or exception-bearing validation blocks degree audit and planning use."}
+          </span>
+        </li>
+      </ul>
 
       <section className="comparison-rows" aria-label="MyProgress groups">
         {display.requirementGroups.map((group, index) => (

@@ -2,7 +2,8 @@ $ErrorActionPreference = "Stop"
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path (Join-Path $ScriptDir "..\..")
-$WebUrl = "http://localhost:3000"
+$WebPort = if ($env:LOCAL_WEB_PORT) { $env:LOCAL_WEB_PORT } elseif ($env:PLAYWRIGHT_WEB_PORT) { $env:PLAYWRIGHT_WEB_PORT } else { "3000" }
+$WebUrl = "http://localhost:$WebPort"
 $ApiUrl = "http://localhost:8000"
 $ApiDocsUrl = "http://localhost:8000/docs"
 
@@ -77,7 +78,7 @@ try {
     Invoke-Step "Starting PostgreSQL, API, and web app with Docker Compose..." {
         docker compose up -d --build
         if ($LASTEXITCODE -ne 0) {
-            throw "Docker Compose startup failed. Confirm Docker Desktop is running and ports 3000, 8000, and 5432 are free."
+                throw "Docker Compose startup failed. Confirm Docker Desktop is running and ports $WebPort, 8000, and 5432 are free."
         }
     }
 
@@ -115,7 +116,7 @@ catch {
     Write-Host "[FAIL] $($_.Exception.Message)" -ForegroundColor Red
     Write-Host "Troubleshooting:"
     Write-Host "- Start Docker Desktop, then rerun this script."
-    Write-Host "- Check ports 3000, 8000, and 5432 for conflicts."
+    Write-Host "- Check ports $WebPort, 8000, and 5432 for conflicts."
     Write-Host "- Inspect logs with: docker compose logs"
     exit 1
 }

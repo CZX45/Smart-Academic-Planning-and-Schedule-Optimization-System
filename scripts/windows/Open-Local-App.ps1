@@ -1,6 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$WebUrl = "http://localhost:3000"
+$WebPort = if ($env:LOCAL_WEB_PORT) { $env:LOCAL_WEB_PORT } elseif ($env:PLAYWRIGHT_WEB_PORT) { $env:PLAYWRIGHT_WEB_PORT } else { "3000" }
+$WebUrl = "http://localhost:$WebPort"
 
 try {
     Write-Host "Opening Smart Academic Planner local web app:"

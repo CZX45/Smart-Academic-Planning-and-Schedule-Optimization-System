@@ -85,7 +85,8 @@ Start the local stack:
 
 Open the app:
 
-- Web app: <http://localhost:3000>
+- Web app: <http://localhost:3000> by default. Set `LOCAL_WEB_PORT=3001`,
+  `3010`, or `3011` before starting when you need another local web port.
 - API: <http://localhost:8000>
 - API docs: <http://localhost:8000/docs>
 
@@ -124,7 +125,8 @@ After dependencies are installed, this command starts Docker PostgreSQL plus loc
 pnpm dev
 ```
 
-- Frontend: <http://localhost:3000>
+- Frontend: <http://localhost:3000> by default. E2E and local diagnostics also
+  support `PLAYWRIGHT_WEB_PORT=3001`, `3010`, or `3011`.
 - Backend health: <http://localhost:8000/health>
 - Backend readiness: <http://localhost:8000/ready>
 - PostgreSQL: `localhost:5432`
@@ -143,7 +145,10 @@ This command starts PostgreSQL, FastAPI, and Next.js in Docker. The API waits fo
 pnpm dev:docker
 ```
 
-Use <http://localhost:3000> for the frontend. Stop containers with:
+Use <http://localhost:3000> for the frontend, or set `LOCAL_WEB_PORT` before
+starting Docker Compose to expose the web app on another supported local port.
+The default local API CORS configuration includes ports `3000`, `3001`, `3010`,
+and `3011`. Stop containers with:
 
 ```bash
 docker compose down
