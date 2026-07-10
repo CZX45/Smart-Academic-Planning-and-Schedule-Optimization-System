@@ -279,6 +279,7 @@ describe("popup staging import confirmation", () => {
       "http://localhost:8000/api/v1/data-imports",
       expect.objectContaining({ method: "POST" }),
     );
+    expect(fetchMock).toHaveBeenCalledOnce();
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
     expect(JSON.parse(String(request?.body))).toMatchObject({
       student_profile_id: FAKE_STUDENT_PROFILE_ID,
@@ -408,6 +409,46 @@ describe("popup staging import confirmation", () => {
     expect(elements.statusText.textContent).toContain(
       "submitted academic fields:",
     );
+  });
+
+  it("disables confirmation and ignores rapid repeat clicks while submitting", async () => {
+    let resolveRequest: ((response: Response) => void) | undefined;
+    const pendingResponse = new Promise<Response>((resolve) => {
+      resolveRequest = resolve;
+    });
+    const { elements, fetchMock } = await importPopupWithFetch(
+      async () => pendingResponse,
+      { snapshot: myProgressSnapshot(85) },
+    );
+
+    elements.extractCurrentPageButton.click();
+    await flushPopupWork();
+    elements.confirmImportButton.click();
+    elements.confirmImportButton.click();
+
+    expect(elements.confirmImportButton.disabled).toBe(true);
+    expect(elements.statusText.textContent).toBe("Sending...");
+    expect(fetchMock).toHaveBeenCalledOnce();
+
+    resolveRequest?.(
+      new Response(
+        JSON.stringify({
+          id: CREATED_IMPORT_ID,
+          record_count: 87,
+        }),
+        {
+          status: 201,
+          headers: { "content-type": "application/json" },
+        },
+      ),
+    );
+    await flushPopupWork();
+
+    expect(elements.confirmImportButton.disabled).toBe(false);
+    expect(elements.statusText.textContent).toContain(
+      "Success: staging import created",
+    );
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it("does not show success when the API accepts fewer rows than were submitted", async () => {

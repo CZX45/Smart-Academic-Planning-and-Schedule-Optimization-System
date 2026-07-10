@@ -84,6 +84,7 @@ let latestExtraction: BrowserExtensionExtraction | null = null;
 let latestCapturedUrl: string | null = null;
 let guidedMode = false;
 let guidedExtractions: BrowserExtensionExtraction[] = [];
+let confirmSubmissionInFlight = false;
 
 function inputValue(element: Element | null): string {
   return element instanceof HTMLInputElement ? element.value.trim() : "";
@@ -445,6 +446,9 @@ async function handleCaptureGuidedPage(): Promise<void> {
 }
 
 async function handleConfirm(): Promise<void> {
+  if (confirmSubmissionInFlight) {
+    return;
+  }
   const extractions = guidedMode
     ? guidedExtractions
     : latestExtraction
@@ -490,6 +494,8 @@ async function handleConfirm(): Promise<void> {
     setStatus("No extracted rows are available to import.");
     return;
   }
+  confirmSubmissionInFlight = true;
+  setConfirmEnabled(false);
   setStatus("Sending...");
   try {
     const summaries: CreatedImportSummary[] = [];
@@ -549,6 +555,9 @@ async function handleConfirm(): Promise<void> {
         ? `Staging import failed: ${error.message}`
         : "Staging import failed.",
     );
+  } finally {
+    confirmSubmissionInFlight = false;
+    setConfirmEnabled(true);
   }
 }
 
