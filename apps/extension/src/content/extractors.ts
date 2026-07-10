@@ -160,6 +160,15 @@ type MyProgressRawSnapshot = {
   };
 };
 
+type MyProgressContentCourseRow = Record<string, unknown> & {
+  field_provenance: Record<string, FieldProvenance>;
+  raw_row_text: string;
+  source_table_index: string;
+  source_row_index: string;
+  confidence: ConfidenceLevel;
+  warnings: string[];
+};
+
 type MyProgressContent = {
   source_type: typeof SOURCE_TYPE;
   staging_only: true;
@@ -169,10 +178,14 @@ type MyProgressContent = {
   progressBarSegments: MyProgressProgressSegment[];
   fieldProvenance: Record<string, FieldProvenance>;
   requirementGroups: MyProgressRequirementGroup[];
-  courseRows: ExtractedRecord[];
+  courseRows: MyProgressContentCourseRow[];
   rawSnapshot: MyProgressRawSnapshot;
   validation: MyProgressValidation;
-  requirements: ExtractedRecord[];
+  requirements: MyProgressContentCourseRow[];
+  warnings: ExtensionExtractionWarning[];
+  diagnostics: ExtensionDiagnostics;
+  bounded: boolean;
+  truncated: boolean;
   disclaimers: typeof EXTENSION_STAGING_DISCLAIMERS;
 };
 
@@ -531,14 +544,14 @@ function extractKeanMyProgressPage(
     candidateTables,
     warnings,
   );
-  const content = myProgressContentFromSnapshot(
+  const validationContent = myProgressContentFromSnapshot(
     snapshot,
     parseResult.records,
     extractedAt,
   );
   if (
     parseResult.records.length === 0 &&
-    content.requirementGroups.length === 0
+    validationContent.requirementGroups.length === 0
   ) {
     pushUniqueWarning(warnings, {
       code: "NO_IMPORTABLE_ROWS",
@@ -547,13 +560,28 @@ function extractKeanMyProgressPage(
         "The visible MyProgress page did not contain importable academic rows.",
     });
   }
-  for (const exception of content.validation.exceptions) {
+  for (const exception of validationContent.validation.exceptions) {
     pushUniqueWarning(warnings, {
       code: exception.code,
       severity: exception.severity,
       message: exception.message,
     });
   }
+  const diagnostics = diagnosticsForExtraction(
+    snapshot,
+    spec.pageType,
+    matchedPageMarker(snapshot, keanDefinition),
+    parseResult.records,
+    spec.fields,
+    warnings,
+    parseResult.diagnostics,
+  );
+  const content = myProgressContentFromSnapshot(
+    snapshot,
+    parseResult.records,
+    extractedAt,
+    { warnings, diagnostics },
+  );
   return {
     pageType: spec.pageType,
     importType: spec.importType,
@@ -567,15 +595,7 @@ function extractKeanMyProgressPage(
     content: `${JSON.stringify(content, null, 2)}\n`,
     records: parseResult.records,
     warnings,
-    diagnostics: diagnosticsForExtraction(
-      snapshot,
-      spec.pageType,
-      matchedPageMarker(snapshot, keanDefinition),
-      parseResult.records,
-      spec.fields,
-      warnings,
-      parseResult.diagnostics,
-    ),
+    diagnostics,
     requiresReview: content.validation.status !== "AUTO_VERIFIED",
     extractedAt,
   };
@@ -585,6 +605,7 @@ export function createDataImportRequestFromExtraction(
   studentProfileId: string,
   extraction: BrowserExtensionExtraction,
 ): BrowserExtensionDataImportRequest {
+  const contentMetadata = contentMetadataForSubmission(extraction);
   const sourceReferencePrefix =
     extraction.sourceLabel === KEAN_SOURCE_LABEL
       ? `${KEAN_SOURCE_LABEL} browser extension import`
@@ -597,6 +618,14 @@ export function createDataImportRequestFromExtraction(
     content: extraction.content,
     source_type: SOURCE_TYPE,
     source_reference: `${sourceReferencePrefix}: ${extraction.url}`,
+    page_type: extraction.pageType,
+    extracted_record_count: extraction.records.length,
+    visible_row_count: extraction.diagnostics.rowsFound,
+    academic_field_count: extraction.diagnostics.extractedAcademicFieldCount,
+    warnings: extraction.warnings,
+    diagnostics: extraction.diagnostics,
+    bounded: extraction.diagnostics.bounded,
+    truncated: contentMetadata.truncated,
   };
 }
 
@@ -609,6 +638,62 @@ export function createDataImportRequestsFromExtractions(
     .map((extraction) =>
       createDataImportRequestFromExtraction(studentProfileId, extraction),
     );
+}
+
+function contentMetadataForSubmission(extraction: BrowserExtensionExtraction): {
+  courseRowCount: number;
+  truncated: boolean;
+} {
+  if (extraction.fileMimeType !== "application/json") {
+    return {
+      courseRowCount: extraction.records.length,
+      truncated: extraction.diagnostics.bounded,
+    };
+  }
+  let payload: unknown;
+  try {
+    payload = JSON.parse(extraction.content);
+  } catch {
+    return {
+      courseRowCount: extraction.records.length,
+      truncated: extraction.diagnostics.bounded,
+    };
+  }
+  if (!isRecord(payload)) {
+    return {
+      courseRowCount: extraction.records.length,
+      truncated: extraction.diagnostics.bounded,
+    };
+  }
+  const courseRows = Array.isArray(payload.courseRows)
+    ? payload.courseRows
+    : Array.isArray(payload.requirements)
+      ? payload.requirements
+      : [];
+  if (
+    extraction.pageType === "KEAN_MY_PROGRESS_PAGE" &&
+    extraction.records.length > 0 &&
+    courseRows.length === 0
+  ) {
+    throw new Error(
+      "Preview data was lost before submission. Please re-extract the page.",
+    );
+  }
+  const rawSnapshot = isRecord(payload.rawSnapshot) ? payload.rawSnapshot : {};
+  const rawDiagnostics = isRecord(rawSnapshot.diagnostics)
+    ? rawSnapshot.diagnostics
+    : {};
+  return {
+    courseRowCount: courseRows.length,
+    truncated:
+      payload.truncated === true ||
+      rawDiagnostics.truncated === true ||
+      extraction.diagnostics.bounded,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function bestCandidate(
@@ -677,7 +762,7 @@ function recordsFromMyProgressTables(
     let currentRequirement = requirementLabelFromTable(table);
     warnForUnknownColumns(spec, table.headers, warnings);
 
-    for (const row of table.rows) {
+    for (const [rowIndex, row] of table.rows.entries()) {
       const rowText = cleanText(row.join(" "));
       if (!rowText || isMyProgressHeader(rowText)) {
         continue;
@@ -691,6 +776,7 @@ function recordsFromMyProgressTables(
         spec,
         table,
         row,
+        rowIndex,
         columnByField,
         currentRequirement,
       );
@@ -743,6 +829,7 @@ function myProgressRecordFromRow(
   spec: ExtractionSpec,
   table: TableSnapshot,
   row: readonly string[],
+  rowIndex: number,
   columnByField: ReadonlyMap<string, number>,
   currentRequirement: string,
 ): ExtractedRecord {
@@ -774,6 +861,9 @@ function myProgressRecordFromRow(
   record.source_page_type = spec.pageType;
   record.type = spec.importType;
   record.source_label = table.caption || `visible table ${table.index + 1}`;
+  record.raw_row_text = cleanText(row.join(" "));
+  record.source_table_index = String(table.index + 1);
+  record.source_row_index = String(rowIndex + 1);
   return record;
 }
 
@@ -952,6 +1042,10 @@ function myProgressContentFromSnapshot(
   snapshot: AcademicPageSnapshot,
   courseRows: ExtractedRecord[],
   capturedAt: string,
+  options: {
+    warnings?: readonly ExtensionExtractionWarning[];
+    diagnostics?: ExtensionDiagnostics;
+  } = {},
 ): MyProgressContent {
   const visibleText = cleanText(
     snapshot.visibleText ?? visibleTextForDetection(snapshot),
@@ -974,15 +1068,27 @@ function myProgressContentFromSnapshot(
     totalCredits?.rawText ?? "",
     segments,
   );
+  const contentCourseRows = myProgressContentCourseRows(courseRows);
   const validation = validateMyProgressContent({
     programSummary,
     creditSummary,
     segments,
     requirementGroups,
-    courseRows,
+    courseRows: contentCourseRows,
     rawSnapshot,
     fieldProvenance,
   });
+  const truncated = rawSnapshot.diagnostics.truncated;
+  const diagnostics =
+    options.diagnostics ??
+    diagnosticsForExtraction(
+      snapshot,
+      "KEAN_MY_PROGRESS_PAGE",
+      "KEAN_MY_PROGRESS_PAGE",
+      courseRows,
+      MY_PROGRESS_COURSE_SPEC.fields,
+      options.warnings ?? [],
+    );
   return {
     source_type: SOURCE_TYPE,
     staging_only: true,
@@ -992,11 +1098,67 @@ function myProgressContentFromSnapshot(
     progressBarSegments: segments,
     fieldProvenance,
     requirementGroups,
-    courseRows,
+    courseRows: contentCourseRows,
     rawSnapshot,
     validation,
-    requirements: courseRows,
+    requirements: contentCourseRows,
+    warnings: [...(options.warnings ?? [])],
+    diagnostics,
+    bounded: diagnostics.bounded,
+    truncated,
     disclaimers: EXTENSION_STAGING_DISCLAIMERS,
+  };
+}
+
+function myProgressContentCourseRows(
+  rows: readonly ExtractedRecord[],
+): MyProgressContentCourseRow[] {
+  return rows.map((row) => {
+    const sourceTableIndex = row.source_table_index ?? "";
+    const sourceRowIndex = row.source_row_index ?? "";
+    const source =
+      sourceTableIndex && sourceRowIndex
+        ? `visible table ${sourceTableIndex} row ${sourceRowIndex}`
+        : row.source_label || "visible MyProgress row";
+    const rawRowText = row.raw_row_text ?? cleanText(Object.values(row).join(" "));
+    return {
+      ...row,
+      raw_row_text: rawRowText,
+      source_table_index: sourceTableIndex,
+      source_row_index: sourceRowIndex,
+      confidence: "high",
+      warnings: [],
+      field_provenance: {
+        status: provenanceField(row.status ?? "", rawRowText, source),
+        course_code: provenanceField(
+          row.raw_course_code || row.course_code || "",
+          rawRowText,
+          source,
+        ),
+        course_title: provenanceField(row.course_title ?? "", rawRowText, source),
+        term_code: provenanceField(row.term_code ?? "", rawRowText, source),
+        credits: provenanceField(row.credits ?? "", rawRowText, source),
+        requirement_section: provenanceField(
+          row.requirement_section ?? row.requirements ?? "",
+          rawRowText,
+          source,
+        ),
+      },
+    };
+  });
+}
+
+function provenanceField(
+  value: string,
+  rawText: string,
+  source: string,
+): FieldProvenance {
+  return {
+    value,
+    rawText,
+    source,
+    confidence: value ? "high" : "medium",
+    requiresReview: !value,
   };
 }
 
@@ -1305,7 +1467,7 @@ function validateMyProgressContent({
   creditSummary: MyProgressCreditSummary;
   segments: readonly MyProgressProgressSegment[];
   requirementGroups: readonly MyProgressRequirementGroup[];
-  courseRows: readonly ExtractedRecord[];
+  courseRows: readonly MyProgressContentCourseRow[];
   rawSnapshot: MyProgressRawSnapshot;
   fieldProvenance: Record<string, FieldProvenance>;
 }): MyProgressValidation {

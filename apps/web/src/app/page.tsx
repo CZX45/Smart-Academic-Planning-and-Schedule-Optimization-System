@@ -80,6 +80,11 @@ import {
 } from "react";
 import { parsePublicEnv } from "../lib/env";
 import {
+  isUsableMyProgressPreviewSummary,
+  savedImportOptionFromRun,
+  selectPreferredLoadedDataImport,
+} from "../lib/data-import-preview";
+import {
   formatZhCnBeforeAfterValue,
   getZhCnAdvisoryLabels,
   getZhCnEmptyStateCopy,
@@ -954,19 +959,16 @@ async function loadPreferredDataImportPreviewState(
   baseUrl: string,
   savedImports: DataImportRun[],
 ): Promise<ReadyDataImportPreviewState | null> {
-  let fallback: ReadyDataImportPreviewState | null = null;
+  const states: ReadyDataImportPreviewState[] = [];
   for (const run of preferMyProgressImports(savedImports)) {
     const previewState = await loadDataImportPreviewState(
       baseUrl,
       run,
       savedImports,
     );
-    if (myProgressPreviewFromSummary(previewState.preview)) {
-      return previewState;
-    }
-    fallback ??= previewState;
+    states.push(previewState);
   }
-  return fallback;
+  return selectPreferredLoadedDataImport(states);
 }
 
 function importModeLabel(
@@ -3948,6 +3950,51 @@ function DataImportPreviewPanel({
     }
   }
 
+  async function handleSelectSavedImport(runId: string): Promise<void> {
+    if (!apiBaseUrl) {
+      setDataImportState({
+        status: "offline",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
+      });
+      return;
+    }
+    const currentSavedImports =
+      dataImportState.status === "ready" ? dataImportState.savedImports : [];
+    const selectedRun = currentSavedImports.find((run) => run.id === runId);
+    if (!selectedRun) {
+      setDataImportState({
+        status: "failed",
+        message: "无法找到所选 staging 导入。",
+      });
+      return;
+    }
+    setDataImportState({ status: "loading" });
+    try {
+      const savedImports = await fetchStudentDataImports(
+        apiBaseUrl,
+        mockStudentId,
+        { timeoutMs: 5_000 },
+      );
+      const run = savedImports.find((savedRun) => savedRun.id === runId);
+      if (!run) {
+        setDataImportState({
+          status: "failed",
+          message: "所选 staging 导入不再可用。",
+        });
+        return;
+      }
+      setDataImportState(
+        await loadDataImportPreviewState(apiBaseUrl, run, savedImports),
+      );
+    } catch (error: unknown) {
+      setDataImportState({
+        status:
+          error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        message: describeDataImportError(error),
+      });
+    }
+  }
+
   return (
     <section
       className="data-import-panel"
@@ -4072,7 +4119,15 @@ function DataImportPreviewPanel({
       ) : null}
 
       {dataImportState.status === "ready" ? (
-        <DataImportResultView state={dataImportState} />
+        <>
+          <SavedImportSelector
+            state={dataImportState}
+            onSelectImport={(runId) => {
+              void handleSelectSavedImport(runId);
+            }}
+          />
+          <DataImportResultView state={dataImportState} />
+        </>
       ) : null}
 
       <DataReviewPanel
@@ -4080,6 +4135,57 @@ function DataImportPreviewPanel({
         dataReviewState={dataReviewState}
         setDataReviewState={setDataReviewState}
       />
+    </section>
+  );
+}
+
+function SavedImportSelector({
+  state,
+  onSelectImport,
+}: {
+  state: ReadyDataImportPreviewState;
+  onSelectImport: (runId: string) => void;
+}) {
+  const newestRun = state.savedImports[0];
+  const showingOlderUsableImport =
+    newestRun !== undefined && newestRun.id !== state.run.id;
+  const selectedUsable = isUsableMyProgressPreviewSummary(state.preview);
+  return (
+    <section className="saved-import-selector" aria-label="已保存导入选择器">
+      <div>
+        <h2>已保存 staging 导入</h2>
+        <p>
+          选择要预览的导入；列表显示时间、来源、验证状态、行数和置信度。
+        </p>
+      </div>
+      <label>
+        <span>当前导入</span>
+        <select
+          value={state.run.id}
+          onChange={(event) => {
+            onSelectImport(event.currentTarget.value);
+          }}
+        >
+          {state.savedImports.map((run) => {
+            const option = savedImportOptionFromRun(run);
+            return (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            );
+          })}
+        </select>
+      </label>
+      {showingOlderUsableImport ? (
+        <p className="notice compact">
+          最新保存的导入没有自动替换当前可用的 MyProgress 预览；可在上方选择器中检查。
+        </p>
+      ) : null}
+      {!selectedUsable && myProgressPreviewFromSummary(state.preview) ? (
+        <p className="notice compact danger">
+          当前 MyProgress 导入缺少可用行或汇总数据，需要重新提取或人工检查。
+        </p>
+      ) : null}
     </section>
   );
 }

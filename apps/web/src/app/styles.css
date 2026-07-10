@@ -73,6 +73,11 @@ h2 {
   margin: 0;
 }
 
+.notice.danger {
+  border-left-color: #b91c1c;
+  color: #7f1d1d;
+}
+
 .subtle {
   color: #4b5563;
 }
@@ -401,6 +406,37 @@ h2 {
 .data-import-result {
   display: grid;
   gap: 16px;
+}
+
+.saved-import-selector {
+  border-bottom: 1px solid #d1d5db;
+  display: grid;
+  gap: 12px;
+  padding: 0 0 16px;
+}
+
+.saved-import-selector h2,
+.saved-import-selector p {
+  margin: 0;
+}
+
+.saved-import-selector label {
+  display: grid;
+  gap: 6px;
+}
+
+.saved-import-selector span {
+  color: #374151;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.saved-import-selector select {
+  border: 1px solid #9ca3af;
+  border-radius: 6px;
+  font: inherit;
+  max-width: 100%;
+  padding: 9px 10px;
 }
 
 .scenario-columns {

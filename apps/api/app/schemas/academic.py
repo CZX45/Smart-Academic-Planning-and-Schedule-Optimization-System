@@ -1221,9 +1221,17 @@ class DataImportCreateRequest(BaseModel):
     import_type: DataImportTypeValue
     file_name: str = Field(min_length=1, max_length=255)
     file_mime_type: str = Field(min_length=1, max_length=120)
-    content: str = Field(min_length=1, max_length=65536)
+    content: str = Field(min_length=1, max_length=524288)
     source_type: DataImportSourceTypeValue = "STUDENT_PROVIDED"
     source_reference: str | None = Field(default=None, max_length=500)
+    page_type: str | None = Field(default=None, max_length=120)
+    extracted_record_count: int | None = Field(default=None, ge=0)
+    visible_row_count: int | None = Field(default=None, ge=0)
+    academic_field_count: int | None = Field(default=None, ge=0)
+    warnings: list[dict[str, Any]] = Field(default_factory=list)
+    diagnostics: dict[str, Any] = Field(default_factory=dict)
+    bounded: bool | None = None
+    truncated: bool | None = None
 
 
 class DataImportRunResponse(BaseModel):

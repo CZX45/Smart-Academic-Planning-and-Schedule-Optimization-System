@@ -110,4 +110,12 @@ export type BrowserExtensionDataImportRequest = {
   content: string;
   source_type: "BROWSER_EXTENSION";
   source_reference: string;
+  page_type: AcademicPageType;
+  extracted_record_count: number;
+  visible_row_count: number;
+  academic_field_count: number;
+  warnings: ExtensionExtractionWarning[];
+  diagnostics: ExtensionDiagnostics;
+  bounded: boolean;
+  truncated: boolean;
 };
