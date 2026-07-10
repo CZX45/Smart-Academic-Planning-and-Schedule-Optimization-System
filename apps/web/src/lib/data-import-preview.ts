@@ -1,8 +1,4 @@
-import {
-  formatAcademicTimestamp,
-  type DataImportRun,
-  type ImportPreviewSummary,
-} from "@sapsos/shared";
+import type { DataImportRun, ImportPreviewSummary } from "@sapsos/shared";
 
 export type SavedImportOption = {
   id: string;
@@ -43,8 +39,38 @@ function pluralize(count: number, singular: string): string {
   return `${count} ${count === 1 ? singular : `${singular}s`}`;
 }
 
+function formatSavedImportTimestamp(value: string | null | undefined): string {
+  if (!value) {
+    return "Not available";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) {
+    return "Not available";
+  }
+  const month =
+    [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ][date.getUTCMonth()] ?? "Jan";
+  const hour24 = date.getUTCHours();
+  const hour12 = hour24 % 12 || 12;
+  const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+  const amPm = hour24 < 12 ? "AM" : "PM";
+  return `${month} ${date.getUTCDate()}, ${date.getUTCFullYear()}, ${hour12}:${minutes} ${amPm} UTC`;
+}
+
 export function savedImportOptionFromRun(run: DataImportRun): SavedImportOption {
-  const timestamp = formatAcademicTimestamp(run.created_at);
+  const timestamp = formatSavedImportTimestamp(run.created_at);
   const sourceType = run.source.source_type;
   const confidence = run.source.source_confidence ?? "not recorded";
   const label = [
