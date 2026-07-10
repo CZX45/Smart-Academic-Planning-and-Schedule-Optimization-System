@@ -994,6 +994,89 @@ def test_kean_myprogress_preserves_85_rows_and_marks_course_readiness_partial(
     ]
 
 
+def test_data_import_api_stores_kean_myprogress_85_rows_from_extension_payload(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/data-imports",
+        json={
+            "student_profile_id": str(seed_uuid("student-profile:mock-student")),
+            "import_type": "DEGREE_AUDIT_EXPORT",
+            "file_name": "kean-student-portal-my-progress-85-rows.json",
+            "file_mime_type": "application/json",
+            "content": kean_myprogress_with_85_rows_json(),
+            "source_type": "BROWSER_EXTENSION",
+            "source_reference": (
+                "KEAN_STUDENT_PORTAL browser extension import: "
+                "https://kean-ss.colleague.elluciancloud.com/Student/Planning/Programs/MyProgress"
+            ),
+            "page_type": "KEAN_MY_PROGRESS_PAGE",
+            "extracted_record_count": 85,
+            "visible_row_count": 85,
+            "academic_field_count": 748,
+            "bounded": True,
+            "truncated": True,
+            "warnings": [
+                {
+                    "code": "EXTRACTION_LIMIT_REACHED",
+                    "severity": "WARNING",
+                    "message": "Extraction stopped early because the page is large.",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["source"]["source_type"] == "BROWSER_EXTENSION"
+    assert payload["record_count"] == 87
+
+    preview = client.get(f"/api/v1/data-imports/{payload['id']}/preview")
+    assert preview.status_code == 200
+    summary = preview.json()["summary_payload"]
+    assert summary["extracted_degree_audit_row_count"] == 85
+    assert summary["parsed_course_like_row_count"] == 84
+    assert summary["parsed_requirement_row_count"] == 1
+    assert summary["exception_row_count"] == 1
+    assert summary["course_rows"][0]["course_code"] == "MATH 1044"
+    assert summary["course_rows"][2]["course_code"] == "ENG 2403"
+
+
+def test_data_import_api_rejects_empty_kean_myprogress_extension_payload(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/data-imports",
+        json={
+            "student_profile_id": str(seed_uuid("student-profile:mock-student")),
+            "import_type": "DEGREE_AUDIT_EXPORT",
+            "file_name": "kean-student-portal-my-progress-empty.json",
+            "file_mime_type": "application/json",
+            "content": json.dumps(
+                {
+                    "source_type": "BROWSER_EXTENSION",
+                    "staging_only": True,
+                    "page_type": "KEAN_MY_PROGRESS_PAGE",
+                    "courseRows": [],
+                    "requirements": [],
+                    "warnings": [],
+                }
+            ),
+            "source_type": "BROWSER_EXTENSION",
+            "source_reference": (
+                "KEAN_STUDENT_PORTAL browser extension import: "
+                "https://kean-ss.colleague.elluciancloud.com/Student/Planning/Programs/MyProgress"
+            ),
+            "page_type": "KEAN_MY_PROGRESS_PAGE",
+            "extracted_record_count": 0,
+            "visible_row_count": 85,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "missing_myprogress_payload"
+
+
 def test_failed_kean_myprogress_validation_blocks_downstream_application(
     session: Session,
 ) -> None:

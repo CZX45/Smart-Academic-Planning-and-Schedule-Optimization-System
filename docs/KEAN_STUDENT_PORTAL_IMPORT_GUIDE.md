@@ -132,6 +132,13 @@ The extension must show a preview before import. The preview includes detected
 page type, row counts by import type, warnings, non-official/manual-review
 labels, and sample extracted rows. No silent import is allowed.
 
+Confirmation must submit the same extraction that was previewed. For
+MyProgress, the submit payload includes the page type, source type, warnings,
+bounded/truncated flags, diagnostics, visible-row and academic-field counts,
+course rows, and row provenance. If preview rows existed but the prepared
+payload has no MyProgress rows, the extension blocks submission and asks the
+student to re-extract the page.
+
 ## MyProgress Summary Verification
 
 Kean MyProgress imports treat the top MyProgress summary and visible progress
@@ -173,6 +180,11 @@ official_application_ready = false
 
 The source label is carried through safe source-reference text and backend
 preview metadata; no new database table or migration is required.
+
+The local app lists saved staging imports with timestamp, source type,
+validation status, row counts, and confidence. When a newer MyProgress import is
+broken or empty, the app should keep the latest usable MyProgress import visible
+by default and let the student select the newer import explicitly for review.
 
 ## Phase 7B Review Requirement
 

@@ -1599,9 +1599,17 @@ export type CreateDataImportRequest = {
     | "IMPORTED"
     | "BROWSER_EXTENSION"
     | "STUDENT_PROVIDED"
-    | "INFERRED"
-    | "OFFICIAL";
+      | "INFERRED"
+      | "OFFICIAL";
   source_reference?: string | null;
+  page_type?: string | null;
+  extracted_record_count?: number | null;
+  visible_row_count?: number | null;
+  academic_field_count?: number | null;
+  warnings?: Array<Record<string, unknown>>;
+  diagnostics?: Record<string, unknown>;
+  bounded?: boolean | null;
+  truncated?: boolean | null;
 };
 
 export type CreateSectionMonitorTargetRequest = {

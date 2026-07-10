@@ -137,8 +137,22 @@ def _parse_kean_myprogress_payload(payload: dict[str, Any]) -> list[ParsedImport
     credit_summary = object_value(payload.get("creditSummary"))
     validation = object_value(payload.get("validation"))
     requirement_groups = list_value(payload.get("requirementGroups"))
-    course_rows = list_value(payload.get("courseRows"))
+    course_rows = list_value(payload.get("courseRows")) or list_value(payload.get("requirements"))
     raw_snapshot = object_value(payload.get("rawSnapshot"))
+    if _is_empty_kean_myprogress_payload(
+        program_summary=program_summary,
+        credit_summary=credit_summary,
+        requirement_groups=requirement_groups,
+        course_rows=course_rows,
+        raw_snapshot=raw_snapshot,
+    ):
+        raise DataImportValidationError(
+            "missing_myprogress_payload",
+            (
+                "Kean MyProgress browser-extension import did not include summary fields, "
+                "requirement groups, or course rows. Re-extract the page before confirming."
+            ),
+        )
     raw_diagnostics = object_value(raw_snapshot.get("diagnostics"))
     extraction_bounded = bool(
         payload.get("bounded")
@@ -257,6 +271,25 @@ def _parse_kean_myprogress_payload(payload: dict[str, Any]) -> list[ParsedImport
         )
         row_number += 1
     return records
+
+
+def _is_empty_kean_myprogress_payload(
+    *,
+    program_summary: dict[str, Any],
+    credit_summary: dict[str, Any],
+    requirement_groups: list[Any],
+    course_rows: list[Any],
+    raw_snapshot: dict[str, Any],
+) -> bool:
+    raw_diagnostics = object_value(raw_snapshot.get("diagnostics"))
+    raw_row_count = raw_diagnostics.get("rowCount") or raw_diagnostics.get("courseLikeRowCount")
+    return (
+        not any(program_summary.values())
+        and not any(credit_summary.values())
+        and not requirement_groups
+        and not course_rows
+        and not raw_row_count
+    )
 
 
 def _normalize_row(row: dict[str, Any]) -> dict[str, str]:

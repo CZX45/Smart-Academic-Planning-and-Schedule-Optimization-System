@@ -529,6 +529,44 @@ describe("browser extension academic table extractors", () => {
       academicRowsCapped: 0,
       parserWarningCodes: [],
     });
+    const content = JSON.parse(extraction.content);
+    expect(content.courseRows).toHaveLength(7);
+    expect(content.courseRows[4]).toMatchObject({
+      course_code: "MATH 1044",
+      source_table_index: "2",
+      source_row_index: "3",
+      raw_row_text: expect.stringContaining("MATH*1044"),
+      field_provenance: expect.objectContaining({
+        course_code: expect.objectContaining({
+          value: "MATH*1044",
+          rawText: expect.stringContaining("MATH*1044"),
+          source: "visible table 2 row 3",
+          confidence: "high",
+          requiresReview: false,
+        }),
+      }),
+    });
+    expect(content.diagnostics).toMatchObject({
+      detectedPageType: "KEAN_MY_PROGRESS_PAGE",
+      academicRowsParsed: 7,
+    });
+    expect(content.warnings).toEqual(extraction.warnings);
+
+    const request = createDataImportRequestFromExtraction(
+      "00000000-0000-4000-8000-000000000702",
+      extraction,
+    );
+    expect(request).toMatchObject({
+      source_type: "BROWSER_EXTENSION",
+      page_type: "KEAN_MY_PROGRESS_PAGE",
+      extracted_record_count: 7,
+      visible_row_count: 7,
+      academic_field_count: extraction.diagnostics.extractedAcademicFieldCount,
+      bounded: false,
+      truncated: false,
+    });
+    expect(request.warnings).toEqual(extraction.warnings);
+    expect(request.diagnostics).toEqual(extraction.diagnostics);
   });
 
   it("warns when MyProgress table parsing is partial while preserving bounded diagnostics", () => {
@@ -595,6 +633,45 @@ describe("browser extension academic table extractors", () => {
       bounded: true,
       directSnapshotRan: true,
     });
+  });
+
+  it("blocks a MyProgress handoff if preview rows are missing from submitted content", () => {
+    const extraction = extractAcademicPageFromTables({
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.MOCK.24`,
+      tables: [
+        {
+          index: 0,
+          caption: "Mock Requirement",
+          headers: ["Status", "Course", "Title", "Grade", "Term", "Credits"],
+          rows: [
+            [
+              "Not Started",
+              "MATH*1044",
+              "Precalculus for Business",
+              "",
+              "",
+              "3",
+            ],
+          ],
+        },
+      ],
+    });
+
+    expect(() =>
+      createDataImportRequestFromExtraction(
+        "00000000-0000-4000-8000-000000000702",
+        {
+          ...extraction,
+          content: JSON.stringify({
+            source_type: "BROWSER_EXTENSION",
+            staging_only: true,
+            page_type: "KEAN_MY_PROGRESS_PAGE",
+            courseRows: [],
+          }),
+        },
+      ),
+    ).toThrow("Preview data was lost before submission. Please re-extract the page.");
   });
 
   it("preserves direct snapshot diagnostics when MyProgress parsing finds no course rows", () => {

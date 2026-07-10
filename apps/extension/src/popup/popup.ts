@@ -168,6 +168,31 @@ function createdImportSummaryText(
   return `${ids}; ${pluralize(totalRows, "row")}`;
 }
 
+function submittedCountsText(
+  requests: readonly BrowserExtensionDataImportRequest[],
+): string {
+  const countsByType = requests.reduce<Record<string, number>>(
+    (current, request) => {
+      current[request.import_type] =
+        (current[request.import_type] ?? 0) + request.extracted_record_count;
+      return current;
+    },
+    {},
+  );
+  const rowCounts = Object.entries(countsByType)
+    .map(([importType, count]) => `submitted ${importType} rows: ${count}`)
+    .join("; ");
+  const visibleRows = requests.reduce(
+    (count, request) => count + request.visible_row_count,
+    0,
+  );
+  const academicFields = requests.reduce(
+    (count, request) => count + request.academic_field_count,
+    0,
+  );
+  return `${rowCounts}; submitted visible rows: ${visibleRows}; submitted academic fields: ${academicFields}`;
+}
+
 function setDetectedPage(
   extractions: readonly BrowserExtensionExtraction[],
 ): void {
@@ -437,26 +462,35 @@ async function handleConfirm(): Promise<void> {
   }
   chrome.storage.local.set({ apiBaseUrl, studentProfileId });
   let requests: BrowserExtensionDataImportRequest[];
-  if (guidedMode) {
-    requests = createDataImportRequestsFromExtractions(
-      studentProfileId,
-      extractions,
-    );
-  } else {
-    const firstExtraction = extractions[0];
-    if (!firstExtraction) {
-      setStatus("Extract the current page before confirming.");
-      return;
+  try {
+    if (guidedMode) {
+      requests = createDataImportRequestsFromExtractions(
+        studentProfileId,
+        extractions,
+      );
+    } else {
+      const firstExtraction = extractions[0];
+      if (!firstExtraction) {
+        setStatus("Extract the current page before confirming.");
+        return;
+      }
+      requests = [
+        createDataImportRequestFromExtraction(studentProfileId, firstExtraction),
+      ];
     }
-    requests = [
-      createDataImportRequestFromExtraction(studentProfileId, firstExtraction),
-    ];
+  } catch (error: unknown) {
+    setStatus(
+      error instanceof Error
+        ? error.message
+        : "Preview data was lost before submission. Please re-extract the page.",
+    );
+    return;
   }
   if (requests.length === 0) {
     setStatus("No extracted rows are available to import.");
     return;
   }
-  setStatus("Sending confirmed staging import.");
+  setStatus("Sending...");
   try {
     const summaries: CreatedImportSummary[] = [];
     for (const request of requests) {
@@ -477,17 +511,34 @@ async function handleConfirm(): Promise<void> {
         );
         return;
       }
-      summaries.push(createdImportSummary(await responseJson(response)));
+      const summary = createdImportSummary(await responseJson(response));
+      if (
+        summary.recordCount !== null &&
+        request.extracted_record_count > 0 &&
+        summary.recordCount < request.extracted_record_count
+      ) {
+        setApiStatus(
+          `Local app/API accepted ${summary.recordCount} record${
+            summary.recordCount === 1 ? "" : "s"
+          } but ${request.extracted_record_count} extracted row(s) were submitted.`,
+        );
+        setStatus(
+          "Staging import failed. Retry only after reviewing the issue.",
+        );
+        return;
+      }
+      summaries.push(summary);
     }
     const summaryText = createdImportSummaryText(summaries);
+    const submittedText = submittedCountsText(requests);
     setApiStatus(
       `Local app/API accepted ${pluralize(
         summaries.length,
         "staging import",
-      )}: ${summaryText}.`,
+      )}: ${summaryText}. ${submittedText}.`,
     );
     setStatus(
-      `Staging import created: ${summaryText}. Review is still required in the app.`,
+      `Success: staging import created. ${summaryText}. ${submittedText}. Review is still required in the app.`,
     );
   } catch (error: unknown) {
     setApiStatus(
