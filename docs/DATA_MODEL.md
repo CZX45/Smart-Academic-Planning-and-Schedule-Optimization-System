@@ -601,3 +601,22 @@ Every official or imported rule should track:
 - Source document.
 - Retrieval/import timestamp.
 - Confidence level: official, advisor-confirmed, student-provided, inferred, mock.
+
+## 6. Applied Course-State Snapshots
+
+- `CourseStateSnapshot` links one student, import run, review session, and data
+  application run. It stores source validation, program matching, bounded or
+  truncated extraction flags, summary counts, imported program/credit/
+  requirement summaries, and per-consumer readiness.
+- `CourseStateRecord` preserves each reviewed source row, source table/row
+  indices, field provenance, normalized status, catalog match, confidence,
+  validation state, review decision, application reason, and warnings.
+- `StudentCourseAttempt.course_state_snapshot_id` identifies attempts created
+  from a snapshot. Only reliable `COMPLETED`, `IN_PROGRESS`, and `PLANNED` rows
+  may create attempts. `NOT_STARTED` remains requirement evidence only.
+- A PostgreSQL partial unique index permits one active snapshot per student;
+  uniqueness on import and application IDs makes application idempotent.
+
+Course-state statuses are `COMPLETED`, `IN_PROGRESS`, `PLANNED`,
+`NOT_STARTED`, and `UNKNOWN`. Validation states are `RELIABLE`,
+`RELIABLE_WITH_WARNINGS`, `EXTERNAL_EVIDENCE`, and `EXCEPTION`.

@@ -460,3 +460,21 @@ Phase 10A forbidden behavior:
 - `NOT_APPLICABLE`: reserved for future explicitly non-applicable requirement branches.
 
 Parent node status is derived from node semantics, not from raw string ordering. For example, an `ALL_OF` node with two completed children and one in-progress child is `IN_PROGRESS`, while an `ANY_OF` node with one completed child is `SATISFIED`.
+
+## 17. Reviewed MyProgress Course-State Rules
+
+- Only explicitly applied, auto-verified MyProgress imports may become active
+  internal course-state snapshots. They remain non-official and advisory.
+- Exact catalog matching plus usable term and credit data is required before a
+  completed, in-progress, or planned row creates an internal attempt.
+- Imported `PLANNED` never satisfies a prerequisite. Imported `IN_PROGRESS` may
+  support only the existing conditional/projected eligibility semantics.
+- `NOT_STARTED` records a requirement or option but never creates an attempt.
+- Unknown, rejected, deferred, conflicting, or exception rows do not become
+  reliable history. Unmatched rows remain visible external evidence.
+- Duplicate rows and repeated application preserve traceability without
+  creating duplicate attempts.
+- A bounded/truncated source or critical exception blocks the long-term planner.
+  Missing reliable completed/in-progress evidence blocks course eligibility.
+- When an active imported snapshot exists, mock history must not be silently
+  merged into degree audit, eligibility, or planner inputs.

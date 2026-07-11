@@ -8,6 +8,7 @@ from app.models.academic import (
     AppliedImportAction,
     AppliedImportStatus,
     AppliedImportTargetEntityType,
+    CourseStateSnapshot,
     DataApplicationRun,
     DataImportReviewSession,
     DataReviewWarning,
@@ -36,3 +37,4 @@ class DataReviewApplicationResult:
     application: DataApplicationRun | None
     applied_records: list[AppliedImportedRecordResult]
     warnings: list[DataReviewWarning]
+    course_state_snapshot: CourseStateSnapshot | None = None

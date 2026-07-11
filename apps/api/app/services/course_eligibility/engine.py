@@ -50,6 +50,10 @@ from app.services.course_eligibility.result import (
     RegistrationAvailability,
     RuleEvaluationResult,
 )
+from app.services.course_state.engine import (
+    active_course_state_snapshot,
+    effective_student_course_attempts,
+)
 from app.services.degree_audit.grade_policy import GradePolicy
 
 ENGINE_VERSION = "phase-4-course-eligibility-v1"
@@ -142,20 +146,36 @@ class CourseEligibilityEngine:
             mode=mode,
             planned_corequisite_course_ids=planned_corequisite_course_ids or [],
         )
+        active_snapshot = active_course_state_snapshot(self._db, context.student.id)
         rules = self._load_rules(context)
         if not rules:
             warning = EligibilityWarningResult(
-                warning_code="NO_STORED_RESTRICTIONS",
+                warning_code=(
+                    "REAL_RESTRICTION_RULES_MISSING"
+                    if active_snapshot is not None
+                    else "NO_STORED_RESTRICTIONS"
+                ),
                 severity=AuditWarningSeverity.WARNING,
                 message=(
-                    "No stored prerequisite, corequisite, or restriction rules exist for this "
-                    "mock course scope."
+                    "No reviewed prerequisite, corequisite, or restriction rules exist for this "
+                    "real imported course-state scope."
+                    if active_snapshot is not None
+                    else "No stored prerequisite, corequisite, or restriction rules exist for "
+                    "this mock course scope."
                 ),
                 requires_advisor_confirmation=True,
             )
             return EligibilityResult(
-                overall_result=EligibilityOverallResult.ELIGIBLE,
-                academic_eligibility_result=EligibilityOverallResult.ELIGIBLE,
+                overall_result=(
+                    EligibilityOverallResult.MANUAL_REVIEW_REQUIRED
+                    if active_snapshot is not None
+                    else EligibilityOverallResult.ELIGIBLE
+                ),
+                academic_eligibility_result=(
+                    EligibilityOverallResult.MANUAL_REVIEW_REQUIRED
+                    if active_snapshot is not None
+                    else EligibilityOverallResult.ELIGIBLE
+                ),
                 source_snapshot_hash=self._snapshot_hash(context, []),
                 rule_evaluations=[],
                 expression_evaluations=[],
@@ -225,11 +245,19 @@ class CourseEligibilityEngine:
         corequisite_summary = self._corequisite_summary(expression_results)
         warnings.append(
             EligibilityWarningResult(
-                warning_code="MOCK_ELIGIBILITY_ESTIMATE",
+                warning_code=(
+                    "IMPORTED_COURSE_STATE_ADVISORY"
+                    if active_snapshot is not None
+                    else "MOCK_ELIGIBILITY_ESTIMATE"
+                ),
                 severity=AuditWarningSeverity.INFO,
                 message=(
-                    "This eligibility result uses mock non-official rules and does not replace "
+                    "This eligibility result uses reviewed non-official course-state evidence "
+                    f"from import {active_snapshot.data_import_run_id} and does not replace "
                     "school or advisor confirmation."
+                    if active_snapshot is not None
+                    else "This eligibility result uses mock non-official rules and does not "
+                    "replace school or advisor confirmation."
                 ),
                 requires_advisor_confirmation=True,
             )
@@ -476,15 +504,10 @@ class CourseEligibilityEngine:
         context: EligibilityRequestContext,
         course_id: UUID,
     ) -> list[StudentCourseAttempt]:
-        return list(
-            self._db.scalars(
-                select(StudentCourseAttempt)
-                .where(
-                    StudentCourseAttempt.student_profile_id == context.student.id,
-                    StudentCourseAttempt.course_id == course_id,
-                )
-                .order_by(StudentCourseAttempt.attempt_number.desc(), StudentCourseAttempt.id)
-            ).all()
+        return effective_student_course_attempts(
+            self._db,
+            context.student.id,
+            course_id=course_id,
         )
 
     def _approved_transfer(
@@ -564,10 +587,15 @@ class CourseEligibilityEngine:
             )
 
         for attempt in attempts:
-            if attempt.status in {
-                StudentCourseAttemptStatus.IN_PROGRESS,
-                StudentCourseAttemptStatus.PLANNED,
-            } and context.mode in {EligibilityMode.PROJECTED, EligibilityMode.REGISTRATION}:
+            is_legacy_or_demo = attempt.course_state_snapshot_id is None
+            may_be_conditional = (
+                attempt.status is StudentCourseAttemptStatus.IN_PROGRESS
+                and (is_legacy_or_demo or rule_type is CourseRuleType.COREQUISITE)
+            ) or (attempt.status is StudentCourseAttemptStatus.PLANNED and is_legacy_or_demo)
+            if may_be_conditional and context.mode in {
+                EligibilityMode.PROJECTED,
+                EligibilityMode.REGISTRATION,
+            }:
                 if rule_type is CourseRuleType.COREQUISITE:
                     if attempt.status is StudentCourseAttemptStatus.IN_PROGRESS:
                         return AttemptMatch(
@@ -632,7 +660,7 @@ class CourseEligibilityEngine:
     def evaluate_minimum_grade(
         self,
         expression: CourseRuleExpression,
-        _rule_type: CourseRuleType,
+        rule_type: CourseRuleType,
         context: EligibilityRequestContext,
     ) -> AttemptMatch:
         course_id = expression.referenced_course_id
@@ -688,10 +716,15 @@ class CourseEligibilityEngine:
             )
 
         for attempt in attempts:
-            if attempt.status in {
-                StudentCourseAttemptStatus.IN_PROGRESS,
-                StudentCourseAttemptStatus.PLANNED,
-            } and context.mode in {EligibilityMode.PROJECTED, EligibilityMode.REGISTRATION}:
+            is_legacy_or_demo = attempt.course_state_snapshot_id is None
+            may_be_conditional = (
+                attempt.status is StudentCourseAttemptStatus.IN_PROGRESS
+                and (is_legacy_or_demo or rule_type is CourseRuleType.COREQUISITE)
+            ) or (attempt.status is StudentCourseAttemptStatus.PLANNED and is_legacy_or_demo)
+            if may_be_conditional and context.mode in {
+                EligibilityMode.PROJECTED,
+                EligibilityMode.REGISTRATION,
+            }:
                 return AttemptMatch(
                     EligibilityRuleResult.CONDITIONALLY_SATISFIED,
                     "MINIMUM_GRADE_PENDING",
@@ -726,11 +759,7 @@ class CourseEligibilityEngine:
         earned = Decimal("0.0")
         potential = Decimal("0.0")
         seen_courses: set[UUID] = set()
-        attempts = self._db.scalars(
-            select(StudentCourseAttempt).where(
-                StudentCourseAttempt.student_profile_id == context.student.id
-            )
-        ).all()
+        attempts = effective_student_course_attempts(self._db, context.student.id)
         for attempt in attempts:
             if (
                 attempt.status is StudentCourseAttemptStatus.COMPLETED
@@ -738,7 +767,7 @@ class CourseEligibilityEngine:
             ):
                 earned += attempt.credits_earned
                 seen_courses.add(attempt.course_id)
-            elif attempt.status in {
+            elif attempt.course_state_snapshot_id is None and attempt.status in {
                 StudentCourseAttemptStatus.IN_PROGRESS,
                 StudentCourseAttemptStatus.PLANNED,
             }:
@@ -1019,6 +1048,8 @@ class CourseEligibilityEngine:
         context: EligibilityRequestContext,
         rules: list[CourseRule],
     ) -> str:
+        snapshot = active_course_state_snapshot(self._db, context.student.id)
+        attempts = effective_student_course_attempts(self._db, context.student.id)
         payload = "|".join(
             [
                 str(context.student.id),
@@ -1030,6 +1061,8 @@ class CourseEligibilityEngine:
                 ",".join(
                     str(course_id) for course_id in sorted(context.planned_corequisite_course_ids)
                 ),
+                str(snapshot.id) if snapshot is not None else "demo",
+                ",".join(str(attempt.id) for attempt in attempts),
             ]
         )
         return sha256(payload.encode("utf-8")).hexdigest()

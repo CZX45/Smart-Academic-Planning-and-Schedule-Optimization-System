@@ -3729,6 +3729,59 @@
         }
       }
     },
+    "/api/v1/students/{student_id}/course-state-snapshots/active": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Active Course State Snapshot",
+        "operationId": "get_active_course_state_snapshot_api_v1_students__student_id__course_state_snapshots_active_get",
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseStateSnapshotDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/academic-scenarios": {
       "post": {
         "tags": [
@@ -5419,6 +5472,7 @@
               "SECTION",
               "SECTION_MEETING",
               "COURSE_OFFERING_PATTERN",
+              "COURSE_STATE",
               "UNKNOWN"
             ],
             "title": "Target Entity Type"
@@ -6441,6 +6495,469 @@
         ],
         "title": "CourseRuleResponse"
       },
+      "CourseStateReadinessItemResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "reason_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reason Codes"
+          },
+          "blocking_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocking Reasons"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "source_import_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Import Id"
+          },
+          "source_validation_state": {
+            "type": "string",
+            "title": "Source Validation State"
+          },
+          "source_bounded": {
+            "type": "boolean",
+            "title": "Source Bounded"
+          },
+          "source_truncated": {
+            "type": "boolean",
+            "title": "Source Truncated"
+          },
+          "last_applied_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Applied At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason_codes",
+          "blocking_reasons",
+          "warnings",
+          "source_import_id",
+          "source_validation_state",
+          "source_bounded",
+          "source_truncated",
+          "last_applied_at"
+        ],
+        "title": "CourseStateReadinessItemResponse"
+      },
+      "CourseStateRecordResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Snapshot Id"
+          },
+          "imported_record_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Imported Record Id"
+          },
+          "imported_record_review_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Imported Record Review Id"
+          },
+          "matched_course_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Course Id"
+          },
+          "student_course_attempt_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Course Attempt Id"
+          },
+          "normalized_course_code": {
+            "type": "string",
+            "title": "Normalized Course Code"
+          },
+          "source_course_code": {
+            "type": "string",
+            "title": "Source Course Code"
+          },
+          "source_course_title": {
+            "type": "string",
+            "title": "Source Course Title"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "COMPLETED",
+              "IN_PROGRESS",
+              "PLANNED",
+              "NOT_STARTED",
+              "UNKNOWN"
+            ],
+            "title": "Status"
+          },
+          "term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Term"
+          },
+          "credits": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credits"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "requirement_context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Context"
+          },
+          "source_page_type": {
+            "type": "string",
+            "title": "Source Page Type"
+          },
+          "source_table_index": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Table Index"
+          },
+          "source_row_index": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Row Index"
+          },
+          "provenance": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Provenance"
+          },
+          "confidence_score": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Confidence Score"
+          },
+          "validation_state": {
+            "type": "string",
+            "enum": [
+              "RELIABLE",
+              "RELIABLE_WITH_WARNINGS",
+              "EXTERNAL_EVIDENCE",
+              "EXCEPTION"
+            ],
+            "title": "Validation State"
+          },
+          "review_decision": {
+            "type": "string",
+            "enum": [
+              "UNREVIEWED",
+              "CONFIRMED",
+              "REJECTED",
+              "NEEDS_ADVISOR_REVIEW",
+              "EDITED_AND_CONFIRMED",
+              "DEFERRED"
+            ],
+            "title": "Review Decision"
+          },
+          "application_reason_code": {
+            "type": "string",
+            "title": "Application Reason Code"
+          },
+          "reason_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reason Codes"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "snapshot_id",
+          "imported_record_id",
+          "imported_record_review_id",
+          "normalized_course_code",
+          "source_course_code",
+          "source_course_title",
+          "status",
+          "source_page_type",
+          "provenance",
+          "confidence_score",
+          "validation_state",
+          "review_decision",
+          "application_reason_code",
+          "reason_codes",
+          "warnings",
+          "created_at"
+        ],
+        "title": "CourseStateRecordResponse"
+      },
+      "CourseStateSnapshotDetailResponse": {
+        "properties": {
+          "snapshot": {
+            "$ref": "#/components/schemas/CourseStateSnapshotResponse"
+          },
+          "course_states": {
+            "items": {
+              "$ref": "#/components/schemas/CourseStateRecordResponse"
+            },
+            "type": "array",
+            "title": "Course States"
+          }
+        },
+        "type": "object",
+        "required": [
+          "snapshot",
+          "course_states"
+        ],
+        "title": "CourseStateSnapshotDetailResponse"
+      },
+      "CourseStateSnapshotResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "data_import_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Data Import Run Id"
+          },
+          "review_session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Review Session Id"
+          },
+          "data_application_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Data Application Run Id"
+          },
+          "source_page_type": {
+            "type": "string",
+            "title": "Source Page Type"
+          },
+          "source_validation_state": {
+            "type": "string",
+            "title": "Source Validation State"
+          },
+          "program_mapping_state": {
+            "type": "string",
+            "title": "Program Mapping State"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "is_advisory": {
+            "type": "boolean",
+            "title": "Is Advisory"
+          },
+          "official_application_ready": {
+            "type": "boolean",
+            "title": "Official Application Ready"
+          },
+          "extraction_bounded": {
+            "type": "boolean",
+            "title": "Extraction Bounded"
+          },
+          "extraction_truncated": {
+            "type": "boolean",
+            "title": "Extraction Truncated"
+          },
+          "completed_count": {
+            "type": "integer",
+            "title": "Completed Count"
+          },
+          "in_progress_count": {
+            "type": "integer",
+            "title": "In Progress Count"
+          },
+          "planned_count": {
+            "type": "integer",
+            "title": "Planned Count"
+          },
+          "not_started_count": {
+            "type": "integer",
+            "title": "Not Started Count"
+          },
+          "matched_count": {
+            "type": "integer",
+            "title": "Matched Count"
+          },
+          "unmatched_count": {
+            "type": "integer",
+            "title": "Unmatched Count"
+          },
+          "exception_count": {
+            "type": "integer",
+            "title": "Exception Count"
+          },
+          "program_summary": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Program Summary"
+          },
+          "credit_summary": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Credit Summary"
+          },
+          "requirement_summary": {
+            "items": {},
+            "type": "array",
+            "title": "Requirement Summary"
+          },
+          "readiness": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CourseStateReadinessItemResponse"
+            },
+            "type": "object",
+            "title": "Readiness"
+          },
+          "applied_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Applied At"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "student_profile_id",
+          "data_import_run_id",
+          "review_session_id",
+          "data_application_run_id",
+          "source_page_type",
+          "source_validation_state",
+          "program_mapping_state",
+          "is_active",
+          "is_advisory",
+          "official_application_ready",
+          "extraction_bounded",
+          "extraction_truncated",
+          "completed_count",
+          "in_progress_count",
+          "planned_count",
+          "not_started_count",
+          "matched_count",
+          "unmatched_count",
+          "exception_count",
+          "program_summary",
+          "credit_summary",
+          "requirement_summary",
+          "readiness",
+          "applied_at",
+          "source",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CourseStateSnapshotResponse"
+      },
       "DataApplicationRunResponse": {
         "properties": {
           "id": {
@@ -6969,6 +7486,19 @@
             },
             "type": "array",
             "title": "Warnings"
+          },
+          "course_state_snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CourseStateSnapshotResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary": {
+            "$ref": "#/components/schemas/DataReviewApplicationSummaryResponse"
           }
         },
         "type": "object",
@@ -6976,9 +7506,66 @@
           "review_session",
           "dry_run",
           "applied_records",
-          "warnings"
+          "warnings",
+          "summary"
         ],
         "title": "DataReviewApplicationResultResponse"
+      },
+      "DataReviewApplicationSummaryResponse": {
+        "properties": {
+          "source_import_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Import Id"
+          },
+          "snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Id"
+          },
+          "applied_count": {
+            "type": "integer",
+            "title": "Applied Count"
+          },
+          "warning_count": {
+            "type": "integer",
+            "title": "Warning Count"
+          },
+          "exception_count": {
+            "type": "integer",
+            "title": "Exception Count"
+          },
+          "rejected_count": {
+            "type": "integer",
+            "title": "Rejected Count"
+          },
+          "deferred_count": {
+            "type": "integer",
+            "title": "Deferred Count"
+          },
+          "duplicate_count": {
+            "type": "integer",
+            "title": "Duplicate Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_import_id",
+          "applied_count",
+          "warning_count",
+          "exception_count",
+          "rejected_count",
+          "deferred_count",
+          "duplicate_count"
+        ],
+        "title": "DataReviewApplicationSummaryResponse"
       },
       "DataReviewWarningResponse": {
         "properties": {
@@ -11118,6 +11705,7 @@
               "$ref": "#/components/schemas/SectionMonitorSnapshotInput"
             },
             "type": "array",
+            "maxItems": 50,
             "minItems": 1,
             "title": "Snapshots"
           }

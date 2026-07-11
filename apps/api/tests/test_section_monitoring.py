@@ -395,6 +395,31 @@ def test_section_monitoring_api_exposes_targets_snapshots_alerts_and_acknowledge
     assert acknowledged.json()["is_acknowledged"] is True
     assert acknowledged.json()["acknowledged_at"] is not None
 
+    too_many_snapshots = client.post(
+        "/api/v1/section-monitoring/snapshots/compare",
+        json={
+            "student_profile_id": student_id,
+            "source_type": "BROWSER_EXTENSION",
+            "snapshots": [
+                snapshot_payload(status="OPEN", seats_available=4, waitlist_available=2)
+                for _ in range(51)
+            ],
+        },
+    )
+    assert too_many_snapshots.status_code == 422
+
+    oversized_payload = snapshot_payload(status="OPEN", seats_available=4, waitlist_available=2)
+    oversized_payload["raw_payload"] = {"source_label": "x" * 8192}
+    oversized_raw_payload = client.post(
+        "/api/v1/section-monitoring/snapshots/compare",
+        json={
+            "student_profile_id": student_id,
+            "source_type": "BROWSER_EXTENSION",
+            "snapshots": [oversized_payload],
+        },
+    )
+    assert oversized_raw_payload.status_code == 422
+
 
 def test_section_monitoring_api_does_not_introduce_registration_automation() -> None:
     paths = app.openapi()["paths"]

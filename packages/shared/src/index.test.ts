@@ -5,10 +5,14 @@ import {
   AcademicPlanDetailSchema,
   AppliedImportedRecordSchema,
   CourseEligibilityCheckSchema,
+  CourseStateSnapshotDetailSchema,
   DataImportReviewSessionSchema,
   DataImportRunSchema,
   DataReviewApplicationResultSchema,
   DataReviewWarningSchema,
+  isSectionMonitorRawPayloadBounded,
+  MAX_SECTION_MONITOR_RAW_PAYLOAD_BYTES,
+  MAX_SECTION_MONITOR_SNAPSHOT_COUNT,
   SectionMonitorAlertSchema,
   SectionMonitorSnapshotCompareResponseSchema,
   SectionMonitorSnapshotSchema,
@@ -555,8 +559,121 @@ describe("data import schemas", () => {
           },
         ],
         warnings: [warning],
+        summary: {
+          source_import_id: review.data_import_run_id,
+          snapshot_id: null,
+          applied_count: 1,
+          warning_count: 0,
+          exception_count: 0,
+          rejected_count: 0,
+          deferred_count: 0,
+          duplicate_count: 0,
+        },
       }),
     ).toMatchObject({ dry_run: true });
+  });
+
+  it("validates applied non-official course-state snapshots and provenance", () => {
+    const snapshotId = "00000000-0000-4000-8000-000000000741";
+    const importId = "00000000-0000-4000-8000-000000000701";
+    const readiness = {
+      status: "READY_WITH_WARNINGS",
+      reason_codes: ["ACTIVE_NON_OFFICIAL_COURSE_STATE_SNAPSHOT"],
+      blocking_reasons: [],
+      warnings: ["COURSE_CODE_UNMATCHED"],
+      source_import_id: importId,
+      source_validation_state: "AUTO_VERIFIED",
+      source_bounded: false,
+      source_truncated: false,
+      last_applied_at: "2026-07-11T00:00:00Z",
+    };
+    const detail = CourseStateSnapshotDetailSchema.parse({
+      snapshot: {
+        id: snapshotId,
+        student_profile_id: "00000000-0000-4000-8000-000000000702",
+        data_import_run_id: importId,
+        review_session_id: "00000000-0000-4000-8000-000000000731",
+        data_application_run_id: "00000000-0000-4000-8000-000000000742",
+        source_page_type: "KEAN_MY_PROGRESS_PAGE",
+        source_validation_state: "AUTO_VERIFIED",
+        program_mapping_state: "EXACT",
+        is_active: true,
+        is_advisory: true,
+        official_application_ready: false,
+        extraction_bounded: false,
+        extraction_truncated: false,
+        completed_count: 1,
+        in_progress_count: 0,
+        planned_count: 1,
+        not_started_count: 0,
+        matched_count: 2,
+        unmatched_count: 0,
+        exception_count: 0,
+        program_summary: { programName: "Finance, BS", catalogYear: 2024 },
+        credit_summary: { totalAppliedCredits: 104, totalRequiredCredits: 120 },
+        requirement_summary: [{ name: "Finance Requirements" }],
+        readiness: {
+          summary: readiness,
+          course_history: readiness,
+          degree_audit: readiness,
+          course_eligibility: readiness,
+          long_term_planner: readiness,
+          semester_schedule: { ...readiness, status: "DEMO_ONLY" },
+        },
+        applied_at: "2026-07-11T00:00:00Z",
+        source: { source_type: "BROWSER_EXTENSION", is_official: false },
+        created_at: "2026-07-11T00:00:00Z",
+        updated_at: "2026-07-11T00:00:00Z",
+      },
+      course_states: [
+        {
+          id: "00000000-0000-4000-8000-000000000743",
+          snapshot_id: snapshotId,
+          imported_record_id: "00000000-0000-4000-8000-000000000704",
+          imported_record_review_id: "00000000-0000-4000-8000-000000000732",
+          matched_course_id: "00000000-0000-4000-8000-000000000705",
+          student_course_attempt_id: "00000000-0000-4000-8000-000000000744",
+          normalized_course_code: "FIN 300",
+          source_course_code: "FIN 300",
+          source_course_title: "Managerial Finance",
+          status: "COMPLETED",
+          term: "2024FA",
+          credits: "3.0",
+          grade: null,
+          requirement_context: "Finance Requirements",
+          source_page_type: "KEAN_MY_PROGRESS_PAGE",
+          source_table_index: "1",
+          source_row_index: "1",
+          provenance: {
+            course_code: {
+              source: "sanitized table 1 row 1",
+              confidence: "high",
+            },
+          },
+          confidence_score: "1.0",
+          validation_state: "RELIABLE",
+          review_decision: "CONFIRMED",
+          application_reason_code: "COURSE_STATE_APPLIED",
+          reason_codes: ["EXACT_COURSE_CODE"],
+          warnings: [],
+          created_at: "2026-07-11T00:00:00Z",
+        },
+      ],
+    });
+
+    expect(detail).toMatchObject({
+      snapshot: {
+        is_active: true,
+        official_application_ready: false,
+        readiness: { semester_schedule: { status: "DEMO_ONLY" } },
+      },
+      course_states: [
+        {
+          normalized_course_code: "FIN 300",
+          validation_state: "RELIABLE",
+        },
+      ],
+    });
   });
 
   it("uses typed helpers for review creation, decisions, and dry-run apply", async () => {
@@ -624,6 +741,16 @@ describe("data import schemas", () => {
               },
             ],
             warnings: [],
+            summary: {
+              source_import_id: reviewPayload.data_import_run_id,
+              snapshot_id: null,
+              applied_count: 1,
+              warning_count: 0,
+              exception_count: 0,
+              rejected_count: 0,
+              deferred_count: 0,
+              duplicate_count: 0,
+            },
           }),
         );
       }
@@ -745,6 +872,36 @@ describe("section monitoring schemas", () => {
         ],
       }),
     ).toMatchObject({ alerts: [{ alert_type: "SECTION_OPENED" }] });
+  });
+
+  it("bounds section monitor raw payloads and compare request size", async () => {
+    expect(isSectionMonitorRawPayloadBounded({ source: "visible-table" })).toBe(
+      true,
+    );
+    expect(
+      isSectionMonitorRawPayloadBounded({
+        source: "x".repeat(MAX_SECTION_MONITOR_RAW_PAYLOAD_BYTES + 1),
+      }),
+    ).toBe(false);
+
+    const fetchFn = async () => new Response(JSON.stringify({}));
+    await expect(
+      compareSectionMonitorSnapshots(
+        "http://api.test",
+        {
+          student_profile_id: targetPayload.student_profile_id,
+          snapshots: Array.from(
+            { length: MAX_SECTION_MONITOR_SNAPSHOT_COUNT + 1 },
+            () => ({
+              course_code: "FIN 403",
+              section_code: "001",
+              term: "2025FA",
+            }),
+          ),
+        },
+        { fetchFn },
+      ),
+    ).rejects.toThrow(ApiRequestError);
   });
 
   it("uses typed helpers for advisory target and alert workflows", async () => {

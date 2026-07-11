@@ -1017,6 +1017,86 @@ const myProgressCourseRows = [
   };
 });
 
+function reviewedCourseStateFixtureContent() {
+  const courseRows = myProgressCourseRows.map((row, index) => {
+    const exactCompletedCourse = index === 6;
+    const plannedPrerequisite = index === 7;
+    const courseCode = exactCompletedCourse
+      ? "FIN 300"
+      : plannedPrerequisite
+        ? "FIN 200"
+        : row.course_code;
+    const courseTitle = exactCompletedCourse
+      ? "Managerial Finance"
+      : plannedPrerequisite
+        ? "Finance Foundations"
+        : row.course_title;
+    const status = exactCompletedCourse
+      ? "COMPLETED"
+      : plannedPrerequisite
+        ? "PLANNED"
+        : row.status;
+    const termCode = exactCompletedCourse
+      ? "2024FA"
+      : plannedPrerequisite
+        ? "2025SP"
+        : (row.term ?? "");
+    return {
+      requirements: row.requirement_group_context,
+      requirement_section: row.requirement_group_context,
+      status,
+      course_code: courseCode,
+      course_title: courseTitle,
+      term_code: termCode,
+      credits: "3",
+      raw_row_text: `${status} ${courseCode} ${courseTitle} ${termCode} 3`,
+      source_table_index: row.source_table_index,
+      source_row_index: row.source_row_index,
+      field_provenance: {
+        course_code: {
+          rawText: courseCode,
+          source: `visible table ${row.source_table_index} row ${row.source_row_index}`,
+          confidence: row.confidence,
+        },
+      },
+      confidence: row.confidence,
+      warnings: row.warnings,
+    };
+  });
+
+  return JSON.stringify({
+    source_type: "BROWSER_EXTENSION",
+    staging_only: true,
+    page_type: "KEAN_MY_PROGRESS_PAGE",
+    programSummary: myProgressDataImportPreview.summary_payload.program_summary,
+    creditSummary: myProgressDataImportPreview.summary_payload.credit_summary,
+    requirementGroups:
+      myProgressDataImportPreview.summary_payload.requirement_groups,
+    courseRows,
+    rawSnapshot: {
+      diagnostics: {
+        tableCount: 17,
+        rowCount: 85,
+        requirementGroupCount: 1,
+        courseLikeRowCount: 85,
+        bounded: true,
+        truncated: true,
+        academicRowsSkipped: 1,
+      },
+    },
+    validation: {
+      status: "AUTO_VERIFIED",
+      exceptionCount: 0,
+      exceptions: [],
+      autoConfirmedFieldCount: 14,
+      autoConfirmedCourseRowCount: 84,
+      overallConfidenceScore: 1,
+      downstreamAnalysisAllowed: true,
+    },
+    warnings: ["sanitized local E2E fixture"],
+  });
+}
+
 const myProgressDataImportPreview = {
   ...mockDataImportPreview,
   id: "00000000-0000-4000-8000-000000000744",
@@ -1323,6 +1403,16 @@ function mockApplicationResult(dryRun: boolean) {
       },
     ],
     warnings: mockDataReviewWarnings,
+    summary: {
+      source_import_id: mockDataImportReview.data_import_run_id,
+      snapshot_id: null,
+      applied_count: 1,
+      warning_count: 0,
+      exception_count: 0,
+      rejected_count: 0,
+      deferred_count: 0,
+      duplicate_count: 0,
+    },
   };
 }
 
@@ -1428,6 +1518,16 @@ function mockMyProgressApplicationResult(dryRun: boolean) {
       },
     ],
     warnings: myProgressDataReviewWarnings,
+    summary: {
+      source_import_id: myProgressDataImportReview.data_import_run_id,
+      snapshot_id: null,
+      applied_count: 2,
+      warning_count: 0,
+      exception_count: 0,
+      rejected_count: 0,
+      deferred_count: 0,
+      duplicate_count: 0,
+    },
   };
 }
 
@@ -2106,6 +2206,31 @@ test.beforeEach(async ({ page }) => {
     });
   });
   await page.route(
+    "http://localhost:8000/api/v1/students/*/course-state-snapshots/active",
+    async (route) => {
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: {
+            code: "not_found",
+            message:
+              "No active course-state snapshot in this isolated UI test.",
+          },
+        }),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/students/*/data-imports",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    },
+  );
+  await page.route(
     "http://localhost:8000/api/v1/section-monitoring/targets*",
     async (route) => {
       await route.fulfill({
@@ -2280,11 +2405,7 @@ test("home page reviews and applies confirmed MyProgress import summaries", asyn
   await expect(reviewSummary.getByText("已自动确认")).toBeVisible();
   await expect(
     reviewSummary.locator(".metric").filter({ hasText: "已自动确认" }),
-  ).toContainText("2");
-  await expect(
-    page.getByText("高置信度 MyProgress 字段已自动确认"),
-  ).toBeVisible();
-
+  ).toContainText("0");
   await page.getByRole("button", { name: /^加载最新审核$/ }).click();
   await expect(reviewSummary.getByText("可应用")).toBeVisible();
 
@@ -2313,6 +2434,184 @@ test("home page reviews and applies confirmed MyProgress import summaries", asyn
     applicationResult.getByText("UNSUPPORTED_TARGET_TYPE"),
   ).toHaveCount(0);
   await expect(applicationResult.getByText("已跳过不支持项")).toHaveCount(0);
+});
+
+test("reviewed 85-row MyProgress import drives the active real course-state snapshot", async ({
+  page,
+  request,
+}) => {
+  const studentId = mockAuditRun.student_profile_id;
+  const importResponse = await request.post(
+    "http://127.0.0.1:8000/api/v1/data-imports",
+    {
+      data: {
+        student_profile_id: studentId,
+        import_type: "DEGREE_AUDIT_EXPORT",
+        file_name: "sanitized-myprogress-course-state-e2e.json",
+        file_mime_type: "application/json",
+        content: reviewedCourseStateFixtureContent(),
+        source_type: "BROWSER_EXTENSION",
+        source_reference: "Sanitized local MyProgress course-state E2E fixture",
+      },
+    },
+  );
+  expect(importResponse.status()).toBe(201);
+  const imported = (await importResponse.json()) as { id: string };
+
+  const reviewResponse = await request.post(
+    "http://127.0.0.1:8000/api/v1/data-import-reviews",
+    {
+      data: {
+        data_import_run_id: imported.id,
+        reviewer_label: "Sanitized E2E self-review",
+      },
+    },
+  );
+  expect(reviewResponse.status()).toBe(201);
+  const review = (await reviewResponse.json()) as { id: string };
+
+  const dryRunResponse = await request.post(
+    `http://127.0.0.1:8000/api/v1/data-import-reviews/${review.id}/apply`,
+    { data: { dry_run: true, allow_advisor_review_records: false } },
+  );
+  expect(dryRunResponse.status()).toBe(200);
+  const dryRun = (await dryRunResponse.json()) as {
+    dry_run: boolean;
+    course_state_snapshot: null;
+  };
+  expect(dryRun.dry_run).toBe(true);
+  expect(dryRun.course_state_snapshot).toBeNull();
+
+  const applyResponse = await request.post(
+    `http://127.0.0.1:8000/api/v1/data-import-reviews/${review.id}/apply`,
+    { data: { dry_run: false, allow_advisor_review_records: false } },
+  );
+  expect(applyResponse.status()).toBe(200);
+  const applied = (await applyResponse.json()) as {
+    course_state_snapshot: { id: string; is_active: boolean };
+    summary: { source_import_id: string; snapshot_id: string };
+  };
+  expect(applied.course_state_snapshot.is_active).toBe(true);
+  expect(applied.summary.source_import_id).toBe(imported.id);
+  expect(applied.summary.snapshot_id).toBe(applied.course_state_snapshot.id);
+
+  const activeResponse = await request.get(
+    `http://127.0.0.1:8000/api/v1/students/${studentId}/course-state-snapshots/active`,
+  );
+  expect(activeResponse.status()).toBe(200);
+  const active = (await activeResponse.json()) as {
+    snapshot: {
+      id: string;
+      is_active: boolean;
+      extraction_bounded: boolean;
+      extraction_truncated: boolean;
+      readiness: Record<string, { status: string }>;
+    };
+    course_states: Array<{
+      normalized_course_code: string;
+      status: string;
+      student_course_attempt_id: string | null;
+    }>;
+  };
+  expect(active.snapshot.id).toBe(applied.course_state_snapshot.id);
+  expect(active.snapshot.extraction_bounded).toBe(true);
+  expect(active.snapshot.extraction_truncated).toBe(true);
+  expect(active.snapshot.readiness.long_term_planner.status).toBe("BLOCKED");
+  expect(active.snapshot.readiness.semester_schedule.status).toBe("DEMO_ONLY");
+  expect(active.course_states).toHaveLength(84);
+  expect(
+    active.course_states.find(
+      (state) => state.normalized_course_code === "MATH 1044",
+    ),
+  ).toMatchObject({ status: "NOT_STARTED", student_course_attempt_id: null });
+  expect(
+    active.course_states.find(
+      (state) => state.normalized_course_code === "MATH 1054",
+    ),
+  ).toMatchObject({ status: "NOT_STARTED", student_course_attempt_id: null });
+  expect(
+    active.course_states.find(
+      (state) => state.normalized_course_code === "ENG 2403",
+    ),
+  ).toMatchObject({ status: "PLANNED" });
+
+  const eligibilityResponse = await request.post(
+    "http://127.0.0.1:8000/api/v1/eligibility-checks",
+    {
+      data: {
+        student_profile_id: studentId,
+        course_id: "e6ab2a34-d85a-5446-875e-83fd36d5b08e",
+        target_term_id: "fed14bfe-972b-5392-8c72-379ceb879e85",
+        mode: "CURRENT",
+        planned_corequisite_course_ids: [],
+      },
+    },
+  );
+  expect(eligibilityResponse.status()).toBe(201);
+  const eligibility = (await eligibilityResponse.json()) as {
+    overall_result: string;
+    rule_evaluations: Array<{
+      expressions: Array<{ reason_code: string }>;
+    }>;
+  };
+  expect(eligibility.overall_result).toBe("NOT_ELIGIBLE");
+  expect(
+    eligibility.rule_evaluations.flatMap((rule) =>
+      rule.expressions.map((evaluation) => evaluation.reason_code),
+    ),
+  ).toContain("COMPLETED_COURSE_MISSING");
+
+  const plannerResponse = await request.post(
+    "http://127.0.0.1:8000/api/v1/academic-plans",
+    {
+      data: {
+        student_profile_id: studentId,
+        program_version_id: "f65bee76-6061-515f-a3df-cdf5567514af",
+        academic_plan_scenario_id: null,
+        planning_mode: "CURRENT_PROGRAM",
+        start_term_id: "fed14bfe-972b-5392-8c72-379ceb879e85",
+        terms_to_plan: 2,
+        minimum_credits_per_term: "3.0",
+        maximum_credits_per_term: "6.0",
+        preferred_credits_per_term: "6.0",
+      },
+    },
+  );
+  expect(plannerResponse.status()).toBe(400);
+  await expect(plannerResponse.json()).resolves.toMatchObject({
+    detail: { code: "course_state_snapshot_not_ready" },
+  });
+
+  const reapplyResponse = await request.post(
+    `http://127.0.0.1:8000/api/v1/data-import-reviews/${review.id}/apply`,
+    { data: { dry_run: false, allow_advisor_review_records: false } },
+  );
+  expect(reapplyResponse.status()).toBe(200);
+  const reapplied = (await reapplyResponse.json()) as {
+    course_state_snapshot: { id: string };
+    summary: { duplicate_count: number };
+  };
+  expect(reapplied.course_state_snapshot.id).toBe(active.snapshot.id);
+  expect(reapplied.summary.duplicate_count).toBeGreaterThan(0);
+
+  await page.unroute(
+    "http://localhost:8000/api/v1/students/*/course-state-snapshots/active",
+  );
+  await page.unroute("http://localhost:8000/api/v1/students/*/data-imports");
+  await page.goto("/");
+  await waitForClientReady(page);
+  const courseStatePanel = page.getByRole("region", {
+    name: "已应用课程状态",
+    exact: true,
+  });
+  await expect(courseStatePanel.getByText("内部课程状态快照")).toBeVisible();
+  await expect(courseStatePanel).toContainText("MATH 1044");
+  await expect(courseStatePanel).toContainText("ENG 2403");
+  await expect(courseStatePanel).toContainText("来源提取有边界或被截断");
+  await expect(courseStatePanel).toContainText("尚未导入真实课节搜索数据");
+  await expect(page.getByText("Mock BS Finance")).toHaveCount(0);
+  await expect(page.getByText("PENDING_WAIVER")).toHaveCount(0);
+  await expect(page.getByText("INCOMPLETE_ATTEMPT")).toHaveCount(0);
 });
 
 test("saved MyProgress import with exceptions is marked as requiring review", async ({
@@ -2490,14 +2789,12 @@ test("home page creates and compares what-if academic scenarios", async ({
   page,
 }) => {
   await mockSuccessfulAuditApis(page);
-  await mockSavedMyProgressImportApis(page, myProgressPlanningReadyPreview);
   await mockSuccessfulScenarioApis(page);
 
   await page.goto("/");
   await waitForClientReady(page);
-  await expect(
-    page.getByText("真实导入数据 - 已自动验证").first(),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "启用演示工作流" }).click();
+  await expect(page.getByText("演示工作流已显式启用")).toBeVisible();
 
   await expect(
     page
@@ -2523,7 +2820,6 @@ test("home page creates and compares what-if academic scenarios", async ({
 
 test("home page reports what-if API and schema failures", async ({ page }) => {
   await mockSuccessfulAuditApis(page);
-  await mockSavedMyProgressImportApis(page, myProgressPlanningReadyPreview);
   await page.route(
     "http://localhost:8000/api/v1/academic-scenarios",
     async (route) => {
@@ -2536,9 +2832,7 @@ test("home page reports what-if API and schema failures", async ({ page }) => {
 
   await page.goto("/");
   await waitForClientReady(page);
-  await expect(
-    page.getByText("真实导入数据 - 已自动验证").first(),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "启用演示工作流" }).click();
   await page.getByRole("button", { name: /创建假设方案/ }).click();
 
   await expect(page.getByText("假设方案不可用")).toBeVisible();
@@ -2553,6 +2847,7 @@ test("home page checks course eligibility without recalculating section seats", 
 
   await page.goto("/");
   await waitForClientReady(page);
+  await page.getByRole("button", { name: "启用演示工作流" }).click();
 
   await expect(page.getByRole("heading", { name: /课程资格/ })).toBeVisible();
   await expect(
@@ -2588,6 +2883,7 @@ test("home page reports course eligibility schema failures", async ({
 
   await page.goto("/");
   await waitForClientReady(page);
+  await page.getByRole("button", { name: "启用演示工作流" }).click();
   await page.getByRole("button", { name: /检查资格/ }).click();
 
   await expect(page.getByText("课程资格结构错误")).toBeVisible();
@@ -2598,14 +2894,11 @@ test("home page creates and compares long-term academic plans", async ({
   page,
 }) => {
   await mockSuccessfulAuditApis(page);
-  await mockSavedMyProgressImportApis(page, myProgressPlanningReadyPreview);
   await mockSuccessfulPlannerApis(page);
 
   await page.goto("/");
   await waitForClientReady(page);
-  await expect(
-    page.getByText("真实导入数据 - 已自动验证").first(),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "启用演示工作流" }).click();
 
   await expect(
     page.getByRole("heading", { name: /长期学业规划/ }),
@@ -2646,7 +2939,6 @@ test("home page creates and compares long-term academic plans", async ({
 
 test("home page reports academic planner schema failures", async ({ page }) => {
   await mockSuccessfulAuditApis(page);
-  await mockSavedMyProgressImportApis(page, myProgressPlanningReadyPreview);
   await page.route(
     "http://localhost:8000/api/v1/academic-plans",
     async (route) => {
@@ -2659,9 +2951,7 @@ test("home page reports academic planner schema failures", async ({ page }) => {
 
   await page.goto("/");
   await waitForClientReady(page);
-  await expect(
-    page.getByText("真实导入数据 - 已自动验证").first(),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "启用演示工作流" }).click();
   await page.getByRole("button", { name: /创建规划/ }).click();
 
   await expect(page.getByText("学业规划结构错误")).toBeVisible();
@@ -2670,14 +2960,11 @@ test("home page reports academic planner schema failures", async ({ page }) => {
 
 test("home page builds and compares semester schedules", async ({ page }) => {
   await mockSuccessfulAuditApis(page);
-  await mockSavedMyProgressImportApis(page, myProgressPlanningReadyPreview);
   await mockSuccessfulScheduleApis(page);
 
   await page.goto("/");
   await waitForClientReady(page);
-  await expect(
-    page.getByText("真实导入数据 - 已自动验证").first(),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "启用演示工作流" }).click();
 
   await expect(
     page.getByRole("heading", { name: /学期课表生成器/ }),
@@ -2880,7 +3167,10 @@ test("home page reviews and applies confirmed data import records", async ({
   const reviewSummary = page.getByLabel("数据审核汇总");
   await expect(reviewSummary.getByText("审核中")).toBeVisible();
   await expect(
-    page.getByLabel("审核记录").getByText("FIN 300", { exact: true }),
+    page
+      .getByLabel("审核记录")
+      .locator(".comparison-row")
+      .filter({ hasText: "FIN 300" }),
   ).toBeVisible();
 
   await page
@@ -2910,7 +3200,6 @@ test("home page reports schedule optimizer schema failures", async ({
   page,
 }) => {
   await mockSuccessfulAuditApis(page);
-  await mockSavedMyProgressImportApis(page, myProgressPlanningReadyPreview);
   await page.route(
     "http://localhost:8000/api/v1/schedule-optimizations",
     async (route) => {
@@ -2923,9 +3212,7 @@ test("home page reports schedule optimizer schema failures", async ({
 
   await page.goto("/");
   await waitForClientReady(page);
-  await expect(
-    page.getByText("真实导入数据 - 已自动验证").first(),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "启用演示工作流" }).click();
   await page.getByRole("button", { name: /生成课表/ }).click();
 
   await expect(

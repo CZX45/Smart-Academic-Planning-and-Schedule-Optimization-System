@@ -176,6 +176,11 @@ class DataImportApplicationService:
             if self._should_match_course_candidate(parsed_record):
                 self._persist_mapping_candidates(student, imported_record, parsed_record)
             if self._is_myprogress_record(parsed_record):
+                self._persist_myprogress_mapping_candidate(
+                    student,
+                    imported_record,
+                    parsed_record,
+                )
                 self._add_myprogress_record_warnings(imported_record, parsed_record)
 
         if not parsed_records:
@@ -302,6 +307,48 @@ class DataImportApplicationService:
     def _should_match_course_candidate(self, parsed_record: ParsedImportRecord) -> bool:
         return not self._is_myprogress_record(parsed_record)
 
+    def _persist_myprogress_mapping_candidate(
+        self,
+        student: StudentProfile,
+        imported_record: ImportedRecord,
+        parsed_record: ParsedImportRecord,
+    ) -> None:
+        payload = parsed_record.normalized_payload
+        if payload.get("record_kind") != "MY_PROGRESS_COURSE_ROW":
+            return
+        course_code = str(payload.get("course_code") or "").strip() or None
+        split = split_course_code(course_code)
+        if split is None:
+            self._add_no_match(imported_record, course_code, "COURSE_CODE_MISSING")
+            return
+        subject_code, course_number = split
+        course = self._db.scalar(
+            select(Course).where(
+                Course.institution_id == student.home_institution_id,
+                Course.subject_code == subject_code,
+                Course.course_number == course_number,
+            )
+        )
+        if course is None:
+            self._add_no_match(imported_record, course_code, "COURSE_CODE_UNMATCHED")
+            return
+        self._db.add(
+            ImportMappingCandidate(
+                id=uuid4(),
+                imported_record_id=imported_record.id,
+                target_entity_type=ImportTargetEntityType.COURSE,
+                target_entity_id=course.id,
+                match_type=ImportMatchType.EXACT_CODE,
+                confidence_score=Decimal("1.00"),
+                is_selected=True,
+                reason_code="EXACT_COURSE_CODE",
+                explanation=(
+                    f"{course_code} exactly matches reviewed internal catalog course "
+                    f"{course.subject_code} {course.course_number}."
+                ),
+            )
+        )
+
     def _is_auto_verified_myprogress_import(
         self,
         parsed_records: list[ParsedImportRecord],
@@ -412,7 +459,7 @@ class DataImportApplicationService:
                 is_selected=False,
                 reason_code=reason_code,
                 explanation=(
-                    f"{label} did not match a reviewed mock catalog record and requires manual "
+                    f"{label} did not match a reviewed internal catalog record and requires manual "
                     "review before academic use."
                 ),
             )

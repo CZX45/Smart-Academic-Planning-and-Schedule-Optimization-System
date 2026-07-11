@@ -11,6 +11,7 @@ const webServer =
           reuseExistingServer: true,
           env: {
             DATABASE_URL:
+              process.env.DATABASE_URL ??
               "postgresql+psycopg://sapsos:sapsos_dev_password@localhost:5432/sapsos",
           },
         },

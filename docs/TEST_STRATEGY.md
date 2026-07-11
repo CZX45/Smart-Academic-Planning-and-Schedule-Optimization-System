@@ -384,3 +384,18 @@ Expected commands once tooling is scaffolded:
 During the documentation-only phase, basic repository checks are limited to file existence, Markdown review, and Git status.
 
 For Phase 10A, documentation changes are still verified through the full available project commands plus the release-doc wording regression test in `apps/api/tests/test_production_safety_policy.py`.
+
+## 9. Applied Course-State Verification
+
+The course-state slice requires deterministic tests for all five statuses,
+exact and unmatched catalog records, missing term/credit evidence, exception and
+review decisions, conflicting duplicates, repeated application, active snapshot
+replacement, and bounded/truncated sources. Integration tests verify the active
+student-scoped API plus the sanitized 85-row MyProgress fixture.
+
+Downstream regressions assert that imported `PLANNED` does not satisfy a
+prerequisite, `IN_PROGRESS` is conditional only in supported modes, mock attempts
+are excluded in real-snapshot mode, and planner readiness blocks unsafe input.
+PostgreSQL migration/seed idempotency and a browser E2E must verify the same
+active student-scoped readiness and provenance labels without using a real
+student portal page.
