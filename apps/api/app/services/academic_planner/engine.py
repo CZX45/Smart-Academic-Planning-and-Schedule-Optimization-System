@@ -30,6 +30,7 @@ from app.models.academic import (
     CourseRule,
     CourseRuleExpression,
     CourseRuleType,
+    CourseStateSnapshot,
     EligibilityMode,
     EligibilityOverallResult,
     FrequencyType,
@@ -44,7 +45,6 @@ from app.models.academic import (
     SourceType,
     StudentAcademicProgram,
     StudentAcademicProgramStatus,
-    StudentCourseAttempt,
     StudentCourseAttemptStatus,
     StudentProgramType,
     TermType,
@@ -52,6 +52,10 @@ from app.models.academic import (
 from app.services.academic_planner.exceptions import AcademicPlannerValidationError
 from app.services.course_eligibility.engine import CourseEligibilityEngine
 from app.services.course_eligibility.result import EligibilityResult
+from app.services.course_state.engine import (
+    active_course_state_snapshot,
+    effective_student_course_attempts,
+)
 from app.services.degree_audit.engine import DegreeAuditEngine, quantize_credits
 from app.services.degree_audit.result import DegreeAuditResult, RequirementResult
 
@@ -150,6 +154,7 @@ class AcademicPlannerApplicationService:
             academic_plan_scenario_id=academic_plan_scenario_id,
             planning_mode=planning_mode,
         )
+        active_snapshot = self._validate_course_state_readiness(student_profile_id)
         start_term = self._db.get(AcademicTerm, start_term_id)
         if start_term is None:
             raise AcademicPlannerValidationError(
@@ -188,11 +193,19 @@ class AcademicPlannerApplicationService:
 
         warnings: list[WarningDraft] = [
             WarningDraft(
-                warning_code="MOCK_PLAN_NOT_OFFICIAL",
+                warning_code=(
+                    "IMPORTED_PLAN_ADVISORY_ONLY"
+                    if active_snapshot is not None
+                    else "MOCK_PLAN_NOT_OFFICIAL"
+                ),
                 severity=AuditWarningSeverity.INFO,
                 message=(
-                    "Mock data - not official university policy. This long-term plan is an "
-                    "estimate and needs school or advisor confirmation."
+                    "This advisory plan uses reviewed non-official course-state snapshot "
+                    f"{active_snapshot.id} from import {active_snapshot.data_import_run_id}; "
+                    "it needs school or advisor confirmation."
+                    if active_snapshot is not None
+                    else "Mock data - not official university policy. This long-term plan is "
+                    "an estimate and needs school or advisor confirmation."
                 ),
                 requires_advisor_confirmation=True,
             )
@@ -203,7 +216,7 @@ class AcademicPlannerApplicationService:
                     warning_code="PLANNING_HORIZON_TRUNCATED",
                     severity=AuditWarningSeverity.WARNING,
                     message=(
-                        "Stored mock terms do not cover the full requested planning horizon; "
+                        "Stored terms do not cover the full requested planning horizon; "
                         "the plan was not silently extended."
                     ),
                     requires_advisor_confirmation=True,
@@ -241,7 +254,7 @@ class AcademicPlannerApplicationService:
                         warning_code="PARTIAL_PLAN_HORIZON_INSUFFICIENT",
                         severity=AuditWarningSeverity.WARNING,
                         message=(
-                            "The supplied terms were not enough to place every remaining mock "
+                            "The supplied terms were not enough to place every remaining "
                             "requirement under the credit limits."
                         ),
                         requires_advisor_confirmation=True,
@@ -468,7 +481,7 @@ class AcademicPlannerApplicationService:
                 select(Course).where(Course.institution_id == program_version.institution_id)
             ).all()
         }
-        completed_course_ids = self._completed_course_ids(audit.student_profile_id)
+        occupied_course_ids = self._occupied_course_ids(audit.student_profile_id)
         unlock_values = self._unlock_values(program_version.institution_id)
         warnings: list[WarningDraft] = []
         candidates: list[PlannerCandidate] = []
@@ -505,7 +518,7 @@ class AcademicPlannerApplicationService:
             if node.requirement_type not in COURSE_OPTION_REQUIREMENT_TYPES:
                 continue
             for option in options:
-                if option.course_id in completed_course_ids:
+                if option.course_id in occupied_course_ids:
                     continue
                 course = courses_by_id[option.course_id]
                 candidates.append(
@@ -530,14 +543,44 @@ class AcademicPlannerApplicationService:
         candidates.sort(key=self._candidate_sort_key)
         return candidates, warnings
 
-    def _completed_course_ids(self, student_profile_id: UUID) -> set[UUID]:
-        attempts = self._db.scalars(
-            select(StudentCourseAttempt).where(
-                StudentCourseAttempt.student_profile_id == student_profile_id,
-                StudentCourseAttempt.status == StudentCourseAttemptStatus.COMPLETED,
-            )
-        ).all()
+    def _occupied_course_ids(self, student_profile_id: UUID) -> set[UUID]:
+        active_snapshot = active_course_state_snapshot(self._db, student_profile_id)
+        attempts = effective_student_course_attempts(
+            self._db,
+            student_profile_id,
+            statuses=(
+                {
+                    StudentCourseAttemptStatus.COMPLETED,
+                    StudentCourseAttemptStatus.IN_PROGRESS,
+                    StudentCourseAttemptStatus.PLANNED,
+                }
+                if active_snapshot is not None
+                else {StudentCourseAttemptStatus.COMPLETED}
+            ),
+        )
         return {attempt.course_id for attempt in attempts}
+
+    def _validate_course_state_readiness(
+        self,
+        student_profile_id: UUID,
+    ) -> CourseStateSnapshot | None:
+        snapshot = active_course_state_snapshot(self._db, student_profile_id)
+        if snapshot is None:
+            return None
+        readiness = snapshot.readiness_payload.get("long_term_planner")
+        readiness_payload = readiness if isinstance(readiness, dict) else {}
+        status = str(readiness_payload.get("status") or "BLOCKED")
+        if status not in {"READY", "READY_WITH_WARNINGS"}:
+            blocking = readiness_payload.get("blocking_reasons")
+            blocking_reasons = (
+                [str(reason) for reason in blocking] if isinstance(blocking, list) else []
+            )
+            raise AcademicPlannerValidationError(
+                "course_state_snapshot_not_ready",
+                "Long-term planning is blocked by active course-state readiness: "
+                + ", ".join(blocking_reasons or ["READINESS_MISSING"]),
+            )
+        return snapshot
 
     def _unlock_values(self, institution_id: UUID) -> dict[UUID, int]:
         rows = self._db.execute(
@@ -782,6 +825,23 @@ class AcademicPlannerApplicationService:
                 if not state.can_fit(course.credits_min, maximum_credits_per_term):
                     continue
                 eligibility = self._eligibility(run.student_profile_id, course.id, state.term.id)
+                if eligibility.overall_result not in {
+                    EligibilityOverallResult.ELIGIBLE,
+                    EligibilityOverallResult.CONDITIONALLY_ELIGIBLE,
+                }:
+                    warnings.append(
+                        WarningDraft(
+                            warning_code="PREREQUISITE_CHAIN_BLOCKS_COMPLETION",
+                            severity=AuditWarningSeverity.WARNING,
+                            message=(
+                                f"{course.subject_code} {course.course_number} is not eligible "
+                                "in an earlier term, so its dependent course cannot be planned."
+                            ),
+                            requires_advisor_confirmation=True,
+                            term_id=state.plan_term.id,
+                        )
+                    )
+                    continue
                 self._add_plan_course(
                     run=run,
                     term_state=state,

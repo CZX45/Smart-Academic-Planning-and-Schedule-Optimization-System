@@ -139,3 +139,15 @@ Before demo or handoff review, confirm:
 - No hidden automation exists.
 - No external telemetry exists without explicit approval.
 - No real production deployment exists without explicit approval.
+
+## 11. Applied Course-State Privacy Boundary
+
+Course-state application persists only normalized academic fields and the
+already-sanitized provenance supplied by the staging import. It does not add
+credential, cookie, token, authentication-header, browser-storage, or portal
+request capture. API responses label snapshots non-official and advisory.
+
+Application is confined to the internal database. It must not submit school
+forms, register, add/drop/swap, join a waitlist, reserve a seat, poll the portal,
+or modify an official academic record. Raw personal portal pages and screenshots
+must not be committed to the repository or CI artifacts.

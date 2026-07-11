@@ -29,12 +29,14 @@ from app.models.academic import (
     AcademicPlanWarning,
     AuditWarningSeverity,
     Course,
+    CourseRuleExpressionNodeType,
+    CourseRuleType,
     RequirementCourseOption,
     RequirementNode,
     RequirementType,
     StudentAcademicProgram,
 )
-from app.seed_dev import mock_source, seed_mock_data, seed_uuid
+from app.seed_dev import course_rule, expression_node, mock_source, seed_mock_data, seed_uuid
 from app.services.academic_planner.engine import AcademicPlannerApplicationService
 
 MISSING_ID = "00000000-0000-0000-0000-000000000000"
@@ -121,6 +123,28 @@ def create_fin_450_requirement(session: Session) -> None:
     session.add(node)
     session.flush()
     session.add(option)
+    session.commit()
+
+
+def block_actl_300_with_missing_prerequisite(session: Session) -> None:
+    session.add(
+        course_rule(
+            "phase5a-actl300-blocked",
+            "ACTL-300",
+            CourseRuleType.PREREQUISITE,
+            "Phase 5A blocked prerequisite chain",
+        )
+    )
+    session.flush()
+    session.add(
+        expression_node(
+            "phase5a-actl300-blocked-fin403",
+            "phase5a-actl300-blocked",
+            CourseRuleExpressionNodeType.COMPLETED_COURSE,
+            referenced_course_key="FIN-403",
+            minimum_grade="C",
+        )
+    )
     session.commit()
 
 
@@ -304,6 +328,41 @@ def test_planner_places_missing_prerequisite_before_dependent_course(session: Se
     fin_450 = next(plan_course for _, plan_course, course in rows if course.course_number == "450")
     assert fin_450.planning_status is AcademicPlanCourseStatus.CONDITIONALLY_PLANNED
     assert fin_450.reason_code == "PREREQUISITE_PLANNED_EARLIER"
+
+
+def test_planner_does_not_unlock_dependent_course_with_blocked_prerequisite(
+    session: Session,
+) -> None:
+    create_fin_450_requirement(session)
+    block_actl_300_with_missing_prerequisite(session)
+
+    run = AcademicPlannerApplicationService(session).create_plan(
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        program_version_id=seed_uuid("program-version:bs-finance-2024"),
+        academic_plan_scenario_id=None,
+        planning_mode=AcademicPlanningMode.CURRENT_PROGRAM,
+        start_term_id=seed_uuid("term:2024-fall"),
+        terms_to_plan=2,
+        minimum_credits_per_term=Decimal("0.0"),
+        maximum_credits_per_term=Decimal("6.0"),
+        preferred_credits_per_term=Decimal("6.0"),
+    )
+
+    rows = session.execute(
+        select(AcademicPlanCourse, Course)
+        .join(Course, Course.id == AcademicPlanCourse.course_id)
+        .join(AcademicPlanTerm, AcademicPlanCourse.academic_plan_term_id == AcademicPlanTerm.id)
+        .where(AcademicPlanTerm.academic_plan_run_id == run.id)
+    ).all()
+    planned_codes = {f"{course.subject_code} {course.course_number}" for _, course in rows}
+    warnings = session.scalars(
+        select(AcademicPlanWarning).where(AcademicPlanWarning.academic_plan_run_id == run.id)
+    ).all()
+
+    assert "FIN 450" not in planned_codes
+    assert any(
+        warning.warning_code == "PREREQUISITE_CHAIN_BLOCKS_COMPLETION" for warning in warnings
+    )
 
 
 def test_planner_pairs_corequisite_in_same_term_when_credit_limit_allows(

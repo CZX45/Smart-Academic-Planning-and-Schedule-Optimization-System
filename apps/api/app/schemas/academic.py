@@ -1,9 +1,59 @@
+import json
+from collections.abc import Mapping, Sequence
 from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+MAX_SECTION_MONITOR_SNAPSHOT_COUNT = 50
+MAX_SECTION_MONITOR_RAW_PAYLOAD_BYTES = 8192
+MAX_SECTION_MONITOR_RAW_PAYLOAD_DEPTH = 8
+MAX_SECTION_MONITOR_RAW_PAYLOAD_KEYS = 100
+
+
+def _payload_shape(value: object, *, depth: int = 0) -> tuple[int, int]:
+    if depth > MAX_SECTION_MONITOR_RAW_PAYLOAD_DEPTH:
+        raise ValueError(
+            "Section monitor raw_payload exceeds the maximum nested depth of "
+            f"{MAX_SECTION_MONITOR_RAW_PAYLOAD_DEPTH}."
+        )
+    if isinstance(value, Mapping):
+        keys = len(value)
+        total_keys = keys
+        for child in value.values():
+            child_keys, _ = _payload_shape(child, depth=depth + 1)
+            total_keys += child_keys
+        return total_keys, depth
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
+        max_depth = depth
+        total_keys = 0
+        for child in value:
+            child_keys, child_depth = _payload_shape(child, depth=depth + 1)
+            total_keys += child_keys
+            max_depth = max(max_depth, child_depth)
+        return total_keys, max_depth
+    return 0, depth
+
+
+def _validate_section_monitor_raw_payload(value: dict[str, Any]) -> dict[str, Any]:
+    key_count, _ = _payload_shape(value)
+    if key_count > MAX_SECTION_MONITOR_RAW_PAYLOAD_KEYS:
+        raise ValueError(
+            "Section monitor raw_payload exceeds the maximum key count of "
+            f"{MAX_SECTION_MONITOR_RAW_PAYLOAD_KEYS}."
+        )
+    try:
+        serialized = json.dumps(value, separators=(",", ":"), sort_keys=True)
+    except (TypeError, ValueError) as error:
+        raise ValueError("Section monitor raw_payload must be JSON serializable.") from error
+    if len(serialized.encode("utf-8")) > MAX_SECTION_MONITOR_RAW_PAYLOAD_BYTES:
+        raise ValueError(
+            "Section monitor raw_payload exceeds the maximum serialized size of "
+            f"{MAX_SECTION_MONITOR_RAW_PAYLOAD_BYTES} bytes."
+        )
+    return value
 
 
 class SourceMetadataResponse(BaseModel):
@@ -1157,11 +1207,19 @@ class SectionMonitorSnapshotInput(BaseModel):
     raw_payload: dict[str, Any] = Field(default_factory=dict)
     source_reference: str | None = Field(default=None, max_length=500)
 
+    @field_validator("raw_payload")
+    @classmethod
+    def raw_payload_is_bounded(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return _validate_section_monitor_raw_payload(value)
+
 
 class SectionMonitorSnapshotCompareRequest(BaseModel):
     student_profile_id: UUID
     source_type: SectionMonitoringSourceTypeValue = "BROWSER_EXTENSION"
-    snapshots: list[SectionMonitorSnapshotInput] = Field(min_length=1)
+    snapshots: list[SectionMonitorSnapshotInput] = Field(
+        min_length=1,
+        max_length=MAX_SECTION_MONITOR_SNAPSHOT_COUNT,
+    )
 
 
 class SectionMonitorSnapshotResponse(BaseModel):
@@ -1340,6 +1398,7 @@ AppliedImportTargetEntityTypeValue = Literal[
     "SECTION",
     "SECTION_MEETING",
     "COURSE_OFFERING_PATTERN",
+    "COURSE_STATE",
     "UNKNOWN",
 ]
 AppliedImportActionValue = Literal[
@@ -1413,6 +1472,97 @@ class DataApplicationRunResponse(BaseModel):
     updated_at: datetime
 
 
+CourseStateStatusValue = Literal[
+    "COMPLETED",
+    "IN_PROGRESS",
+    "PLANNED",
+    "NOT_STARTED",
+    "UNKNOWN",
+]
+CourseStateValidationStateValue = Literal[
+    "RELIABLE",
+    "RELIABLE_WITH_WARNINGS",
+    "EXTERNAL_EVIDENCE",
+    "EXCEPTION",
+]
+
+
+class CourseStateReadinessItemResponse(BaseModel):
+    status: str
+    reason_codes: list[str]
+    blocking_reasons: list[str]
+    warnings: list[str]
+    source_import_id: UUID
+    source_validation_state: str
+    source_bounded: bool
+    source_truncated: bool
+    last_applied_at: datetime
+
+
+class CourseStateSnapshotResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    data_import_run_id: UUID
+    review_session_id: UUID
+    data_application_run_id: UUID
+    source_page_type: str
+    source_validation_state: str
+    program_mapping_state: str
+    is_active: bool
+    is_advisory: bool
+    official_application_ready: bool
+    extraction_bounded: bool
+    extraction_truncated: bool
+    completed_count: int
+    in_progress_count: int
+    planned_count: int
+    not_started_count: int
+    matched_count: int
+    unmatched_count: int
+    exception_count: int
+    program_summary: dict[str, Any]
+    credit_summary: dict[str, Any]
+    requirement_summary: list[Any]
+    readiness: dict[str, CourseStateReadinessItemResponse]
+    applied_at: datetime
+    source: SourceMetadataResponse
+    created_at: datetime
+    updated_at: datetime
+
+
+class CourseStateRecordResponse(BaseModel):
+    id: UUID
+    snapshot_id: UUID
+    imported_record_id: UUID
+    imported_record_review_id: UUID
+    matched_course_id: UUID | None = None
+    student_course_attempt_id: UUID | None = None
+    normalized_course_code: str
+    source_course_code: str
+    source_course_title: str
+    status: CourseStateStatusValue
+    term: str | None = None
+    credits: Decimal | None = None
+    grade: str | None = None
+    requirement_context: str | None = None
+    source_page_type: str
+    source_table_index: str | None = None
+    source_row_index: str | None = None
+    provenance: dict[str, Any]
+    confidence_score: Decimal
+    validation_state: CourseStateValidationStateValue
+    review_decision: ImportedRecordReviewDecisionValue
+    application_reason_code: str
+    reason_codes: list[str]
+    warnings: list[str]
+    created_at: datetime
+
+
+class CourseStateSnapshotDetailResponse(BaseModel):
+    snapshot: CourseStateSnapshotResponse
+    course_states: list[CourseStateRecordResponse]
+
+
 class AppliedImportedRecordResponse(BaseModel):
     id: UUID | None = None
     data_application_run_id: UUID | None = None
@@ -1439,12 +1589,25 @@ class DataReviewWarningResponse(BaseModel):
     created_at: datetime
 
 
+class DataReviewApplicationSummaryResponse(BaseModel):
+    source_import_id: UUID
+    snapshot_id: UUID | None = None
+    applied_count: int
+    warning_count: int
+    exception_count: int
+    rejected_count: int
+    deferred_count: int
+    duplicate_count: int
+
+
 class DataReviewApplicationResultResponse(BaseModel):
     review_session: DataImportReviewSessionResponse
     dry_run: bool
     application: DataApplicationRunResponse | None = None
     applied_records: list[AppliedImportedRecordResponse]
     warnings: list[DataReviewWarningResponse]
+    course_state_snapshot: CourseStateSnapshotResponse | None = None
+    summary: DataReviewApplicationSummaryResponse
 
 
 class ErrorDetailResponse(BaseModel):

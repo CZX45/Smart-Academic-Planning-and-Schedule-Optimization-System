@@ -90,6 +90,21 @@ class StudentCourseAttemptStatus(StrEnum):
     TRANSFERRED = "TRANSFERRED"
 
 
+class CourseStateStatus(StrEnum):
+    COMPLETED = "COMPLETED"
+    IN_PROGRESS = "IN_PROGRESS"
+    PLANNED = "PLANNED"
+    NOT_STARTED = "NOT_STARTED"
+    UNKNOWN = "UNKNOWN"
+
+
+class CourseStateValidationState(StrEnum):
+    RELIABLE = "RELIABLE"
+    RELIABLE_WITH_WARNINGS = "RELIABLE_WITH_WARNINGS"
+    EXTERNAL_EVIDENCE = "EXTERNAL_EVIDENCE"
+    EXCEPTION = "EXCEPTION"
+
+
 class ApprovalStatus(StrEnum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"
@@ -362,6 +377,7 @@ class AppliedImportTargetEntityType(StrEnum):
     SECTION = "SECTION"
     SECTION_MEETING = "SECTION_MEETING"
     COURSE_OFFERING_PATTERN = "COURSE_OFFERING_PATTERN"
+    COURSE_STATE = "COURSE_STATE"
     UNKNOWN = "UNKNOWN"
 
 
@@ -532,6 +548,20 @@ student_program_status_enum = Enum(
 course_attempt_status_enum = Enum(
     StudentCourseAttemptStatus,
     name="student_course_attempt_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+course_state_status_enum = Enum(
+    CourseStateStatus,
+    name="course_state_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+course_state_validation_state_enum = Enum(
+    CourseStateValidationState,
+    name="course_state_validation_state",
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
@@ -1800,6 +1830,12 @@ class StudentCourseAttempt(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMi
             name="fk_student_course_attempts_term",
             ondelete="RESTRICT",
         ),
+        ForeignKeyConstraint(
+            ["course_state_snapshot_id"],
+            ["course_state_snapshots.id"],
+            name="fk_student_course_attempts_course_state_snapshot",
+            ondelete="SET NULL",
+        ),
         CheckConstraint("attempt_number > 0", name="ck_student_course_attempts_attempt_positive"),
         CheckConstraint(
             "credits_attempted >= 0", name="ck_student_course_attempts_attempted_non_negative"
@@ -1822,11 +1858,19 @@ class StudentCourseAttempt(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMi
             "attempt_number",
             unique=True,
         ),
+        Index(
+            "ix_student_course_attempts_course_state_snapshot",
+            "course_state_snapshot_id",
+        ),
     )
 
     student_profile_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     course_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     term_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    course_state_snapshot_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=True,
+    )
     attempt_number: Mapped[int] = mapped_column(nullable=False)
     status: Mapped[StudentCourseAttemptStatus] = mapped_column(
         course_attempt_status_enum, nullable=False
@@ -4379,6 +4423,194 @@ class DataReviewWarning(UuidPrimaryKeyMixin, Base):
     )
     message: Mapped[str] = mapped_column(Text, nullable=False)
     requires_advisor_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class CourseStateSnapshot(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixin, Base):
+    __tablename__ = "course_state_snapshots"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["student_profile_id"],
+            ["student_profiles.id"],
+            name="fk_course_state_snapshots_student",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["data_import_run_id"],
+            ["data_import_runs.id"],
+            name="fk_course_state_snapshots_import",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["review_session_id"],
+            ["data_import_review_sessions.id"],
+            name="fk_course_state_snapshots_review",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["data_application_run_id"],
+            ["data_application_runs.id"],
+            name="fk_course_state_snapshots_application",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("is_official = false", name="ck_course_state_snapshots_unofficial"),
+        CheckConstraint(
+            "official_application_ready = false",
+            name="ck_course_state_snapshots_not_official_ready",
+        ),
+        CheckConstraint("is_advisory = true", name="ck_course_state_snapshots_advisory"),
+        CheckConstraint("completed_count >= 0", name="ck_course_state_snapshots_completed"),
+        CheckConstraint(
+            "in_progress_count >= 0",
+            name="ck_course_state_snapshots_in_progress",
+        ),
+        CheckConstraint("planned_count >= 0", name="ck_course_state_snapshots_planned"),
+        CheckConstraint(
+            "not_started_count >= 0",
+            name="ck_course_state_snapshots_not_started",
+        ),
+        CheckConstraint("matched_count >= 0", name="ck_course_state_snapshots_matched"),
+        CheckConstraint("unmatched_count >= 0", name="ck_course_state_snapshots_unmatched"),
+        CheckConstraint("exception_count >= 0", name="ck_course_state_snapshots_exception"),
+        UniqueConstraint("data_import_run_id", name="uq_course_state_snapshots_import"),
+        UniqueConstraint(
+            "data_application_run_id",
+            name="uq_course_state_snapshots_application",
+        ),
+        Index(
+            "uq_course_state_snapshots_active_student",
+            "student_profile_id",
+            unique=True,
+            sqlite_where=text("is_active = true"),
+            postgresql_where=text("is_active = true"),
+        ),
+        Index(
+            "ix_course_state_snapshots_student_applied",
+            "student_profile_id",
+            "applied_at",
+        ),
+    )
+
+    student_profile_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    data_import_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    review_session_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    data_application_run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    source_page_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    source_validation_state: Mapped[str] = mapped_column(String(80), nullable=False)
+    program_mapping_state: Mapped[str] = mapped_column(String(80), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_advisory: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    official_application_ready: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+    extraction_bounded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    extraction_truncated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    completed_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    in_progress_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    planned_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    not_started_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    matched_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    unmatched_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    exception_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    program_summary: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    credit_summary: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    requirement_summary: Mapped[list[object]] = mapped_column(JSON, nullable=False, default=list)
+    readiness_payload: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    applied_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class CourseStateRecord(UuidPrimaryKeyMixin, Base):
+    __tablename__ = "course_state_records"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["snapshot_id"],
+            ["course_state_snapshots.id"],
+            name="fk_course_state_records_snapshot",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["imported_record_id"],
+            ["imported_records.id"],
+            name="fk_course_state_records_imported_record",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["imported_record_review_id"],
+            ["imported_record_reviews.id"],
+            name="fk_course_state_records_record_review",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["matched_course_id"],
+            ["courses.id"],
+            name="fk_course_state_records_course",
+            ondelete="SET NULL",
+        ),
+        ForeignKeyConstraint(
+            ["student_course_attempt_id"],
+            ["student_course_attempts.id"],
+            name="fk_course_state_records_attempt",
+            ondelete="SET NULL",
+        ),
+        CheckConstraint(
+            "confidence_score >= 0 AND confidence_score <= 1",
+            name="ck_course_state_records_confidence",
+        ),
+        CheckConstraint(
+            "credits IS NULL OR credits >= 0",
+            name="ck_course_state_records_credits",
+        ),
+        UniqueConstraint(
+            "snapshot_id",
+            "imported_record_id",
+            name="uq_course_state_records_snapshot_imported_record",
+        ),
+        Index("ix_course_state_records_snapshot_status", "snapshot_id", "status"),
+        Index("ix_course_state_records_matched_course", "matched_course_id"),
+    )
+
+    snapshot_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    imported_record_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    imported_record_review_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    matched_course_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    student_course_attempt_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=True,
+    )
+    normalized_course_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    source_course_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    source_course_title: Mapped[str] = mapped_column(String(500), nullable=False)
+    status: Mapped[CourseStateStatus] = mapped_column(course_state_status_enum, nullable=False)
+    term: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    credits: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    grade: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    requirement_context: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    source_page_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    source_table_index: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    source_row_index: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    provenance: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    confidence_score: Mapped[Decimal] = mapped_column(Numeric(4, 2), nullable=False)
+    validation_state: Mapped[CourseStateValidationState] = mapped_column(
+        course_state_validation_state_enum,
+        nullable=False,
+    )
+    review_decision: Mapped[ImportedRecordReviewDecision] = mapped_column(
+        imported_record_review_decision_enum,
+        nullable=False,
+    )
+    application_reason_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    reason_codes: Mapped[list[object]] = mapped_column(JSON, nullable=False, default=list)
+    warnings: Mapped[list[object]] = mapped_column(JSON, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

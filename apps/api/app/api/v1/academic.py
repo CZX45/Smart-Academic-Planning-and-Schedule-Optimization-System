@@ -19,7 +19,9 @@ from app.models.academic import (
     AcademicPlanWarning,
     AcademicProgram,
     AcademicTerm,
+    AppliedImportAction,
     AppliedImportedRecord,
+    AppliedImportStatus,
     AuditCourseApplication,
     AuditMode,
     Campus,
@@ -27,6 +29,8 @@ from app.models.academic import (
     CourseOfferingPattern,
     CourseRule,
     CourseRuleExpression,
+    CourseStateRecord,
+    CourseStateSnapshot,
     DataApplicationRun,
     DataImportReviewSession,
     DataImportRun,
@@ -75,7 +79,6 @@ from app.models.academic import (
     SectionStatus,
     SourceType,
     StudentAcademicProgram,
-    StudentCourseAttempt,
     StudentProfile,
 )
 from app.schemas.academic import (
@@ -105,6 +108,9 @@ from app.schemas.academic import (
     CourseRuleExpressionNodeResponse,
     CourseRuleExpressionTreeResponse,
     CourseRuleResponse,
+    CourseStateRecordResponse,
+    CourseStateSnapshotDetailResponse,
+    CourseStateSnapshotResponse,
     DataApplicationRunResponse,
     DataImportCreateRequest,
     DataImportReviewApplyRequest,
@@ -112,6 +118,7 @@ from app.schemas.academic import (
     DataImportReviewSessionResponse,
     DataImportRunResponse,
     DataReviewApplicationResultResponse,
+    DataReviewApplicationSummaryResponse,
     DataReviewWarningResponse,
     DegreeAuditCreateRequest,
     DegreeAuditRunResponse,
@@ -174,6 +181,7 @@ from app.services.academic_scenarios.exceptions import AcademicScenarioValidatio
 from app.services.academic_scenarios.result import ScenarioProgramInput
 from app.services.course_eligibility.engine import CourseEligibilityApplicationService
 from app.services.course_eligibility.exceptions import CourseEligibilityValidationError
+from app.services.course_state.engine import effective_student_course_attempts
 from app.services.data_imports.engine import STAGING_DISCLAIMERS, DataImportApplicationService
 from app.services.data_imports.exceptions import DataImportValidationError
 from app.services.data_review.engine import DataReviewApplicationService
@@ -1545,6 +1553,87 @@ def data_application_run_response(application: DataApplicationRun) -> DataApplic
     )
 
 
+def course_state_snapshot_response(
+    snapshot: CourseStateSnapshot,
+) -> CourseStateSnapshotResponse:
+    return CourseStateSnapshotResponse(
+        id=snapshot.id,
+        student_profile_id=snapshot.student_profile_id,
+        data_import_run_id=snapshot.data_import_run_id,
+        review_session_id=snapshot.review_session_id,
+        data_application_run_id=snapshot.data_application_run_id,
+        source_page_type=snapshot.source_page_type,
+        source_validation_state=snapshot.source_validation_state,
+        program_mapping_state=snapshot.program_mapping_state,
+        is_active=snapshot.is_active,
+        is_advisory=snapshot.is_advisory,
+        official_application_ready=snapshot.official_application_ready,
+        extraction_bounded=snapshot.extraction_bounded,
+        extraction_truncated=snapshot.extraction_truncated,
+        completed_count=snapshot.completed_count,
+        in_progress_count=snapshot.in_progress_count,
+        planned_count=snapshot.planned_count,
+        not_started_count=snapshot.not_started_count,
+        matched_count=snapshot.matched_count,
+        unmatched_count=snapshot.unmatched_count,
+        exception_count=snapshot.exception_count,
+        program_summary=snapshot.program_summary,
+        credit_summary=snapshot.credit_summary,
+        requirement_summary=snapshot.requirement_summary,
+        readiness=snapshot.readiness_payload,
+        applied_at=snapshot.applied_at,
+        source=source_response(snapshot),
+        created_at=snapshot.created_at,
+        updated_at=snapshot.updated_at,
+    )
+
+
+def course_state_record_response(state: CourseStateRecord) -> CourseStateRecordResponse:
+    return CourseStateRecordResponse(
+        id=state.id,
+        snapshot_id=state.snapshot_id,
+        imported_record_id=state.imported_record_id,
+        imported_record_review_id=state.imported_record_review_id,
+        matched_course_id=state.matched_course_id,
+        student_course_attempt_id=state.student_course_attempt_id,
+        normalized_course_code=state.normalized_course_code,
+        source_course_code=state.source_course_code,
+        source_course_title=state.source_course_title,
+        status=state.status.value,
+        term=state.term,
+        credits=state.credits,
+        grade=state.grade,
+        requirement_context=state.requirement_context,
+        source_page_type=state.source_page_type,
+        source_table_index=state.source_table_index,
+        source_row_index=state.source_row_index,
+        provenance=state.provenance,
+        confidence_score=state.confidence_score,
+        validation_state=state.validation_state.value,
+        review_decision=state.review_decision.value,
+        application_reason_code=state.application_reason_code,
+        reason_codes=[str(code) for code in state.reason_codes],
+        warnings=[str(warning) for warning in state.warnings],
+        created_at=state.created_at,
+    )
+
+
+def course_state_snapshot_detail_response(
+    snapshot: CourseStateSnapshot,
+    db: Session,
+) -> CourseStateSnapshotDetailResponse:
+    states = db.scalars(
+        select(CourseStateRecord)
+        .join(ImportedRecord, ImportedRecord.id == CourseStateRecord.imported_record_id)
+        .where(CourseStateRecord.snapshot_id == snapshot.id)
+        .order_by(ImportedRecord.row_number, CourseStateRecord.id)
+    ).all()
+    return CourseStateSnapshotDetailResponse(
+        snapshot=course_state_snapshot_response(snapshot),
+        course_states=[course_state_record_response(state) for state in states],
+    )
+
+
 def applied_imported_record_response(
     applied: AppliedImportedRecord | AppliedImportedRecordResult,
 ) -> AppliedImportedRecordResponse:
@@ -1577,6 +1666,37 @@ def data_review_warning_response(warning: DataReviewWarning) -> DataReviewWarnin
     )
 
 
+def data_review_application_summary_response(
+    review: DataImportReviewSession,
+    applied_records: Sequence[AppliedImportedRecord | AppliedImportedRecordResult],
+    snapshot: CourseStateSnapshot | None,
+) -> DataReviewApplicationSummaryResponse:
+    return DataReviewApplicationSummaryResponse(
+        source_import_id=review.data_import_run_id,
+        snapshot_id=snapshot.id if snapshot is not None else None,
+        applied_count=sum(
+            record.action in {AppliedImportAction.CREATED, AppliedImportAction.UPDATED}
+            for record in applied_records
+        ),
+        warning_count=sum(
+            record.status is AppliedImportStatus.WARNING for record in applied_records
+        ),
+        exception_count=sum(
+            record.reason_code in {"COURSE_STATE_EXCEPTION", "IMPORT_VALIDATION_FAILED"}
+            for record in applied_records
+        ),
+        rejected_count=sum(
+            record.action is AppliedImportAction.SKIPPED_REJECTED for record in applied_records
+        ),
+        deferred_count=sum(
+            record.action is AppliedImportAction.SKIPPED_DEFERRED for record in applied_records
+        ),
+        duplicate_count=sum(
+            record.action is AppliedImportAction.SKIPPED_DUPLICATE for record in applied_records
+        ),
+    )
+
+
 def data_review_application_result_response(
     result: DataReviewApplicationResult,
 ) -> DataReviewApplicationResultResponse:
@@ -1592,6 +1712,16 @@ def data_review_application_result_response(
             applied_imported_record_response(applied) for applied in result.applied_records
         ],
         warnings=[data_review_warning_response(warning) for warning in result.warnings],
+        course_state_snapshot=(
+            course_state_snapshot_response(result.course_state_snapshot)
+            if result.course_state_snapshot is not None
+            else None
+        ),
+        summary=data_review_application_summary_response(
+            result.review_session,
+            result.applied_records,
+            result.course_state_snapshot,
+        ),
     )
 
 
@@ -1618,12 +1748,25 @@ def data_application_detail_response(
         )
         .order_by(DataReviewWarning.created_at, DataReviewWarning.id)
     ).all()
+    snapshot = db.scalar(
+        select(CourseStateSnapshot).where(
+            CourseStateSnapshot.data_application_run_id == application.id
+        )
+    )
+    if snapshot is None:
+        snapshot = db.scalar(
+            select(CourseStateSnapshot).where(CourseStateSnapshot.review_session_id == review.id)
+        )
     return DataReviewApplicationResultResponse(
         review_session=data_import_review_session_response(review),
         dry_run=False,
         application=data_application_run_response(application),
         applied_records=[applied_imported_record_response(applied) for applied in applied_records],
         warnings=[data_review_warning_response(warning) for warning in warnings],
+        course_state_snapshot=(
+            course_state_snapshot_response(snapshot) if snapshot is not None else None
+        ),
+        summary=data_review_application_summary_response(review, applied_records, snapshot),
     )
 
 
@@ -3161,6 +3304,30 @@ def list_student_data_import_reviews(
     return [data_import_review_session_response(review) for review in reviews]
 
 
+@router.get(
+    "/students/{student_id}/course-state-snapshots/active",
+    response_model=CourseStateSnapshotDetailResponse,
+    responses={404: not_found_response},
+)
+def get_active_course_state_snapshot(
+    student_id: UUID,
+    db: DatabaseSession,
+) -> CourseStateSnapshotDetailResponse:
+    if db.get(StudentProfile, student_id) is None:
+        raise not_found("StudentProfile", student_id)
+    snapshot = db.scalar(
+        select(CourseStateSnapshot)
+        .where(
+            CourseStateSnapshot.student_profile_id == student_id,
+            CourseStateSnapshot.is_active.is_(True),
+        )
+        .order_by(CourseStateSnapshot.applied_at.desc(), CourseStateSnapshot.id.desc())
+    )
+    if snapshot is None:
+        raise not_found("ActiveCourseStateSnapshot", student_id)
+    return course_state_snapshot_detail_response(snapshot, db)
+
+
 @router.post(
     "/academic-scenarios",
     response_model=AcademicScenarioResponse,
@@ -3426,29 +3593,29 @@ def get_student_course_attempts(
 ) -> list[StudentCourseAttemptResponse]:
     if db.get(StudentProfile, student_id) is None:
         raise not_found("StudentProfile", student_id)
-    rows = db.execute(
-        select(StudentCourseAttempt, Course, AcademicTerm)
-        .join(Course, StudentCourseAttempt.course_id == Course.id)
-        .join(AcademicTerm, StudentCourseAttempt.term_id == AcademicTerm.id)
-        .where(StudentCourseAttempt.student_profile_id == student_id)
-        .order_by(AcademicTerm.term_code, StudentCourseAttempt.attempt_number)
-    ).all()
-    return [
-        StudentCourseAttemptResponse(
-            id=attempt.id,
-            student_profile_id=attempt.student_profile_id,
-            course_id=course.id,
-            course_code=f"{course.subject_code} {course.course_number}",
-            course_title=course.title,
-            term_id=term.id,
-            term_code=term.term_code,
-            attempt_number=attempt.attempt_number,
-            status=attempt.status.value,
-            grade=attempt.grade,
-            credits_attempted=attempt.credits_attempted,
-            credits_earned=attempt.credits_earned,
-            is_repeat=attempt.is_repeat,
-            source=source_response(attempt),
+    attempts = effective_student_course_attempts(db, student_id)
+    responses: list[StudentCourseAttemptResponse] = []
+    for attempt in attempts:
+        course = db.get(Course, attempt.course_id)
+        term = db.get(AcademicTerm, attempt.term_id)
+        if course is None or term is None:
+            continue
+        responses.append(
+            StudentCourseAttemptResponse(
+                id=attempt.id,
+                student_profile_id=attempt.student_profile_id,
+                course_id=course.id,
+                course_code=f"{course.subject_code} {course.course_number}",
+                course_title=course.title,
+                term_id=term.id,
+                term_code=term.term_code,
+                attempt_number=attempt.attempt_number,
+                status=attempt.status.value,
+                grade=attempt.grade,
+                credits_attempted=attempt.credits_attempted,
+                credits_earned=attempt.credits_earned,
+                is_repeat=attempt.is_repeat,
+                source=source_response(attempt),
+            )
         )
-        for attempt, course, term in rows
-    ]
+    return sorted(responses, key=lambda response: (response.term_code, response.attempt_number))

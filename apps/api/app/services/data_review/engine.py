@@ -15,6 +15,7 @@ from app.models.academic import (
     AppliedImportTargetEntityType,
     AuditWarningSeverity,
     Course,
+    CourseStateSnapshot,
     DataApplicationRun,
     DataApplicationStatus,
     DataImportReviewSession,
@@ -33,6 +34,7 @@ from app.models.academic import (
     StudentCourseAttempt,
     StudentCourseAttemptStatus,
 )
+from app.services.course_state.engine import CourseStateApplicationService
 from app.services.data_review.exceptions import DataReviewValidationError
 from app.services.data_review.result import (
     AppliedImportedRecordResult,
@@ -80,6 +82,7 @@ def utc_now() -> datetime:
 class DataReviewApplicationService:
     def __init__(self, db: Session) -> None:
         self._db = db
+        self._course_states = CourseStateApplicationService(db)
 
     def create_review_session(
         self,
@@ -246,6 +249,8 @@ class DataReviewApplicationService:
                     allow_advisor_review_records=allow_advisor_review_records,
                     application_id=None,
                     dry_run=True,
+                    course_state_snapshot=None,
+                    course_state_snapshot_reused=False,
                 )
                 for record_review in record_reviews
             ]
@@ -256,6 +261,7 @@ class DataReviewApplicationService:
                 application=None,
                 applied_records=dry_run_records,
                 warnings=warnings,
+                course_state_snapshot=self._course_states.snapshot_for_import(run.id),
             )
 
         application = DataApplicationRun(
@@ -271,6 +277,11 @@ class DataReviewApplicationService:
         review.status = DataImportReviewStatus.APPLYING
         self._db.add(application)
         self._db.flush()
+        course_state_snapshot, course_state_snapshot_reused = self._course_states.prepare_snapshot(
+            review=review,
+            run=run,
+            application=application,
+        )
 
         results: list[AppliedImportedRecordResult] = []
         for record_review in record_reviews:
@@ -281,6 +292,8 @@ class DataReviewApplicationService:
                 allow_advisor_review_records=allow_advisor_review_records,
                 application_id=application.id,
                 dry_run=False,
+                course_state_snapshot=course_state_snapshot,
+                course_state_snapshot_reused=course_state_snapshot_reused,
             )
             applied_row = AppliedImportedRecord(
                 id=uuid4(),
@@ -307,6 +320,9 @@ class DataReviewApplicationService:
                     result.action is AppliedImportAction.SKIPPED_ADVISOR_REVIEW,
                 )
             results.append(self._result_from_row(applied_row))
+
+        if course_state_snapshot is not None and not course_state_snapshot_reused:
+            self._course_states.finalize_snapshot(course_state_snapshot)
 
         application.applied_count = sum(
             1 for result in results if result.status is AppliedImportStatus.SUCCESS
@@ -337,6 +353,7 @@ class DataReviewApplicationService:
             application=application,
             applied_records=results,
             warnings=self._review_warnings(review.id),
+            course_state_snapshot=course_state_snapshot,
         )
 
     def _build_application_result(
@@ -348,6 +365,8 @@ class DataReviewApplicationService:
         allow_advisor_review_records: bool,
         application_id: UUID | None,
         dry_run: bool,
+        course_state_snapshot: CourseStateSnapshot | None,
+        course_state_snapshot_reused: bool,
     ) -> AppliedImportedRecordResult:
         record = self._get_imported_record(record_review.imported_record_id)
         if self._run_blocks_downstream(run):
@@ -412,8 +431,13 @@ class DataReviewApplicationService:
             )
         myprogress_result = self._myprogress_application_result(
             application_id,
+            review,
+            run,
             record_review,
             record,
+            dry_run=dry_run,
+            course_state_snapshot=course_state_snapshot,
+            course_state_snapshot_reused=course_state_snapshot_reused,
         )
         if myprogress_result is not None:
             return myprogress_result
@@ -577,12 +601,62 @@ class DataReviewApplicationService:
     def _myprogress_application_result(
         self,
         application_id: UUID | None,
+        review: DataImportReviewSession,
+        run: DataImportRun,
         record_review: ImportedRecordReview,
         record: ImportedRecord,
+        *,
+        dry_run: bool,
+        course_state_snapshot: CourseStateSnapshot | None,
+        course_state_snapshot_reused: bool,
     ) -> AppliedImportedRecordResult | None:
         payload = record.normalized_payload
         if payload.get("source_page_type") != "KEAN_MY_PROGRESS_PAGE":
             return None
+        if payload.get("record_kind") == "MY_PROGRESS_COURSE_ROW":
+            outcome = (
+                self._course_states.dry_run_outcome(record_review, record)
+                if dry_run
+                else self._course_states.apply_record(
+                    snapshot=course_state_snapshot,
+                    review=review,
+                    run=run,
+                    record_review=record_review,
+                    record=record,
+                )
+                if course_state_snapshot is not None
+                else None
+            )
+            if outcome is None:
+                return self._outcome(
+                    application_id,
+                    record_review,
+                    AppliedImportAction.SKIPPED_DEFERRED,
+                    AppliedImportStatus.FAILED,
+                    "COURSE_STATE_SNAPSHOT_NOT_AVAILABLE",
+                    "A validated course-state snapshot was not available for this row.",
+                    target_entity_type=AppliedImportTargetEntityType.COURSE_STATE,
+                )
+            return self._outcome(
+                application_id,
+                record_review,
+                outcome.action,
+                outcome.status,
+                outcome.reason_code,
+                outcome.message,
+                outcome.target_entity_id,
+                target_entity_type=outcome.target_entity_type,
+            )
+        if course_state_snapshot_reused:
+            return self._outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.SKIPPED_DUPLICATE,
+                AppliedImportStatus.SKIPPED,
+                "ALREADY_APPLIED_MYPROGRESS_SNAPSHOT_RECORD",
+                "This MyProgress summary record already belongs to the applied snapshot.",
+                target_entity_type=AppliedImportTargetEntityType.COURSE_STATE,
+            )
         record_kind = str(payload.get("record_kind") or "")
         if record.record_type is ImportedRecordType.PROGRAM:
             return self._outcome(
@@ -606,34 +680,6 @@ class DataReviewApplicationService:
                 (
                     "Applied MyProgress requirement summary to the internal imported audit "
                     "snapshot; detailed course-row audit remains advisory."
-                ),
-            )
-        if record_kind == "MY_PROGRESS_COURSE_ROW":
-            row_validation = payload.get("row_validation")
-            reason_codes = (
-                row_validation.get("reason_codes", []) if isinstance(row_validation, dict) else []
-            )
-            if reason_codes:
-                return self._outcome(
-                    application_id,
-                    record_review,
-                    AppliedImportAction.SKIPPED_ADVISOR_REVIEW,
-                    AppliedImportStatus.WARNING,
-                    "MYPROGRESS_COURSE_ROW_REQUIRES_REVIEW",
-                    (
-                        "Course row was preserved but not applied to internal planning because "
-                        f"it requires review: {', '.join(str(code) for code in reason_codes)}."
-                    ),
-                )
-            return self._outcome(
-                application_id,
-                record_review,
-                AppliedImportAction.UPDATED,
-                AppliedImportStatus.WARNING,
-                "APPLIED_MYPROGRESS_COURSE_ROW_PARTIAL",
-                (
-                    "Preserved MyProgress course row in the internal imported audit snapshot; "
-                    "planner and eligibility remain gated until course-row coverage is reliable."
                 ),
             )
         if record.record_type is ImportedRecordType.REQUIREMENT:
@@ -906,8 +952,10 @@ class DataReviewApplicationService:
         reason_code: str,
         message: str,
         target_entity_id: UUID | None = None,
+        *,
+        target_entity_type: AppliedImportTargetEntityType | None = None,
     ) -> AppliedImportedRecordResult:
-        target_entity_type = (
+        resolved_target_entity_type = target_entity_type or (
             AppliedImportTargetEntityType.STUDENT_COURSE_ATTEMPT
             if target_entity_id is not None or action is AppliedImportAction.CREATED
             else AppliedImportTargetEntityType.UNKNOWN
@@ -917,7 +965,7 @@ class DataReviewApplicationService:
             data_application_run_id=application_id,
             imported_record_review_id=record_review.id,
             imported_record_id=record_review.imported_record_id,
-            target_entity_type=target_entity_type,
+            target_entity_type=resolved_target_entity_type,
             target_entity_id=target_entity_id,
             action=action,
             status=status,

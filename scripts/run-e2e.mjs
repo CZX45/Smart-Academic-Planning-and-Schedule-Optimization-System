@@ -133,6 +133,7 @@ async function main() {
           cwd: resolve(root, "apps", "api"),
           env: {
             DATABASE_URL:
+              process.env.DATABASE_URL ??
               "postgresql+psycopg://sapsos:sapsos_dev_password@localhost:5432/sapsos",
           },
         },
@@ -154,11 +155,15 @@ async function main() {
       await waitFor(webUrl, web, "Next.js test server");
     }
 
-    process.exitCode = await run(process.execPath, [playwrightCli, "test"], {
-      env: {
-        PLAYWRIGHT_SKIP_WEBSERVER: "1",
+    process.exitCode = await run(
+      process.execPath,
+      [playwrightCli, "test", ...process.argv.slice(2)],
+      {
+        env: {
+          PLAYWRIGHT_SKIP_WEBSERVER: "1",
+        },
       },
-    });
+    );
   } finally {
     await Promise.all(started.reverse().map((child) => stop(child)));
   }

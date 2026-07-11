@@ -412,3 +412,29 @@ Consequences:
 - The import remains read-only: no registration, add/drop/swap, waitlist,
   seat-reservation, portal form submission, polling, credential handling, or
   official-source mutation is introduced.
+
+## ADR-0026: Materialize reviewed MyProgress rows as advisory course-state snapshots
+
+Status: Accepted
+
+Context: A staging preview can explain extracted MyProgress rows but is not a
+stable source for degree audit, eligibility, or planning. Mixing those rows with
+seeded mock attempts can create plausible but false academic conclusions.
+
+Decision: Explicit application materializes a versioned, immutable,
+non-official course-state snapshot and row-level provenance. One validated
+snapshot is active per student. Effective-attempt queries exclude mock history
+when an active imported snapshot exists. Each downstream consumer receives an
+independent readiness result; planned courses do not satisfy prerequisites, and
+section scheduling stays demo-only.
+
+Consequences:
+
+- Reapplication is idempotent and invalid newer imports do not replace a valid
+  active snapshot.
+- Unmatched and exception rows remain inspectable but cannot silently become
+  reliable academic history.
+- The UI distinguishes staging, active imported state, and demo data, and shows
+  structured blocking reasons.
+- The feature remains advisory and does not expand browser or registration
+  authority.

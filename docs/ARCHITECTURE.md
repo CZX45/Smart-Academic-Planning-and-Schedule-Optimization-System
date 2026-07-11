@@ -328,3 +328,18 @@ Each evaluator and optimizer returns:
 ## 9. Deployment Direction
 
 MVP local development should use Docker Compose with services for web, API, PostgreSQL, and optional worker. Production should use managed PostgreSQL, containerized API/web deployments, encrypted secrets, structured logs, and background workers for optimizer jobs.
+
+## 10. Applied Course-State Boundary
+
+Reviewed MyProgress course rows cross from staging into the academic-record
+boundary only through an explicit data-application run. The application creates
+an immutable `CourseStateSnapshot` with child `CourseStateRecord` provenance.
+At most one validated snapshot is active for a student. Reapplying the same
+import is idempotent, and an invalid newer import cannot deactivate a valid
+snapshot.
+
+Downstream services resolve effective attempts through the active snapshot.
+Once one exists, development mock attempts are excluded instead of being mixed
+with imported evidence. Degree audit, course eligibility, and long-term planning
+consume separate readiness decisions. Semester section scheduling remains
+demo-only because MyProgress does not provide current official section data.

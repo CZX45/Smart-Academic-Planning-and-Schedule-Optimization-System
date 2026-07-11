@@ -1402,6 +1402,112 @@ export const DataApplicationRunSchema = z.object({
 
 export type DataApplicationRun = z.infer<typeof DataApplicationRunSchema>;
 
+export const CourseStateReadinessItemSchema = z.object({
+  status: z.string(),
+  reason_codes: z.array(z.string()),
+  blocking_reasons: z.array(z.string()),
+  warnings: z.array(z.string()),
+  source_import_id: UuidSchema,
+  source_validation_state: z.string(),
+  source_bounded: z.boolean(),
+  source_truncated: z.boolean(),
+  last_applied_at: DateTimeSchema,
+});
+
+export type CourseStateReadinessItem = z.infer<
+  typeof CourseStateReadinessItemSchema
+>;
+
+export const CourseStateSnapshotSchema = z.object({
+  id: UuidSchema,
+  student_profile_id: UuidSchema,
+  data_import_run_id: UuidSchema,
+  review_session_id: UuidSchema,
+  data_application_run_id: UuidSchema,
+  source_page_type: z.string(),
+  source_validation_state: z.string(),
+  program_mapping_state: z.string(),
+  is_active: z.boolean(),
+  is_advisory: z.boolean(),
+  official_application_ready: z.boolean(),
+  extraction_bounded: z.boolean(),
+  extraction_truncated: z.boolean(),
+  completed_count: z.number(),
+  in_progress_count: z.number(),
+  planned_count: z.number(),
+  not_started_count: z.number(),
+  matched_count: z.number(),
+  unmatched_count: z.number(),
+  exception_count: z.number(),
+  program_summary: z.record(z.string(), z.unknown()),
+  credit_summary: z.record(z.string(), z.unknown()),
+  requirement_summary: z.array(z.unknown()),
+  readiness: z.record(z.string(), CourseStateReadinessItemSchema),
+  applied_at: DateTimeSchema,
+  source: SourceMetadataSchema,
+  created_at: DateTimeSchema,
+  updated_at: DateTimeSchema,
+});
+
+export type CourseStateSnapshot = z.infer<typeof CourseStateSnapshotSchema>;
+
+export const CourseStateRecordSchema = z.object({
+  id: UuidSchema,
+  snapshot_id: UuidSchema,
+  imported_record_id: UuidSchema,
+  imported_record_review_id: UuidSchema,
+  matched_course_id: UuidSchema.nullable(),
+  student_course_attempt_id: UuidSchema.nullable(),
+  normalized_course_code: z.string(),
+  source_course_code: z.string(),
+  source_course_title: z.string(),
+  status: z.enum([
+    "COMPLETED",
+    "IN_PROGRESS",
+    "PLANNED",
+    "NOT_STARTED",
+    "UNKNOWN",
+  ]),
+  term: z.string().nullable(),
+  credits: DecimalValueSchema.nullable(),
+  grade: z.string().nullable(),
+  requirement_context: z.string().nullable(),
+  source_page_type: z.string(),
+  source_table_index: z.string().nullable(),
+  source_row_index: z.string().nullable(),
+  provenance: z.record(z.string(), z.unknown()),
+  confidence_score: DecimalValueSchema,
+  validation_state: z.enum([
+    "RELIABLE",
+    "RELIABLE_WITH_WARNINGS",
+    "EXTERNAL_EVIDENCE",
+    "EXCEPTION",
+  ]),
+  review_decision: z.enum([
+    "UNREVIEWED",
+    "CONFIRMED",
+    "REJECTED",
+    "NEEDS_ADVISOR_REVIEW",
+    "EDITED_AND_CONFIRMED",
+    "DEFERRED",
+  ]),
+  application_reason_code: z.string(),
+  reason_codes: z.array(z.string()),
+  warnings: z.array(z.string()),
+  created_at: DateTimeSchema,
+});
+
+export type CourseStateRecord = z.infer<typeof CourseStateRecordSchema>;
+
+export const CourseStateSnapshotDetailSchema = z.object({
+  snapshot: CourseStateSnapshotSchema,
+  course_states: z.array(CourseStateRecordSchema),
+});
+
+export type CourseStateSnapshotDetail = z.infer<
+  typeof CourseStateSnapshotDetailSchema
+>;
+
 export const AppliedImportedRecordSchema = z.object({
   id: UuidSchema.nullable(),
   data_application_run_id: UuidSchema.nullable(),
@@ -1414,6 +1520,7 @@ export const AppliedImportedRecordSchema = z.object({
     "SECTION",
     "SECTION_MEETING",
     "COURSE_OFFERING_PATTERN",
+    "COURSE_STATE",
     "UNKNOWN",
   ]),
   target_entity_id: UuidSchema.nullable(),
@@ -1448,12 +1555,29 @@ export const DataReviewWarningSchema = z.object({
 
 export type DataReviewWarning = z.infer<typeof DataReviewWarningSchema>;
 
+export const DataReviewApplicationSummarySchema = z.object({
+  source_import_id: UuidSchema,
+  snapshot_id: UuidSchema.nullable(),
+  applied_count: z.number(),
+  warning_count: z.number(),
+  exception_count: z.number(),
+  rejected_count: z.number(),
+  deferred_count: z.number(),
+  duplicate_count: z.number(),
+});
+
+export type DataReviewApplicationSummary = z.infer<
+  typeof DataReviewApplicationSummarySchema
+>;
+
 export const DataReviewApplicationResultSchema = z.object({
   review_session: DataImportReviewSessionSchema,
   dry_run: z.boolean(),
   application: DataApplicationRunSchema.nullable(),
   applied_records: z.array(AppliedImportedRecordSchema),
   warnings: z.array(DataReviewWarningSchema),
+  course_state_snapshot: CourseStateSnapshotSchema.nullable().optional(),
+  summary: DataReviewApplicationSummarySchema,
 });
 
 export type DataReviewApplicationResult = z.infer<
@@ -1599,8 +1723,8 @@ export type CreateDataImportRequest = {
     | "IMPORTED"
     | "BROWSER_EXTENSION"
     | "STUDENT_PROVIDED"
-      | "INFERRED"
-      | "OFFICIAL";
+    | "INFERRED"
+    | "OFFICIAL";
   source_reference?: string | null;
   page_type?: string | null;
   extracted_record_count?: number | null;
@@ -1653,6 +1777,64 @@ export type CompareSectionMonitorSnapshotsRequest = {
   source_type?: "BROWSER_EXTENSION";
   snapshots: SectionMonitorSnapshotInput[];
 };
+
+export const MAX_SECTION_MONITOR_SNAPSHOT_COUNT = 50;
+export const MAX_SECTION_MONITOR_RAW_PAYLOAD_BYTES = 8192;
+export const MAX_SECTION_MONITOR_RAW_PAYLOAD_DEPTH = 8;
+export const MAX_SECTION_MONITOR_RAW_PAYLOAD_KEYS = 100;
+
+type SectionMonitorPayloadShape = { keyCount: number; maxDepth: number };
+
+function sectionMonitorPayloadShape(
+  value: unknown,
+  depth = 0,
+): SectionMonitorPayloadShape {
+  if (depth > MAX_SECTION_MONITOR_RAW_PAYLOAD_DEPTH) {
+    return { keyCount: Number.POSITIVE_INFINITY, maxDepth: depth };
+  }
+  if (Array.isArray(value)) {
+    return value.reduce<SectionMonitorPayloadShape>(
+      (summary, child) => {
+        const childShape = sectionMonitorPayloadShape(child, depth + 1);
+        return {
+          keyCount: summary.keyCount + childShape.keyCount,
+          maxDepth: Math.max(summary.maxDepth, childShape.maxDepth),
+        };
+      },
+      { keyCount: 0, maxDepth: depth },
+    );
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return Object.values(record).reduce<SectionMonitorPayloadShape>(
+      (summary, child) => {
+        const childShape = sectionMonitorPayloadShape(child, depth + 1);
+        return {
+          keyCount: summary.keyCount + childShape.keyCount,
+          maxDepth: Math.max(summary.maxDepth, childShape.maxDepth),
+        };
+      },
+      { keyCount: Object.keys(record).length, maxDepth: depth },
+    );
+  }
+  return { keyCount: 0, maxDepth: depth };
+}
+
+export function isSectionMonitorRawPayloadBounded(
+  value: Record<string, unknown>,
+): boolean {
+  const shape = sectionMonitorPayloadShape(value);
+  if (
+    shape.keyCount > MAX_SECTION_MONITOR_RAW_PAYLOAD_KEYS ||
+    shape.maxDepth > MAX_SECTION_MONITOR_RAW_PAYLOAD_DEPTH
+  ) {
+    return false;
+  }
+  return (
+    new TextEncoder().encode(JSON.stringify(value)).length <=
+    MAX_SECTION_MONITOR_RAW_PAYLOAD_BYTES
+  );
+}
 
 export type UpdateSectionMonitorAlertRequest = {
   is_acknowledged: boolean;
@@ -2709,6 +2891,21 @@ export async function compareSectionMonitorSnapshots(
   request: CompareSectionMonitorSnapshotsRequest,
   options: FetchHealthOptions = {},
 ): Promise<SectionMonitorSnapshotCompareResponse> {
+  if (request.snapshots.length > MAX_SECTION_MONITOR_SNAPSHOT_COUNT) {
+    throw new ApiRequestError(
+      `Section monitor compare request cannot include more than ${MAX_SECTION_MONITOR_SNAPSHOT_COUNT} snapshots`,
+    );
+  }
+  const oversizedPayload = request.snapshots.find(
+    (snapshot) =>
+      snapshot.raw_payload &&
+      !isSectionMonitorRawPayloadBounded(snapshot.raw_payload),
+  );
+  if (oversizedPayload) {
+    throw new ApiRequestError(
+      "Section monitor raw_payload exceeds the allowed bounds",
+    );
+  }
   const parsed = SectionMonitorSnapshotCompareResponseSchema.safeParse(
     await fetchJson(
       apiBaseUrl,
@@ -2926,6 +3123,26 @@ export async function fetchStudentDataImportReviews(
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Student data import reviews response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchActiveCourseStateSnapshot(
+  apiBaseUrl: string,
+  studentId: string,
+  options: FetchHealthOptions = {},
+): Promise<CourseStateSnapshotDetail> {
+  const parsed = CourseStateSnapshotDetailSchema.safeParse(
+    await fetchJson(
+      apiBaseUrl,
+      `/api/v1/students/${studentId}/course-state-snapshots/active`,
+      options,
+    ),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Active course-state snapshot response did not match the expected schema",
     );
   }
   return parsed.data;

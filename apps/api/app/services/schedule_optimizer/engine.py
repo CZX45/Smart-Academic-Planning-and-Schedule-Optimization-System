@@ -18,6 +18,7 @@ from app.models.academic import (
     AuditMode,
     AuditWarningSeverity,
     Course,
+    CourseStateSnapshot,
     DayOfWeek,
     EligibilityMode,
     EligibilityOverallResult,
@@ -263,6 +264,7 @@ class ScheduleOptimizerApplicationService:
         )
         student = self._validate_student(student_profile_id)
         term = self._validate_term(term_id, student)
+        self._validate_course_state_readiness(student_profile_id)
         academic_plan = self._validate_plan(
             academic_plan_run_id=academic_plan_run_id,
             student_profile_id=student_profile_id,
@@ -618,6 +620,30 @@ class ScheduleOptimizerApplicationService:
                 "Academic plan has no term matching the requested schedule term.",
             )
         return plan
+
+    def _validate_course_state_readiness(self, student_profile_id: UUID) -> None:
+        active_snapshot = self._db.scalar(
+            select(CourseStateSnapshot)
+            .where(
+                CourseStateSnapshot.student_profile_id == student_profile_id,
+                CourseStateSnapshot.is_active.is_(True),
+            )
+            .order_by(CourseStateSnapshot.applied_at.desc(), CourseStateSnapshot.id.desc())
+        )
+        if active_snapshot is None:
+            return
+        readiness = active_snapshot.readiness_payload.get("semester_schedule")
+        readiness_payload = readiness if isinstance(readiness, dict) else {}
+        status = str(readiness_payload.get("status") or "BLOCKED")
+        if status in {"READY", "READY_WITH_WARNINGS"}:
+            return
+        blocking = readiness_payload.get("blocking_reasons")
+        reason_codes = blocking if isinstance(blocking, list) and blocking else [status]
+        raise ScheduleOptimizerValidationError(
+            "course_state_schedule_not_ready",
+            "Semester schedule optimization is blocked by active course-state readiness: "
+            + ", ".join(str(reason) for reason in reason_codes),
+        )
 
     def _parse_unavailable_blocks(
         self,

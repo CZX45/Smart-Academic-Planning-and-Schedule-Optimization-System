@@ -23,9 +23,13 @@ from app.models.academic import (
     RequirementEvaluationStatus,
     RequirementNode,
     RequirementType,
-    StudentCourseAttempt,
+    SourceType,
     StudentCourseAttemptStatus,
     TransferCredit,
+)
+from app.services.course_state.engine import (
+    active_course_state_snapshot,
+    effective_student_course_attempts,
 )
 from app.services.degree_audit.allocator import AuditAllocator
 from app.services.degree_audit.context import (
@@ -671,36 +675,32 @@ class DegreeAuditEngine:
                 select(Course).where(Course.institution_id == program_version.institution_id)
             ).all()
         )
-        attempts = list(
-            self._db.scalars(
-                select(StudentCourseAttempt).where(
-                    StudentCourseAttempt.student_profile_id == student_profile_id
-                )
-            ).all()
+        active_snapshot = active_course_state_snapshot(self._db, student_profile_id)
+        attempts = effective_student_course_attempts(self._db, student_profile_id)
+        transfer_statement = select(TransferCredit).where(
+            TransferCredit.student_profile_id == student_profile_id
         )
-        transfers = list(
-            self._db.scalars(
-                select(TransferCredit).where(
-                    TransferCredit.student_profile_id == student_profile_id
-                )
-            ).all()
+        if active_snapshot is not None:
+            transfer_statement = transfer_statement.where(
+                TransferCredit.source_type != SourceType.MOCK
+            )
+        transfers = list(self._db.scalars(transfer_statement).all())
+        waiver_statement = select(CourseWaiver).where(
+            CourseWaiver.student_profile_id == student_profile_id,
+            CourseWaiver.program_version_id == program_version_id,
         )
-        waivers = list(
-            self._db.scalars(
-                select(CourseWaiver).where(
-                    CourseWaiver.student_profile_id == student_profile_id,
-                    CourseWaiver.program_version_id == program_version_id,
-                )
-            ).all()
+        if active_snapshot is not None:
+            waiver_statement = waiver_statement.where(CourseWaiver.source_type != SourceType.MOCK)
+        waivers = list(self._db.scalars(waiver_statement).all())
+        substitution_statement = select(CourseSubstitution).where(
+            CourseSubstitution.student_profile_id == student_profile_id,
+            CourseSubstitution.program_version_id == program_version_id,
         )
-        substitutions = list(
-            self._db.scalars(
-                select(CourseSubstitution).where(
-                    CourseSubstitution.student_profile_id == student_profile_id,
-                    CourseSubstitution.program_version_id == program_version_id,
-                )
-            ).all()
-        )
+        if active_snapshot is not None:
+            substitution_statement = substitution_statement.where(
+                CourseSubstitution.source_type != SourceType.MOCK
+            )
+        substitutions = list(self._db.scalars(substitution_statement).all())
         equivalencies = list(
             self._db.scalars(
                 select(CourseEquivalency).where(
@@ -726,6 +726,31 @@ class DegreeAuditEngine:
             equivalencies_by_equivalent=build_equivalencies_by_equivalent(equivalencies),
         )
         add_pending_record_warnings(context, transfers, waivers, substitutions)
+        if active_snapshot is not None:
+            context.warnings.append(
+                AuditWarningResult(
+                    warning_code="ACTIVE_NON_OFFICIAL_COURSE_STATE_SNAPSHOT",
+                    severity=AuditWarningSeverity.INFO,
+                    message=(
+                        "Degree audit uses reviewed non-official course-state snapshot "
+                        f"{active_snapshot.id} from import {active_snapshot.data_import_run_id}; "
+                        f"applied at {active_snapshot.applied_at.isoformat()}."
+                    ),
+                    requires_advisor_confirmation=True,
+                )
+            )
+            if active_snapshot.extraction_bounded or active_snapshot.extraction_truncated:
+                context.warnings.append(
+                    AuditWarningResult(
+                        warning_code="SOURCE_BOUNDED_OR_TRUNCATED",
+                        severity=AuditWarningSeverity.WARNING,
+                        message=(
+                            "The active MyProgress source was bounded or truncated, so this "
+                            "internal audit cannot claim complete requirement coverage."
+                        ),
+                        requires_advisor_confirmation=True,
+                    )
+                )
         for course_id, course_attempts in context.attempts_by_course.items():
             completed_attempts = [
                 attempt

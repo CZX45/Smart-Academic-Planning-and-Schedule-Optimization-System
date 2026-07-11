@@ -19,6 +19,7 @@ import {
   fetchAcademicScenarioComparison,
   fetchAcademicScenarioPrograms,
   fetchAcademicScenarioWarnings,
+  fetchActiveCourseStateSnapshot,
   fetchDataImportReviewApplications,
   fetchDataImportReviewRecords,
   fetchDataImportReviewWarnings,
@@ -47,6 +48,7 @@ import {
   type AcademicEmptyStateKey,
   type AdvisoryLabelKey,
   type CourseEligibilityCheck,
+  type CourseStateSnapshotDetail,
   type DataApplicationRun,
   type DataImportRun,
   type DataImportReviewSession,
@@ -219,6 +221,13 @@ type DataReviewState =
       applications: DataApplicationRun[];
       applicationResult: DataReviewApplicationResult | null;
     }
+  | { status: "empty"; message: string }
+  | { status: "offline"; message: string }
+  | { status: "failed"; message: string }
+  | { status: "schema-error"; message: string };
+type CourseStateState =
+  | { status: "loading" }
+  | { status: "ready"; detail: CourseStateSnapshotDetail }
   | { status: "empty"; message: string }
   | { status: "offline"; message: string }
   | { status: "failed"; message: string }
@@ -1014,13 +1023,8 @@ function dashboardSourceLabel(
   return auditState.status === "ready" ? "演示 / 模拟数据" : "尚未加载导入";
 }
 
-function canUseDownstreamAnalysis(
-  display: MyProgressPreviewDisplay | null,
-): boolean {
-  return Boolean(
-    display?.readiness.planner.status === "WARNING" ||
-    display?.readiness.planner.status === "READY",
-  );
+function readinessAllows(status: string | undefined): boolean {
+  return status === "READY" || status === "READY_WITH_WARNINGS";
 }
 
 const readinessLabels: Record<MyProgressReadinessKey, string> = {
@@ -1039,7 +1043,10 @@ const readinessStatusCopy: Record<string, string> = {
   DEMO_ONLY: "演示模式",
   MISSING: "缺失",
   PARTIAL_REQUIRES_REVIEW: "部分解析 / 需要审核",
+  PARTIAL: "部分就绪",
   READY: "就绪",
+  READY_WITH_WARNINGS: "就绪但有警告",
+  NEEDS_REVIEW: "需要审核",
   REQUIRES_REVIEW: "需要审核",
   WARNING: "警告",
 };
@@ -1058,11 +1065,31 @@ function readinessReasonLabel(reasonCode: string): string {
     NO_COURSE_ROWS_PARSED: "尚未解析真实课程行",
     REAL_COURSE_HISTORY_NOT_READY: "尚未接入可靠真实课程历史",
     REAL_SECTION_SEARCH_DATA_NOT_IMPORTED: "尚未导入真实课节搜索数据",
+    SOURCE_BOUNDED_OR_TRUNCATED: "来源提取有边界或被截断",
+    PROGRAM_VERSION_UNMATCHED: "导入项目与内部 Catalog 版本尚未可靠匹配",
+    REQUIREMENT_TREE_INCOMPLETE: "毕业要求树覆盖仍不完整",
+    COURSE_HISTORY_NOT_RELIABLE: "尚无可靠的已匹配课程历史",
+    NO_CATALOG_MATCHED_COURSE_HISTORY: "没有可用于下游的 Catalog 匹配课程历史",
+    RELIABLE_PREREQUISITE_EVIDENCE_MISSING: "缺少可靠的已完成或进行中先修证据",
+    UNMATCHED_COURSES_LIMIT_ELIGIBILITY: "未匹配课程限制课程资格判断",
+    CRITICAL_COURSE_STATE_EXCEPTIONS: "仍有关键课程状态异常",
+    COURSE_CODE_UNMATCHED: "存在未匹配的课程代码",
+    COURSE_STATE_EXCEPTIONS_PRESENT: "存在课程状态异常记录",
     WAITING_FOR_RELIABLE_MYPROGRESS_COURSE_ROWS:
       "等待完整可靠的 MyProgress 课程行",
   };
   return copy[reasonCode] ?? reasonCode;
 }
+
+const courseStateReadinessLabels: Record<string, string> = {
+  summary: "汇总数据",
+  requirement_summary: "毕业要求摘要",
+  course_history: "课程历史",
+  degree_audit: "学业审核",
+  course_eligibility: "课程资格",
+  long_term_planner: "长期规划",
+  semester_schedule: "学期课表",
+};
 
 export default function Home() {
   const webOrigin = useSyncExternalStore(
@@ -1180,6 +1207,16 @@ export default function Home() {
             message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
           },
     );
+  const [courseStateState, setCourseStateState] = useState<CourseStateState>(
+    () =>
+      apiBaseUrl
+        ? { status: "loading" }
+        : {
+            status: "offline",
+            message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
+          },
+  );
+  const [demoModeEnabled, setDemoModeEnabled] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -1302,6 +1339,47 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
+    if (!apiBaseUrl) {
+      return () => {
+        cancelled = true;
+      };
+    }
+    async function loadActiveSnapshot(baseUrl: string): Promise<void> {
+      try {
+        const detail = await fetchActiveCourseStateSnapshot(
+          baseUrl,
+          mockStudentId,
+          { timeoutMs: 5_000 },
+        );
+        if (!cancelled) {
+          setCourseStateState({ status: "ready", detail });
+        }
+      } catch (error: unknown) {
+        if (cancelled) {
+          return;
+        }
+        if (isNotFound(error)) {
+          setCourseStateState({
+            status: "empty",
+            message: "尚未应用经过审核的 MyProgress 课程状态快照。",
+          });
+          return;
+        }
+        setCourseStateState({
+          status:
+            error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+          message: describeDataImportError(error),
+        });
+      }
+    }
+    void loadActiveSnapshot(apiBaseUrl);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
 
     if (!apiBaseUrl) {
       return () => {
@@ -1360,7 +1438,30 @@ export default function Home() {
     auditState,
     dataImportState,
   );
-  const downstreamAnalysisAllowed = canUseDownstreamAnalysis(myProgressPreview);
+  const longTermReadiness =
+    courseStateState.status === "ready"
+      ? courseStateState.detail.snapshot.readiness.long_term_planner
+      : null;
+  const eligibilityReadiness =
+    courseStateState.status === "ready"
+      ? courseStateState.detail.snapshot.readiness.course_eligibility
+      : null;
+  const scheduleReadiness =
+    courseStateState.status === "ready"
+      ? courseStateState.detail.snapshot.readiness.semester_schedule
+      : null;
+  const downstreamAnalysisAllowed =
+    courseStateState.status === "ready"
+      ? readinessAllows(longTermReadiness?.status)
+      : demoModeEnabled && !myProgressPreview;
+  const eligibilityAnalysisAllowed =
+    courseStateState.status === "ready"
+      ? readinessAllows(eligibilityReadiness?.status)
+      : demoModeEnabled && !myProgressPreview;
+  const scheduleAnalysisAllowed =
+    courseStateState.status === "ready"
+      ? readinessAllows(scheduleReadiness?.status)
+      : demoModeEnabled && !myProgressPreview;
 
   return (
     <main>
@@ -1374,7 +1475,23 @@ export default function Home() {
                 : "API 不可用"}
           </p>
           <p className="notice compact">{currentImportMode}</p>
+          <button
+            type="button"
+            aria-pressed={demoModeEnabled}
+            onClick={() => setDemoModeEnabled((enabled) => !enabled)}
+            disabled={
+              courseStateState.status === "ready" || Boolean(myProgressPreview)
+            }
+          >
+            {demoModeEnabled ? "关闭演示工作流" : "启用演示工作流"}
+          </button>
         </div>
+
+        {demoModeEnabled ? (
+          <p className="notice compact" role="status">
+            演示工作流已显式启用；所有结果仅使用模拟数据，不代表真实学业状态。
+          </p>
+        ) : null}
 
         <DevelopmentDiagnostics
           apiBaseUrl={apiBaseUrl}
@@ -1405,10 +1522,13 @@ export default function Home() {
             audit={auditState.audit}
             requirements={auditState.requirements}
             myProgressPreview={myProgressPreview}
+            courseStateState={courseStateState}
           />
         ) : (
           <AuditFallback state={auditState} health={health} />
         )}
+
+        <CourseStateSnapshotPanel state={courseStateState} />
 
         {warnings.length > 0 ? (
           <section className="warning-panel" aria-label="顾问警告">
@@ -1438,6 +1558,8 @@ export default function Home() {
           setSelectedCourseId={setSelectedCourseId}
           eligibilityState={eligibilityState}
           setEligibilityState={setEligibilityState}
+          courseStateState={courseStateState}
+          canUseRealEligibility={eligibilityAnalysisAllowed}
         />
 
         <AcademicPlanner
@@ -1490,7 +1612,7 @@ export default function Home() {
           setScheduleAllowPartialOptions={setScheduleAllowPartialOptions}
           scheduleState={scheduleState}
           setScheduleState={setScheduleState}
-          canUseDownstreamAnalysis={downstreamAnalysisAllowed}
+          canUseDownstreamAnalysis={scheduleAnalysisAllowed}
           sourceLabel={currentImportMode}
         />
 
@@ -1501,11 +1623,149 @@ export default function Home() {
           setDataImportState={setDataImportState}
           dataReviewState={dataReviewState}
           setDataReviewState={setDataReviewState}
+          courseStateState={courseStateState}
+          setCourseStateState={setCourseStateState}
         />
 
         <SectionMonitoringPanel state={sectionMonitoringState} />
       </section>
     </main>
+  );
+}
+
+function CourseStateSnapshotPanel({ state }: { state: CourseStateState }) {
+  if (state.status === "loading") {
+    return (
+      <section
+        className="state-panel"
+        aria-label="已应用课程状态"
+        aria-live="polite"
+      >
+        <h2>正在加载已应用课程状态</h2>
+        <p>正在读取最新有效的内部非官方课程状态快照。</p>
+      </section>
+    );
+  }
+  if (state.status !== "ready") {
+    return (
+      <section className="state-panel" aria-label="已应用课程状态">
+        <h2>已应用课程状态</h2>
+        <p>{state.message}</p>
+        <p className="subtle">未应用真实快照时不会静默使用演示课程历史。</p>
+      </section>
+    );
+  }
+  const { snapshot, course_states: courseStates } = state.detail;
+  const readinessEntries = Object.entries(snapshot.readiness);
+  return (
+    <section className="course-state-panel" aria-label="已应用课程状态">
+      <div className="section-heading">
+        <div>
+          <h2>内部课程状态快照</h2>
+          <p className="subtle">
+            来源 import：{snapshot.data_import_run_id} · 应用时间：
+            {formatAcademicTimestamp(snapshot.applied_at)}
+          </p>
+        </div>
+        <p className="notice compact">非官方导入 · 仅供内部规划与建议。</p>
+      </div>
+      <section className="summary-grid" aria-label="课程状态统计">
+        <SummaryMetric
+          label="已完成"
+          value={String(snapshot.completed_count)}
+        />
+        <SummaryMetric
+          label="进行中"
+          value={String(snapshot.in_progress_count)}
+        />
+        <SummaryMetric label="已规划" value={String(snapshot.planned_count)} />
+        <SummaryMetric
+          label="未开始要求/选项"
+          value={String(snapshot.not_started_count)}
+        />
+        <SummaryMetric
+          label="已匹配 Catalog"
+          value={String(snapshot.matched_count)}
+        />
+        <SummaryMetric
+          label="未匹配课程"
+          value={String(snapshot.unmatched_count)}
+        />
+        <SummaryMetric
+          label="异常记录"
+          value={String(snapshot.exception_count)}
+        />
+        <SummaryMetric
+          label="来源范围"
+          value={
+            snapshot.extraction_bounded || snapshot.extraction_truncated
+              ? "有边界 / 被截断"
+              : "未检测到截断"
+          }
+        />
+      </section>
+      <section className="comparison-table" aria-label="下游就绪状态">
+        <h2>分项 readiness</h2>
+        <div className="comparison-rows">
+          {readinessEntries.map(([key, item]) => (
+            <div key={key} className="comparison-row">
+              <strong>{courseStateReadinessLabels[key] ?? key}</strong>
+              <span>{readinessStatusLabel(item.status)}</span>
+              <span>
+                {item.blocking_reasons.length > 0
+                  ? `阻塞：${item.blocking_reasons
+                      .map(readinessReasonLabel)
+                      .join("；")}`
+                  : "没有阻塞原因"}
+              </span>
+              {item.warnings.length > 0 ? (
+                <span>
+                  警告：{item.warnings.map(readinessReasonLabel).join("；")}
+                </span>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="comparison-table" aria-label="已应用课程状态记录">
+        <h2>课程状态记录</h2>
+        <div className="comparison-rows">
+          {courseStates.slice(0, 12).map((courseState) => (
+            <div key={courseState.id} className="comparison-row">
+              <strong>
+                {courseState.normalized_course_code || "缺少课程代码"} ·{" "}
+                {courseState.source_course_title || "未提供标题"}
+              </strong>
+              <span>
+                {statusLabel(courseState.status)} ·{" "}
+                {statusLabel(courseState.validation_state)} ·{" "}
+                {courseState.term ?? "学期未知"}
+              </span>
+              <span>
+                {courseState.matched_course_id
+                  ? "已匹配 Catalog"
+                  : "外部未匹配证据"}{" "}
+                · {courseState.application_reason_code}
+              </span>
+              {courseState.reason_codes.length > 0 ? (
+                <span>
+                  原因：
+                  {courseState.reason_codes
+                    .map(readinessReasonLabel)
+                    .join("；")}
+                </span>
+              ) : null}
+            </div>
+          ))}
+        </div>
+        {courseStates.length > 12 ? (
+          <p className="subtle">
+            其余 {courseStates.length - 12} 条状态已保留在快照中。
+          </p>
+        ) : null}
+      </section>
+      <AdvisoryLabels keys={["NON_OFFICIAL_IMPORTED_DATA", "ADVISORY_ONLY"]} />
+    </section>
   );
 }
 
@@ -1599,16 +1859,42 @@ function DegreeProgress({
   audit,
   requirements,
   myProgressPreview,
+  courseStateState,
 }: {
   audit: DegreeAuditRun;
   requirements: RequirementEvaluation[];
   myProgressPreview: MyProgressPreviewDisplay | null;
+  courseStateState: CourseStateState;
 }) {
-  const program = myProgressPreview?.programSummary;
-  const credits = myProgressPreview?.creditSummary;
-  const hasRealMyProgress = myProgressPreview !== null;
-  const myProgressRequirementGroups =
-    myProgressPreview?.requirementGroups ?? [];
+  const snapshot =
+    courseStateState.status === "ready"
+      ? courseStateState.detail.snapshot
+      : null;
+  const program =
+    snapshot?.program_summary ?? myProgressPreview?.programSummary;
+  const credits = snapshot?.credit_summary ?? myProgressPreview?.creditSummary;
+  const hasAppliedCourseState = snapshot !== null;
+  const hasRealMyProgress = hasAppliedCourseState || myProgressPreview !== null;
+  const myProgressRequirementGroups = snapshot
+    ? snapshot.requirement_summary
+    : (myProgressPreview?.requirementGroups ?? []);
+  const programName = stringFromUnknown(program?.programName);
+  const catalogYear = numberFromUnknown(program?.catalogYear);
+  const degree = stringFromUnknown(program?.degree);
+  const department = stringFromUnknown(program?.department);
+  const cumulativeGpa = numberFromUnknown(program?.cumulativeGpa);
+  const institutionGpa = numberFromUnknown(program?.institutionGpa);
+  const totalAppliedCredits = numberFromUnknown(credits?.totalAppliedCredits);
+  const totalRequiredCredits = numberFromUnknown(credits?.totalRequiredCredits);
+  const completedCredits = numberFromUnknown(credits?.completedCredits) ?? 0;
+  const inProgressCredits = numberFromUnknown(credits?.inProgressCredits) ?? 0;
+  const plannedCredits = numberFromUnknown(credits?.plannedCredits) ?? 0;
+  const remainingCredits = numberFromUnknown(credits?.remainingCredits) ?? 0;
+  const completionPercent = numberFromUnknown(credits?.completionPercent) ?? 0;
+  const anticipatedCompletionDate = stringFromUnknown(
+    program?.anticipatedCompletionDate,
+  );
+  const auditReadiness = snapshot?.readiness.degree_audit;
   return (
     <>
       <section
@@ -1618,11 +1904,15 @@ function DegreeProgress({
       >
         <SummaryMetric
           label="数据模式"
-          value={importModeLabel(myProgressPreview)}
+          value={
+            hasAppliedCourseState
+              ? "已应用非官方课程状态快照"
+              : importModeLabel(myProgressPreview)
+          }
         />
         <SummaryMetric
           label="项目"
-          value={program?.programName ?? "尚未加载真实 MyProgress 导入"}
+          value={programName ?? "尚未加载真实 MyProgress 导入"}
         />
         <SummaryMetric
           label="审核模式"
@@ -1632,61 +1922,54 @@ function DegreeProgress({
           <>
             <SummaryMetric
               label="Catalog 年份"
-              value={
-                program?.catalogYear ? String(program.catalogYear) : "未加载"
-              }
+              value={catalogYear ? String(catalogYear) : "未加载"}
             />
-            {program?.degree ? (
-              <SummaryMetric label="学位" value={program.degree} />
+            {degree ? <SummaryMetric label="学位" value={degree} /> : null}
+            {department ? (
+              <SummaryMetric label="院系" value={department} />
             ) : null}
-            {program?.department ? (
-              <SummaryMetric label="院系" value={program.department} />
+            {cumulativeGpa !== undefined ? (
+              <SummaryMetric label="GPA" value={cumulativeGpa.toFixed(3)} />
             ) : null}
-            {program?.cumulativeGpa ? (
-              <SummaryMetric
-                label="GPA"
-                value={program.cumulativeGpa.toFixed(3)}
-              />
-            ) : null}
-            {program?.institutionGpa ? (
+            {institutionGpa !== undefined ? (
               <SummaryMetric
                 label="本校 GPA"
-                value={program.institutionGpa.toFixed(3)}
+                value={institutionGpa.toFixed(3)}
               />
             ) : null}
-            {credits?.totalAppliedCredits !== undefined &&
-            credits.totalRequiredCredits !== undefined ? (
+            {totalAppliedCredits !== undefined &&
+            totalRequiredCredits !== undefined ? (
               <SummaryMetric
                 label="总学分"
-                value={`${formatCredits(String(credits.totalAppliedCredits))} / ${formatCredits(
-                  String(credits.totalRequiredCredits),
+                value={`${formatCredits(String(totalAppliedCredits))} / ${formatCredits(
+                  String(totalRequiredCredits),
                 )}`}
               />
             ) : null}
             <SummaryMetric
               label="已完成"
-              value={formatCredits(String(credits?.completedCredits ?? 0))}
+              value={formatCredits(String(completedCredits))}
             />
             <SummaryMetric
               label="进行中"
-              value={formatCredits(String(credits?.inProgressCredits ?? 0))}
+              value={formatCredits(String(inProgressCredits))}
             />
             <SummaryMetric
               label="已规划"
-              value={formatCredits(String(credits?.plannedCredits ?? 0))}
+              value={formatCredits(String(plannedCredits))}
             />
             <SummaryMetric
               label="剩余"
-              value={formatCredits(String(credits?.remainingCredits ?? 0))}
+              value={formatCredits(String(remainingCredits))}
             />
             <SummaryMetric
               label="完成度"
-              value={`${Number(credits?.completionPercent ?? 0).toFixed(2)}%`}
+              value={`${completionPercent.toFixed(2)}%`}
             />
-            {program?.anticipatedCompletionDate ? (
+            {anticipatedCompletionDate ? (
               <SummaryMetric
                 label="预计完成"
-                value={program.anticipatedCompletionDate}
+                value={anticipatedCompletionDate}
               />
             ) : null}
           </>
@@ -1718,21 +2001,42 @@ function DegreeProgress({
 
       <section className="requirement-tree" aria-label="毕业要求摘要">
         <h2>
-          {hasRealMyProgress ? "MyProgress 毕业要求摘要" : "演示毕业要求树"}
+          {hasAppliedCourseState
+            ? "已应用 MyProgress 要求摘要"
+            : hasRealMyProgress
+              ? "MyProgress staging 要求摘要"
+              : "演示毕业要求树"}
         </h2>
         {hasRealMyProgress ? (
           <>
             <p className="subtle">
-              正在显示 staging MyProgress 导入中的高置信度要求组。
-              旧的模拟要求快照不会作为真实导入摘要使用。
+              {hasAppliedCourseState
+                ? `以下内容来自 active snapshot ${snapshot.id}；旧的模拟要求不会作为真实学业状态使用。`
+                : "以下内容仍是 staging 预览，只有审核并应用后才会成为内部课程状态。"}
             </p>
+            {auditReadiness ? (
+              <ul className="compact-list">
+                <li>
+                  <strong>Degree audit readiness</strong>
+                  <span>{readinessStatusLabel(auditReadiness.status)}</span>
+                </li>
+                {auditReadiness.blocking_reasons.map((reason) => (
+                  <li key={reason}>{readinessReasonLabel(reason)}</li>
+                ))}
+              </ul>
+            ) : null}
             <ul className="compact-list">
               <li>
                 <strong>课程行数据</strong>
                 <span>
-                  {readinessStatusLabel(
-                    myProgressPreview.readiness.course_rows.status,
-                  )}
+                  {hasAppliedCourseState
+                    ? readinessStatusLabel(
+                        snapshot.readiness.course_history.status,
+                      )
+                    : readinessStatusLabel(
+                        myProgressPreview?.readiness.course_rows.status ??
+                          "MISSING",
+                      )}
                 </span>
               </li>
               <li>
@@ -1744,16 +2048,20 @@ function DegreeProgress({
             </ul>
             {myProgressRequirementGroups.length > 0 ? (
               myProgressRequirementGroups.map((group, index) => {
+                const groupRecord =
+                  typeof group === "object" && group !== null
+                    ? (group as Record<string, unknown>)
+                    : {};
                 const name =
-                  stringFromUnknown(group.name) ??
-                  stringFromUnknown(group.requirements) ??
+                  stringFromUnknown(groupRecord.name) ??
+                  stringFromUnknown(groupRecord.requirements) ??
                   `MyProgress requirement group ${index + 1}`;
                 const statusText =
-                  stringFromUnknown(group.statusText) ??
-                  stringFromUnknown(group.status_text) ??
+                  stringFromUnknown(groupRecord.statusText) ??
+                  stringFromUnknown(groupRecord.status_text) ??
                   "高置信度要求组。";
                 const confidence =
-                  stringFromUnknown(group.confidence) ?? "high";
+                  stringFromUnknown(groupRecord.confidence) ?? "high";
                 return (
                   <article key={`${name}-${index}`} className="requirement-row">
                     <div className="requirement-detail">
@@ -2341,17 +2649,32 @@ function CourseEligibilityChecker({
   setSelectedCourseId,
   eligibilityState,
   setEligibilityState,
+  courseStateState,
+  canUseRealEligibility,
 }: {
   selectedCourseId: string;
   setSelectedCourseId: (value: string) => void;
   eligibilityState: EligibilityState;
   setEligibilityState: Dispatch<SetStateAction<EligibilityState>>;
+  courseStateState: CourseStateState;
+  canUseRealEligibility: boolean;
 }) {
   const selectedCourse =
     candidateCourses.find((candidate) => candidate.id === selectedCourseId) ??
     candidateCourses[0];
 
   async function handleRunEligibility(): Promise<void> {
+    if (courseStateState.status === "ready" && !canUseRealEligibility) {
+      const readiness =
+        courseStateState.detail.snapshot.readiness.course_eligibility;
+      setEligibilityState({
+        status: "empty",
+        message: `真实课程资格已阻止：${readiness.blocking_reasons
+          .map(readinessReasonLabel)
+          .join("；")}`,
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setEligibilityState({
         status: "offline",
@@ -2435,8 +2758,9 @@ function CourseEligibilityChecker({
         <div>
           <h2>课程资格</h2>
           <p className="subtle">
-            演示模式：尚未接入真实 MyProgress 已完成/进行中课程行，
-            不应用于真实学业决策。
+            {courseStateState.status === "ready"
+              ? `真实导入模式：使用 active snapshot ${courseStateState.detail.snapshot.id} 的已完成/进行中证据。`
+              : "演示模式：仅在用户明确使用演示数据时运行，不应用于真实学业决策。"}
           </p>
         </div>
         <p className="notice compact">课节座位状态必须在官方门户人工核对。</p>
@@ -2451,22 +2775,41 @@ function CourseEligibilityChecker({
           >
             {candidateCourses.map((candidate) => (
               <option key={candidate.id} value={candidate.id}>
-                {localizeDemoOptionLabel(
-                  "candidateCourse",
-                  candidate.id,
-                  candidate.label,
-                )}
+                {courseStateState.status === "ready"
+                  ? candidate.label.split(" · ")[0]
+                  : localizeDemoOptionLabel(
+                      "candidateCourse",
+                      candidate.id,
+                      candidate.label,
+                    )}
               </option>
             ))}
           </select>
         </label>
-        <button type="button" onClick={() => void handleRunEligibility()}>
+        <button
+          type="button"
+          disabled={
+            courseStateState.status === "ready" && !canUseRealEligibility
+          }
+          onClick={() => void handleRunEligibility()}
+        >
           检查资格
         </button>
         <button type="button" onClick={() => void handleLoadHistory()}>
           加载历史
         </button>
       </div>
+
+      {courseStateState.status === "ready" && !canUseRealEligibility ? (
+        <section className="state-panel" aria-label="课程资格来源门禁">
+          <h2>真实课程资格已阻止</h2>
+          <p>
+            {courseStateState.detail.snapshot.readiness.course_eligibility.blocking_reasons
+              .map(readinessReasonLabel)
+              .join("；")}
+          </p>
+        </section>
+      ) : null}
 
       {eligibilityState.status === "loading" ? (
         <section className="state-panel" aria-live="polite">
@@ -2504,7 +2847,10 @@ function CourseEligibilityChecker({
       ) : null}
 
       {eligibilityState.status === "ready" ? (
-        <EligibilityResultView state={eligibilityState} />
+        <EligibilityResultView
+          state={eligibilityState}
+          usesRealSnapshot={courseStateState.status === "ready"}
+        />
       ) : null}
     </section>
   );
@@ -2512,8 +2858,10 @@ function CourseEligibilityChecker({
 
 function EligibilityResultView({
   state,
+  usesRealSnapshot,
 }: {
   state: Extract<EligibilityState, { status: "ready" }>;
+  usesRealSnapshot: boolean;
 }) {
   const { result } = state;
   const availability = result.registration_availability;
@@ -2547,7 +2895,9 @@ function EligibilityResultView({
         <SummaryMetric label="警告" value={String(result.warnings.length)} />
       </section>
       <p className="notice compact">
-        演示数据：尚未接入真实 MyProgress 课程行，不应用于真实学业决策。
+        {usesRealSnapshot
+          ? "使用已审核的非官方 active course-state snapshot；结果仅供建议，仍需学校或 advisor 确认。"
+          : "演示数据：不应用于真实学业决策。"}
       </p>
 
       <section className="eligibility-columns">
@@ -2683,6 +3033,7 @@ function AcademicPlanner({
   canUseDownstreamAnalysis: boolean;
   sourceLabel: ImportSourceStateLabel;
 }) {
+  const isDemoMode = sourceLabel === "演示 / 模拟数据";
   const selectedScope =
     plannerScopes.find((scope) => scope.id === selectedPlannerScopeId) ??
     plannerScopes[0];
@@ -2848,14 +3199,20 @@ function AcademicPlanner({
         <div>
           <h2>长期学业规划</h2>
           <p className="subtle">
-            需要可靠课程行后才能用于真实规划；当前不应用于真实学业决策。
+            {isDemoMode
+              ? "演示模式：不应用于真实学业决策。"
+              : "真实导入模式只在课程历史、要求树和项目映射均达到 readiness 阈值后启用。"}
           </p>
         </div>
         <p className="notice compact">这不是注册课程。</p>
       </div>
 
       <ul className="disclaimer-list" aria-label="长期学业规划边界">
-        <li>演示数据 / 模拟数据，不是官方学校政策。</li>
+        <li>
+          {isDemoMode
+            ? "演示数据 / 模拟数据，不是官方学校政策。"
+            : "使用非官方内部规划快照，不代表官方毕业审核或完成日期。"}
+        </li>
         <li>不会注册课程，不会 add/drop/swap。</li>
         <li>长期规划不检查每周课表冲突。</li>
         <li>课程开设预测只是估算。</li>
@@ -2869,11 +3226,19 @@ function AcademicPlanner({
             value={selectedPlannerScopeId}
             onChange={(event) => setSelectedPlannerScopeId(event.target.value)}
           >
-            {plannerScopes.map((scope) => (
-              <option key={scope.id} value={scope.id}>
-                {localizeDemoOptionLabel("plannerScope", scope.id, scope.label)}
-              </option>
-            ))}
+            {plannerScopes
+              .filter((scope) => isDemoMode || scope.id === "current-program")
+              .map((scope) => (
+                <option key={scope.id} value={scope.id}>
+                  {isDemoMode
+                    ? localizeDemoOptionLabel(
+                        "plannerScope",
+                        scope.id,
+                        scope.label,
+                      )
+                    : "已应用项目 / Catalog 内部规划范围"}
+                </option>
+              ))}
           </select>
         </label>
         <label>
@@ -3847,6 +4212,8 @@ function DataImportPreviewPanel({
   setDataImportState,
   dataReviewState,
   setDataReviewState,
+  courseStateState,
+  setCourseStateState,
 }: {
   selectedDataImportSampleId: string;
   setSelectedDataImportSampleId: (value: string) => void;
@@ -3854,6 +4221,8 @@ function DataImportPreviewPanel({
   setDataImportState: Dispatch<SetStateAction<DataImportPreviewState>>;
   dataReviewState: DataReviewState;
   setDataReviewState: Dispatch<SetStateAction<DataReviewState>>;
+  courseStateState: CourseStateState;
+  setCourseStateState: Dispatch<SetStateAction<CourseStateState>>;
 }) {
   const selectedSample =
     dataImportSamples.find(
@@ -4134,6 +4503,8 @@ function DataImportPreviewPanel({
         dataImportState={dataImportState}
         dataReviewState={dataReviewState}
         setDataReviewState={setDataReviewState}
+        courseStateState={courseStateState}
+        setCourseStateState={setCourseStateState}
       />
     </section>
   );
@@ -4154,9 +4525,7 @@ function SavedImportSelector({
     <section className="saved-import-selector" aria-label="已保存导入选择器">
       <div>
         <h2>已保存 staging 导入</h2>
-        <p>
-          选择要预览的导入；列表显示时间、来源、验证状态、行数和置信度。
-        </p>
+        <p>选择要预览的导入；列表显示时间、来源、验证状态、行数和置信度。</p>
       </div>
       <label>
         <span>当前导入</span>
@@ -4178,7 +4547,8 @@ function SavedImportSelector({
       </label>
       {showingOlderUsableImport ? (
         <p className="notice compact">
-          最新保存的导入没有自动替换当前可用的 MyProgress 预览；可在上方选择器中检查。
+          最新保存的导入没有自动替换当前可用的 MyProgress
+          预览；可在上方选择器中检查。
         </p>
       ) : null}
       {!selectedUsable && myProgressPreviewFromSummary(state.preview) ? (
@@ -4774,29 +5144,70 @@ function DataReviewPanel({
   dataImportState,
   dataReviewState,
   setDataReviewState,
+  courseStateState,
+  setCourseStateState,
 }: {
   dataImportState: DataImportPreviewState;
   dataReviewState: DataReviewState;
   setDataReviewState: Dispatch<SetStateAction<DataReviewState>>;
+  courseStateState: CourseStateState;
+  setCourseStateState: Dispatch<SetStateAction<CourseStateState>>;
 }) {
   const myProgressPreview = myProgressPreviewFromState(dataImportState);
   const reviewRecordsForDisplay =
     dataReviewState.status === "ready" && myProgressPreview
       ? dataReviewState.records.filter(
           (record) =>
-            record.requires_advisor_confirmation ||
-            record.decision === "UNREVIEWED" ||
-            record.decision === "NEEDS_ADVISOR_REVIEW",
+            payloadValue(
+              record.imported_record.normalized_payload,
+              "record_kind",
+            ) === "MY_PROGRESS_COURSE_ROW",
         )
       : dataReviewState.status === "ready"
         ? dataReviewState.records
         : [];
   const autoConfirmedReviewCount =
     dataReviewState.status === "ready" && myProgressPreview
-      ? dataReviewState.records.length - reviewRecordsForDisplay.length
+      ? reviewRecordsForDisplay.filter(
+          (record) =>
+            record.decision === "CONFIRMED" ||
+            record.decision === "EDITED_AND_CONFIRMED",
+        ).length
       : 0;
 
   const [gradeEdits, setGradeEdits] = useState<Record<string, string>>({});
+
+  async function loadActiveCourseStates(): Promise<void> {
+    if (!apiBaseUrl) {
+      setCourseStateState({
+        status: "offline",
+        message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
+      });
+      return;
+    }
+    setCourseStateState({ status: "loading" });
+    try {
+      const detail = await fetchActiveCourseStateSnapshot(
+        apiBaseUrl,
+        mockStudentId,
+        { timeoutMs: 5_000 },
+      );
+      setCourseStateState({ status: "ready", detail });
+    } catch (error: unknown) {
+      if (isNotFound(error)) {
+        setCourseStateState({
+          status: "empty",
+          message: "尚未应用经过审核的 MyProgress 课程状态快照。",
+        });
+        return;
+      }
+      setCourseStateState({
+        status:
+          error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+        message: describeDataImportError(error),
+      });
+    }
+  }
 
   async function loadReviewDetail(
     review: DataImportReviewSession,
@@ -4955,6 +5366,9 @@ function DataReviewPanel({
         { timeoutMs: 8_000 },
       );
       await loadReviewDetail(result.review_session, result);
+      if (!dryRun && result.course_state_snapshot) {
+        await loadActiveCourseStates();
+      }
     } catch (error: unknown) {
       setDataReviewState({
         status:
@@ -4987,6 +5401,11 @@ function DataReviewPanel({
         </button>
         <button type="button" onClick={() => void handleLoadLatestReviews()}>
           加载最新审核
+        </button>
+        <button type="button" onClick={() => void loadActiveCourseStates()}>
+          {courseStateState.status === "ready"
+            ? "刷新课程状态"
+            : "加载已应用课程状态"}
         </button>
         {dataReviewState.status === "ready" ? (
           <>
@@ -5048,7 +5467,11 @@ function DataReviewPanel({
             {myProgressPreview ? (
               <SummaryMetric
                 label="异常队列"
-                value={String(reviewRecordsForDisplay.length)}
+                value={String(
+                  reviewRecordsForDisplay.filter(
+                    (record) => record.requires_advisor_confirmation,
+                  ).length,
+                )}
               />
             ) : null}
             <SummaryMetric
@@ -5074,11 +5497,11 @@ function DataReviewPanel({
           </section>
 
           <section className="comparison-table" aria-label="审核记录">
-            <h2>{myProgressPreview ? "异常处理决定" : "记录处理决定"}</h2>
+            <h2>{myProgressPreview ? "课程状态审核与应用" : "记录处理决定"}</h2>
             <div className="comparison-rows">
               {reviewRecordsForDisplay.length === 0 && myProgressPreview ? (
                 <p className="subtle">
-                  高置信度 MyProgress 字段已自动确认；没有需要逐行处理的异常。
+                  当前导入没有可审核的 MyProgress 课程状态行。
                 </p>
               ) : null}
               {reviewRecordsForDisplay.map((recordReview) => {
@@ -5094,18 +5517,43 @@ function DataReviewPanel({
                     "grade",
                   ) ??
                   "";
+                const payload = recordReview.imported_record.normalized_payload;
+                const courseTitle =
+                  payloadValue(payload, "title") ?? "未提供标题";
+                const courseStatus =
+                  payloadValue(payload, "status") ?? "UNKNOWN";
+                const term = payloadValue(payload, "term") ?? "学期未知";
+                const credits = payloadValue(payload, "credits") ?? "学分未知";
+                const tableIndex =
+                  payloadValue(payload, "source_table_index") ?? "未知表";
+                const rowIndex =
+                  payloadValue(payload, "source_row_index") ?? "未知行";
                 return (
                   <div key={recordReview.id} className="comparison-row">
-                    <strong>{courseCode}</strong>
+                    <strong>
+                      {courseCode} · {courseTitle}
+                    </strong>
                     <span>
-                      {statusLabel(recordReview.decision)} ·{" "}
+                      {statusLabel(courseStatus)} · {term} · {credits} 学分 ·{" "}
+                      {statusLabel(recordReview.decision)}
+                    </span>
+                    <span>
                       {recordReview.requires_advisor_confirmation
                         ? "已标记 advisor 审核"
                         : "学生可审核"}
                     </span>
                     <span>
+                      Catalog：
+                      {recordReview.selected_mapping_candidate?.target_entity_id
+                        ? "已匹配"
+                        : "未匹配 / 外部证据"}
+                      · 置信度{" "}
+                      {String(recordReview.imported_record.confidence_score)} ·
+                      来源表 {tableIndex} 行 {rowIndex}
+                    </span>
+                    <span>
                       {recordReview.selected_mapping_candidate?.explanation ??
-                        "没有已选映射候选项。"}
+                        "没有已选映射候选项；不会根据标题猜测课程代码。"}
                     </span>
                     <div className="record-review-actions">
                       <label className="review-edit-field">
@@ -5176,6 +5624,51 @@ function DataReviewPanel({
           {dataReviewState.applicationResult ? (
             <section className="comparison-table" aria-label="数据应用结果">
               <h2>应用结果</h2>
+              <section className="summary-grid" aria-label="数据应用汇总">
+                <SummaryMetric
+                  label="已应用"
+                  value={String(
+                    dataReviewState.applicationResult.summary.applied_count,
+                  )}
+                />
+                <SummaryMetric
+                  label="警告"
+                  value={String(
+                    dataReviewState.applicationResult.summary.warning_count,
+                  )}
+                />
+                <SummaryMetric
+                  label="异常"
+                  value={String(
+                    dataReviewState.applicationResult.summary.exception_count,
+                  )}
+                />
+                <SummaryMetric
+                  label="已拒绝"
+                  value={String(
+                    dataReviewState.applicationResult.summary.rejected_count,
+                  )}
+                />
+                <SummaryMetric
+                  label="已暂缓"
+                  value={String(
+                    dataReviewState.applicationResult.summary.deferred_count,
+                  )}
+                />
+                <SummaryMetric
+                  label="重复跳过"
+                  value={String(
+                    dataReviewState.applicationResult.summary.duplicate_count,
+                  )}
+                />
+              </section>
+              <p className="subtle">
+                来源 import：
+                {dataReviewState.applicationResult.summary.source_import_id}
+                {dataReviewState.applicationResult.summary.snapshot_id
+                  ? ` · snapshot：${dataReviewState.applicationResult.summary.snapshot_id}`
+                  : " · dry run 尚未创建 snapshot"}
+              </p>
               <div className="comparison-rows">
                 {dataReviewState.applicationResult.applied_records.map(
                   (appliedRecord) => (
