@@ -46,6 +46,7 @@ class FakeButtonElement extends FakeElement {
 type PopupElements = {
   apiBaseUrlInput: FakeInputElement;
   studentProfileIdInput: FakeInputElement;
+  apiBearerTokenInput: FakeInputElement;
   extractCurrentPageButton: FakeButtonElement;
   startKeanImportButton: FakeButtonElement;
   captureGuidedPageButton: FakeButtonElement;
@@ -68,6 +69,7 @@ function createPopupElements(): PopupElements & Record<string, FakeElement> {
   const ids = [
     "apiBaseUrlInput",
     "studentProfileIdInput",
+    "apiBearerTokenInput",
     "extractCurrentPageButton",
     "startKeanImportButton",
     "captureGuidedPageButton",
@@ -94,31 +96,18 @@ function createPopupElements(): PopupElements & Record<string, FakeElement> {
   ) as PopupElements & Record<string, FakeElement>;
   elements.apiBaseUrlInput.value = "http://localhost:8000";
   elements.studentProfileIdInput.value = FAKE_STUDENT_PROFILE_ID;
+  elements.apiBearerTokenInput.value = "";
   return elements;
 }
 
 function myProgressRows(count: number): string[][] {
   const examples = [
-    [
-      "Not Started",
-      "MATH*1044",
-      "Precalculus for Business",
-      "",
-      "",
-      "3",
-    ],
+    ["Not Started", "MATH*1044", "Precalculus for Business", "", "", "3"],
     ["Not Started", "MATH*1054", "Pre-Calculus", "", "", "3"],
     ["Planned", "ENG*2403", "World Literature", "", "2026SUW", "3"],
     ["Not Started", "GE*1855", "First Year Seminar", "", "", "1"],
     ["Not Started", "AH*1700", "Art-Prehist to Middle Ages", "", "", "3"],
-    [
-      "Not Started",
-      "AH*1701",
-      "Hist Art-Renssce to Mod. Wrld",
-      "",
-      "",
-      "3",
-    ],
+    ["Not Started", "AH*1701", "Hist Art-Renssce to Mod. Wrld", "", "", "3"],
   ];
   return Array.from({ length: count }, (_, index) => {
     const example = examples[index];
@@ -171,6 +160,7 @@ async function importPopupWithFetch(
   fetchImpl: typeof fetch,
   options: {
     apiBaseUrl?: string;
+    apiBearerToken?: string;
     snapshot?: AcademicPageSnapshot;
   } = {},
 ): Promise<{
@@ -180,8 +170,10 @@ async function importPopupWithFetch(
   vi.resetModules();
   const elements = createPopupElements();
   const apiBaseUrl = options.apiBaseUrl ?? "http://localhost:8000";
+  const apiBearerToken = options.apiBearerToken ?? "";
   const snapshot = options.snapshot ?? myProgressSnapshot();
   elements.apiBaseUrlInput.value = apiBaseUrl;
+  elements.apiBearerTokenInput.value = apiBearerToken;
   const fetchMock = vi.fn(fetchImpl);
   const chromeApi = {
     runtime: {},
@@ -281,6 +273,10 @@ describe("popup staging import confirmation", () => {
     );
     expect(fetchMock).toHaveBeenCalledOnce();
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+    expect(request?.headers).toMatchObject({
+      "content-type": "application/json",
+    });
+    expect(request?.headers).not.toHaveProperty("authorization");
     expect(JSON.parse(String(request?.body))).toMatchObject({
       student_profile_id: FAKE_STUDENT_PROFILE_ID,
       import_type: "DEGREE_AUDIT_EXPORT",
@@ -293,6 +289,74 @@ describe("popup staging import confirmation", () => {
     expect(elements.statusText.textContent).toContain(CREATED_IMPORT_ID);
     expect(elements.statusText.textContent).toContain("1 row");
     expect(elements.apiStatusText.textContent).toContain("1 staging import");
+  });
+
+  it("requires a bearer token before sending to a non-local API", async () => {
+    const { elements, fetchMock } = await importPopupWithFetch(
+      async () => new Response("{}", { status: 201 }),
+      { apiBaseUrl: "https://planner.example.edu" },
+    );
+
+    elements.extractCurrentPageButton.click();
+    await flushPopupWork();
+    elements.confirmImportButton.click();
+    await flushPopupWork();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(elements.statusText.textContent).toContain(
+      "API bearer token is required",
+    );
+  });
+
+  it("requires HTTPS before sending a bearer token to a non-local API", async () => {
+    const { elements, fetchMock } = await importPopupWithFetch(
+      async () => new Response("{}", { status: 201 }),
+      {
+        apiBaseUrl: "http://planner.example.edu",
+        apiBearerToken: "entered-token-not-stored-by-popup",
+      },
+    );
+
+    elements.extractCurrentPageButton.click();
+    await flushPopupWork();
+    elements.confirmImportButton.click();
+    await flushPopupWork();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(elements.statusText.textContent).toContain(
+      "Non-local API base URL must use HTTPS",
+    );
+  });
+
+  it("sends the bearer token only when explicitly entered", async () => {
+    const { elements, fetchMock } = await importPopupWithFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: CREATED_IMPORT_ID,
+            record_count: 1,
+          }),
+          {
+            status: 201,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+      {
+        apiBaseUrl: "https://planner.example.edu",
+        apiBearerToken: "entered-token-not-stored-by-popup",
+      },
+    );
+
+    elements.extractCurrentPageButton.click();
+    await flushPopupWork();
+    elements.confirmImportButton.click();
+    await flushPopupWork();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+    expect(request?.headers).toMatchObject({
+      authorization: "Bearer entered-token-not-stored-by-popup",
+    });
   });
 
   it("shows API error details when the local API rejects confirmation", async () => {

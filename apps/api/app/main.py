@@ -18,7 +18,7 @@ app.add_middleware(
     allow_origins=settings.cors_origin_list,
     allow_credentials=False,
     allow_methods=["GET", "PATCH", "POST"],
-    allow_headers=["content-type"],
+    allow_headers=["authorization", "content-type"],
 )
 
 app.include_router(academic_router)

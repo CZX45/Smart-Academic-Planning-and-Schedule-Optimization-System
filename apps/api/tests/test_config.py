@@ -8,6 +8,7 @@ def test_settings_accept_local_development_defaults() -> None:
     settings = Settings(_env_file=None)
 
     assert settings.environment == "development"
+    assert settings.auth_mode == "development"
     assert settings.cors_origin_list == [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
@@ -42,7 +43,18 @@ def test_production_rejects_local_database_default() -> None:
     with pytest.raises(ValidationError, match="Production DATABASE_URL must not use"):
         Settings(
             environment="production",
+            auth_mode="bearer",
             database_url=LOCAL_DEVELOPMENT_DATABASE_URL,
+            cors_origins="https://planner.example.edu",
+        )
+
+
+def test_production_rejects_development_auth_mode() -> None:
+    with pytest.raises(ValidationError, match="Production AUTH_MODE must be bearer"):
+        Settings(
+            environment="production",
+            auth_mode="development",
+            database_url="postgresql+psycopg://sapsos:prod-password@db.example.edu:5432/sapsos",
             cors_origins="https://planner.example.edu",
         )
 
@@ -64,6 +76,7 @@ def test_production_rejects_localhost_cors_origins(cors_origins: str) -> None:
     with pytest.raises(ValidationError, match="Production CORS_ORIGINS must not include"):
         Settings(
             environment="production",
+            auth_mode="bearer",
             database_url="postgresql+psycopg://sapsos:prod-password@db.example.edu:5432/sapsos",
             cors_origins=cors_origins,
         )
@@ -72,6 +85,7 @@ def test_production_rejects_localhost_cors_origins(cors_origins: str) -> None:
 def test_production_settings_accept_explicit_safe_origins() -> None:
     settings = Settings(
         environment="production",
+        auth_mode="bearer",
         database_url="postgresql+psycopg://sapsos:prod-password@db.example.edu:5432/sapsos",
         cors_origins="https://planner.example.edu, https://advisor.example.edu",
     )

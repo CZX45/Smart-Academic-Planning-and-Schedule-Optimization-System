@@ -45,6 +45,7 @@ declare const chrome: ChromeApi;
 
 const apiBaseUrlInput = document.getElementById("apiBaseUrlInput");
 const studentProfileIdInput = document.getElementById("studentProfileIdInput");
+const apiBearerTokenInput = document.getElementById("apiBearerTokenInput");
 const extractCurrentPageButton = document.getElementById(
   "extractCurrentPageButton",
 );
@@ -135,6 +136,34 @@ function apiErrorMessage(payload: unknown): string | null {
     return payload.message;
   }
   return null;
+}
+
+function isLocalApiBaseUrl(apiBaseUrl: string): boolean {
+  try {
+    const parsed = new URL(apiBaseUrl);
+    return ["localhost", "127.0.0.1"].includes(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function isSecureNonLocalApiBaseUrl(apiBaseUrl: string): boolean {
+  try {
+    const parsed = new URL(apiBaseUrl);
+    return parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function importRequestHeaders(apiBearerToken: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+  };
+  if (apiBearerToken.length > 0) {
+    headers.authorization = `Bearer ${apiBearerToken}`;
+  }
+  return headers;
 }
 
 function createdImportSummary(payload: unknown): CreatedImportSummary {
@@ -460,9 +489,20 @@ async function handleConfirm(): Promise<void> {
   }
   const apiBaseUrl = inputValue(apiBaseUrlInput).replace(/\/+$/, "");
   const studentProfileId = inputValue(studentProfileIdInput);
+  const apiBearerToken = inputValue(apiBearerTokenInput);
   if (!apiBaseUrl || !studentProfileId) {
     setStatus("API base URL and student profile ID are required.");
     return;
+  }
+  if (!isLocalApiBaseUrl(apiBaseUrl)) {
+    if (!isSecureNonLocalApiBaseUrl(apiBaseUrl)) {
+      setStatus("Non-local API base URL must use HTTPS for staging imports.");
+      return;
+    }
+    if (apiBearerToken.length === 0) {
+      setStatus("API bearer token is required for non-local staging imports.");
+      return;
+    }
   }
   chrome.storage.local.set({ apiBaseUrl, studentProfileId });
   let requests: BrowserExtensionDataImportRequest[];
@@ -479,7 +519,10 @@ async function handleConfirm(): Promise<void> {
         return;
       }
       requests = [
-        createDataImportRequestFromExtraction(studentProfileId, firstExtraction),
+        createDataImportRequestFromExtraction(
+          studentProfileId,
+          firstExtraction,
+        ),
       ];
     }
   } catch (error: unknown) {
@@ -502,7 +545,7 @@ async function handleConfirm(): Promise<void> {
     for (const request of requests) {
       const response = await fetch(`${apiBaseUrl}/api/v1/data-imports`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: importRequestHeaders(apiBearerToken),
         body: JSON.stringify(request),
       });
       if (!response.ok) {

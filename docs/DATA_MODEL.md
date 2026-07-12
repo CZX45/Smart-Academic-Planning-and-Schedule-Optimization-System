@@ -116,6 +116,23 @@ staging rows with `source_type = BROWSER_EXTENSION`, safe source-reference
 metadata, `source_label = KEAN_STUDENT_PORTAL` in preview summaries,
 `is_official = false`, and `official_application_ready = false`.
 
+Phase 12A adds the production authentication and student-object authorization
+foundation:
+
+- `auth_tenants`
+- `auth_users`
+- `auth_api_tokens`
+- `student_profile_access_grants`
+
+API tokens are stored only as SHA-256 hashes. Users belong to an optional tenant
+and have a role of student, advisor, tenant admin, or system admin. Student and
+advisor access to student-owned objects is granted through explicit
+`student_profile_access_grants`; tenant admins are constrained to the tenant's
+institution when a tenant institution is configured. Generated academic objects
+continue to carry `student_profile_id` through their existing tables, and
+authorization resolves object IDs back to that owner before returning or
+mutating data.
+
 Every Phase 2A academic-domain table includes `source_type`, `is_official`, source reference fields, and timestamps. The development seed uses only `source_type = MOCK` and `is_official = false`.
 
 Phase 2B also source-tags offering patterns, sections, meetings, rules, and rule expressions. Mock data remains non-official and cannot be used as authoritative school policy.
@@ -150,6 +167,12 @@ snapshot diagnostics, validation results, and exception queues in
 can be auto-confirmed in `imported_record_reviews`; failed validation blocks
 downstream academic analysis with a structured reason code. These rows remain
 non-official staging data and keep `official_application_ready = false`.
+
+Phase 12A does not store school credentials, browser cookies, SAML tokens, MFA
+secrets, or raw portal authentication material. Bearer API tokens are application
+access tokens for this backend and must be provisioned out-of-band; the database
+stores their hashes, labels, revocation timestamps, optional expiry timestamps,
+and low-sensitivity last-used metadata.
 
 Phase 8B section monitoring rows are advisory, non-official, and student-scoped. Targets identify a course, section, and term the student wants to compare manually. Snapshots preserve imported section-search state such as status, seats, waitlist counts, meeting time, instructor, and location, plus a deterministic snapshot hash for deduplication. Alerts compare two snapshots and store the changed field, previous/current values, severity, acknowledgement state, advisory/manual-review flags, and a manual verification message. These rows do not mutate `sections`, seat counts, waitlists, student records, or registration state.
 
