@@ -1,0 +1,230 @@
+# Local Desktop Execution Plan
+
+## Purpose
+
+The official product is a single-user Windows Local Desktop application. Each
+student runs an independent copy. Imports, review/apply, Degree Audit, Course
+Eligibility, planning, schedule optimization, and data storage are local by
+default. The product is advisory and read-only: it may analyze and explain
+academic data, but it must never register a student for a course or modify the
+school's official records.
+
+The browser extension may inspect only a page the user has actively opened and
+can currently see after manually authenticating to the school portal. Local
+data must remain clearly distinguished as official, imported, student-provided,
+mock, inferred, or requiring review.
+
+## Permanent prohibitions
+
+Never implement automatic registration, add/drop/swap, waitlist actions, seat
+grabbing or reservation, high-frequency registration polling, automatic portal
+login, collection of school passwords, MFA secrets, cookies, or portal tokens,
+modification of official transcripts, Degree Audit data, or registration
+records, automatic advisor approval, or circumvention of SAML, MFA, CAPTCHA,
+rate limits, authorization, or other school access controls.
+
+The following directions are frozen unless explicitly reauthorized: SSO/OIDC,
+tenant administration, advisor SaaS, multi-user SaaS, cloud databases, cloud
+sync, mobile applications, enterprise RBAC, PostgreSQL RLS, paid subscriptions,
+and multi-school platform work. Existing SERVER capabilities remain preserved,
+but LOCAL_DESKTOP is the current official product.
+
+## Current verified state
+
+- Repository: `D:\Crystal`.
+- `main` is synchronized with `origin/main` at merge commit
+  `99db1f6469308d25cb6bbd64426dcdabc20d4ccc`.
+- PR 1 is merged as PR #35:
+  `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
+- PR 1 commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
+- PR 1 delivered explicit `LOCAL_DESKTOP`/`SERVER` runtime isolation,
+  loopback and non-wildcard CORS validation, preserved SERVER bearer
+  authorization, stable app/data-directory contracts, and explicit Docker
+  SERVER development defaults.
+- The current PR is the isolated worktree
+  `D:\Crystal\.cache\worktrees\prove-local-embedded-database-compatibility`
+  on branch `codex/prove-local-embedded-database-compatibility`.
+- Existing core academic domain, import staging, review/apply, course state,
+  Degree Audit, eligibility, planner, section monitoring, and schedule
+  optimizer logic remains present. Real school data and real section imports
+  are not authoritative product data until reviewed and source-tagged.
+- Mock/seed data remains development-only and must never be presented as
+  official school policy.
+- SERVER remains PostgreSQL-backed. LOCAL_DESKTOP currently has no embedded
+  database runtime default.
+- The repository-wide Prettier gate has known pre-existing drift in
+  `apps/extension` and `packages/shared`; unrelated cleanup is out of scope.
+
+### Stage 1 evidence
+
+Direct SQLAlchemy metadata creation on SQLite succeeds repeatedly and produces
+68 tables, 176 foreign keys, and 86 indexes. UUID, JSON, enum, timestamp
+default, transaction rollback, and foreign-key cascade primitives are covered
+by `apps/api/tests/test_sqlite_compatibility.py`.
+
+The existing PostgreSQL Alembic history is not currently a safe SQLite
+initializer. A direct sequential migration proof reaches revision
+`20260623_0004_create_degree_audit_core` and fails because SQLite does not
+support the migration's direct check-constraint drop/alter operation. The
+history also contains additional direct PostgreSQL UUID declarations and
+constraint alterations. This is a migration compatibility defect, not a reason
+to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
+
+### Feature classification
+
+- Local Desktop target: embedded database, local API process, local web UI,
+  runtime discovery, process supervision, and packaged desktop shell.
+- Partial: local runtime mode exists, but embedded database and packaged
+  runtime do not yet.
+- Mock-only: development seed fixtures and unreviewed sample academic data.
+- SERVER-only/current development path: PostgreSQL-backed Docker Compose and
+  explicit bearer-authenticated SERVER runtime.
+- Known technical debt: migration history is PostgreSQL-specific in places;
+  local schema versioning, data directory handling, runtime discovery,
+  supervision, packaging, and extension pairing are not complete.
+
+## Architecture decisions
+
+1. `LOCAL_DESKTOP` is the default product mode; `SERVER` is explicit and
+   optional. `ENVIRONMENT` is independent of `PRODUCT_MODE`.
+2. LOCAL_DESKTOP requires an embedded database. PostgreSQL remains valid for
+   SERVER and development integration testing.
+3. FastAPI is preserved unless runtime packaging evidence disproves its
+   suitability. The desktop shell remains subject to proof, with Tauri as the
+   preferred evaluation candidate.
+4. Extension pairing is required before final local request-security
+   completion. It is not part of the current Local Runtime Foundation.
+5. Real Section Optimization remains inside MVP. Section Monitoring remains
+   after MVP.
+6. Because the existing PostgreSQL Alembic history cannot currently initialize
+   SQLite safely, the next database PR will evaluate a separate deterministic
+   LOCAL_DESKTOP baseline/bootstrap with version tracking before considering
+   any data-preserving migration corrections. No academic semantics may change.
+
+## Dependency-ordered milestones
+
+1. PR 1 delivery and runtime-mode isolation — complete.
+2. Local embedded-database compatibility proof — current.
+3. Local database baseline.
+4. Dynamic runtime discovery.
+5. API process supervision.
+6. Desktop-shell proof of concept.
+7. FastAPI runtime packaging.
+8. Web UI packaging.
+9. Extension pairing.
+10. Localhost request protection.
+11. Real MyProgress stabilization.
+12. Reviewed Program/Catalog rules.
+13. Real Section import.
+14. Real Section optimizer integration.
+15. UI workflow modularization.
+16. Backup/Restore.
+17. Safe migration and rollback.
+18. Diagnostics.
+19. Windows Installer/Uninstaller.
+20. Packaged Desktop E2E.
+21. Controlled Student Beta.
+22. Release Candidate.
+
+## Progress log
+
+### PR 1 — runtime-mode isolation
+
+- Status: merged.
+- Branch: `codex/pr-1`; remote branch `codex-pr-1` remains for audit.
+- Worktree: removed after merge because Git confirmed it was clean and merged.
+- Commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
+- PR URL: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
+- CI: required CI run 29195826320 passed checks, E2E, and Docker Compose.
+- Merge commit: `99db1f6469308d25cb6bbd64426dcdabc20d4ccc`.
+- Validation: `corepack pnpm test`, `corepack pnpm lint`,
+  `corepack pnpm typecheck`, `corepack pnpm build`, `corepack pnpm e2e`
+  (23/23), OpenAPI drift, Alembic, Docker Compose, Ruff, and
+  `git diff --check` were reported and CI-confirmed.
+- Decisions: default LOCAL_DESKTOP, explicit SERVER, independent environment,
+  loopback local API, non-wildcard CORS, preserved SERVER authorization.
+- Remaining risks: embedded database and packaged runtime are not implemented;
+  known unrelated Prettier baseline drift remains.
+- Exact next action: validate and merge the first local embedded-database proof
+  PR after its focused and full checks pass.
+
+### PR 2 — prove local embedded-database compatibility
+
+- Status: implementation complete locally; not yet committed or pushed.
+- Branch/worktree: `codex/prove-local-embedded-database-compatibility` /
+  `D:\Crystal\.cache\worktrees\prove-local-embedded-database-compatibility`.
+- Commit/PR/CI/merge: none yet.
+- Validation: direct metadata proof passed; direct sequential Alembic proof is
+  blocked at revision `20260623_0004` by SQLite constraint-alter limitations.
+  Focused SQLite proof is 3 passed. API regression is 149 passed. Recursive
+  monorepo tests passed (API 149, extension 51, shared 28, web 12), lint,
+  typecheck, build, OpenAPI drift, Ruff, Ruff format, MyPy, E2E (23/23), and
+  `git diff --check` passed.
+- Decision recorded: preserve PostgreSQL SERVER history and evaluate a
+  separate local baseline/bootstrap rather than weakening academic semantics.
+- Remaining risks: complete the focused proof, determine the smallest safe
+  local schema/version mechanism, and run PostgreSQL regression checks.
+- Exact next action: inspect the complete diff, commit only the proof test and
+  execution plan, push the branch, and create the Stage 1 PR. Do not begin the
+  local database baseline until this PR is merged and its evidence is accepted.
+
+## Decision log
+
+- 2026-07-12 — PR 1 was pushed to non-hierarchical `codex-pr-1` because the
+  existing remote `codex` branch must not be modified; PR #35 merged normally
+  after exact-head CI success.
+- 2026-07-12 — SQLAlchemy model metadata is sufficiently portable for an
+  initial SQLite proof, but the historical PostgreSQL Alembic path is not.
+  The first failing operation is a direct check-constraint alteration in
+  `20260623_0004`; local baseline/bootstrap is the safer next evaluation.
+- 2026-07-12 — No Extension pairing, real academic-data expansion, real
+  Section import, optimizer integration, installer, Backup/Restore, or later
+  milestone work began.
+
+## Validation ledger
+
+| Command or proof | Result | Scope |
+| --- | --- | --- |
+| PR 1 CI run `29195826320` | Passed | checks, E2E, Docker Compose |
+| `git diff --check` on PR 1 | Passed | PR 1 diff |
+| SQLite `Base.metadata.create_all` twice | Passed | 68 tables, 176 FKs, 86 indexes |
+| Sequential existing Alembic upgrades on SQLite | Blocked | revision `20260623_0004`; direct constraint alteration unsupported |
+| `python -m pytest apps/api/tests/test_sqlite_compatibility.py -q` | Passed, 3 tests | model/schema/storage proof |
+| `python -m pytest` in `apps/api` | Passed, 149 tests, 1 warning | API regression |
+| `CI=true corepack pnpm test` | Passed | recursive API/extension/shared/web tests |
+| `CI=true corepack pnpm lint` | Passed | recursive lint |
+| `CI=true corepack pnpm typecheck` | Passed | recursive type checking |
+| `CI=true corepack pnpm build` | Passed | API/extension/shared/web build |
+| `CI=true corepack pnpm openapi:check` | Passed | generated OpenAPI drift |
+| `CI=true corepack pnpm e2e` | Passed, 23 tests | local API/web E2E |
+| `python -m ruff check .` / `format --check .` | Passed | API lint/format |
+| `python -m mypy .` | Passed | API strict typing |
+| `git diff --check` | Passed | PR 2 diff |
+
+## Resume checkpoint
+
+- Current milestone: Local Runtime Foundation.
+- Current stage: Stage 1 — prove embedded database compatibility.
+- Current PR: PR 2, not yet created.
+- Current branch/worktree: `codex/prove-local-embedded-database-compatibility` /
+  `D:\Crystal\.cache\worktrees\prove-local-embedded-database-compatibility`.
+- Last completed action: PR 1 merged and main synchronized to
+  `99db1f6469308d25cb6bbd64426dcdabc20d4ccc`; SQLite metadata and migration
+  probes executed.
+- Last successful validation: all focused and repository-level checks listed in
+  the validation ledger, including E2E 23/23.
+- Outstanding blocker: existing Alembic history needs a safe local baseline or
+  carefully scoped dialect-neutral migration strategy; do not guess where
+  data-loss or academic-semantics risk exists.
+- Exact resume instruction: from the PR 2 worktree, run
+  `python -m pytest apps/api/tests/test_sqlite_compatibility.py -q`, inspect
+  the complete SQLite migration failure matrix, then implement only the
+  approved Stage 1 proof/baseline boundary.
+
+## Scope confirmation
+
+No work has begun on Extension pairing, localhost request protection, real
+MyProgress parser expansion, Program/Catalog ingestion, real Section import,
+real Schedule Optimization integration, UI restructuring, Backup/Restore,
+production migration, diagnostics center, installer/uninstaller, beta, or
+release-candidate work.
