@@ -68,11 +68,26 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
   backend domain, official-source ingestion, credential handling, polling, or
   registration capability.
 - Phase 12A adds the production authentication and object-authorization
-  foundation. `/health` and `/ready` remain operational system probes; `/api/v1`
-  requests require bearer authentication when `AUTH_MODE=bearer`. Student-owned
-  objects are resolved back to `student_profile_id` and checked against user
-  grants, tenant-admin institution scope, or system-admin authority before the
-  handler runs.
+  foundation plus an explicit runtime boundary. `PRODUCT_MODE=LOCAL_DESKTOP`
+  is the default and uses a named `LocalRuntimeContext`; it does not query
+  tenant, user, token, or student-access authorization tables. `PRODUCT_MODE=SERVER`
+  must be paired with `AUTH_MODE=bearer`. `/health` and `/ready` remain
+  operational system probes; server `/api/v1` requests resolve student-owned
+  objects back to `student_profile_id` and check user grants, tenant-admin
+  institution scope, or system-admin authority before the handler runs.
+  `ENVIRONMENT` remains independent from product mode.
+
+### Runtime and network boundary
+
+- Local desktop mode is loopback-only: `API_HOST` must be `127.0.0.1`,
+  `localhost`, or `::1`; wildcard and LAN interfaces fail closed.
+- Server mode may bind an explicit deployment interface such as `0.0.0.0`,
+  but deployment configuration owns the external network boundary.
+- CORS always uses explicit origins. Wildcards, wildcard host patterns, and
+  equivalent overbroad configurations are rejected. Pairing and complete
+  localhost webpage protection are not implemented yet.
+- Docker selects server mode explicitly, binds inside the container as needed,
+  and publishes the default API port on `127.0.0.1`.
 
 ### Browser Extension
 

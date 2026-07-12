@@ -3,6 +3,8 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path (Join-Path $ScriptDir "..\..")
 $WebPort = if ($env:LOCAL_WEB_PORT) { $env:LOCAL_WEB_PORT } elseif ($env:PLAYWRIGHT_WEB_PORT) { $env:PLAYWRIGHT_WEB_PORT } else { "3000" }
+$ApiHost = if ($env:API_HOST) { $env:API_HOST } else { "0.0.0.0" }
+$env:DOCKER_API_HOST = $ApiHost
 $WebUrl = "http://localhost:$WebPort"
 $ApiUrl = "http://localhost:8000"
 $ApiDocsUrl = "http://localhost:8000/docs"
@@ -45,6 +47,7 @@ function Wait-ForUrl {
 Push-Location $RepoRoot
 try {
     Write-Host "Starting Smart Academic Planner from $RepoRoot"
+    Write-Host "Docker API bind host: $ApiHost"
 
     Invoke-Step "Checking prerequisites..." {
         & (Join-Path $ScriptDir "Check-Prerequisites.ps1")

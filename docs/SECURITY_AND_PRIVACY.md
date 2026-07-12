@@ -116,7 +116,12 @@ Before production-like deployment, confirm:
 - `DATABASE_URL` is a PostgreSQL psycopg URL and does not use local development credentials in production.
 - `CORS_ORIGINS` contains only explicit origins; production origins use HTTPS and are not localhost.
 - `NEXT_PUBLIC_API_BASE_URL` is an `http` or `https` URL without embedded credentials.
-- `AUTH_MODE=bearer` is required for production.
+- `PRODUCT_MODE=SERVER` requires `AUTH_MODE=bearer`; `PRODUCT_MODE=LOCAL_DESKTOP`
+  is a valid loopback-only runtime even when `ENVIRONMENT=production`.
+- `LOCAL_DESKTOP` uses an explicit `LocalRuntimeContext` and does not query
+  tenant, user, token, or student-access authorization tables.
+- `API_HOST` is loopback-only in `LOCAL_DESKTOP`; Docker explicitly selects
+  `SERVER` and publishes its default host port on `127.0.0.1`.
 - Production API tokens are provisioned outside the app, stored only as hashes,
   and scoped through `student_profile_access_grants`, tenant-admin institution
   scope, or system-admin authority.

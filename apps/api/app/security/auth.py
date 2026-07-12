@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from hashlib import sha256
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request
@@ -42,7 +42,6 @@ class CurrentUser:
     role: AuthUserRole
     external_subject: str
     tenant_institution_id: UUID | None = None
-    is_development_bypass: bool = False
 
     @property
     def is_system_admin(self) -> bool:
@@ -69,22 +68,20 @@ def auth_error(
     )
 
 
-def development_user() -> CurrentUser:
-    return CurrentUser(
-        user_id=None,
-        tenant_id=None,
-        role=AuthUserRole.SYSTEM_ADMIN,
-        external_subject="development-auth-bypass",
-        is_development_bypass=True,
-    )
+@dataclass(frozen=True)
+class LocalRuntimeContext:
+    mode: Literal["LOCAL_DESKTOP"] = "LOCAL_DESKTOP"
 
 
-def get_current_user(
+RuntimeContext = LocalRuntimeContext | CurrentUser
+
+
+def get_runtime_context(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     db: Annotated[Session, Depends(get_db)],
-) -> CurrentUser:
-    if settings.auth_mode == "development":
-        return development_user()
+) -> RuntimeContext:
+    if settings.product_mode == "LOCAL_DESKTOP":
+        return LocalRuntimeContext()
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise auth_error("missing_bearer_token", "Authorization: Bearer token is required.")
     token = credentials.credentials.strip()
@@ -142,7 +139,7 @@ def ensure_student_access(
     student = db.get(StudentProfile, student_profile_id)
     if student is None:
         raise not_found("StudentProfile", student_profile_id)
-    if current_user.is_development_bypass or current_user.is_system_admin:
+    if current_user.is_system_admin:
         return student
     if current_user.is_tenant_admin:
         if current_user.tenant_institution_id == student.home_institution_id:
@@ -426,8 +423,11 @@ def _ensure_scenario_list_access(
 async def enforce_api_authorization(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+    runtime_context: Annotated[RuntimeContext, Depends(get_runtime_context)],
 ) -> None:
+    if isinstance(runtime_context, LocalRuntimeContext):
+        return
+    current_user = runtime_context
     _ensure_path_object_access(request, db, current_user)
     _ensure_body_object_access(await _request_json(request), db, current_user)
     query_student = request.query_params.get("student_profile_id")

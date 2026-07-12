@@ -18,14 +18,16 @@ services:
     build:
       context: ./apps/api
       dockerfile: ../../infra/docker/api.Dockerfile
-    command: sh -c "python -m alembic upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    command: sh -c "python -m alembic upgrade head && PRODUCT_MODE=SERVER AUTH_MODE=bearer python -m app.run"
     environment:
       DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql+psycopg://sapsos:sapsos_dev_password@db:5432/sapsos}
-      API_HOST: 0.0.0.0
+      PRODUCT_MODE: SERVER
+      AUTH_MODE: bearer
+      API_HOST: ${DOCKER_API_HOST:-0.0.0.0}
       API_PORT: 8000
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001,http://localhost:3010,http://127.0.0.1:3010,http://localhost:3011,http://127.0.0.1:3011}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy

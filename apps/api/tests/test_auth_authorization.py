@@ -54,6 +54,7 @@ def auth_client(monkeypatch: pytest.MonkeyPatch) -> Generator[TestClient, None, 
         with testing_session() as db:
             yield db
 
+    monkeypatch.setattr(settings, "product_mode", "SERVER")
     monkeypatch.setattr(settings, "auth_mode", "bearer")
     app.dependency_overrides[get_db] = override_get_db
     try:
@@ -177,6 +178,18 @@ def test_bearer_mode_requires_authorization(auth_client: TestClient) -> None:
 
     assert response.status_code == 401
     assert response.json()["detail"]["code"] == "missing_bearer_token"
+
+
+def test_local_desktop_does_not_require_authorization(
+    auth_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "product_mode", "LOCAL_DESKTOP")
+    monkeypatch.setattr(settings, "auth_mode", "local")
+
+    response = auth_client.get("/api/v1/institutions")
+
+    assert response.status_code != 401
 
 
 def test_valid_bearer_token_can_read_public_catalog(auth_client: TestClient) -> None:

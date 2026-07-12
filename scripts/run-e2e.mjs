@@ -120,18 +120,14 @@ async function main() {
     if (!(await isReady(apiUrl))) {
       api = start(
         "python",
-        [
-          "-m",
-          "uvicorn",
-          "app.main:app",
-          "--host",
-          "127.0.0.1",
-          "--port",
-          "8000",
-        ],
+        ["-m", "app.run"],
         {
           cwd: resolve(root, "apps", "api"),
           env: {
+            API_HOST: "127.0.0.1",
+            API_PORT: "8000",
+            PRODUCT_MODE: "LOCAL_DESKTOP",
+            AUTH_MODE: "local",
             DATABASE_URL:
               process.env.DATABASE_URL ??
               "postgresql+psycopg://sapsos:sapsos_dev_password@localhost:5432/sapsos",

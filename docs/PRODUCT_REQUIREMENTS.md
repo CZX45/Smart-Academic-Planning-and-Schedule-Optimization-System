@@ -109,3 +109,20 @@ The system must not:
 - Privacy: collect the minimum necessary student data.
 - Reliability: optimizer outputs must be deterministic for the same input unless explicitly randomized.
 - Extensibility: adding a new school or program should not require changing core algorithms.
+
+## 9. Runtime Product Modes
+
+- `LOCAL_DESKTOP` is the default runtime for local software. It uses an
+  explicit local runtime context, requires no bearer authentication, does not
+  depend on tenant or server authorization records, and binds the API only to
+  `127.0.0.1`, `localhost`, or `::1`.
+- `SERVER` must be explicitly selected and uses bearer authentication with the
+  existing tenant, user, token, grant, and object-authorization rules.
+- `ENVIRONMENT` is independent from `PRODUCT_MODE`; production local-desktop
+  mode is valid when it remains loopback-only.
+- Both modes require explicit non-wildcard CORS allowlists. Pairing and
+  complete localhost webpage protection are not implemented yet.
+- The stable local application contract is
+  `APP_ID=com.sapsos.smart-academic-planner`, `APP_DATA_DIR_NAME=SAPSOS`, with
+  future data root `%LOCALAPPDATA%\\SAPSOS\\`. This phase does not create that
+  directory.

@@ -511,6 +511,32 @@ Deferred from Phase 11B:
 - Account/auth and FERPA production controls.
 - Automated portal navigation, polling, notifications, or enrollment actions.
 
+## Phase 12A: Explicit Local and Server Runtime Boundary
+
+Status: current phase.
+
+Deliverables:
+
+- Explicit `PRODUCT_MODE=LOCAL_DESKTOP|SERVER` configuration with a loopback-only
+  local desktop runtime and bearer-only server runtime.
+- API host validation and startup consumption across package scripts, Docker,
+  PowerShell, and E2E startup paths.
+- Local runtime authorization isolation while preserving server tenant,
+  bearer-token, grant, and object-authorization behavior.
+- Explicit non-wildcard CORS validation, stable local app identity contracts,
+  and deterministic server-mode OpenAPI artifacts.
+- Documentation for runtime boundaries, local packaging, environment behavior,
+  and deferred pairing/webpage-protection work.
+
+Testable outcomes:
+
+- Production local-desktop settings are valid without bearer auth, while every
+  server configuration requires `AUTH_MODE=bearer`.
+- Local desktop rejects wildcard, LAN, and wildcard-interface API hosts and
+  does not query server authorization tables.
+- Existing server 401/403/404 authorization tests remain green and OpenAPI
+  retains the bearer security scheme.
+
 ## Deferred / Future
 
 - Real data onboarding and advisor workflow.
