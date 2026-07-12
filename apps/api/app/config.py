@@ -1,4 +1,6 @@
 import ipaddress
+import os
+from pathlib import Path
 from typing import Self
 from urllib.parse import urlparse
 
@@ -17,6 +19,16 @@ LOCAL_DEVELOPMENT_CORS_ORIGINS = ",".join(
 APP_ID = "com.sapsos.smart-academic-planner"
 APP_DATA_DIR_NAME = "SAPSOS"
 FUTURE_DATA_ROOT = "%LOCALAPPDATA%\\SAPSOS\\"
+
+
+def local_desktop_database_url() -> str:
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    root = Path(local_app_data) if local_app_data else Path.home() / "AppData" / "Local"
+    database_path = root / APP_DATA_DIR_NAME / "sapsos.db"
+    return f"sqlite+pysqlite:///{database_path.as_posix()}"
+
+
+LOCAL_DESKTOP_DATABASE_URL = local_desktop_database_url()
 ALLOWED_ENVIRONMENTS = {"development", "test", "staging", "production"}
 ALLOWED_PRODUCT_MODES = {"LOCAL_DESKTOP", "SERVER"}
 ALLOWED_AUTH_MODES = {"local", "bearer"}
@@ -29,7 +41,7 @@ def parse_cors_origins(value: str) -> list[str]:
 
 class Settings(BaseSettings):
     app_name: str = "Smart Academic Planning API"
-    database_url: str = LOCAL_DEVELOPMENT_DATABASE_URL
+    database_url: str = LOCAL_DESKTOP_DATABASE_URL
     database_connect_timeout_seconds: int = Field(default=3, gt=0, le=60)
     environment: str = "development"
     product_mode: str = "LOCAL_DESKTOP"
@@ -63,8 +75,8 @@ class Settings(BaseSettings):
     @classmethod
     def validate_database_url(cls, value: str) -> str:
         normalized = value.strip()
-        if not normalized.startswith("postgresql+psycopg://"):
-            raise ValueError("DATABASE_URL must use postgresql+psycopg://")
+        if not normalized.startswith(("postgresql+psycopg://", "sqlite+pysqlite:///")):
+            raise ValueError("DATABASE_URL must use postgresql+psycopg:// or sqlite+pysqlite:///")
         return normalized
 
     @field_validator("cors_origins")
@@ -101,6 +113,8 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_production_defaults(self) -> Self:
         if self.product_mode == "LOCAL_DESKTOP":
+            if not self.database_url.startswith("sqlite+pysqlite:///"):
+                raise ValueError("LOCAL_DESKTOP DATABASE_URL must use sqlite+pysqlite:///")
             if self.api_host not in LOCALHOST_NAMES:
                 try:
                     is_loopback = ipaddress.ip_address(self.api_host).is_loopback
@@ -114,8 +128,11 @@ class Settings(BaseSettings):
                     raise ValueError(
                         "LOCAL_DESKTOP CORS_ORIGINS must use explicit localhost origins"
                     )
-        elif self.auth_mode != "bearer":
-            raise ValueError("SERVER PRODUCT_MODE must use AUTH_MODE=bearer")
+        else:
+            if not self.database_url.startswith("postgresql+psycopg://"):
+                raise ValueError("SERVER DATABASE_URL must use postgresql+psycopg://")
+            if self.auth_mode != "bearer":
+                raise ValueError("SERVER PRODUCT_MODE must use AUTH_MODE=bearer")
 
         if self.environment == "production":
             if (
@@ -143,6 +160,10 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    @property
+    def is_local_database(self) -> bool:
+        return self.database_url.startswith("sqlite+pysqlite:///")
 
 
 settings = Settings()

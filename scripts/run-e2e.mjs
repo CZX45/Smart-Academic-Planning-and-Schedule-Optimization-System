@@ -128,9 +128,9 @@ async function main() {
             API_PORT: "8000",
             PRODUCT_MODE: "LOCAL_DESKTOP",
             AUTH_MODE: "local",
-            DATABASE_URL:
-              process.env.DATABASE_URL ??
-              "postgresql+psycopg://sapsos:sapsos_dev_password@localhost:5432/sapsos",
+            ...(process.env.DATABASE_URL
+              ? { DATABASE_URL: process.env.DATABASE_URL }
+              : {}),
           },
         },
       );

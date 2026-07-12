@@ -8,7 +8,11 @@ from app.config import settings
 engine = create_engine(
     settings.database_url,
     pool_pre_ping=True,
-    connect_args={"connect_timeout": settings.database_connect_timeout_seconds},
+    connect_args=(
+        {"check_same_thread": False}
+        if settings.is_local_database
+        else {"connect_timeout": settings.database_connect_timeout_seconds}
+    ),
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

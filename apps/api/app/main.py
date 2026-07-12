@@ -1,4 +1,5 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,10 +9,18 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.v1.academic import router as academic_router
 from app.config import settings
+from app.db.bootstrap import initialize_database
 from app.db.session import engine
 from app.schemas.health import HealthResponse, ReadinessResponse
 
-app = FastAPI(title=settings.app_name, version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    initialize_database(engine)
+    yield
+
+
+app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -62,7 +71,9 @@ def health() -> HealthResponse:
     return HealthResponse(
         status="ok",
         service=settings.app_name,
-        database_configured=settings.database_url.startswith("postgresql+psycopg://"),
+        database_configured=settings.database_url.startswith(
+            ("postgresql+psycopg://", "sqlite+pysqlite:///")
+        ),
     )
 
 

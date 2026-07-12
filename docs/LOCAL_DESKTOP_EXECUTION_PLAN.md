@@ -33,7 +33,7 @@ but LOCAL_DESKTOP is the current official product.
 
 - Repository: `D:\Crystal`.
 - `main` is synchronized with `origin/main` at merge commit
-  `99db1f6469308d25cb6bbd64426dcdabc20d4ccc`.
+  `4e05c8bc46414cf688ada01c0bc083acf140c9e7`.
 - PR 1 is merged as PR #35:
   `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
 - PR 1 commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
@@ -42,16 +42,17 @@ but LOCAL_DESKTOP is the current official product.
   authorization, stable app/data-directory contracts, and explicit Docker
   SERVER development defaults.
 - The current PR is the isolated worktree
-  `D:\Crystal\.cache\worktrees\prove-local-embedded-database-compatibility`
-  on branch `codex/prove-local-embedded-database-compatibility`.
+  `D:\Crystal\.cache\worktrees\establish-local-database-baseline`
+  on branch `codex/establish-local-database-baseline`.
 - Existing core academic domain, import staging, review/apply, course state,
   Degree Audit, eligibility, planner, section monitoring, and schedule
   optimizer logic remains present. Real school data and real section imports
   are not authoritative product data until reviewed and source-tagged.
 - Mock/seed data remains development-only and must never be presented as
   official school policy.
-- SERVER remains PostgreSQL-backed. LOCAL_DESKTOP currently has no embedded
-  database runtime default.
+- SERVER remains PostgreSQL-backed. LOCAL_DESKTOP now defaults to file-backed
+  SQLite under the stable app-data contract, with deterministic local schema
+  bootstrap and schema-version tracking.
 - The repository-wide Prettier gate has known pre-existing drift in
   `apps/extension` and `packages/shared`; unrelated cleanup is out of scope.
 
@@ -104,8 +105,8 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 ## Dependency-ordered milestones
 
 1. PR 1 delivery and runtime-mode isolation — complete.
-2. Local embedded-database compatibility proof — current.
-3. Local database baseline.
+2. Local embedded-database compatibility proof — complete.
+3. Local database baseline — current.
 4. Dynamic runtime discovery.
 5. API process supervision.
 6. Desktop-shell proof of concept.
@@ -150,23 +151,42 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 
 ### PR 2 — prove local embedded-database compatibility
 
-- Status: implementation complete locally; not yet committed or pushed.
-- Branch/worktree: `codex/prove-local-embedded-database-compatibility` /
-  `D:\Crystal\.cache\worktrees\prove-local-embedded-database-compatibility`.
-- Commit/PR/CI/merge: none yet.
+- Status: merged.
+- Branch: `prove-local-embedded-database-compatibility`; worktree removed after
+  merge, with generated cache residue blocked by Windows ACL.
+- Commit: `03795294c18756a243f610d37d9d887de9ab3203`.
+- PR URL: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/36`.
+- CI: run `29196320833` passed checks, E2E, and Docker Compose.
+- Merge commit: `4e05c8bc46414cf688ada01c0bc083acf140c9e7`.
 - Validation: direct metadata proof passed; direct sequential Alembic proof is
-  blocked at revision `20260623_0004` by SQLite constraint-alter limitations.
-  Focused SQLite proof is 3 passed. API regression is 149 passed. Recursive
-  monorepo tests passed (API 149, extension 51, shared 28, web 12), lint,
-  typecheck, build, OpenAPI drift, Ruff, Ruff format, MyPy, E2E (23/23), and
-  `git diff --check` passed.
-- Decision recorded: preserve PostgreSQL SERVER history and evaluate a
-  separate local baseline/bootstrap rather than weakening academic semantics.
-- Remaining risks: complete the focused proof, determine the smallest safe
-  local schema/version mechanism, and run PostgreSQL regression checks.
-- Exact next action: inspect the complete diff, commit only the proof test and
-  execution plan, push the branch, and create the Stage 1 PR. Do not begin the
-  local database baseline until this PR is merged and its evidence is accepted.
+  blocked at revision `20260623_0004`; focused SQLite proof 3 passed; API
+  regression 149 passed; recursive tests, lint, typecheck, build, OpenAPI
+  drift, Ruff, format, MyPy, E2E 23/23, and `git diff --check` passed.
+- Decision recorded: preserve PostgreSQL SERVER history and use a separate
+  local baseline/bootstrap rather than weakening academic semantics.
+- Exact next action: validate and publish the Stage 2 baseline PR below.
+
+### PR 3 — establish local database baseline
+
+- Status: implementation in progress; not yet committed or pushed.
+- Branch/worktree: `codex/establish-local-database-baseline` /
+  `D:\Crystal\.cache\worktrees\establish-local-database-baseline`.
+- Commit/PR/CI/merge: none yet.
+- Changes in scope: SQLite is the LOCAL_DESKTOP default; PostgreSQL remains
+  required for SERVER; SQLite engine options, file-directory creation, a
+  deterministic metadata bootstrap, local schema-version tracking, startup
+  initialization, and E2E startup support are implemented.
+- Validation: API regression 151 passed; recursive tests, lint, typecheck,
+  build, OpenAPI drift, Ruff, format, and MyPy passed. File-backed SQLite was
+  initialized twice and seeded twice with one institution. Seeded SQLite E2E
+  passed 23/23. Default AppData startup is blocked in this sandbox by an ACL on
+  `C:\Users\hp\AppData\Local\SAPSOS`; the same flow passed with a writable
+  SQLite path.
+- Remaining risks: verify exact diff scope, preserve SERVER PostgreSQL
+  behavior through CI, and keep installer, backup, and upgrade migration work
+  out of this PR.
+- Exact next action: inspect the complete diff, commit only the Stage 2
+  baseline files, push, and create the PR.
 
 ## Decision log
 
@@ -180,6 +200,10 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 - 2026-07-12 — No Extension pairing, real academic-data expansion, real
   Section import, optimizer integration, installer, Backup/Restore, or later
   milestone work began.
+- 2026-07-12 — LOCAL_DESKTOP now defaults to file-backed SQLite under the
+  stable app-data contract; SERVER remains PostgreSQL-backed and Alembic-owned.
+  Local startup creates the schema and records schema version 1. No production
+  upgrade migration or installer behavior is included.
 
 ## Validation ledger
 
@@ -200,26 +224,33 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 | `python -m ruff check .` / `format --check .` | Passed | API lint/format |
 | `python -m mypy .` | Passed | API strict typing |
 | `git diff --check` | Passed | PR 2 diff |
+| `python -m pytest` in `apps/api` | Passed, 151 tests, 1 warning | Stage 2 API regression |
+| `CI=true corepack pnpm test` | Passed | Stage 2 recursive tests |
+| `CI=true corepack pnpm lint` | Passed | Stage 2 recursive lint |
+| `CI=true corepack pnpm typecheck` | Passed | Stage 2 recursive typecheck |
+| `CI=true corepack pnpm build` | Passed | Stage 2 build |
+| `CI=true corepack pnpm openapi:check` | Passed | Stage 2 OpenAPI drift |
+| `CI=true corepack pnpm e2e` with seeded writable SQLite | Passed, 23 tests | Stage 2 local runtime E2E |
+| `python -m app.seed_dev` twice with writable SQLite | Passed, 1 institution | Stage 2 persistence/idempotence |
 
 ## Resume checkpoint
 
 - Current milestone: Local Runtime Foundation.
-- Current stage: Stage 1 — prove embedded database compatibility.
-- Current PR: PR 2, not yet created.
-- Current branch/worktree: `codex/prove-local-embedded-database-compatibility` /
-  `D:\Crystal\.cache\worktrees\prove-local-embedded-database-compatibility`.
-- Last completed action: PR 1 merged and main synchronized to
-  `99db1f6469308d25cb6bbd64426dcdabc20d4ccc`; SQLite metadata and migration
-  probes executed.
-- Last successful validation: all focused and repository-level checks listed in
-  the validation ledger, including E2E 23/23.
-- Outstanding blocker: existing Alembic history needs a safe local baseline or
-  carefully scoped dialect-neutral migration strategy; do not guess where
-  data-loss or academic-semantics risk exists.
-- Exact resume instruction: from the PR 2 worktree, run
-  `python -m pytest apps/api/tests/test_sqlite_compatibility.py -q`, inspect
-  the complete SQLite migration failure matrix, then implement only the
-  approved Stage 1 proof/baseline boundary.
+- Current stage: Stage 2 — local database baseline.
+- Current PR: PR 3, not yet created.
+- Current branch/worktree: `codex/establish-local-database-baseline` /
+  `D:\Crystal\.cache\worktrees\establish-local-database-baseline`.
+- Last completed action: PR 2 merged and main synchronized to
+  `4e05c8bc46414cf688ada01c0bc083acf140c9e7`; local SQLite startup, seed,
+  and seeded E2E evidence executed.
+- Last successful validation: all Stage 2 checks listed in the validation
+  ledger, including seeded E2E 23/23.
+- Outstanding blocker: default AppData directory creation is denied by this
+  sandbox's host ACL; writable-path behavior is proven. Do not weaken the
+  stable data-location contract to work around the sandbox.
+- Exact resume instruction: inspect `git status --short` and
+  `git diff --name-status`, confirm only Stage 2 baseline files are present,
+  then commit and publish PR 3.
 
 ## Scope confirmation
 
