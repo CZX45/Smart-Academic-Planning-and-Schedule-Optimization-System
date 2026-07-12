@@ -67,6 +67,12 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
   the existing `/api/v1/data-imports` and Phase 7B review path. It adds no new
   backend domain, official-source ingestion, credential handling, polling, or
   registration capability.
+- Phase 12A adds the production authentication and object-authorization
+  foundation. `/health` and `/ready` remain operational system probes; `/api/v1`
+  requests require bearer authentication when `AUTH_MODE=bearer`. Student-owned
+  objects are resolved back to `student_profile_id` and checked against user
+  grants, tenant-admin institution scope, or system-admin authority before the
+  handler runs.
 
 ### Browser Extension
 
@@ -80,6 +86,9 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
   pages under `https://kean-ss.colleague.elluciancloud.com/Student/*`.
 - Guided Kean import requests an optional Kean host permission only when the
   student starts the workflow, then captures only user-opened supported pages.
+- Non-local API imports require an explicitly entered bearer token. The popup
+  does not persist the token; it only sends it as an `Authorization` header for
+  the confirmed staging-import request.
 - Never stores school credentials.
 - Never performs registration actions.
 

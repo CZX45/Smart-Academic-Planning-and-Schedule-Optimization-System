@@ -14,6 +14,7 @@ LOCAL_DEVELOPMENT_CORS_ORIGINS = ",".join(
     for host in ("localhost", "127.0.0.1")
 )
 ALLOWED_ENVIRONMENTS = {"development", "test", "staging", "production"}
+ALLOWED_AUTH_MODES = {"development", "bearer"}
 LOCALHOST_NAMES = {"localhost", "127.0.0.1", "::1"}
 
 
@@ -27,6 +28,8 @@ class Settings(BaseSettings):
     database_connect_timeout_seconds: int = Field(default=3, gt=0, le=60)
     environment: str = "development"
     cors_origins: str = LOCAL_DEVELOPMENT_CORS_ORIGINS
+    auth_mode: str = "development"
+    bearer_token_min_length: int = Field(default=32, ge=32, le=256)
 
     model_config = SettingsConfigDict(env_file=("../../.env", ".env"), extra="ignore")
 
@@ -61,10 +64,21 @@ class Settings(BaseSettings):
                 raise ValueError("CORS_ORIGINS must contain http(s) origins")
         return ",".join(origins)
 
+    @field_validator("auth_mode")
+    @classmethod
+    def validate_auth_mode(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in ALLOWED_AUTH_MODES:
+            allowed = ", ".join(sorted(ALLOWED_AUTH_MODES))
+            raise ValueError(f"AUTH_MODE must be one of: {allowed}")
+        return normalized
+
     @model_validator(mode="after")
     def validate_production_defaults(self) -> Self:
         if self.environment != "production":
             return self
+        if self.auth_mode != "bearer":
+            raise ValueError("Production AUTH_MODE must be bearer")
         if self.database_url == LOCAL_DEVELOPMENT_DATABASE_URL:
             raise ValueError("Production DATABASE_URL must not use the local development default")
         for origin in self.cors_origin_list:

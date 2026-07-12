@@ -37,6 +37,13 @@ class SourceType(StrEnum):
     INFERRED = "INFERRED"
 
 
+class AuthUserRole(StrEnum):
+    STUDENT = "STUDENT"
+    ADVISOR = "ADVISOR"
+    TENANT_ADMIN = "TENANT_ADMIN"
+    SYSTEM_ADMIN = "SYSTEM_ADMIN"
+
+
 class ProgramType(StrEnum):
     MAJOR = "MAJOR"
     MINOR = "MINOR"
@@ -510,6 +517,13 @@ source_type_enum = Enum(
     create_constraint=True,
     validate_strings=True,
 )
+auth_user_role_enum = Enum(
+    AuthUserRole,
+    name="auth_user_role",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
 program_type_enum = Enum(
     ProgramType,
     name="program_type",
@@ -941,6 +955,108 @@ class Institution(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixin, Base
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     country: Mapped[str] = mapped_column(String(2), nullable=False, default="US")
     timezone: Mapped[str] = mapped_column(String(80), nullable=False)
+
+
+class AuthTenant(UuidPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "auth_tenants"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["institution_id"],
+            ["institutions.id"],
+            name="fk_auth_tenants_institution",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("length(slug) > 0", name="ck_auth_tenants_slug_not_empty"),
+        CheckConstraint("length(display_name) > 0", name="ck_auth_tenants_name_not_empty"),
+        Index("uq_auth_tenants_slug", "slug", unique=True),
+        Index("ix_auth_tenants_institution", "institution_id"),
+    )
+
+    institution_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    slug: Mapped[str] = mapped_column(String(80), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class AuthUser(UuidPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "auth_users"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id"],
+            ["auth_tenants.id"],
+            name="fk_auth_users_tenant",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("length(external_subject) > 0", name="ck_auth_users_subject_not_empty"),
+        CheckConstraint(
+            "email IS NULL OR length(email) > 0",
+            name="ck_auth_users_email_not_empty",
+        ),
+        Index("uq_auth_users_tenant_subject", "tenant_id", "external_subject", unique=True),
+        Index("ix_auth_users_tenant_role", "tenant_id", "role"),
+    )
+
+    tenant_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    external_subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[AuthUserRole] = mapped_column(auth_user_role_enum, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class AuthApiToken(UuidPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "auth_api_tokens"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["user_id"],
+            ["auth_users.id"],
+            name="fk_auth_api_tokens_user",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("length(token_hash) = 64", name="ck_auth_api_tokens_hash_length"),
+        CheckConstraint("length(label) > 0", name="ck_auth_api_tokens_label_not_empty"),
+        Index("uq_auth_api_tokens_hash", "token_hash", unique=True),
+        Index("ix_auth_api_tokens_user", "user_id"),
+    )
+
+    user_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    label: Mapped[str] = mapped_column(String(120), nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class StudentProfileAccess(UuidPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "student_profile_access_grants"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["user_id"],
+            ["auth_users.id"],
+            name="fk_student_profile_access_user",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["student_profile_id"],
+            ["student_profiles.id"],
+            name="fk_student_profile_access_student",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("length(grant_reason) > 0", name="ck_student_profile_access_reason"),
+        Index(
+            "uq_student_profile_access_user_student",
+            "user_id",
+            "student_profile_id",
+            unique=True,
+        ),
+        Index("ix_student_profile_access_student", "student_profile_id"),
+    )
+
+    user_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    student_profile_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    role: Mapped[AuthUserRole] = mapped_column(auth_user_role_enum, nullable=False)
+    grant_reason: Mapped[str] = mapped_column(String(255), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Campus(UuidPrimaryKeyMixin, SourceMetadataMixin, TimestampMixin, Base):

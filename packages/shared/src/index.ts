@@ -1599,6 +1599,7 @@ export class ApiResponseSchemaError extends Error {
 }
 
 export type FetchHealthOptions = {
+  apiBearerToken?: string;
   fetchFn?: typeof fetch;
   timeoutMs?: number;
 };
@@ -1953,17 +1954,22 @@ async function fetchJson(
   path: string,
   options: RequestInit & FetchHealthOptions = {},
 ): Promise<unknown> {
-  const { fetchFn, timeoutMs, ...requestOptions } = options;
+  const { apiBearerToken, fetchFn, timeoutMs, ...requestOptions } = options;
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(),
     timeoutMs ?? DEFAULT_TIMEOUT_MS,
   );
+  const headers = new Headers(requestOptions.headers);
+  if (apiBearerToken && apiBearerToken.trim().length > 0) {
+    headers.set("authorization", `Bearer ${apiBearerToken.trim()}`);
+  }
 
   try {
     const response = await (fetchFn ?? fetch)(buildApiUrl(apiBaseUrl, path), {
       cache: "no-store",
       ...requestOptions,
+      headers,
       signal: controller.signal,
     });
 

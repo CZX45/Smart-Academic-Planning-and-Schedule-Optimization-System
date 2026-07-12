@@ -61,6 +61,10 @@ Academic requirements are high-impact. Incorrect results may delay graduation, a
   `source_type = BROWSER_EXTENSION`, `is_official = false`,
   `official_application_ready = false`, `source_label = KEAN_STUDENT_PORTAL`
   in preview metadata, and Phase 7B review required before planning use.
+- Treat Phase 12A authentication as an application-access foundation, not a
+  school-login workflow. The backend stores only API token hashes and explicit
+  student-profile access grants. It must not collect school passwords, portal
+  cookies, SAML tokens, MFA secrets, or browser-storage authentication material.
 - Maintain regression fixtures for every catalog/program version.
 
 ## 6. Privacy Controls
@@ -69,6 +73,8 @@ Recommended controls:
 
 - User-owned planning sessions.
 - Role-based access for student, advisor, and administrator roles.
+- Tenant and object-level authorization for every student-owned API object.
+- Hashed, revocable, expirable bearer API tokens for production API access.
 - Encrypted transport.
 - Encryption at rest for sensitive fields where appropriate.
 - Audit logs for advisor/admin access.
@@ -86,6 +92,7 @@ Recommended controls:
 | Overbroad extension access                        | Use narrow permissions and user-triggered extraction. For Kean, request only the optional Kean host permission and enforce the `/Student/` prefix and page whitelist in code.                                                                                                                       |
 | Incorrect academic advice                         | Source versioning, confidence levels, advisor-confirmation warnings, tests.                                                                                                                                                            |
 | Unauthorized advisor access                       | Role-based access control and audit logging.                                                                                                                                                                                           |
+| Cross-student object access                       | Resolve student-owned object IDs back to `student_profile_id` and require an explicit grant, tenant-admin institution scope, or system-admin role before returning or mutating data.                                                    |
 | Data leakage in logs                              | Structured logging with redaction.                                                                                                                                                                                                     |
 | Prompt or fixture confusion                       | Clearly label mock data and never call it official.                                                                                                                                                                                    |
 | Excessive school-system requests                  | No high-frequency polling; backoff and user-controlled refresh.                                                                                                                                                                        |
@@ -95,6 +102,7 @@ Recommended controls:
 | Section monitoring mistaken for live registration | Store only non-official advisory snapshots, require manual verification messaging, deduplicate imported snapshots, avoid background polling, and provide no portal-action endpoints or extension code.                                 |
 | Misconfigured production environment              | Validate environment, database URL scheme, production database defaults, CORS origins, public API URL, and safe HTTP headers before serving traffic.                                                                   |
 | Sensitive data leakage through logs               | Log low-sensitivity event metadata only: IDs, source type, import type, counts, statuses, and reason codes. Do not log raw import content, HTML, credentials, tokens, passwords, or full academic records.             |
+| API token disclosure                              | Store only token hashes server-side, reject short tokens, support revocation/expiration metadata, and do not persist extension-entered bearer tokens in Chrome storage.                                                |
 
 ## 8. Compliance Considerations
 
@@ -108,6 +116,10 @@ Before production-like deployment, confirm:
 - `DATABASE_URL` is a PostgreSQL psycopg URL and does not use local development credentials in production.
 - `CORS_ORIGINS` contains only explicit origins; production origins use HTTPS and are not localhost.
 - `NEXT_PUBLIC_API_BASE_URL` is an `http` or `https` URL without embedded credentials.
+- `AUTH_MODE=bearer` is required for production.
+- Production API tokens are provisioned outside the app, stored only as hashes,
+  and scoped through `student_profile_access_grants`, tenant-admin institution
+  scope, or system-admin authority.
 - Database migrations and Alembic drift checks pass.
 - OpenAPI generation and OpenAPI drift checks pass.
 - Unit, integration, e2e, lint, typecheck, format, build, and Docker Compose checks pass.

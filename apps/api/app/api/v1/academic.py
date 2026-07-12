@@ -174,6 +174,7 @@ from app.schemas.academic import (
     StudentCourseAttemptResponse,
     StudentProfileResponse,
 )
+from app.security.auth import enforce_api_authorization
 from app.services.academic_planner.engine import AcademicPlannerApplicationService
 from app.services.academic_planner.exceptions import AcademicPlannerValidationError
 from app.services.academic_scenarios.engine import AcademicScenarioApplicationService
@@ -197,7 +198,11 @@ from app.services.section_monitoring.engine import (
 )
 from app.services.section_monitoring.exceptions import SectionMonitoringValidationError
 
-router = APIRouter(prefix="/api/v1", tags=["academic"])
+router = APIRouter(
+    prefix="/api/v1",
+    tags=["academic"],
+    dependencies=[Depends(enforce_api_authorization)],
+)
 not_found_response = {"model": ErrorResponse}
 DatabaseSession = Annotated[Session, Depends(get_db)]
 

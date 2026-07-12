@@ -447,6 +447,53 @@ describe("data import schemas", () => {
     });
   });
 
+  it("adds a bearer token to typed API helper requests when configured", async () => {
+    let authorizationHeader: string | null = null;
+    const fetchFn = async (_input: RequestInfo | URL, init?: RequestInit) => {
+      authorizationHeader = new Headers(init?.headers).get("authorization");
+      return new Response(
+        JSON.stringify({
+          id: "00000000-0000-4000-8000-000000000701",
+          student_profile_id: "00000000-0000-4000-8000-000000000702",
+          import_type: "UNOFFICIAL_TRANSCRIPT",
+          status: "PARSED",
+          storage_strategy: "METADATA_ONLY",
+          file_name: "transcript.csv",
+          file_mime_type: "text/csv",
+          file_size_bytes: 32,
+          file_sha256:
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          parser_version: "phase7a-data-import-v1",
+          record_count: 0,
+          valid_record_count: 0,
+          warning_count: 0,
+          error_count: 0,
+          official_application_ready: false,
+          started_at: "2026-06-30T00:00:00Z",
+          completed_at: "2026-06-30T00:00:01Z",
+          source: { source_type: "STUDENT_PROVIDED", is_official: false },
+          created_at: "2026-06-30T00:00:00Z",
+          updated_at: "2026-06-30T00:00:01Z",
+        }),
+      );
+    };
+
+    await createDataImport(
+      "http://api.test",
+      {
+        student_profile_id: "00000000-0000-4000-8000-000000000702",
+        import_type: "UNOFFICIAL_TRANSCRIPT",
+        file_name: "transcript.csv",
+        file_mime_type: "text/csv",
+        content: "",
+        source_type: "STUDENT_PROVIDED",
+      },
+      { apiBearerToken: "typed-client-token", fetchFn },
+    );
+
+    expect(authorizationHeader).toBe("Bearer typed-client-token");
+  });
+
   it("validates review sessions, record decisions, warnings, and dry-run results", () => {
     const review = DataImportReviewSessionSchema.parse({
       id: "00000000-0000-4000-8000-000000000731",

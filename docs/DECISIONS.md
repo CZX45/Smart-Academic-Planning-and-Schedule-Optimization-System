@@ -438,3 +438,35 @@ Consequences:
   structured blocking reasons.
 - The feature remains advisory and does not expand browser or registration
   authority.
+
+## ADR-0027: Use hashed bearer tokens and explicit student grants for production auth foundation
+
+Status: Accepted
+
+Context: The API has accumulated student-owned generated objects: degree
+audits, eligibility checks, academic plans, schedule optimizations, staging
+imports, review sessions, applications, course-state snapshots, monitoring
+targets/alerts, and what-if scenarios. The next production step needs
+authentication and object-level authorization without introducing school
+password collection or an external identity-provider dependency before the
+deployment model is finalized.
+
+Decision: Add an application-auth foundation with tenants, users, hashed bearer
+API tokens, and explicit student-profile access grants. Production requires
+`AUTH_MODE=bearer`; development mode keeps a local system-admin bypass for
+existing local tests and demos. A centralized FastAPI router dependency resolves
+path/query/body object identifiers back to `student_profile_id` before route
+handlers execute. Access is allowed only for explicit grants, tenant admins
+within their tenant institution scope, or system admins. Health/readiness probes
+remain outside `/api/v1`.
+
+Consequences:
+
+- The backend stores no school credentials, portal cookies, SAML tokens, MFA
+  secrets, or plaintext API tokens.
+- Student-owned object APIs are protected consistently without duplicating
+  checks across every handler.
+- Token issuance and external SSO/OIDC login remain future production work; the
+  current foundation is intentionally narrow and reviewable.
+- Browser-extension non-local staging imports require an entered bearer token,
+  and the popup does not persist that token.
