@@ -212,6 +212,10 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
   E2E returned 401 when forced into SERVER bearer mode. E2E now uses seeded
   file-backed LOCAL_DESKTOP SQLite; checks continue to validate SERVER
   PostgreSQL separately.
+- 2026-07-12 — Automated review identified that SQLite foreign keys were
+  enabled only in tests. Production SQLite connections now enable
+  `PRAGMA foreign_keys=ON`, with a focused regression test; the standalone
+  seed entrypoint also initializes the local schema before writing.
 
 ## Validation ledger
 
