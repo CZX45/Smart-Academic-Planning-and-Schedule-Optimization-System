@@ -175,16 +175,16 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 - Changes in scope: SQLite is the LOCAL_DESKTOP default; PostgreSQL remains
   required for SERVER; SQLite engine options, file-directory creation, a
   deterministic metadata bootstrap, local schema-version tracking, startup
-  initialization, E2E startup support, and explicit SERVER/PostgreSQL CI setup
-  for Alembic/seed/E2E are implemented.
+  initialization, standalone local seeding, E2E startup support, and explicit
+  SERVER/PostgreSQL CI setup for checks are implemented.
 - Validation: API regression 151 passed; recursive tests, lint, typecheck,
   build, OpenAPI drift, Ruff, format, and MyPy passed. File-backed SQLite was
   initialized twice and seeded twice with one institution. Seeded SQLite E2E
   passed 23/23. Default AppData startup is blocked in this sandbox by an ACL on
   `C:\Users\hp\AppData\Local\SAPSOS`; the same flow passed with a writable
   SQLite path.
-- Remaining risks: rerun CI after the environment fix, verify exact diff scope,
-  and keep installer, backup, and upgrade migration work out of this PR.
+- Remaining risks: rerun CI after the E2E environment fix, verify exact diff
+  scope, and keep installer, backup, and upgrade migration work out of this PR.
 - Exact next action: inspect the complete diff, commit only the Stage 2
   baseline files, push, and create the PR.
 
@@ -208,6 +208,10 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
   inherited the new SQLite default and failed before checks/E2E. The workflow
   now sets explicit SERVER/PostgreSQL environment only for migration, seed,
   and E2E setup, preserving LOCAL_DESKTOP as the ordinary test default.
+- 2026-07-12 — Corrected CI run `29196975368` proved checks and Docker, but
+  E2E returned 401 when forced into SERVER bearer mode. E2E now uses seeded
+  file-backed LOCAL_DESKTOP SQLite; checks continue to validate SERVER
+  PostgreSQL separately.
 
 ## Validation ledger
 

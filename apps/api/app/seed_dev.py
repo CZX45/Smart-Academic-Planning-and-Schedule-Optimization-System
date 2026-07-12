@@ -8,7 +8,8 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from sqlalchemy.orm import Session
 
 from app.db.base import Base, DevSeedRecord
-from app.db.session import SessionLocal
+from app.db.bootstrap import initialize_database
+from app.db.session import SessionLocal, engine
 from app.models.academic import (
     AcademicProgram,
     AcademicTerm,
@@ -2389,6 +2390,7 @@ def seed_mock_data(session: Session) -> None:
 
 
 def main() -> None:
+    initialize_database(engine)
     with SessionLocal() as session:
         seed_mock_data(session)
 
