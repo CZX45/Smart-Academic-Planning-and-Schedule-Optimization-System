@@ -126,8 +126,8 @@ async function main() {
           env: {
             API_HOST: "127.0.0.1",
             API_PORT: "8000",
-            PRODUCT_MODE: "LOCAL_DESKTOP",
-            AUTH_MODE: "local",
+            PRODUCT_MODE: process.env.PRODUCT_MODE ?? "LOCAL_DESKTOP",
+            AUTH_MODE: process.env.AUTH_MODE ?? "local",
             ...(process.env.DATABASE_URL
               ? { DATABASE_URL: process.env.DATABASE_URL }
               : {}),

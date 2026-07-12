@@ -175,16 +175,16 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 - Changes in scope: SQLite is the LOCAL_DESKTOP default; PostgreSQL remains
   required for SERVER; SQLite engine options, file-directory creation, a
   deterministic metadata bootstrap, local schema-version tracking, startup
-  initialization, and E2E startup support are implemented.
+  initialization, E2E startup support, and explicit SERVER/PostgreSQL CI setup
+  for Alembic/seed/E2E are implemented.
 - Validation: API regression 151 passed; recursive tests, lint, typecheck,
   build, OpenAPI drift, Ruff, format, and MyPy passed. File-backed SQLite was
   initialized twice and seeded twice with one institution. Seeded SQLite E2E
   passed 23/23. Default AppData startup is blocked in this sandbox by an ACL on
   `C:\Users\hp\AppData\Local\SAPSOS`; the same flow passed with a writable
   SQLite path.
-- Remaining risks: verify exact diff scope, preserve SERVER PostgreSQL
-  behavior through CI, and keep installer, backup, and upgrade migration work
-  out of this PR.
+- Remaining risks: rerun CI after the environment fix, verify exact diff scope,
+  and keep installer, backup, and upgrade migration work out of this PR.
 - Exact next action: inspect the complete diff, commit only the Stage 2
   baseline files, push, and create the PR.
 
@@ -204,6 +204,10 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
   stable app-data contract; SERVER remains PostgreSQL-backed and Alembic-owned.
   Local startup creates the schema and records schema version 1. No production
   upgrade migration or installer behavior is included.
+- 2026-07-12 — CI run `29196835215` showed the existing Alembic setup steps
+  inherited the new SQLite default and failed before checks/E2E. The workflow
+  now sets explicit SERVER/PostgreSQL environment only for migration, seed,
+  and E2E setup, preserving LOCAL_DESKTOP as the ordinary test default.
 
 ## Validation ledger
 
@@ -232,6 +236,9 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 | `CI=true corepack pnpm openapi:check` | Passed | Stage 2 OpenAPI drift |
 | `CI=true corepack pnpm e2e` with seeded writable SQLite | Passed, 23 tests | Stage 2 local runtime E2E |
 | `python -m app.seed_dev` twice with writable SQLite | Passed, 1 institution | Stage 2 persistence/idempotence |
+| CI run `29196835215` before workflow fix | Failed at Alembic | SQLite default reached PostgreSQL-only CI setup |
+| CI YAML parse / `node --check scripts/run-e2e.mjs` | Passed | CI follow-up validation |
+| Focused config/local database tests after CI fix | Passed, 22 tests | CI follow-up validation |
 
 ## Resume checkpoint
 
