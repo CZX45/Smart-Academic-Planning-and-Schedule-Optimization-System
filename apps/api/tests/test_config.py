@@ -5,6 +5,7 @@ from app.config import (
     APP_DATA_DIR_NAME,
     APP_ID,
     FUTURE_DATA_ROOT,
+    LOCAL_DESKTOP_DATABASE_URL,
     LOCAL_DEVELOPMENT_DATABASE_URL,
     Settings,
 )
@@ -16,6 +17,8 @@ def test_settings_accept_local_development_defaults() -> None:
     assert settings.environment == "development"
     assert settings.product_mode == "LOCAL_DESKTOP"
     assert settings.auth_mode == "local"
+    assert settings.database_url == LOCAL_DESKTOP_DATABASE_URL
+    assert settings.is_local_database is True
     assert settings.api_host == "127.0.0.1"
     assert settings.cors_origin_list == [
         "http://localhost:3000",
@@ -38,7 +41,7 @@ def test_settings_accept_local_development_defaults() -> None:
     ],
 )
 def test_settings_reject_missing_or_unsupported_database_url(database_url: str) -> None:
-    with pytest.raises(ValidationError, match="DATABASE_URL must use postgresql\\+psycopg://"):
+    with pytest.raises(ValidationError, match="DATABASE_URL must use"):
         Settings(database_url=database_url)
 
 
@@ -91,6 +94,7 @@ def test_server_accepts_container_host_and_requires_bearer() -> None:
         product_mode="SERVER",
         auth_mode="bearer",
         api_host="0.0.0.0",
+        database_url=LOCAL_DEVELOPMENT_DATABASE_URL,
         cors_origins="http://localhost:3000",
     )
 
