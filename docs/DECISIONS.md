@@ -452,9 +452,11 @@ password collection or an external identity-provider dependency before the
 deployment model is finalized.
 
 Decision: Add an application-auth foundation with tenants, users, hashed bearer
-API tokens, and explicit student-profile access grants. Production requires
-`AUTH_MODE=bearer`; development mode keeps a local system-admin bypass for
-existing local tests and demos. A centralized FastAPI router dependency resolves
+API tokens, and explicit student-profile access grants, while separating local
+and server runtime behavior with `PRODUCT_MODE`. `LOCAL_DESKTOP` is the default
+and uses an explicitly named `LocalRuntimeContext`; it does not use a public
+development bypass or query authorization tables. `SERVER` requires
+`AUTH_MODE=bearer`. A centralized FastAPI router dependency resolves
 path/query/body object identifiers back to `student_profile_id` before route
 handlers execute. Access is allowed only for explicit grants, tenant admins
 within their tenant institution scope, or system admins. Health/readiness probes
@@ -470,3 +472,7 @@ Consequences:
   current foundation is intentionally narrow and reviewable.
 - Browser-extension non-local staging imports require an entered bearer token,
   and the popup does not persist that token.
+- `ENVIRONMENT` is independent from `PRODUCT_MODE`; production local-desktop
+  mode remains a valid loopback local runtime.
+- Local desktop API binding is loopback-only and Docker publishes its API port
+  on loopback by default.

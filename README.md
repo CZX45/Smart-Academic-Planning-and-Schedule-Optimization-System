@@ -42,12 +42,16 @@ cp .env.example .env
 Required local variables include:
 
 - `ENVIRONMENT`
+- `PRODUCT_MODE` (`LOCAL_DESKTOP` by default; `SERVER` must be explicit)
+- `AUTH_MODE` (`local` for local desktop; `bearer` for server)
+- `API_HOST` (`127.0.0.1` by default)
+- `API_PORT`
 - `DATABASE_URL`
 - `DATABASE_CONNECT_TIMEOUT_SECONDS`
 - `NEXT_PUBLIC_API_BASE_URL`
 - `CORS_ORIGINS`
 
-`ENVIRONMENT` must be one of `development`, `test`, `staging`, or `production`. Production settings must use an explicit non-local PostgreSQL URL and HTTPS CORS origins; the API rejects wildcard CORS origins and unsupported database URL schemes. `NEXT_PUBLIC_API_BASE_URL` must be an `http` or `https` URL and must not contain credentials.
+`ENVIRONMENT` is independent of `PRODUCT_MODE` and must be one of `development`, `test`, `staging`, or `production`. `LOCAL_DESKTOP` is the default product mode, uses an explicit local runtime context, and only permits loopback `API_HOST` values (`127.0.0.1`, `localhost`, or `::1`). `SERVER` must be explicitly selected and requires `AUTH_MODE=bearer`; production server settings must use an explicit non-local PostgreSQL URL and HTTPS CORS origins. Every mode rejects wildcard CORS origins and requires explicit allowlists. Pairing and complete localhost webpage protection are not implemented yet. `NEXT_PUBLIC_API_BASE_URL` must be an `http` or `https` URL and must not contain credentials.
 
 ## Install
 
@@ -139,7 +143,7 @@ docker compose down
 
 ## Full Docker development
 
-This command starts PostgreSQL, FastAPI, and Next.js in Docker. The API waits for the database health check and runs Alembic migrations before Uvicorn starts.
+This command starts PostgreSQL, FastAPI, and Next.js in Docker. The API runs explicitly as `PRODUCT_MODE=SERVER` with `AUTH_MODE=bearer`; it may bind `API_HOST=0.0.0.0` inside the container, while Compose publishes the API port on `127.0.0.1` by default. It waits for the database health check and runs Alembic migrations before Uvicorn starts.
 
 ```bash
 pnpm dev:docker

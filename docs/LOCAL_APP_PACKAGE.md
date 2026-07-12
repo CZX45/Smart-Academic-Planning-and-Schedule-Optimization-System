@@ -54,6 +54,13 @@ The start script:
 - runs development seed data in the API container;
 - waits for web/API URLs before printing success.
 
+The local package uses `PRODUCT_MODE=LOCAL_DESKTOP`, `AUTH_MODE=local`, and
+`API_HOST=127.0.0.1` by default. Local desktop mode is loopback-only and does
+not require a bearer token. Docker is a separate explicit `PRODUCT_MODE=SERVER`
+runtime with `AUTH_MODE=bearer`; the container may bind `0.0.0.0`, but the host
+port is published on `127.0.0.1` by default. Pairing and complete localhost
+webpage protection are not implemented yet.
+
 ## Stop Command
 
 ```powershell
@@ -84,6 +91,15 @@ contains local development defaults only:
 - `POSTGRES_PASSWORD=sapsos_dev_password`
 - `POSTGRES_DB=sapsos`
 - `DATABASE_URL=postgresql+psycopg://sapsos:sapsos_dev_password@localhost:5432/sapsos`
+- `PRODUCT_MODE=LOCAL_DESKTOP`
+- `AUTH_MODE=local`
+- `API_HOST=127.0.0.1`
+- `API_PORT=8000`
+
+The stable application contracts are `APP_ID=com.sapsos.smart-academic-planner`
+and `APP_DATA_DIR_NAME=SAPSOS`. The future Windows data root is
+`%LOCALAPPDATA%\\SAPSOS\\`; this phase defines and tests the contract but does
+not create the directory.
 
 These are not school credentials and are not production secrets. Docker Compose
 uses the `postgres_data` volume so local data survives normal stops.

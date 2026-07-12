@@ -1,3 +1,4 @@
+import ipaddress
 from typing import Self
 from urllib.parse import urlparse
 
@@ -13,8 +14,12 @@ LOCAL_DEVELOPMENT_CORS_ORIGINS = ",".join(
     for port in LOCAL_DEVELOPMENT_WEB_PORTS
     for host in ("localhost", "127.0.0.1")
 )
+APP_ID = "com.sapsos.smart-academic-planner"
+APP_DATA_DIR_NAME = "SAPSOS"
+FUTURE_DATA_ROOT = "%LOCALAPPDATA%\\SAPSOS\\"
 ALLOWED_ENVIRONMENTS = {"development", "test", "staging", "production"}
-ALLOWED_AUTH_MODES = {"development", "bearer"}
+ALLOWED_PRODUCT_MODES = {"LOCAL_DESKTOP", "SERVER"}
+ALLOWED_AUTH_MODES = {"local", "bearer"}
 LOCALHOST_NAMES = {"localhost", "127.0.0.1", "::1"}
 
 
@@ -27,8 +32,11 @@ class Settings(BaseSettings):
     database_url: str = LOCAL_DEVELOPMENT_DATABASE_URL
     database_connect_timeout_seconds: int = Field(default=3, gt=0, le=60)
     environment: str = "development"
+    product_mode: str = "LOCAL_DESKTOP"
     cors_origins: str = LOCAL_DEVELOPMENT_CORS_ORIGINS
-    auth_mode: str = "development"
+    api_host: str = "127.0.0.1"
+    api_port: int = Field(default=8000, gt=0, le=65535)
+    auth_mode: str = "local"
     bearer_token_min_length: int = Field(default=32, ge=32, le=256)
 
     model_config = SettingsConfigDict(env_file=("../../.env", ".env"), extra="ignore")
@@ -40,6 +48,15 @@ class Settings(BaseSettings):
         if normalized not in ALLOWED_ENVIRONMENTS:
             allowed = ", ".join(sorted(ALLOWED_ENVIRONMENTS))
             raise ValueError(f"ENVIRONMENT must be one of: {allowed}")
+        return normalized
+
+    @field_validator("product_mode")
+    @classmethod
+    def validate_product_mode(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if normalized not in ALLOWED_PRODUCT_MODES:
+            allowed = ", ".join(sorted(ALLOWED_PRODUCT_MODES))
+            raise ValueError(f"PRODUCT_MODE must be one of: {allowed}")
         return normalized
 
     @field_validator("database_url")
@@ -64,6 +81,14 @@ class Settings(BaseSettings):
                 raise ValueError("CORS_ORIGINS must contain http(s) origins")
         return ",".join(origins)
 
+    @field_validator("api_host")
+    @classmethod
+    def validate_api_host(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized or normalized == "*":
+            raise ValueError("API_HOST must be an explicit host")
+        return normalized
+
     @field_validator("auth_mode")
     @classmethod
     def validate_auth_mode(cls, value: str) -> str:
@@ -75,18 +100,40 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_defaults(self) -> Self:
-        if self.environment != "production":
-            return self
-        if self.auth_mode != "bearer":
-            raise ValueError("Production AUTH_MODE must be bearer")
-        if self.database_url == LOCAL_DEVELOPMENT_DATABASE_URL:
-            raise ValueError("Production DATABASE_URL must not use the local development default")
-        for origin in self.cors_origin_list:
-            parsed = urlparse(origin)
-            if parsed.hostname in LOCALHOST_NAMES:
-                raise ValueError("Production CORS_ORIGINS must not include localhost origins")
-            if parsed.scheme != "https":
-                raise ValueError("Production CORS_ORIGINS must use https origins")
+        if self.product_mode == "LOCAL_DESKTOP":
+            if self.api_host not in LOCALHOST_NAMES:
+                try:
+                    is_loopback = ipaddress.ip_address(self.api_host).is_loopback
+                except ValueError:
+                    is_loopback = False
+                if not is_loopback:
+                    raise ValueError("LOCAL_DESKTOP API_HOST must be 127.0.0.1, localhost, or ::1")
+            for origin in self.cors_origin_list:
+                parsed = urlparse(origin)
+                if parsed.hostname not in LOCALHOST_NAMES:
+                    raise ValueError(
+                        "LOCAL_DESKTOP CORS_ORIGINS must use explicit localhost origins"
+                    )
+        elif self.auth_mode != "bearer":
+            raise ValueError("SERVER PRODUCT_MODE must use AUTH_MODE=bearer")
+
+        if self.environment == "production":
+            if (
+                self.product_mode == "SERVER"
+                and self.database_url == LOCAL_DEVELOPMENT_DATABASE_URL
+            ):
+                raise ValueError(
+                    "Production DATABASE_URL must not use the local development default"
+                )
+            if self.product_mode == "SERVER":
+                for origin in self.cors_origin_list:
+                    parsed = urlparse(origin)
+                    if parsed.hostname in LOCALHOST_NAMES:
+                        raise ValueError(
+                            "Production SERVER CORS_ORIGINS must not include localhost origins"
+                        )
+                    if parsed.scheme != "https":
+                        raise ValueError("Production SERVER CORS_ORIGINS must use https origins")
         return self
 
     @property
