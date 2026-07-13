@@ -4800,6 +4800,27 @@
         }
       }
     },
+    "/runtime": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Runtime Manifest",
+        "operationId": "runtime_manifest_runtime_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeManifest"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ready": {
       "get": {
         "tags": [
@@ -9713,6 +9734,66 @@
           "created_at"
         ],
         "title": "RuleExpressionEvaluationResponse"
+      },
+      "RuntimeManifest": {
+        "properties": {
+          "protocol_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Protocol Version",
+            "default": 1
+          },
+          "instance_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Instance Id"
+          },
+          "pid": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Pid"
+          },
+          "host": {
+            "type": "string",
+            "title": "Host"
+          },
+          "port": {
+            "type": "integer",
+            "maximum": 65535.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Port"
+          },
+          "base_url": {
+            "type": "string",
+            "title": "Base Url"
+          },
+          "readiness_url": {
+            "type": "string",
+            "title": "Readiness Url"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "instance_id",
+          "pid",
+          "host",
+          "port",
+          "base_url",
+          "readiness_url",
+          "status",
+          "started_at"
+        ],
+        "title": "RuntimeManifest"
       },
       "ScenarioComparisonSnapshotResponse": {
         "properties": {
