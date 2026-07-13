@@ -365,8 +365,12 @@ requirements. Extension pairing begins only after this foundation boundary.
 
 ### Stage 7 — package the LOCAL_DESKTOP Web UI
 
-- Status: implementation complete in the isolated `package-web-ui` worktree;
-  merge and final CI are pending.
+- Status: complete and merged through PR #45.
+- Branch/worktree: `package-web-ui` / isolated Stage 7 worktree.
+- Commit: `96d4bd2fd6057a1570cb3151ecd9ecc25ea98c7d`.
+- PR URL: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/45`.
+- Merge commit: `ad57e944fcb95d28311d0018a553dd4d2d2cf5b1`.
+- CI: exact-head run `29274114313` passed checks, E2E, and Docker Compose.
 - Decision: Next.js static export is viable and selected. The current UI has
   only static App Router routes and browser-side API calls, so a packaged Node
   server is unnecessary. Release Tauri builds load
@@ -395,6 +399,10 @@ requirements. Extension pairing begins only after this foundation boundary.
   The combined packaged API/Tauri no-Node/no-Python run must be recorded as a
   controlled PATH simulation, not as a clean Windows image. Installer,
   signing, updater, and Stage 8 remain out of scope.
+
+- Exact next action: Stage 8 — implement secure Extension pairing and
+  localhost request protection planning boundary. Do not begin it in this
+  Stage 7 closeout.
 
 ## Decision log
 
