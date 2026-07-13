@@ -111,9 +111,10 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 3. Local database baseline — complete.
 4. Dynamic runtime discovery — complete.
 5. API process supervision — complete.
-6. Desktop-shell proof of concept — complete; PR #40 merged.
-7. FastAPI runtime packaging — next stage in the Local Runtime Foundation.
-8. Web UI packaging — follows FastAPI runtime packaging in the same foundation.
+6. Stage 5 — desktop-shell proof of concept — complete; PR #40 merged.
+7. Stage 6 — FastAPI runtime packaging — next stage in the Local Runtime
+   Foundation.
+8. Stage 7 — Web UI packaging — follows Stage 6 in the same foundation.
 9. Extension pairing.
 10. Localhost request protection.
 11. Real MyProgress stabilization.
