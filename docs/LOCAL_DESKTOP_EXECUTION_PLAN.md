@@ -32,8 +32,9 @@ but LOCAL_DESKTOP is the current official product.
 ## Current verified state
 
 - Repository: `D:\Crystal`.
-- `main` is synchronized with `origin/main` at merge commit
-  `c9b18d540f1bb203d94fc7d991185a636184dc56`.
+- `origin/main` is at merge commit
+  `a6dc81e5dd7cd3724682432dc319b71ab836f764`; local `main` additionally
+  contains the post-merge execution-plan checkpoint commit.
 - PR 1 is merged as PR #35:
   `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
 - PR 1 commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
@@ -41,9 +42,9 @@ but LOCAL_DESKTOP is the current official product.
   loopback and non-wildcard CORS validation, preserved SERVER bearer
   authorization, stable app/data-directory contracts, and explicit Docker
   SERVER development defaults.
-- The current PR is the isolated worktree
+- Stage 5 PR #40 is merged. Its isolated implementation worktree remains at
   `D:\Crystal\.cache\worktrees\add-desktop-shell-proof` on branch
-  `codex/add-desktop-shell-proof`.
+  `codex/add-desktop-shell-proof` for audit; `main` contains the merged proof.
 - Existing core academic domain, import staging, review/apply, course state,
   Degree Audit, eligibility, planner, section monitoring, and schedule
   optimizer logic remains present. Real school data and real section imports
@@ -110,9 +111,10 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 3. Local database baseline — complete.
 4. Dynamic runtime discovery — complete.
 5. API process supervision — complete.
-6. Desktop-shell proof of concept — implementation validated; PR pending.
-7. FastAPI runtime packaging.
-8. Web UI packaging.
+6. Stage 5 — desktop-shell proof of concept — complete; PR #40 merged.
+7. Stage 6 — FastAPI runtime packaging — next stage in the Local Runtime
+   Foundation.
+8. Stage 7 — Web UI packaging — follows Stage 6 in the same foundation.
 9. Extension pairing.
 10. Localhost request protection.
 11. Real MyProgress stabilization.
@@ -127,6 +129,12 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 20. Packaged Desktop E2E.
 21. Controlled Student Beta.
 22. Release Candidate.
+
+The Local Runtime Foundation includes stages 1–8: local database, runtime
+discovery and supervision, desktop-shell proof, FastAPI runtime packaging, and
+Web UI packaging. Stage 5 is complete, but the foundation is not complete until
+the packaged runtime can remove the user-installed Python and Node.js
+requirements. Extension pairing begins only after this foundation boundary.
 
 ## Progress log
 
@@ -252,8 +260,7 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 
 ### Stage 5 — desktop-shell proof of concept
 
-- Status: implementation validated locally; PR #40 open as a draft; CI/review
-  pending.
+- Status: complete; PR #40 merged.
 - Branch/worktree: `codex/add-desktop-shell-proof` /
   `D:\Crystal\.cache\worktrees\add-desktop-shell-proof`.
 - Evaluation candidate: Tauri, as required by the approved plan.
@@ -274,8 +281,12 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 - Scope decision: no packaging, installer, extension pairing, localhost
   protection, or later milestone code is included.
 - PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/40`.
-- Exact next action: wait for CI/review on PR #40; do not merge until the
-  current remote head is validated.
+- Merge commit: `a6dc81e5dd7cd3724682432dc319b71ab836f764`.
+- CI: run `29265910798` passed checks, E2E, and Docker Compose for corrected
+  head `385a0e90b81e47d455d5b3a675b487b18c3fb905`.
+- Exact next action: begin Stage 6 FastAPI runtime packaging. Do not begin Web
+  packaging until Stage 6 is independently validated and merged; do not begin
+  Extension pairing or any later milestone.
 
 ## Decision log
 
@@ -316,6 +327,9 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
   verified. The Tauri CLI bootstrapper was not required; the proof uses the
   official Tauri Rust crates directly. No repository source was changed during
   prerequisite installation.
+- 2026-07-14 — PR #40 merged after the dynamic API base URL review correction.
+  The shell now passes the ready manifest's discovered `base_url` to the Web
+  child; CI run `29265910798` passed checks, E2E, and Docker Compose.
 - 2026-07-14 — Automated review found that dynamic API discovery was not being
   passed to the Web child. The Tauri proof now waits for the ready manifest and
   passes its discovered `base_url` to `NEXT_PUBLIC_API_BASE_URL`.
@@ -390,22 +404,22 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 | Live Tauri launch, runtime manifest, `/ready`, Web UI `/` | Passed; dynamic loopback API, both HTTP probes 200, existing Web UI rendered | Stage 5 desktop-shell proof |
 | Close-window lifecycle probe | Passed; Tauri/API/Web stopped and owned manifest removed | Stage 5 desktop-shell proof |
 | Review-fix live proof with dynamic API base URL | Passed; manifest port `61232`, API `/ready` 200, Web UI `/` 200, clean close | Stage 5 review correction |
+| CI run `29265910798` | Passed | corrected Stage 5 head, checks, E2E, Docker Compose |
 
 ## Resume checkpoint
 
 - Current milestone: Local Runtime Foundation.
-- Current stage: Stage 5 — desktop-shell proof of concept.
-- Current PR: #40 (ready for review); Stage 4 PR 5 is merged.
-- Current branch/worktree: `codex/add-desktop-shell-proof` /
-  `D:\Crystal\.cache\worktrees\add-desktop-shell-proof`.
-- Last completed action: fixed the PR #40 dynamic API base URL finding and
-  re-ran the live Tauri proof, including child-process shutdown and
-  runtime-manifest cleanup.
-- Last successful validation: Tauri `cargo build`, live WebView2 rendering,
+- Current stage: Stage 6 — FastAPI runtime packaging, not started.
+- Current PR: none; PR #40 is merged.
+- Current branch/worktree: `main` / `D:\Crystal`.
+- Last completed action: PR #40 merged and local `main` fast-forwarded to
+  `a6dc81e5dd7cd3724682432dc319b71ab836f764`.
+- Last successful validation: CI run `29265910798`, corrected live Tauri proof,
   dynamic API `/ready` 200, Web UI `/` 200, and clean close lifecycle.
-- Outstanding work: CI, review, and merge of PR #40.
-- Exact resume instruction: continue from this worktree and publish the current
-  `codex/add-desktop-shell-proof` branch; do not create another worktree.
+- Outstanding blocker: Stage 6 packaging has not started and requires a
+  separate approved implementation PR.
+- Exact resume instruction: create an isolated Stage 6 worktree and first
+  produce a packaging proof without modifying the Web UI or Extension.
 
 ## Scope confirmation
 
