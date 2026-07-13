@@ -32,9 +32,8 @@ but LOCAL_DESKTOP is the current official product.
 ## Current verified state
 
 - Repository: `D:\Crystal`.
-- `main` and `origin/main` are synchronized at merge commit
-  `45407d761dfbef63b20d9fa58f7d55a029387b95`, which includes the Stage 5
-  closeout-plan reconciliation.
+- `main` and `origin/main` are synchronized after the Stage 5 closeout
+  documentation reconciliations. PRs #41 and #42 are merged.
 - PR 1 is merged as PR #35:
   `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
 - PR 1 commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
@@ -432,9 +431,9 @@ requirements. Extension pairing begins only after this foundation boundary.
 - Current stage: Stage 6 — FastAPI runtime packaging, not started.
 - Current PR: none; PR #40 is merged.
 - Current branch/worktree: `main` / `D:\Crystal`.
-- Last completed action: PR #41 merged and local `main` synchronized with
-  `origin/main` at `45407d761dfbef63b20d9fa58f7d55a029387b95`.
-- Last successful validation: CI run `29267033334`, plus the corrected live
+- Last completed action: the Stage 5 closeout documentation reconciliations
+  merged and local `main` synchronized with `origin/main`.
+- Last successful validation: CI run `29267450801`, plus the corrected live
   Tauri proof, dynamic API `/ready` 200, Web UI `/` 200, and clean close.
 - Outstanding blocker: Stage 6 packaging has not started and requires a
   separate approved implementation PR.
