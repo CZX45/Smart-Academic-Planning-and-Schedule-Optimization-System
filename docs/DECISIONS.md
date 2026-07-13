@@ -1,5 +1,33 @@
 # Architecture Decision Log
 
+## ADR-0019: Package the LOCAL_DESKTOP FastAPI runtime as a PyInstaller one-folder artifact
+
+Status: Accepted for Stage 6
+
+Context: The Windows Local Desktop shell must start the FastAPI runtime without
+requiring an end user's separately installed Python environment. The existing
+runtime already provides dynamic loopback discovery, a versioned manifest,
+SQLite bootstrap, readiness, and bounded supervision.
+
+Decision: Use a PyInstaller one-folder Windows artifact that retains the
+existing `app.run` entrypoint. The Tauri shell accepts the explicit
+`SAPSOS_API_EXECUTABLE` override for packaged proof and fails clearly when that
+artifact is missing. The development proof keeps its existing Python command
+when the override is absent.
+
+Alternatives considered: Nuitka was not selected because it is not installed
+or established in this repository and would add a larger compilation and
+troubleshooting surface for this proof. PyInstaller one-file was rejected
+because extraction-time resource handling, startup, crash diagnostics, and
+antivirus/SmartScreen behavior are less diagnosable. No evidence justified
+changing FastAPI, Uvicorn, SQLite bootstrap, or the SERVER/PostgreSQL path.
+
+Consequences: The packaged directory is larger than a one-file executable and
+still requires developer-only Python/PyInstaller build tools, but end users
+need only the produced artifact. Runtime resources, logs, and failure details
+remain inspectable. Installer, signing, updater, Web UI packaging, and Node.js
+removal remain later work.
+
 ## ADR-0001: Use a documentation-first implementation phase
 
 Status: Accepted
