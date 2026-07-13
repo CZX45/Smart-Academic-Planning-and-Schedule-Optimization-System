@@ -13,6 +13,7 @@ use tauri::{Manager, RunEvent};
 
 #[derive(Debug, Deserialize)]
 struct RuntimeManifest {
+    base_url: String,
     pid: u32,
     port: u16,
     status: String,
@@ -76,10 +77,13 @@ impl DesktopProcesses {
         guard.manifest = Some(manifest_path.clone());
         drop(guard);
 
-        if let Err(error) = wait_for_api(&self.0, &manifest_path, api_pid) {
-            self.stop();
-            return Err(error);
-        }
+        let api_manifest = match wait_for_api(&self.0, &manifest_path, api_pid) {
+            Ok(manifest) => manifest,
+            Err(error) => {
+                self.stop();
+                return Err(error);
+            }
+        };
 
         let node = std::env::var("NODE").unwrap_or_else(|_| "node".to_string());
         let web_script = repo_root
@@ -94,7 +98,7 @@ impl DesktopProcesses {
             .arg(web_script)
             .args(["dev", "--hostname", "127.0.0.1", "--port", "3000"])
             .current_dir(repo_root.join("apps").join("web"))
-            .env("NEXT_PUBLIC_API_BASE_URL", "http://127.0.0.1:8000")
+            .env("NEXT_PUBLIC_API_BASE_URL", api_manifest.base_url)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -144,7 +148,7 @@ fn wait_for_api(
     processes: &Mutex<Processes>,
     manifest_path: &Path,
     child_pid: u32,
-) -> Result<(), String> {
+) -> Result<RuntimeManifest, String> {
     let deadline = Instant::now() + Duration::from_secs(30);
     while Instant::now() < deadline {
         if let Ok(mut guard) = processes.lock() {
@@ -163,7 +167,7 @@ fn wait_for_api(
                     && manifest.status == "ready"
                     && http_probe(manifest.port, "/ready")
                 {
-                    return Ok(());
+                    return Ok(manifest);
                 }
             }
         }

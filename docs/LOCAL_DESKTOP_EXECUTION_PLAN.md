@@ -268,11 +268,14 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
   Web UI returned 200, and file-backed SQLite was created under the local app
   data directory. Closing the window stopped the Tauri/API/Web processes and
   removed the owned runtime manifest.
+- Review fix: the Web child now receives the discovered API `base_url` from the
+  ready runtime manifest instead of a hard-coded port, so UI API requests use
+  the actual dynamic loopback service.
 - Scope decision: no packaging, installer, extension pairing, localhost
   protection, or later milestone code is included.
 - PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/40`.
-- Exact next action: wait for CI/review on PR #40; do not merge until the exact
-  head `9aefe96` is validated.
+- Exact next action: wait for CI/review on PR #40; do not merge until the
+  current remote head is validated.
 
 ## Decision log
 
@@ -313,6 +316,9 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
   verified. The Tauri CLI bootstrapper was not required; the proof uses the
   official Tauri Rust crates directly. No repository source was changed during
   prerequisite installation.
+- 2026-07-14 — Automated review found that dynamic API discovery was not being
+  passed to the Web child. The Tauri proof now waits for the ready manifest and
+  passes its discovered `base_url` to `NEXT_PUBLIC_API_BASE_URL`.
 - 2026-07-13 — The usage limit cleared. Full Stage 3 local gates and seeded
   writable-SQLite E2E completed; default AppData remained an environment ACL
   limitation, so runtime discovery was verified with an isolated writable
@@ -383,17 +389,18 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 | `cargo build --manifest-path desktop-shell/src-tauri/Cargo.toml --jobs 2` | Passed | Stage 5 Rust/Tauri build |
 | Live Tauri launch, runtime manifest, `/ready`, Web UI `/` | Passed; dynamic loopback API, both HTTP probes 200, existing Web UI rendered | Stage 5 desktop-shell proof |
 | Close-window lifecycle probe | Passed; Tauri/API/Web stopped and owned manifest removed | Stage 5 desktop-shell proof |
+| Review-fix live proof with dynamic API base URL | Passed; manifest port `61232`, API `/ready` 200, Web UI `/` 200, clean close | Stage 5 review correction |
 
 ## Resume checkpoint
 
 - Current milestone: Local Runtime Foundation.
 - Current stage: Stage 5 — desktop-shell proof of concept.
-- Current PR: #40 (draft); Stage 4 PR 5 is merged.
+- Current PR: #40 (ready for review); Stage 4 PR 5 is merged.
 - Current branch/worktree: `codex/add-desktop-shell-proof` /
   `D:\Crystal\.cache\worktrees\add-desktop-shell-proof`.
-- Last completed action: PR #40 opened from commit
-  `9aefe96` after the live Tauri proof
-  passed, including child-process shutdown and runtime-manifest cleanup.
+- Last completed action: fixed the PR #40 dynamic API base URL finding and
+  re-ran the live Tauri proof, including child-process shutdown and
+  runtime-manifest cleanup.
 - Last successful validation: Tauri `cargo build`, live WebView2 rendering,
   dynamic API `/ready` 200, Web UI `/` 200, and clean close lifecycle.
 - Outstanding work: CI, review, and merge of PR #40.
