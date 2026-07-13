@@ -272,7 +272,7 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
   protection, or later milestone code is included.
 - PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/40`.
 - Exact next action: wait for CI/review on PR #40; do not merge until the exact
-  head `9898fb0614e84af9071d28d39889042b4728ac8f` is validated.
+  head `c1d6f72` is validated.
 
 ## Decision log
 
