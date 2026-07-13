@@ -11,12 +11,22 @@ from app.api.v1.academic import router as academic_router
 from app.config import settings
 from app.db.bootstrap import initialize_database
 from app.db.session import engine
+from app.runtime.discovery import (
+    RuntimeManifest,
+    discover_runtime_manifest,
+    publish_runtime_manifest,
+)
 from app.schemas.health import HealthResponse, ReadinessResponse
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     initialize_database(engine)
+    manifest_path = settings.runtime_manifest_path
+    if manifest_path is not None:
+        manifest = discover_runtime_manifest(manifest_path)
+        if manifest is not None:
+            publish_runtime_manifest(manifest_path, manifest.model_copy(update={"status": "ready"}))
     yield
 
 
@@ -75,6 +85,17 @@ def health() -> HealthResponse:
             ("postgresql+psycopg://", "sqlite+pysqlite:///")
         ),
     )
+
+
+@app.get("/runtime", response_model=RuntimeManifest, tags=["system"])
+def runtime_manifest() -> RuntimeManifest | JSONResponse:
+    manifest_path = getattr(settings, "runtime_manifest_path", None)
+    if manifest_path is None:
+        return JSONResponse(status_code=503, content={"detail": "Runtime manifest unavailable."})
+    manifest = discover_runtime_manifest(manifest_path)
+    if manifest is None:
+        return JSONResponse(status_code=503, content={"detail": "Runtime manifest unavailable."})
+    return manifest
 
 
 @app.get(

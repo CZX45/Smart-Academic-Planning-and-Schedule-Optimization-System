@@ -47,7 +47,8 @@ class Settings(BaseSettings):
     product_mode: str = "LOCAL_DESKTOP"
     cors_origins: str = LOCAL_DEVELOPMENT_CORS_ORIGINS
     api_host: str = "127.0.0.1"
-    api_port: int = Field(default=8000, gt=0, le=65535)
+    api_port: int = Field(default=0, ge=0, le=65535)
+    runtime_manifest_path: Path | None = None
     auth_mode: str = "local"
     bearer_token_min_length: int = Field(default=32, ge=32, le=256)
 

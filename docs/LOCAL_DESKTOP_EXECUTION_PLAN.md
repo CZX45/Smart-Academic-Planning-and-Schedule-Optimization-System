@@ -33,7 +33,7 @@ but LOCAL_DESKTOP is the current official product.
 
 - Repository: `D:\Crystal`.
 - `main` is synchronized with `origin/main` at merge commit
-  `4e05c8bc46414cf688ada01c0bc083acf140c9e7`.
+  `d766037e758ed194ccbcb4c7ecf7f393cb4f2637`.
 - PR 1 is merged as PR #35:
   `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
 - PR 1 commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
@@ -42,8 +42,8 @@ but LOCAL_DESKTOP is the current official product.
   authorization, stable app/data-directory contracts, and explicit Docker
   SERVER development defaults.
 - The current PR is the isolated worktree
-  `D:\Crystal\.cache\worktrees\establish-local-database-baseline`
-  on branch `codex/establish-local-database-baseline`.
+  `D:\Crystal\.cache\worktrees\add-dynamic-runtime-discovery`
+  on branch `codex/add-dynamic-runtime-discovery`.
 - Existing core academic domain, import staging, review/apply, course state,
   Degree Audit, eligibility, planner, section monitoring, and schedule
   optimizer logic remains present. Real school data and real section imports
@@ -75,8 +75,8 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 
 - Local Desktop target: embedded database, local API process, local web UI,
   runtime discovery, process supervision, and packaged desktop shell.
-- Partial: local runtime mode exists, but embedded database and packaged
-  runtime do not yet.
+- Partial: embedded local database and runtime discovery are implemented;
+  process supervision, packaged runtime, and desktop shell do not yet exist.
 - Mock-only: development seed fixtures and unreviewed sample academic data.
 - SERVER-only/current development path: PostgreSQL-backed Docker Compose and
   explicit bearer-authenticated SERVER runtime.
@@ -106,8 +106,8 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 
 1. PR 1 delivery and runtime-mode isolation — complete.
 2. Local embedded-database compatibility proof — complete.
-3. Local database baseline — current.
-4. Dynamic runtime discovery.
+3. Local database baseline — complete.
+4. Dynamic runtime discovery — current.
 5. API process supervision.
 6. Desktop-shell proof of concept.
 7. FastAPI runtime packaging.
@@ -168,10 +168,15 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 
 ### PR 3 — establish local database baseline
 
-- Status: implementation in progress; not yet committed or pushed.
-- Branch/worktree: `codex/establish-local-database-baseline` /
-  `D:\Crystal\.cache\worktrees\establish-local-database-baseline`.
-- Commit/PR/CI/merge: none yet.
+- Status: merged.
+- Branch: `establish-local-database-baseline`; worktree removed after merge.
+- Commits: `44878e96763372bb5a268a766b5b4e4286a99a24`,
+  `077a74faeb8e62b505837718ffa51d248b6d2684`,
+  `d495286a7a6310d390fb0f19141c6b05ff46433b`,
+  `f35431f5a8af8de2b32f1e088c8aa22503081108`.
+- PR URL: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/37`.
+- CI: run `29197278818` passed checks, E2E, and Docker Compose.
+- Merge commit: `d766037e758ed194ccbcb4c7ecf7f393cb4f2637`.
 - Changes in scope: SQLite is the LOCAL_DESKTOP default; PostgreSQL remains
   required for SERVER; SQLite engine options, file-directory creation, a
   deterministic metadata bootstrap, local schema-version tracking, startup
@@ -183,10 +188,33 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
   passed 23/23. Default AppData startup is blocked in this sandbox by an ACL on
   `C:\Users\hp\AppData\Local\SAPSOS`; the same flow passed with a writable
   SQLite path.
-- Remaining risks: rerun CI after the E2E environment fix, verify exact diff
-  scope, and keep installer, backup, and upgrade migration work out of this PR.
-- Exact next action: inspect the complete diff, commit only the Stage 2
-  baseline files, push, and create the PR.
+- Decisions: LOCAL_DESKTOP uses embedded SQLite with schema bootstrap and
+  version tracking; checks preserve SERVER/PostgreSQL; E2E uses seeded local
+  SQLite; production SQLite foreign keys are enforced.
+- Remaining risks: AppData ACL is environment-specific; installer, backup,
+  and upgrade migration remain later stages.
+- Exact next action: continue with PR 4 dynamic runtime discovery.
+
+### PR 4 — add dynamic runtime discovery
+
+- Status: implementation complete locally; ready for commit/push.
+- Branch/worktree: `codex/add-dynamic-runtime-discovery` /
+  `D:\Crystal\.cache\worktrees\add-dynamic-runtime-discovery`.
+- Commit/PR/CI/merge: none yet.
+- Changes in scope: dynamic loopback port allocation when `API_PORT=0`, typed
+  protocol/versioned runtime manifest, atomic publication, stale-process
+  detection, second-instance conflict protection, startup readiness update,
+  and the local `/runtime` discovery endpoint.
+- Validation: API regression 156 passed; runtime discovery tests 4 passed;
+  recursive tests, lint, typecheck, build, Ruff, formatting, and MyPy passed.
+  Seeded writable-SQLite E2E passed 23/23. Manual startup proved a dynamic
+  port, manifest status `ready`, `/runtime` status `ready`, and `/ready` 200.
+  OpenAPI was regenerated for `/runtime` and `RuntimeManifest`; it will pass
+  its final drift check once these generated files are committed.
+- Remaining risks: CI/review remain; keep process supervision, desktop shell,
+  packaging, and installer work out of this PR.
+- Exact next action: inspect the complete diff, commit only Stage 3 files,
+  push, and create PR 4.
 
 ## Decision log
 
@@ -204,6 +232,13 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
   stable app-data contract; SERVER remains PostgreSQL-backed and Alembic-owned.
   Local startup creates the schema and records schema version 1. No production
   upgrade migration or installer behavior is included.
+- 2026-07-12 — Dynamic runtime discovery uses a versioned atomic manifest,
+  loopback port allocation, stale process detection, and a single-instance
+  ownership check. API process supervision remains a later stage.
+- 2026-07-13 — The usage limit cleared. Full Stage 3 local gates and seeded
+  writable-SQLite E2E completed; default AppData remained an environment ACL
+  limitation, so runtime discovery was verified with an isolated writable
+  LOCALAPPDATA path.
 - 2026-07-12 — CI run `29196835215` showed the existing Alembic setup steps
   inherited the new SQLite default and failed before checks/E2E. The workflow
   now sets explicit SERVER/PostgreSQL environment only for migration, seed,
@@ -247,25 +282,33 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 | CI run `29196835215` before workflow fix | Failed at Alembic | SQLite default reached PostgreSQL-only CI setup |
 | CI YAML parse / `node --check scripts/run-e2e.mjs` | Passed | CI follow-up validation |
 | Focused config/local database tests after CI fix | Passed, 22 tests | CI follow-up validation |
+| `python -m pytest tests/test_runtime_discovery.py -q` | Passed, 4 tests | Stage 3 discovery proof |
+| Manual `python -m app.run` with `API_PORT=0` | Passed | dynamic port, ready manifest, `/runtime`, `/ready` |
+| `python -m pytest` in `apps/api` | Passed, 156 tests, 1 warning | Stage 3 API regression |
+| `CI=true corepack pnpm test` | Passed | Stage 3 recursive tests |
+| `CI=true corepack pnpm lint` | Passed | Stage 3 recursive lint |
+| `CI=true corepack pnpm typecheck` | Passed | Stage 3 recursive typecheck |
+| `CI=true corepack pnpm build` | Passed | Stage 3 build |
+| `python -m ruff check .` / `format --check .` | Passed | Stage 3 API lint/format |
+| `python -m mypy .` | Passed | Stage 3 API strict typing |
+| Seeded writable-SQLite `CI=true corepack pnpm e2e` | Passed, 23 tests | Stage 3 local runtime E2E |
 
 ## Resume checkpoint
 
 - Current milestone: Local Runtime Foundation.
-- Current stage: Stage 2 — local database baseline.
-- Current PR: PR 3, not yet created.
-- Current branch/worktree: `codex/establish-local-database-baseline` /
-  `D:\Crystal\.cache\worktrees\establish-local-database-baseline`.
-- Last completed action: PR 2 merged and main synchronized to
-  `4e05c8bc46414cf688ada01c0bc083acf140c9e7`; local SQLite startup, seed,
-  and seeded E2E evidence executed.
-- Last successful validation: all Stage 2 checks listed in the validation
-  ledger, including seeded E2E 23/23.
-- Outstanding blocker: default AppData directory creation is denied by this
-  sandbox's host ACL; writable-path behavior is proven. Do not weaken the
-  stable data-location contract to work around the sandbox.
+- Current stage: Stage 3 — dynamic runtime discovery.
+- Current PR: PR 4, not yet created.
+- Current branch/worktree: `codex/add-dynamic-runtime-discovery` /
+  `D:\Crystal\.cache\worktrees\add-dynamic-runtime-discovery`.
+- Last completed action: PR 3 merged and main synchronized to
+  `d766037e758ed194ccbcb4c7ecf7f393cb4f2637`; dynamic manifest startup proof
+  executed.
+- Last successful validation: full Stage 3 local gates and seeded E2E 23/23.
+- Outstanding blocker: CI and PR review remain; generated OpenAPI files must be
+  included in the commit.
 - Exact resume instruction: inspect `git status --short` and
-  `git diff --name-status`, confirm only Stage 2 baseline files are present,
-  then commit and publish PR 3.
+  `git diff --name-status`, stage only runtime discovery files and generated
+  OpenAPI artifacts, then commit and publish PR 4.
 
 ## Scope confirmation
 
