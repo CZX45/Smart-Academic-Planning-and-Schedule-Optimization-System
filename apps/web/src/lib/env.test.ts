@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parsePublicEnv } from "./env";
+import { parsePublicEnv, parseRuntimeApiBaseUrl } from "./env";
 
 describe("web public environment validation", () => {
   it("accepts an explicit HTTP API base URL for local development", () => {
@@ -35,5 +35,15 @@ describe("web public environment validation", () => {
         NEXT_PUBLIC_API_BASE_URL: "ftp://api.example.edu",
       }),
     ).toThrow("NEXT_PUBLIC_API_BASE_URL must be an http(s) URL");
+  });
+
+  it("reads the dynamic API base URL from the desktop runtime query bridge", () => {
+    expect(
+      parseRuntimeApiBaseUrl("?api_base_url=http%3A%2F%2F127.0.0.1%3A43127"),
+    ).toBe("http://127.0.0.1:43127");
+  });
+
+  it("does not invent an API endpoint when the runtime bridge is absent", () => {
+    expect(parseRuntimeApiBaseUrl("")).toBeUndefined();
   });
 });

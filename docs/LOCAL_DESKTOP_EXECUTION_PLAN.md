@@ -363,6 +363,39 @@ requirements. Extension pairing begins only after this foundation boundary.
   `LOCALAPPDATA`; the successful rerun used writable `LOCALAPPDATA` and the
   existing Playwright browser cache explicitly.
 
+### Stage 7 — package the LOCAL_DESKTOP Web UI
+
+- Status: implementation complete in the isolated `package-web-ui` worktree;
+  merge and final CI are pending.
+- Decision: Next.js static export is viable and selected. The current UI has
+  only static App Router routes and browser-side API calls, so a packaged Node
+  server is unnecessary. Release Tauri builds load
+  `dist\local-desktop-web` directly and compile out the development-server
+  launch.
+- Build contract: `scripts/windows/Build-Web-UI.ps1`, exposed as
+  `corepack pnpm web:package:windows`, builds the Web UI from the lockfile and
+  copies the export to the deterministic `dist\local-desktop-web` directory.
+  It records commit, strategy, file count, byte count, and the runtime bridge
+  in `build-manifest.txt`; missing Corepack or missing `index.html` fails with
+  an actionable message.
+- Runtime bridge: after the packaged FastAPI executable publishes a ready
+  manifest, Tauri creates the release window with
+  `index.html?api_base_url=<manifest base_url>`. The Web UI validates that URL
+  and uses it for all existing API-backed workflows. It does not hard-code an
+  API port or use a build-time dynamic `NEXT_PUBLIC_*` value.
+- Measurements: the controlled build produced 28 files totaling 1,133,023
+  bytes. The Web packaging script completed in 5.95 seconds in this worktree.
+  These are
+  machine-specific measurements, not release guarantees.
+- Validation completed so far: Web Vitest 14/14, Web lint, Web typecheck,
+  static export, generated-asset scan, Tauri cargo fmt/check, and release
+  cargo build. The generated asset scan found no developer absolute paths or
+  `localhost:8000`/`127.0.0.1:8000` literals.
+- Proof limitation: no Windows VM or Sandbox is available in this environment.
+  The combined packaged API/Tauri no-Node/no-Python run must be recorded as a
+  controlled PATH simulation, not as a clean Windows image. Installer,
+  signing, updater, and Stage 8 remain out of scope.
+
 ## Decision log
 
 - 2026-07-14 — Stage 6 selected PyInstaller one-folder packaging after

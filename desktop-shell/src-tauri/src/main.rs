@@ -9,7 +9,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
-use tauri::{Manager, RunEvent};
+use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 
 #[derive(Debug, Deserialize)]
 struct RuntimeManifest {
@@ -30,7 +30,7 @@ struct Processes {
 struct DesktopProcesses(Mutex<Processes>);
 
 impl DesktopProcesses {
-    fn start(&self) -> Result<(), String> {
+    fn start(&self) -> Result<RuntimeManifest, String> {
         let mut guard = self.0.lock().map_err(|_| "process lock poisoned")?;
         if guard
             .api
@@ -114,34 +114,38 @@ impl DesktopProcesses {
             }
         };
 
-        let node = std::env::var("NODE").unwrap_or_else(|_| "node".to_string());
-        let web_script = repo_root
-            .join("apps")
-            .join("web")
-            .join("node_modules")
-            .join("next")
-            .join("dist")
-            .join("bin")
-            .join("next");
-        let web_child = Command::new(node)
-            .arg(web_script)
-            .args(["dev", "--hostname", "127.0.0.1", "--port", "3000"])
-            .current_dir(repo_root.join("apps").join("web"))
-            .env("NEXT_PUBLIC_API_BASE_URL", api_manifest.base_url)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|error| format!("Could not start Next.js child: {error}"))?;
-        let web_pid = web_child.id();
-        let mut guard = self.0.lock().map_err(|_| "process lock poisoned")?;
-        guard.web = Some(web_child);
-        drop(guard);
-        if let Err(error) = wait_for_web(&self.0, web_pid) {
-            self.stop();
-            return Err(error);
+        #[cfg(debug_assertions)]
+        {
+            let node = std::env::var("NODE").unwrap_or_else(|_| "node".to_string());
+            let web_script = repo_root
+                .join("apps")
+                .join("web")
+                .join("node_modules")
+                .join("next")
+                .join("dist")
+                .join("bin")
+                .join("next");
+            let web_child = Command::new(node)
+                .arg(web_script)
+                .args(["dev", "--hostname", "127.0.0.1", "--port", "3000"])
+                .current_dir(repo_root.join("apps").join("web"))
+                .env("NEXT_PUBLIC_API_BASE_URL", &api_manifest.base_url)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .map_err(|error| format!("Could not start Next.js development server: {error}"))?;
+            let web_pid = web_child.id();
+            let mut guard = self.0.lock().map_err(|_| "process lock poisoned")?;
+            guard.web = Some(web_child);
+            drop(guard);
+            if let Err(error) = wait_for_web(&self.0, web_pid) {
+                self.stop();
+                return Err(error);
+            }
         }
-        Ok(())
+
+        Ok(api_manifest)
     }
 
     fn stop(&self) {
@@ -205,6 +209,7 @@ fn wait_for_api(
     Err("FastAPI child did not become ready within 30 seconds".to_string())
 }
 
+#[cfg(debug_assertions)]
 fn wait_for_web(processes: &Mutex<Processes>, web_pid: u32) -> Result<(), String> {
     let deadline = Instant::now() + Duration::from_secs(30);
     while Instant::now() < deadline {
@@ -254,8 +259,41 @@ fn main() {
     tauri::Builder::default()
         .manage(DesktopProcesses::default())
         .setup(|app| {
-            app.state::<DesktopProcesses>()
+            let api_manifest = app
+                .state::<DesktopProcesses>()
                 .start()
+                .map_err(std::io::Error::other)?;
+
+            #[cfg(not(debug_assertions))]
+            {
+                let resource_dir = app
+                    .path()
+                    .resource_dir()
+                    .map_err(std::io::Error::other)?;
+                if !resource_dir.join("index.html").is_file() {
+                    return Err(Box::new(std::io::Error::other(format!(
+                        "Packaged Web UI artifact is missing index.html under {}. Build it with scripts/windows/Build-Web-UI.ps1.",
+                        resource_dir.display()
+                    ))));
+                }
+            }
+
+            let web_url = if cfg!(debug_assertions) {
+                WebviewUrl::External(
+                    "http://127.0.0.1:3000"
+                        .parse()
+                        .map_err(std::io::Error::other)?,
+                )
+            } else {
+                WebviewUrl::App(
+                    format!("index.html?api_base_url={}", api_manifest.base_url).into(),
+                )
+            };
+            WebviewWindowBuilder::new(app, "main", web_url)
+                .title("SAPSOS Local Desktop")
+                .inner_size(1280.0, 860.0)
+                .resizable(true)
+                .build()
                 .map_err(std::io::Error::other)?;
             Ok(())
         })

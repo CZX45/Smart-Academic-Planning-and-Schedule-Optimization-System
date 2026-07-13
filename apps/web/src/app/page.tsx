@@ -76,11 +76,12 @@ import {
 import {
   type Dispatch,
   type SetStateAction,
+  startTransition,
   useEffect,
   useState,
   useSyncExternalStore,
 } from "react";
-import { parsePublicEnv } from "../lib/env";
+import { parsePublicEnv, parseRuntimeApiBaseUrl } from "../lib/env";
 import {
   isUsableMyProgressPreviewSummary,
   savedImportOptionFromRun,
@@ -379,7 +380,26 @@ function configuredApiBaseUrl(): string | undefined {
   }
 }
 
-const apiBaseUrl = configuredApiBaseUrl();
+let apiBaseUrl: string | undefined;
+
+function setConfiguredApiBaseUrl(value: string | undefined): string | undefined {
+  apiBaseUrl = value;
+  return value;
+}
+
+function getConfiguredBrowserApiBaseUrl(): string | undefined {
+  try {
+    return setConfiguredApiBaseUrl(
+      parseRuntimeApiBaseUrl(window.location.search) ?? configuredApiBaseUrl(),
+    );
+  } catch {
+    return setConfiguredApiBaseUrl(undefined);
+  }
+}
+
+function getServerApiBaseUrl(): string | undefined {
+  return configuredApiBaseUrl();
+}
 
 function subscribeToStableBrowserValue(): () => void {
   return () => undefined;
@@ -1092,6 +1112,11 @@ const courseStateReadinessLabels: Record<string, string> = {
 };
 
 export default function Home() {
+  const apiBaseUrl = useSyncExternalStore(
+    subscribeToStableBrowserValue,
+    getConfiguredBrowserApiBaseUrl,
+    getServerApiBaseUrl,
+  );
   const webOrigin = useSyncExternalStore(
     subscribeToStableBrowserValue,
     getBrowserOrigin,
@@ -1219,6 +1244,30 @@ export default function Home() {
   const [demoModeEnabled, setDemoModeEnabled] = useState(false);
 
   useEffect(() => {
+    if (!apiBaseUrl) {
+      return;
+    }
+
+    startTransition(() => {
+      setEligibilityState((current) =>
+        current.status === "offline" ? { status: "idle" } : current,
+      );
+      setPlannerState((current) =>
+        current.status === "offline" ? { status: "idle" } : current,
+      );
+      setScheduleState((current) =>
+        current.status === "offline" ? { status: "idle" } : current,
+      );
+      setDataImportState((current) =>
+        current.status === "offline" ? { status: "idle" } : current,
+      );
+      setDataReviewState((current) =>
+        current.status === "offline" ? { status: "idle" } : current,
+      );
+    });
+  }, [apiBaseUrl]);
+
+  useEffect(() => {
     let cancelled = false;
 
     if (!apiBaseUrl) {
@@ -1291,7 +1340,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [health.status]);
+  }, [apiBaseUrl, health.status]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1335,7 +1384,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [apiBaseUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1376,7 +1425,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [apiBaseUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1425,7 +1474,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [apiBaseUrl]);
 
   const myProgressPreview = myProgressPreviewFromState(dataImportState);
   const warnings =

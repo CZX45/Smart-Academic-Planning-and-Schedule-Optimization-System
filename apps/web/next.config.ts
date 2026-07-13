@@ -1,3 +1,6 @@
 import type { NextConfig } from "next";
-const nextConfig: NextConfig = { transpilePackages: ["@sapsos/shared"] };
+const nextConfig: NextConfig = {
+  output: "export",
+  transpilePackages: ["@sapsos/shared"],
+};
 export default nextConfig;

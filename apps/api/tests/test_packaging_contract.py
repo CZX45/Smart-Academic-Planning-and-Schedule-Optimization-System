@@ -28,3 +28,20 @@ def test_desktop_shell_requires_explicit_packaged_artifact_when_selected() -> No
     assert "Packaged FastAPI artifact was not found" in source
     assert "api_working_directory" in source
     assert '"-m".to_string(), "app.run".to_string()' in source
+
+
+def test_web_ui_packaging_uses_static_export_and_runtime_bridge() -> None:
+    next_config = (REPO_ROOT / "apps/web/next.config.ts").read_text(encoding="utf-8")
+    build_script = (REPO_ROOT / "scripts/windows/Build-Web-UI.ps1").read_text(encoding="utf-8")
+    tauri_config = (REPO_ROOT / "desktop-shell/src-tauri/tauri.conf.json").read_text(
+        encoding="utf-8"
+    )
+    shell_source = (REPO_ROOT / "desktop-shell/src-tauri/src/main.rs").read_text(encoding="utf-8")
+
+    assert 'output: "export"' in next_config
+    assert "dist\\local-desktop-web" in build_script
+    assert "api_base_url" in build_script
+    assert '"frontendDist": "../../dist/local-desktop-web"' in tauri_config
+    assert "WebviewUrl::App" in shell_source
+    assert "api_base_url" in shell_source
+    assert "#[cfg(debug_assertions)]" in shell_source
