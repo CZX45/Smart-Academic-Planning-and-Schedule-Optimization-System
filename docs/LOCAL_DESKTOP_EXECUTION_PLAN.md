@@ -307,7 +307,72 @@ requirements. Extension pairing begins only after this foundation boundary.
 - Exact next action: create the separately authorized Stage 6 implementation
   PR; do not begin Stage 7 or Extension pairing in that PR.
 
+### Stage 6 — package the FastAPI LOCAL_DESKTOP runtime
+
+- Status: implementation and local validation complete in the isolated
+  `package-fastapi-runtime` worktree. Stage 7 has not started.
+- Packaging decision: PyInstaller one-folder (`sapsos-api\\sapsos-api.exe`).
+  FastAPI/Uvicorn, SQLAlchemy, SQLite, Pydantic/settings, and the existing
+  `app.run` entrypoint remain intact. One-folder is preferred over one-file so
+  bundled resources, logs, crash diagnostics, and antivirus behavior remain
+  inspectable and the runtime does not extract itself at every start.
+- Rejected alternatives: Nuitka was not selected because it is not installed
+  or established in this repository and would add a larger compilation and
+  troubleshooting surface for this proof. PyInstaller one-file was rejected
+  for extraction-time resource handling, startup, crash diagnostics, and
+  antivirus/SmartScreen tradeoffs. No evidence justified replacing FastAPI or
+  changing the local schema/bootstrap architecture.
+- Build contract: `scripts/windows/Build-FastAPI-Runtime.ps1` installs the
+  pinned developer-only PyInstaller dependency, cleans an isolated output
+  directory, builds from `apps/api/packaging/sapsos-api.spec`, and produces
+  `dist\\local-desktop-api\\sapsos-api\\sapsos-api.exe`. The script records
+  commit/product-mode metadata in the isolated build directory and fails with
+  actionable messages for missing Python build tools or missing artifacts.
+- Desktop integration: setting `SAPSOS_API_EXECUTABLE` makes the Tauri shell
+  launch the packaged executable and fail closed if it is missing. When that
+  variable is absent, the existing `PYTHON -m app.run` development proof is
+  preserved. The packaged path does not silently fall back to Python.
+- Runtime contract preserved: `PRODUCT_MODE=LOCAL_DESKTOP`, dynamic loopback
+  port discovery, owned runtime manifest, `/runtime`, `/ready`, SQLite
+  bootstrap, persistence, graceful shutdown, restart, and server-mode
+  PostgreSQL/Bearer behavior remain unchanged.
+- Clean-environment proof: no Windows VM or Sandbox was available. The
+  documented fallback simulation launched the packaged executable with
+  `PATH=C:\\Windows\\System32;C:\\Windows`, so no Python executable was
+  discoverable through PATH; Python remained installed elsewhere on the build
+  machine. The artifact ran from its one-folder output directory, with the
+  source checkout present elsewhere on disk but not used as the runtime working
+  directory. It reached `/ready` 200, published dynamic ports 63358 and
+  63366 across restart, initialized the isolated SQLite file, and preserved its
+  size across restart. Supervisor proof removed the owned manifest on stop.
+  This is an honest controlled fallback simulation, not a clean Windows image.
+- Measurements: the PyInstaller build completed in approximately 97 seconds;
+  the one-folder artifact contains 1,570 files totaling 91.71 MiB, with a
+  15.50 MiB executable. Packaged startup to the first ready probe was 4.23
+  seconds in the controlled proof. These are machine-specific proof
+  measurements, not release performance guarantees.
+- Known limitations: this stage does not sign binaries, produce an installer,
+  package the Web UI, remove Node.js, or claim antivirus/SmartScreen approval.
+
+- Validation completed: API pytest 165 passed; repository Vitest 91 passed;
+  repository lint, typecheck, build, OpenAPI drift, API Ruff, API format,
+  strict MyPy, Tauri cargo fmt/check, packaged artifact build, packaged
+  no-Python-PATH startup/restart, supervisor lifecycle, missing-build-tool
+  failure, and Playwright E2E 23/23 passed. The first E2E attempt was blocked
+  by the known AppData ACL and missing browser cache under the temporary
+  `LOCALAPPDATA`; the successful rerun used writable `LOCALAPPDATA` and the
+  existing Playwright browser cache explicitly.
+
 ## Decision log
+
+- 2026-07-14 — Stage 6 selected PyInstaller one-folder packaging after
+  evaluating FastAPI/Uvicorn compatibility, SQLAlchemy/SQLite inclusion,
+  Pydantic/settings, hidden imports and metadata, resource handling, Windows
+  paths, startup, size, reproducibility, diagnostics, and antivirus tradeoffs.
+  The built proof artifact is 91.71 MiB and starts in 4.23 seconds on this
+  machine. The Tauri shell selects it only through `SAPSOS_API_EXECUTABLE` and
+  uses the artifact directory as its working directory; missing packaged
+  artifacts fail without a Python fallback.
 
 - 2026-07-12 — PR 1 was pushed to non-hierarchical `codex-pr-1` because the
   existing remote `codex` branch must not be modified; PR #35 merged normally
@@ -428,17 +493,26 @@ requirements. Extension pairing begins only after this foundation boundary.
 ## Resume checkpoint
 
 - Current milestone: Local Runtime Foundation.
-- Current stage: Stage 6 — FastAPI runtime packaging, not started.
+- Current stage: Stage 6 — FastAPI runtime packaging, implementation and
+  validation complete; awaiting publish/merge.
 - Current PR: none; PR #40 is merged.
-- Current branch/worktree: `main` / `D:\Crystal`.
-- Last completed action: the Stage 5 closeout documentation reconciliations
-  merged and local `main` synchronized with `origin/main`.
-- Last successful validation: CI run `29267450801`, plus the corrected live
-  Tauri proof, dynamic API `/ready` 200, Web UI `/` 200, and clean close.
-- Outstanding blocker: Stage 6 packaging has not started and requires a
-  separate approved implementation PR.
-- Exact resume instruction: create an isolated Stage 6 worktree and first
-  produce a packaging proof without modifying the Web UI or Extension.
+- Current branch/worktree: `package-fastapi-runtime` /
+  `D:\Crystal\\.cache\\worktrees\\package-fastapi-runtime`.
+- Starting HEAD: `fe03571a48c1ff2ddeef7eade8392b583f297a4f`.
+- Last completed action: built and validated the PyInstaller one-folder
+  artifact, completed the controlled no-Python-PATH proof, and passed the
+  applicable repository validation matrix.
+- Last successful validation: API 165 tests, repository Vitest 91 tests,
+  Playwright E2E 23/23, lint/typecheck/build/OpenAPI, Ruff/format/MyPy, Tauri
+  cargo fmt/check, packaged readiness/restart/persistence, and supervisor
+  manifest cleanup.
+- Outstanding work: review/stage the scoped diff, publish one PR, monitor CI,
+  merge only after required gates, synchronize main, and remove the isolated
+  worktree safely.
+- Exact resume instruction: from the isolated worktree, run
+  `powershell -NoProfile -ExecutionPolicy Bypass -File
+  scripts/windows/Build-FastAPI-Runtime.ps1`, then execute the documented
+  packaged-runtime proof before touching Stage 7.
 
 ## Scope confirmation
 

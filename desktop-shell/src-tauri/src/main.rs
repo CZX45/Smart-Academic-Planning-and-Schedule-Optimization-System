@@ -32,10 +32,18 @@ struct DesktopProcesses(Mutex<Processes>);
 impl DesktopProcesses {
     fn start(&self) -> Result<(), String> {
         let mut guard = self.0.lock().map_err(|_| "process lock poisoned")?;
-        if guard.api.as_mut().is_some_and(|child| child.try_wait().ok().flatten().is_none()) {
+        if guard
+            .api
+            .as_mut()
+            .is_some_and(|child| child.try_wait().ok().flatten().is_none())
+        {
             return Err("The API child is already running".to_string());
         }
-        if guard.web.as_mut().is_some_and(|child| child.try_wait().ok().flatten().is_none()) {
+        if guard
+            .web
+            .as_mut()
+            .is_some_and(|child| child.try_wait().ok().flatten().is_none())
+        {
             return Err("The Web child is already running".to_string());
         }
 
@@ -55,10 +63,31 @@ impl DesktopProcesses {
             database_path.to_string_lossy().replace('\\', "/")
         );
 
-        let python = std::env::var("PYTHON").unwrap_or_else(|_| "python".to_string());
-        let api_child = Command::new(python)
-            .args(["-m", "app.run"])
-            .current_dir(api_directory)
+        let packaged_api = std::env::var_os("SAPSOS_API_EXECUTABLE").map(PathBuf::from);
+        let (api_executable, api_arguments, api_working_directory) = if let Some(path) =
+            packaged_api
+        {
+            if !path.is_file() {
+                return Err(format!(
+                    "Packaged FastAPI artifact was not found at {}. Build it with scripts/windows/Build-FastAPI-Runtime.ps1.",
+                    path.display()
+                ));
+            }
+            let working_directory = path
+                .parent()
+                .ok_or_else(|| "Packaged FastAPI artifact has no parent directory".to_string())?
+                .to_path_buf();
+            (path, Vec::new(), working_directory)
+        } else {
+            (
+                PathBuf::from(std::env::var("PYTHON").unwrap_or_else(|_| "python".to_string())),
+                vec!["-m".to_string(), "app.run".to_string()],
+                api_directory.clone(),
+            )
+        };
+        let api_child = Command::new(api_executable)
+            .args(api_arguments)
+            .current_dir(api_working_directory)
             .env("LOCALAPPDATA", &local_app_data)
             .env("DATABASE_URL", database_url)
             .env("PRODUCT_MODE", "LOCAL_DESKTOP")
@@ -194,7 +223,9 @@ fn wait_for_web(processes: &Mutex<Processes>, web_pid: u32) -> Result<(), String
         }
         thread::sleep(Duration::from_millis(100));
     }
-    Err(format!("Next.js child {web_pid} did not become ready within 30 seconds"))
+    Err(format!(
+        "Next.js child {web_pid} did not become ready within 30 seconds"
+    ))
 }
 
 fn http_probe(port: u16, path: &str) -> bool {
@@ -204,10 +235,8 @@ fn http_probe(port: u16, path: &str) -> bool {
     };
     if stream
         .write_all(
-            format!(
-                "GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
-            )
-            .as_bytes(),
+            format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
+                .as_bytes(),
         )
         .is_err()
     {

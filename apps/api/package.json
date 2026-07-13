@@ -9,6 +9,7 @@
     "typecheck": "python -m mypy .",
     "format": "python -m ruff format --check .",
     "openapi": "python -m app.openapi_export",
+    "package:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../scripts/windows/Build-FastAPI-Runtime.ps1",
     "build": "python -m compileall app"
   }
 }

@@ -1,0 +1,62 @@
+from pathlib import Path
+
+from PyInstaller.utils.hooks import collect_all, collect_submodules, copy_metadata
+
+
+ROOT = Path(SPEC).resolve().parents[1]
+
+datas = [(str(ROOT / "app"), "app")]
+binaries = []
+hiddenimports = []
+
+for package in (
+    "fastapi",
+    "pydantic",
+    "pydantic_core",
+    "pydantic_settings",
+    "sqlalchemy",
+    "starlette",
+    "uvicorn",
+):
+    package_datas, package_binaries, package_hiddenimports = collect_all(package)
+    datas.extend(package_datas)
+    binaries.extend(package_binaries)
+    hiddenimports.extend(package_hiddenimports)
+    datas.extend(copy_metadata(package, recursive=True))
+
+for package in ("app", "psycopg", "uvicorn", "fastapi", "starlette"):
+    hiddenimports.extend(collect_submodules(package))
+
+a = Analysis(
+    [str(ROOT / "app" / "run.py")],
+    pathex=[str(ROOT)],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=["pytest", "tests"],
+    noarchive=False,
+)
+pyz = PYZ(a.pure)
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    name="sapsos-api",
+    exclude_binaries=True,
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=True,
+)
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=False,
+    name="sapsos-api",
+)
