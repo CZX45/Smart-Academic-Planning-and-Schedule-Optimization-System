@@ -29,6 +29,12 @@ type CreatedImportSummary = {
   recordCount: number | null;
 };
 
+type ApiResponse = {
+  ok: boolean;
+  status: number;
+  payload: unknown;
+};
+
 type ChromeApi = Omit<PopupChromeApi, "runtime"> & {
   runtime: {
     lastError?: { message?: string };
@@ -94,10 +100,22 @@ let guidedMode = false;
 let guidedExtractions: BrowserExtensionExtraction[] = [];
 let confirmSubmissionInFlight = false;
 
-function sendBackgroundMessage(message: unknown): Promise<Record<string, unknown>> {
+function sendBackgroundMessage(message: unknown): Promise<ApiResponse> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(message, (response: unknown) => {
-      resolve(isObject(response) ? response : {});
+      if (!isObject(response)) {
+        resolve({
+          ok: false,
+          status: 503,
+          payload: { code: "invalid_background_response" },
+        });
+        return;
+      }
+      resolve({
+        ok: response.ok === true,
+        status: typeof response.status === "number" ? response.status : 503,
+        payload: response.payload,
+      });
     });
   });
 }
@@ -564,8 +582,8 @@ async function handleConfirm(): Promise<void> {
   try {
     const summaries: CreatedImportSummary[] = [];
     for (const request of requests) {
-      const result = isLocalApiBaseUrl(apiBaseUrl)
-        ? await sendBackgroundMessage({
+      const result: ApiResponse = await (isLocalApiBaseUrl(apiBaseUrl)
+        ? sendBackgroundMessage({
             type: "SAPSOS_SUBMIT_IMPORT",
             apiBaseUrl,
             request,
@@ -580,7 +598,7 @@ async function handleConfirm(): Promise<void> {
               status: response.status,
               payload: await responseJson(response),
             }));
-          })();
+          })());
       const resultPayload = result.payload;
       if (result.ok !== true) {
         const message = apiErrorMessage(resultPayload);
