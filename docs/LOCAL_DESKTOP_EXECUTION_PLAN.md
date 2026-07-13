@@ -33,7 +33,7 @@ but LOCAL_DESKTOP is the current official product.
 
 - Repository: `D:\Crystal`.
 - `main` is synchronized with `origin/main` at merge commit
-  `47841e2f9d3b804d820710ba39cd4ed9cdb0dcda`.
+  `c9b18d540f1bb203d94fc7d991185a636184dc56`.
 - PR 1 is merged as PR #35:
   `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
 - PR 1 commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
@@ -42,8 +42,8 @@ but LOCAL_DESKTOP is the current official product.
   authorization, stable app/data-directory contracts, and explicit Docker
   SERVER development defaults.
 - The current PR is the isolated worktree
-  `D:\Crystal\.cache\worktrees\add-process-supervision` on branch
-  `codex/add-process-supervision`.
+  `D:\Crystal\.cache\worktrees\add-desktop-shell-proof` on branch
+  `codex/add-desktop-shell-proof`.
 - Existing core academic domain, import staging, review/apply, course state,
   Degree Audit, eligibility, planner, section monitoring, and schedule
   optimizer logic remains present. Real school data and real section imports
@@ -75,8 +75,9 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 
 - Local Desktop target: embedded database, local API process, local web UI,
   runtime discovery, process supervision, and packaged desktop shell.
-- Partial: embedded local database and runtime discovery are implemented;
-  process supervision, packaged runtime, and desktop shell do not yet exist.
+- Partial: embedded local database, runtime discovery, API process supervision,
+  and the unbundled desktop-shell proof are implemented; packaged runtime and
+  production desktop shell do not yet exist.
 - Mock-only: development seed fixtures and unreviewed sample academic data.
 - SERVER-only/current development path: PostgreSQL-backed Docker Compose and
   explicit bearer-authenticated SERVER runtime.
@@ -108,8 +109,8 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 2. Local embedded-database compatibility proof — complete.
 3. Local database baseline — complete.
 4. Dynamic runtime discovery — complete.
-5. API process supervision — current.
-6. Desktop-shell proof of concept.
+5. API process supervision — complete.
+6. Desktop-shell proof of concept — implementation validated; PR pending.
 7. FastAPI runtime packaging.
 8. Web UI packaging.
 9. Extension pairing.
@@ -225,23 +226,56 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 
 ### PR 5 — API process supervision
 
-- Status: implementation in progress; no commit or PR yet.
+- Status: merged.
 - Branch/worktree: `codex/add-process-supervision` /
-  `D:\Crystal\.cache\worktrees\add-process-supervision`.
+  `D:\Crystal\.cache\worktrees\add-process-supervision`; worktree retained
+  because generated browser/test caches were protected by Windows ACLs.
+- Commits: `721279ad64b106c6f4c899fa5a618b52ee449bef`, review fix
+  `fa7563663711aa2668c02aa9717a476a60921cb9`.
+- PR URL: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/39`.
+- CI: replacement run `29217386418` passed checks, E2E, and Docker Compose.
+- Merge commit: `c9b18d540f1bb203d94fc7d991185a636184dc56`.
 - Intended scope: API child-process startup, readiness waiting, graceful
   shutdown, crash/exit diagnostics, stale-manifest cleanup, duplicate-instance
   rejection, file log routing, and a bounded single restart policy.
 - Explicitly out of scope: desktop shell, packaging, installer, Extension
   pairing, localhost request protection, and later product milestones.
-- Validation so far: focused runtime/discovery/supervisor tests 10 passed;
+- Validation: focused runtime/discovery/supervisor tests 10 passed;
   targeted Ruff, format, and MyPy passed.
 - Integration proof: a real `python -m app.run` child started on a dynamic
   port, reached `ready`, routed output to `api.log`, and was gracefully
   stopped with its manifest removed.
-- Remaining risks: full regression gates, CI, review, and integration proof
-  remain.
-- Exact next action: add restart/lifecycle coverage as needed, inspect the
-  complete diff, run the full repository gates, then publish PR 5.
+- Remaining risks: Tauri toolchain availability, packaged runtime, and desktop
+  shell remain incomplete.
+- Exact next action: evaluate the Tauri desktop-shell proof after the required
+  Rust toolchain is available.
+
+### Stage 5 — desktop-shell proof of concept
+
+- Status: implementation validated locally; PR #40 open as a draft; CI/review
+  pending.
+- Branch/worktree: `codex/add-desktop-shell-proof` /
+  `D:\Crystal\.cache\worktrees\add-desktop-shell-proof`.
+- Evaluation candidate: Tauri, as required by the approved plan.
+- The proof uses a minimal Tauri 2 Rust scaffold in `desktop-shell/` and starts
+  the existing Node/Next Web UI plus FastAPI local runtime as child processes.
+- The approved Windows prerequisites are installed: rustup 1.29.0, stable
+  `rustc 1.97.0`, cargo 1.97.0, Visual Studio Build Tools with
+  `Microsoft.VisualStudio.Workload.VCTools`, MSVC x64/x86, MSBuild, CMake, and
+  Windows SDK 10.0.26100.0. WebView2 150.0.4078.65 was already installed.
+- Live proof passed: a Tauri window rendered the existing Web UI, the API
+  published a dynamic loopback runtime manifest and returned `/ready` 200, the
+  Web UI returned 200, and file-backed SQLite was created under the local app
+  data directory. Closing the window stopped the Tauri/API/Web processes and
+  removed the owned runtime manifest.
+- Review fix: the Web child now receives the discovered API `base_url` from the
+  ready runtime manifest instead of a hard-coded port, so UI API requests use
+  the actual dynamic loopback service.
+- Scope decision: no packaging, installer, extension pairing, localhost
+  protection, or later milestone code is included.
+- PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/40`.
+- Exact next action: wait for CI/review on PR #40; do not merge until the
+  current remote head is validated.
 
 ## Decision log
 
@@ -271,6 +305,20 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
   down gracefully before killing after timeout, rejects duplicate live
   instances, cleans stale manifests before launch, and permits at most one
   automatic restart by default.
+- 2026-07-13 — PR 5 merged with bounded child-process supervision. The
+  follow-up review added a PID ownership guard so a supervisor cannot adopt or
+  delete another process's runtime manifest.
+- 2026-07-13 — Stage 5 uses the approved minimal Tauri 2 proof. The shell
+  starts the existing Web UI and FastAPI local runtime, waits for readiness,
+  renders the Web UI in WebView2, and owns child-process shutdown. Packaging,
+  installer work, and later milestones remain out of scope.
+- 2026-07-13 — The approved official Windows prerequisites were installed and
+  verified. The Tauri CLI bootstrapper was not required; the proof uses the
+  official Tauri Rust crates directly. No repository source was changed during
+  prerequisite installation.
+- 2026-07-14 — Automated review found that dynamic API discovery was not being
+  passed to the Web child. The Tauri proof now waits for the ready manifest and
+  passes its discovered `base_url` to `NEXT_PUBLIC_API_BASE_URL`.
 - 2026-07-13 — The usage limit cleared. Full Stage 3 local gates and seeded
   writable-SQLite E2E completed; default AppData remained an environment ACL
   limitation, so runtime discovery was verified with an isolated writable
@@ -333,22 +381,31 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 | `python -m mypy app/runtime` | Passed | Stage 4 targeted strict typing |
 | Real `ApiProcessSupervisor` child proof | Passed | dynamic port, readiness, log routing, graceful shutdown, manifest cleanup |
 | Seeded writable-SQLite `CI=true corepack pnpm e2e` | Passed, 23 tests in CI; local run reached 22/23 before the pre-existing seeded-import 404 setup mismatch | Stage 4 regression; CI remains authoritative |
+| `rustup --version`, `rustc --version`, `cargo --version`, `rustup show` | Passed; stable `x86_64-pc-windows-msvc` active/default | Stage 5 Rust prerequisite |
+| `cargo run` MSVC smoke program | Passed; printed `Hello, world!` | Stage 5 Rust/MSVC prerequisite |
+| `vswhere` component query, MSVC `cl.exe`/`link.exe`, MSBuild, CMake, Windows SDK | Passed; Build Tools complete, MSVC 14.44.35207, SDK 10.0.26100.0 | Stage 5 Windows prerequisite |
+| WebView2 registry detection | Passed; 150.0.4078.65 already installed | Stage 5 WebView2 prerequisite |
+| `cargo check --manifest-path desktop-shell/src-tauri/Cargo.toml` | Passed | Stage 5 Rust scaffold |
+| `cargo build --manifest-path desktop-shell/src-tauri/Cargo.toml --jobs 2` | Passed | Stage 5 Rust/Tauri build |
+| Live Tauri launch, runtime manifest, `/ready`, Web UI `/` | Passed; dynamic loopback API, both HTTP probes 200, existing Web UI rendered | Stage 5 desktop-shell proof |
+| Close-window lifecycle probe | Passed; Tauri/API/Web stopped and owned manifest removed | Stage 5 desktop-shell proof |
+| Review-fix live proof with dynamic API base URL | Passed; manifest port `61232`, API `/ready` 200, Web UI `/` 200, clean close | Stage 5 review correction |
 
 ## Resume checkpoint
 
 - Current milestone: Local Runtime Foundation.
-- Current stage: Stage 4 — API process supervision.
-- Current PR: PR 5, not yet created.
-- Current branch/worktree: `codex/add-process-supervision` /
-  `D:\Crystal\.cache\worktrees\add-process-supervision`.
-- Last completed action: PR 4 merged and main synchronized to
-  `47841e2f9d3b804d820710ba39cd4ed9cdb0dcda`; Stage 4 supervisor skeleton and
-  focused tests are implemented.
-- Last successful validation: focused runtime/discovery/supervisor tests 8
-  passed; targeted Ruff, format, and MyPy passed.
-- Outstanding blocker: full validation, commit, PR, CI, and review remain.
-- Exact resume instruction: inspect `git status --short` and the complete diff,
-  finish only Stage 4 lifecycle coverage, then run the repository gates.
+- Current stage: Stage 5 — desktop-shell proof of concept.
+- Current PR: #40 (ready for review); Stage 4 PR 5 is merged.
+- Current branch/worktree: `codex/add-desktop-shell-proof` /
+  `D:\Crystal\.cache\worktrees\add-desktop-shell-proof`.
+- Last completed action: fixed the PR #40 dynamic API base URL finding and
+  re-ran the live Tauri proof, including child-process shutdown and
+  runtime-manifest cleanup.
+- Last successful validation: Tauri `cargo build`, live WebView2 rendering,
+  dynamic API `/ready` 200, Web UI `/` 200, and clean close lifecycle.
+- Outstanding work: CI, review, and merge of PR #40.
+- Exact resume instruction: continue from this worktree and publish the current
+  `codex/add-desktop-shell-proof` branch; do not create another worktree.
 
 ## Scope confirmation
 
