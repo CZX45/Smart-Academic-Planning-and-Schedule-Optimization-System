@@ -30,6 +30,7 @@ def test_settings_accept_local_development_defaults() -> None:
         "http://localhost:3011",
         "http://127.0.0.1:3011",
     ]
+    assert "http://tauri.localhost" in settings.desktop_origin_list
 
 
 @pytest.mark.parametrize(

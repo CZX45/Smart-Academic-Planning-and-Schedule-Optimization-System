@@ -29,7 +29,11 @@ type CreatedImportSummary = {
   recordCount: number | null;
 };
 
-type ChromeApi = PopupChromeApi & {
+type ChromeApi = Omit<PopupChromeApi, "runtime"> & {
+  runtime: {
+    lastError?: { message?: string };
+    sendMessage: (message: unknown, callback: (response: unknown) => void) => void;
+  };
   storage: {
     local: {
       get: (
@@ -46,6 +50,9 @@ declare const chrome: ChromeApi;
 const apiBaseUrlInput = document.getElementById("apiBaseUrlInput");
 const studentProfileIdInput = document.getElementById("studentProfileIdInput");
 const apiBearerTokenInput = document.getElementById("apiBearerTokenInput");
+const pairingCodeInput = document.getElementById("pairingCodeInput");
+const pairExtensionButton = document.getElementById("pairExtensionButton");
+const pairingStatusText = document.getElementById("pairingStatusText");
 const extractCurrentPageButton = document.getElementById(
   "extractCurrentPageButton",
 );
@@ -86,6 +93,20 @@ let latestCapturedUrl: string | null = null;
 let guidedMode = false;
 let guidedExtractions: BrowserExtensionExtraction[] = [];
 let confirmSubmissionInFlight = false;
+
+function sendBackgroundMessage(message: unknown): Promise<Record<string, unknown>> {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(message, (response: unknown) => {
+      resolve(isObject(response) ? response : {});
+    });
+  });
+}
+
+function setPairingStatus(message: string): void {
+  if (pairingStatusText) {
+    pairingStatusText.textContent = message;
+  }
+}
 
 function inputValue(element: Element | null): string {
   return element instanceof HTMLInputElement ? element.value.trim() : "";
@@ -543,15 +564,28 @@ async function handleConfirm(): Promise<void> {
   try {
     const summaries: CreatedImportSummary[] = [];
     for (const request of requests) {
-      const response = await fetch(`${apiBaseUrl}/api/v1/data-imports`, {
-        method: "POST",
-        headers: importRequestHeaders(apiBearerToken),
-        body: JSON.stringify(request),
-      });
-      if (!response.ok) {
-        const message = apiErrorMessage(await responseJson(response));
+      const result = isLocalApiBaseUrl(apiBaseUrl)
+        ? await sendBackgroundMessage({
+            type: "SAPSOS_SUBMIT_IMPORT",
+            apiBaseUrl,
+            request,
+          })
+        : (() => {
+            return fetch(`${apiBaseUrl}/api/v1/data-imports`, {
+              method: "POST",
+              headers: importRequestHeaders(apiBearerToken),
+              body: JSON.stringify(request),
+            }).then(async (response) => ({
+              ok: response.ok,
+              status: response.status,
+              payload: await responseJson(response),
+            }));
+          })();
+      const resultPayload = result.payload;
+      if (result.ok !== true) {
+        const message = apiErrorMessage(resultPayload);
         setApiStatus(
-          `Local app/API failed with HTTP ${response.status}${
+          `Local app/API failed with HTTP ${String(result.status ?? "unknown")}${
             message ? `: ${message}` : "."
           }`,
         );
@@ -560,7 +594,7 @@ async function handleConfirm(): Promise<void> {
         );
         return;
       }
-      const summary = createdImportSummary(await responseJson(response));
+      const summary = createdImportSummary(resultPayload);
       if (
         summary.recordCount !== null &&
         request.extracted_record_count > 0 &&
@@ -604,6 +638,51 @@ async function handleConfirm(): Promise<void> {
   }
 }
 
+async function handlePairExtension(): Promise<void> {
+  const apiBaseUrl = inputValue(apiBaseUrlInput).replace(/\/+$/, "");
+  const code = inputValue(pairingCodeInput).trim();
+  if (!isLocalApiBaseUrl(apiBaseUrl)) {
+    setPairingStatus("Pairing is available only with the local app.");
+    return;
+  }
+  if (!code) {
+    setPairingStatus("Enter the short-lived code shown in the local app.");
+    return;
+  }
+  setPairingStatus("Pairing with the local app...");
+  const result = await sendBackgroundMessage({
+    type: "SAPSOS_PAIR_EXTENSION",
+    apiBaseUrl,
+    code,
+  });
+  const payload = result.payload;
+  if (result.ok === true) {
+    setPairingStatus("Paired with the local app. The credential is held by the Extension worker.");
+  } else {
+    setPairingStatus(apiErrorMessage(payload) ?? "Pairing failed. Check the code and app state.");
+  }
+}
+
+async function refreshPairingStatus(): Promise<void> {
+  const apiBaseUrl = inputValue(apiBaseUrlInput).replace(/\/+$/, "");
+  if (!isLocalApiBaseUrl(apiBaseUrl)) {
+    setPairingStatus("Pairing is available only with the local app.");
+    return;
+  }
+  const result = await sendBackgroundMessage({
+    type: "SAPSOS_GET_PAIRING_STATUS",
+    apiBaseUrl,
+  });
+  const payload = result.payload;
+  if (result.ok === true && isObject(payload) && payload.paired === true) {
+    setPairingStatus("A local app pairing is active.");
+  } else if (result.ok === true) {
+    setPairingStatus("Pairing required.");
+  } else {
+    setPairingStatus("Local app unavailable.");
+  }
+}
+
 chrome.storage.local.get(["apiBaseUrl", "studentProfileId"], (settings) => {
   if (settings.apiBaseUrl) {
     setInputValue(apiBaseUrlInput, settings.apiBaseUrl);
@@ -611,6 +690,7 @@ chrome.storage.local.get(["apiBaseUrl", "studentProfileId"], (settings) => {
   if (settings.studentProfileId) {
     setInputValue(studentProfileIdInput, settings.studentProfileId);
   }
+  void refreshPairingStatus();
 });
 
 extractCurrentPageButton?.addEventListener("click", () => {
@@ -627,6 +707,10 @@ captureGuidedPageButton?.addEventListener("click", () => {
 
 confirmImportButton?.addEventListener("click", () => {
   void handleConfirm();
+});
+
+pairExtensionButton?.addEventListener("click", () => {
+  void handlePairExtension();
 });
 
 renderPreview([]);

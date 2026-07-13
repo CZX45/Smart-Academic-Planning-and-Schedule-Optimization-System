@@ -16,6 +16,7 @@ LOCAL_DEVELOPMENT_CORS_ORIGINS = ",".join(
     for port in LOCAL_DEVELOPMENT_WEB_PORTS
     for host in ("localhost", "127.0.0.1")
 )
+TAURI_LOCALHOST_ORIGIN = "http://tauri.localhost"
 APP_ID = "com.sapsos.smart-academic-planner"
 APP_DATA_DIR_NAME = "SAPSOS"
 FUTURE_DATA_ROOT = "%LOCALAPPDATA%\\SAPSOS\\"
@@ -157,6 +158,18 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return parse_cors_origins(self.cors_origins)
+
+    @property
+    def desktop_origin_list(self) -> list[str]:
+        return [*self.cors_origin_list, TAURI_LOCALHOST_ORIGIN]
+
+    @property
+    def local_pairing_store_path(self) -> Path:
+        if self.runtime_manifest_path is not None:
+            return self.runtime_manifest_path.with_name("pairing.json")
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        root = Path(local_app_data) if local_app_data else Path.home() / "AppData" / "Local"
+        return root / APP_DATA_DIR_NAME / "pairing.json"
 
     @property
     def is_production(self) -> bool:
