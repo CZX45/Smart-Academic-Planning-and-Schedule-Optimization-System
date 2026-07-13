@@ -272,7 +272,7 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
   protection, or later milestone code is included.
 - PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/40`.
 - Exact next action: wait for CI/review on PR #40; do not merge until the exact
-  head `c1d6f72` is validated.
+  head `b0d2a68ed45b2d92266f4dc77dbe301ca1e351be` is validated.
 
 ## Decision log
 
@@ -392,7 +392,7 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 - Current branch/worktree: `codex/add-desktop-shell-proof` /
   `D:\Crystal\.cache\worktrees\add-desktop-shell-proof`.
 - Last completed action: PR #40 opened from commit
-  `9898fb0614e84af9071d28d39889042b4728ac8f` after the live Tauri proof
+  `b0d2a68ed45b2d92266f4dc77dbe301ca1e351be` after the live Tauri proof
   passed, including child-process shutdown and runtime-manifest cleanup.
 - Last successful validation: Tauri `cargo build`, live WebView2 rendering,
   dynamic API `/ready` 200, Web UI `/` 200, and clean close lifecycle.
