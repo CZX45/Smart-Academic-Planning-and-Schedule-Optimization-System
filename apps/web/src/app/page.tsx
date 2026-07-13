@@ -78,6 +78,7 @@ import {
   type SetStateAction,
   startTransition,
   useEffect,
+  useCallback,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -1884,7 +1885,7 @@ type PairingPanelState =
 function LocalPairingPanel({ apiBaseUrl }: { apiBaseUrl: string | undefined }) {
   const [state, setState] = useState<PairingPanelState>({ status: "loading" });
 
-  async function refresh(): Promise<void> {
+  const refresh = useCallback(async (): Promise<void> => {
     if (!apiBaseUrl) {
       setState({ status: "error", message: "API 基础地址未配置。" });
       return;
@@ -1906,7 +1907,7 @@ function LocalPairingPanel({ apiBaseUrl }: { apiBaseUrl: string | undefined }) {
         message: error instanceof Error ? error.message : "本地配对状态不可用。",
       });
     }
-  }
+  }, [apiBaseUrl]);
 
   async function createCode(): Promise<void> {
     if (!apiBaseUrl) return;
@@ -1932,8 +1933,9 @@ function LocalPairingPanel({ apiBaseUrl }: { apiBaseUrl: string | undefined }) {
   }
 
   useEffect(() => {
-    void refresh();
-  }, [apiBaseUrl]);
+    const timer = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(timer);
+  }, [refresh]);
 
   return (
     <section className="diagnostics-panel" aria-label="本地浏览器扩展配对">
