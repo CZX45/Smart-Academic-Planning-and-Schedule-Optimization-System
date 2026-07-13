@@ -32,8 +32,9 @@ but LOCAL_DESKTOP is the current official product.
 ## Current verified state
 
 - Repository: `D:\Crystal`.
-- `main` is synchronized with `origin/main` at merge commit
-  `a6dc81e5dd7cd3724682432dc319b71ab836f764`.
+- `origin/main` is at merge commit
+  `a6dc81e5dd7cd3724682432dc319b71ab836f764`; local `main` additionally
+  contains the post-merge execution-plan checkpoint commit.
 - PR 1 is merged as PR #35:
   `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
 - PR 1 commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
