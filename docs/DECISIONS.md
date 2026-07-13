@@ -28,6 +28,37 @@ need only the produced artifact. Runtime resources, logs, and failure details
 remain inspectable. Installer, signing, updater, Web UI packaging, and Node.js
 removal remain later work.
 
+## ADR-0020: Package the LOCAL_DESKTOP Web UI as static Tauri assets
+
+Status: Accepted for Stage 7
+
+Context: The Stage 5 Tauri proof started a Next.js development server, which
+requires Node.js and pnpm at runtime. Stage 7 must remove that runtime
+requirement while preserving the dynamically discovered FastAPI loopback URL.
+
+Decision: Use Next.js `output: "export"` and copy the resulting static output
+to `dist/local-desktop-web`. Release Tauri builds load those assets directly.
+After the packaged API reaches readiness, Tauri passes its manifest `base_url`
+as the `api_base_url` query parameter on the app document URL. The Web UI
+validates and consumes that value after hydration. Debug builds retain the
+existing development-server path for developer workflows, but release builds
+compile out the Node/Next launch.
+
+Alternatives considered: A packaged Node production server was rejected because
+the current Web UI has no route handlers, middleware, server actions, dynamic
+routes, or server-only data access; static export is sufficient and smaller.
+Build-time `NEXT_PUBLIC_API_BASE_URL` injection was rejected because the API
+port is allocated dynamically at runtime. A Tauri JavaScript IPC dependency was
+not added because the document query bridge is explicit, testable, survives
+reload, and keeps the Stage 7 change narrow.
+
+Consequences: The static UI is approximately 1.08 MiB in the controlled build
+and requires developer Node.js/Corepack only to build. Tauri release startup
+depends on the packaged API readiness contract and fails clearly when the Web
+artifact is missing. Installer, signing, updater, and a clean Windows VM proof
+remain outside this stage; the available no-Node/no-Python evidence must be
+reported as a controlled simulation unless a clean image is available.
+
 ## ADR-0001: Use a documentation-first implementation phase
 
 Status: Accepted

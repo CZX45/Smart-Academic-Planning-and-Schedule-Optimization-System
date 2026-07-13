@@ -7,6 +7,15 @@ export type PublicEnv = {
   apiBaseUrl: string;
 };
 
+export function parseRuntimeApiBaseUrl(search: string): string | undefined {
+  const value = new URLSearchParams(search).get("api_base_url")?.trim();
+  if (!value) {
+    return undefined;
+  }
+
+  return parsePublicEnv({ NEXT_PUBLIC_API_BASE_URL: value }).apiBaseUrl;
+}
+
 export function parsePublicEnv(env: PublicEnvInput): PublicEnv {
   const apiBaseUrl = env.NEXT_PUBLIC_API_BASE_URL?.trim();
   if (!apiBaseUrl) {

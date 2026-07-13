@@ -5,17 +5,10 @@
   "identifier": "com.sapsos.localdesktop.proof",
   "build": {
     "devUrl": "http://127.0.0.1:3000",
-    "frontendDist": "../../apps/web"
+    "frontendDist": "../../dist/local-desktop-web"
   },
   "app": {
-    "windows": [
-      {
-        "title": "SAPSOS Local Desktop Proof",
-        "width": 1280,
-        "height": 860,
-        "resizable": true
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     }
