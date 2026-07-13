@@ -52,3 +52,10 @@ def test_runtime_manifest_prevents_a_second_live_instance(tmp_path: Path) -> Non
 
     with pytest.raises(RuntimeError, match="Another runtime instance"):
         publish_runtime_manifest(path, second)
+
+
+def test_runtime_manifest_brackets_ipv6_urls() -> None:
+    manifest = new_runtime_manifest(host="::1", port=8000)
+
+    assert manifest.base_url == "http://[::1]:8000"
+    assert manifest.readiness_url == "http://[::1]:8000/ready"

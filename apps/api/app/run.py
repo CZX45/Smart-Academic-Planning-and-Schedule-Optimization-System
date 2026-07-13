@@ -7,9 +7,9 @@ from app.config import APP_DATA_DIR_NAME, settings
 from app.runtime.discovery import (
     allocate_loopback_port,
     default_runtime_manifest_path,
-    discover_runtime_manifest,
     new_runtime_manifest,
     publish_runtime_manifest,
+    read_runtime_manifest,
 )
 
 if __name__ == "__main__":
@@ -24,6 +24,6 @@ if __name__ == "__main__":
     try:
         uvicorn.run("app.main:app", host=settings.api_host, port=port, reload=False)
     finally:
-        current_manifest = discover_runtime_manifest(manifest_path)
+        current_manifest = read_runtime_manifest(manifest_path)
         if current_manifest is not None and current_manifest.instance_id == manifest.instance_id:
             manifest_path.unlink()

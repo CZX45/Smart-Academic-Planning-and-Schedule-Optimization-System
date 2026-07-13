@@ -42,7 +42,8 @@ def default_runtime_manifest_path(data_directory: Path) -> Path:
 
 def new_runtime_manifest(*, host: str, port: int, pid: int | None = None) -> RuntimeManifest:
     resolved_pid = pid if pid is not None else os.getpid()
-    base_url = f"http://{host}:{port}"
+    url_host = f"[{host}]" if ":" in host and not host.startswith("[") else host
+    base_url = f"http://{url_host}:{port}"
     return RuntimeManifest(
         instance_id=uuid4(),
         pid=resolved_pid,
@@ -113,10 +114,14 @@ def is_runtime_manifest_stale(manifest: RuntimeManifest) -> bool:
 
 
 def discover_runtime_manifest(path: Path) -> RuntimeManifest | None:
-    try:
-        manifest = RuntimeManifest.model_validate_json(path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, OSError, ValueError):
-        return None
-    if is_runtime_manifest_stale(manifest):
+    manifest = read_runtime_manifest(path)
+    if manifest is None or is_runtime_manifest_stale(manifest):
         return None
     return manifest
+
+
+def read_runtime_manifest(path: Path) -> RuntimeManifest | None:
+    try:
+        return RuntimeManifest.model_validate_json(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, ValueError):
+        return None
