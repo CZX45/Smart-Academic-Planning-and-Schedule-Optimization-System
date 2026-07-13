@@ -75,9 +75,9 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 
 - Local Desktop target: embedded database, local API process, local web UI,
   runtime discovery, process supervision, and packaged desktop shell.
-- Partial: embedded local database, runtime discovery, and API process
-  supervision are implemented; packaged runtime and desktop shell do not yet
-  exist.
+- Partial: embedded local database, runtime discovery, API process supervision,
+  and the unbundled desktop-shell proof are implemented; packaged runtime and
+  production desktop shell do not yet exist.
 - Mock-only: development seed fixtures and unreviewed sample academic data.
 - SERVER-only/current development path: PostgreSQL-backed Docker Compose and
   explicit bearer-authenticated SERVER runtime.
@@ -110,7 +110,7 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 3. Local database baseline — complete.
 4. Dynamic runtime discovery — complete.
 5. API process supervision — complete.
-6. Desktop-shell proof of concept — blocked on Tauri toolchain availability.
+6. Desktop-shell proof of concept — implementation validated; PR pending.
 7. FastAPI runtime packaging.
 8. Web UI packaging.
 9. Extension pairing.
@@ -252,21 +252,25 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 
 ### Stage 5 — desktop-shell proof of concept
 
-- Status: blocked before implementation; no PR created.
+- Status: implementation validated locally; PR pending.
 - Branch/worktree: `codex/add-desktop-shell-proof` /
   `D:\Crystal\.cache\worktrees\add-desktop-shell-proof`.
 - Evaluation candidate: Tauri, as required by the approved plan.
-- Evidence: the repository has no Tauri or other desktop-shell scaffold, and
-  `cargo --version` plus `rustc --version` are unavailable in the current
-  Windows environment. A Tauri proof cannot be compiled or honestly verified
-  without a Rust toolchain.
-- Scope decision: do not substitute Electron, a browser tab, or a PowerShell
-  window for the approved desktop-shell proof without architectural evidence
-  and explicit direction. No shell, packaging, installer, or later milestone
-  code has been started.
-- Exact resume action: install/provide a Rust/Tauri-capable Windows toolchain,
-  then rerun the Stage 5 evaluation from this worktree before changing the
-  architecture.
+- The proof uses a minimal Tauri 2 Rust scaffold in `desktop-shell/` and starts
+  the existing Node/Next Web UI plus FastAPI local runtime as child processes.
+- The approved Windows prerequisites are installed: rustup 1.29.0, stable
+  `rustc 1.97.0`, cargo 1.97.0, Visual Studio Build Tools with
+  `Microsoft.VisualStudio.Workload.VCTools`, MSVC x64/x86, MSBuild, CMake, and
+  Windows SDK 10.0.26100.0. WebView2 150.0.4078.65 was already installed.
+- Live proof passed: a Tauri window rendered the existing Web UI, the API
+  published a dynamic loopback runtime manifest and returned `/ready` 200, the
+  Web UI returned 200, and file-backed SQLite was created under the local app
+  data directory. Closing the window stopped the Tauri/API/Web processes and
+  removed the owned runtime manifest.
+- Scope decision: no packaging, installer, extension pairing, localhost
+  protection, or later milestone code is included.
+- Exact next action: run the repository gates, commit only the Stage 5 files,
+  publish the existing branch, and wait for CI/review before merge.
 
 ## Decision log
 
@@ -299,10 +303,14 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 - 2026-07-13 — PR 5 merged with bounded child-process supervision. The
   follow-up review added a PID ownership guard so a supervisor cannot adopt or
   delete another process's runtime manifest.
-- 2026-07-13 — Stage 5 Tauri evaluation is blocked before implementation:
-  both `cargo` and `rustc` are absent and no desktop-shell scaffold exists.
-  Do not claim a desktop proof or switch to Electron without evidence and
-  explicit architecture direction.
+- 2026-07-13 — Stage 5 uses the approved minimal Tauri 2 proof. The shell
+  starts the existing Web UI and FastAPI local runtime, waits for readiness,
+  renders the Web UI in WebView2, and owns child-process shutdown. Packaging,
+  installer work, and later milestones remain out of scope.
+- 2026-07-13 — The approved official Windows prerequisites were installed and
+  verified. The Tauri CLI bootstrapper was not required; the proof uses the
+  official Tauri Rust crates directly. No repository source was changed during
+  prerequisite installation.
 - 2026-07-13 — The usage limit cleared. Full Stage 3 local gates and seeded
   writable-SQLite E2E completed; default AppData remained an environment ACL
   limitation, so runtime discovery was verified with an isolated writable
@@ -365,7 +373,14 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 | `python -m mypy app/runtime` | Passed | Stage 4 targeted strict typing |
 | Real `ApiProcessSupervisor` child proof | Passed | dynamic port, readiness, log routing, graceful shutdown, manifest cleanup |
 | Seeded writable-SQLite `CI=true corepack pnpm e2e` | Passed, 23 tests in CI; local run reached 22/23 before the pre-existing seeded-import 404 setup mismatch | Stage 4 regression; CI remains authoritative |
-| `cargo --version` / `rustc --version` | Blocked, commands unavailable | Stage 5 Tauri prerequisite |
+| `rustup --version`, `rustc --version`, `cargo --version`, `rustup show` | Passed; stable `x86_64-pc-windows-msvc` active/default | Stage 5 Rust prerequisite |
+| `cargo run` MSVC smoke program | Passed; printed `Hello, world!` | Stage 5 Rust/MSVC prerequisite |
+| `vswhere` component query, MSVC `cl.exe`/`link.exe`, MSBuild, CMake, Windows SDK | Passed; Build Tools complete, MSVC 14.44.35207, SDK 10.0.26100.0 | Stage 5 Windows prerequisite |
+| WebView2 registry detection | Passed; 150.0.4078.65 already installed | Stage 5 WebView2 prerequisite |
+| `cargo check --manifest-path desktop-shell/src-tauri/Cargo.toml` | Passed | Stage 5 Rust scaffold |
+| `cargo build --manifest-path desktop-shell/src-tauri/Cargo.toml --jobs 2` | Passed | Stage 5 Rust/Tauri build |
+| Live Tauri launch, runtime manifest, `/ready`, Web UI `/` | Passed; dynamic loopback API, both HTTP probes 200, existing Web UI rendered | Stage 5 desktop-shell proof |
+| Close-window lifecycle probe | Passed; Tauri/API/Web stopped and owned manifest removed | Stage 5 desktop-shell proof |
 
 ## Resume checkpoint
 
@@ -374,16 +389,13 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 - Current PR: none; Stage 4 PR 5 is merged.
 - Current branch/worktree: `codex/add-desktop-shell-proof` /
   `D:\Crystal\.cache\worktrees\add-desktop-shell-proof`.
-- Last completed action: PR 5 merged and main synchronized to
-  `c9b18d540f1bb203d94fc7d991185a636184dc56`; Tauri prerequisite inspection
-  completed.
-- Last successful validation: PR 5 CI run `29217386418` passed checks, E2E,
-  and Docker Compose; local real-child supervisor proof passed.
-- Outstanding blocker: `cargo` and `rustc` are unavailable, so the Tauri
-  desktop proof cannot be compiled or verified in this environment.
-- Exact resume instruction: provide a Rust/Tauri-capable Windows toolchain,
-  then run `cargo --version` and `rustc --version` here before creating any
-  Stage 5 implementation PR.
+- Last completed action: the live Tauri proof passed in this worktree,
+  including child-process shutdown and runtime-manifest cleanup.
+- Last successful validation: Tauri `cargo build`, live WebView2 rendering,
+  dynamic API `/ready` 200, Web UI `/` 200, and clean close lifecycle.
+- Outstanding work: repository gates, scoped commit/push, CI, review, and merge.
+- Exact resume instruction: continue from this worktree and publish the current
+  `codex/add-desktop-shell-proof` branch; do not create another worktree.
 
 ## Scope confirmation
 

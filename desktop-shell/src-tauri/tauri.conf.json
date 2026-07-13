@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SAPSOS Local Desktop Proof",
+  "version": "0.1.0",
+  "identifier": "com.sapsos.localdesktop.proof",
+  "build": {
+    "devUrl": "http://127.0.0.1:3000",
+    "frontendDist": "../../apps/web"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "SAPSOS Local Desktop Proof",
+        "width": 1280,
+        "height": 860,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": []
+  }
+}
