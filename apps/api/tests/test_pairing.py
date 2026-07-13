@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,7 +20,7 @@ from app.security.pairing import (
 EXTENSION_ID = "abcdefghijklmnopabcdefghijklmnop"
 
 
-def test_pairing_code_is_random_usable_and_single_use(tmp_path) -> None:
+def test_pairing_code_is_random_usable_and_single_use(tmp_path: Path) -> None:
     store = PairingStore(tmp_path / "pairing.json")
     code, expires_at = store.create_code()
 
@@ -32,7 +33,7 @@ def test_pairing_code_is_random_usable_and_single_use(tmp_path) -> None:
         store.complete(code, EXTENSION_ID, PAIRING_PROTOCOL_VERSION)
 
 
-def test_pairing_rejects_wrong_protocol_and_expired_code(tmp_path) -> None:
+def test_pairing_rejects_wrong_protocol_and_expired_code(tmp_path: Path) -> None:
     path = tmp_path / "pairing.json"
     store = PairingStore(path)
     code, _ = store.create_code()
@@ -46,7 +47,7 @@ def test_pairing_rejects_wrong_protocol_and_expired_code(tmp_path) -> None:
         store.complete(code, EXTENSION_ID, PAIRING_PROTOCOL_VERSION)
 
 
-def test_pairing_attempts_are_rate_limited_and_revocable(tmp_path) -> None:
+def test_pairing_attempts_are_rate_limited_and_revocable(tmp_path: Path) -> None:
     store = PairingStore(tmp_path / "pairing.json")
     store.create_code()
     for _ in range(8):
@@ -63,7 +64,7 @@ def test_pairing_attempts_are_rate_limited_and_revocable(tmp_path) -> None:
     assert store.verify(completion.credential, EXTENSION_ID) is False
 
 
-def test_pairing_verifier_persists_without_plaintext_credential(tmp_path) -> None:
+def test_pairing_verifier_persists_without_plaintext_credential(tmp_path: Path) -> None:
     path = tmp_path / "pairing.json"
     store = PairingStore(path)
     code, _ = store.create_code()
@@ -88,7 +89,9 @@ def test_extension_origin_is_strictly_parsed(origin: str | None, expected: str |
     assert extension_id_from_origin(origin) == expected
 
 
-def test_pairing_http_flow_requires_expected_origins(tmp_path, monkeypatch) -> None:
+def test_pairing_http_flow_requires_expected_origins(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(settings, "runtime_manifest_path", tmp_path / "runtime.json")
     client = TestClient(app)
     desktop_headers = {"Origin": "http://tauri.localhost"}
