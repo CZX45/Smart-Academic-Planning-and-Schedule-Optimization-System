@@ -33,7 +33,7 @@ but LOCAL_DESKTOP is the current official product.
 
 - Repository: `D:\Crystal`.
 - `main` is synchronized with `origin/main` at merge commit
-  `d766037e758ed194ccbcb4c7ecf7f393cb4f2637`.
+  `47841e2f9d3b804d820710ba39cd4ed9cdb0dcda`.
 - PR 1 is merged as PR #35:
   `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
 - PR 1 commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
@@ -42,8 +42,8 @@ but LOCAL_DESKTOP is the current official product.
   authorization, stable app/data-directory contracts, and explicit Docker
   SERVER development defaults.
 - The current PR is the isolated worktree
-  `D:\Crystal\.cache\worktrees\add-dynamic-runtime-discovery`
-  on branch `codex/add-dynamic-runtime-discovery`.
+  `D:\Crystal\.cache\worktrees\add-process-supervision` on branch
+  `codex/add-process-supervision`.
 - Existing core academic domain, import staging, review/apply, course state,
   Degree Audit, eligibility, planner, section monitoring, and schedule
   optimizer logic remains present. Real school data and real section imports
@@ -107,8 +107,8 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 1. PR 1 delivery and runtime-mode isolation — complete.
 2. Local embedded-database compatibility proof — complete.
 3. Local database baseline — complete.
-4. Dynamic runtime discovery — current.
-5. API process supervision.
+4. Dynamic runtime discovery — complete.
+5. API process supervision — current.
 6. Desktop-shell proof of concept.
 7. FastAPI runtime packaging.
 8. Web UI packaging.
@@ -197,10 +197,15 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 
 ### PR 4 — add dynamic runtime discovery
 
-- Status: implementation complete locally; ready for commit/push.
+- Status: merged.
 - Branch/worktree: `codex/add-dynamic-runtime-discovery` /
-  `D:\Crystal\.cache\worktrees\add-dynamic-runtime-discovery`.
-- Commit/PR/CI/merge: none yet.
+  `D:\Crystal\.cache\worktrees\add-dynamic-runtime-discovery`; worktree
+  retained because Windows ACL-protected caches blocked safe removal.
+- Commit: `46e3bca73858da4aeb82c3de1e8891bcbc817ab3`; review fix commit
+  `00e78986df8e3ef1d0ce80cc1e629ec6db1da5a8`.
+- PR URL: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/38`.
+- CI: replacement run `29216453312` passed checks, E2E, and Docker Compose.
+- Merge commit: `47841e2f9d3b804d820710ba39cd4ed9cdb0dcda`.
 - Changes in scope: dynamic loopback port allocation when `API_PORT=0`, typed
   protocol/versioned runtime manifest, atomic publication, stale-process
   detection, second-instance conflict protection, startup readiness update,
@@ -209,12 +214,34 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
   recursive tests, lint, typecheck, build, Ruff, formatting, and MyPy passed.
   Seeded writable-SQLite E2E passed 23/23. Manual startup proved a dynamic
   port, manifest status `ready`, `/runtime` status `ready`, and `/ready` 200.
-  OpenAPI was regenerated for `/runtime` and `RuntimeManifest`; it will pass
-  its final drift check once these generated files are committed.
-- Remaining risks: CI/review remain; keep process supervision, desktop shell,
-  packaging, and installer work out of this PR.
-- Exact next action: inspect the complete diff, commit only Stage 3 files,
-  push, and create PR 4.
+  OpenAPI was regenerated for `/runtime` and `RuntimeManifest`, and CI passed
+  the committed OpenAPI drift check.
+- Review fixes: IPv6 literals are bracketed in runtime URLs, and shutdown
+  removes the owned manifest even after the listening socket closes.
+- Remaining risks: process supervision, desktop shell, packaging, and
+  installer work remain incomplete.
+- Exact next action: implement and validate the bounded API process supervisor
+  in the isolated Stage 4 worktree below.
+
+### PR 5 — API process supervision
+
+- Status: implementation in progress; no commit or PR yet.
+- Branch/worktree: `codex/add-process-supervision` /
+  `D:\Crystal\.cache\worktrees\add-process-supervision`.
+- Intended scope: API child-process startup, readiness waiting, graceful
+  shutdown, crash/exit diagnostics, stale-manifest cleanup, duplicate-instance
+  rejection, file log routing, and a bounded single restart policy.
+- Explicitly out of scope: desktop shell, packaging, installer, Extension
+  pairing, localhost request protection, and later product milestones.
+- Validation so far: focused runtime/discovery/supervisor tests 10 passed;
+  targeted Ruff, format, and MyPy passed.
+- Integration proof: a real `python -m app.run` child started on a dynamic
+  port, reached `ready`, routed output to `api.log`, and was gracefully
+  stopped with its manifest removed.
+- Remaining risks: full regression gates, CI, review, and integration proof
+  remain.
+- Exact next action: add restart/lifecycle coverage as needed, inspect the
+  complete diff, run the full repository gates, then publish PR 5.
 
 ## Decision log
 
@@ -235,6 +262,15 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 - 2026-07-12 — Dynamic runtime discovery uses a versioned atomic manifest,
   loopback port allocation, stale process detection, and a single-instance
   ownership check. API process supervision remains a later stage.
+- 2026-07-13 — PR 4 merged with a versioned runtime manifest and `/runtime`
+  discovery endpoint. The follow-up review fixed IPv6 URL construction and
+  shutdown manifest cleanup before merge.
+- 2026-07-13 — Stage 4 supervision is isolated behind an explicit supervisor
+  object. It starts `python -m app.run`, waits for manifest plus `/ready`,
+  routes child output to a file, reports bounded log-tail diagnostics, shuts
+  down gracefully before killing after timeout, rejects duplicate live
+  instances, cleans stale manifests before launch, and permits at most one
+  automatic restart by default.
 - 2026-07-13 — The usage limit cleared. Full Stage 3 local gates and seeded
   writable-SQLite E2E completed; default AppData remained an environment ACL
   limitation, so runtime discovery was verified with an isolated writable
@@ -292,23 +328,27 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 | `python -m ruff check .` / `format --check .` | Passed | Stage 3 API lint/format |
 | `python -m mypy .` | Passed | Stage 3 API strict typing |
 | Seeded writable-SQLite `CI=true corepack pnpm e2e` | Passed, 23 tests | Stage 3 local runtime E2E |
+| `python -m pytest tests/test_runtime_supervisor.py tests/test_runtime_discovery.py` | Passed, 10 tests | Stage 4 focused lifecycle/discovery proof |
+| `python -m ruff check app/runtime tests/test_runtime_supervisor.py` / `format --check` | Passed | Stage 4 targeted lint/format |
+| `python -m mypy app/runtime` | Passed | Stage 4 targeted strict typing |
+| Real `ApiProcessSupervisor` child proof | Passed | dynamic port, readiness, log routing, graceful shutdown, manifest cleanup |
+| Seeded writable-SQLite `CI=true corepack pnpm e2e` | Passed, 23 tests in CI; local run reached 22/23 before the pre-existing seeded-import 404 setup mismatch | Stage 4 regression; CI remains authoritative |
 
 ## Resume checkpoint
 
 - Current milestone: Local Runtime Foundation.
-- Current stage: Stage 3 — dynamic runtime discovery.
-- Current PR: PR 4, not yet created.
-- Current branch/worktree: `codex/add-dynamic-runtime-discovery` /
-  `D:\Crystal\.cache\worktrees\add-dynamic-runtime-discovery`.
-- Last completed action: PR 3 merged and main synchronized to
-  `d766037e758ed194ccbcb4c7ecf7f393cb4f2637`; dynamic manifest startup proof
-  executed.
-- Last successful validation: full Stage 3 local gates and seeded E2E 23/23.
-- Outstanding blocker: CI and PR review remain; generated OpenAPI files must be
-  included in the commit.
-- Exact resume instruction: inspect `git status --short` and
-  `git diff --name-status`, stage only runtime discovery files and generated
-  OpenAPI artifacts, then commit and publish PR 4.
+- Current stage: Stage 4 — API process supervision.
+- Current PR: PR 5, not yet created.
+- Current branch/worktree: `codex/add-process-supervision` /
+  `D:\Crystal\.cache\worktrees\add-process-supervision`.
+- Last completed action: PR 4 merged and main synchronized to
+  `47841e2f9d3b804d820710ba39cd4ed9cdb0dcda`; Stage 4 supervisor skeleton and
+  focused tests are implemented.
+- Last successful validation: focused runtime/discovery/supervisor tests 8
+  passed; targeted Ruff, format, and MyPy passed.
+- Outstanding blocker: full validation, commit, PR, CI, and review remain.
+- Exact resume instruction: inspect `git status --short` and the complete diff,
+  finish only Stage 4 lifecycle coverage, then run the repository gates.
 
 ## Scope confirmation
 

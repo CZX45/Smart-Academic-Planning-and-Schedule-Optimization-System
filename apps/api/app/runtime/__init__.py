@@ -5,6 +5,7 @@ from app.runtime.discovery import (
     discover_runtime_manifest,
     publish_runtime_manifest,
 )
+from app.runtime.supervisor import ApiProcessSupervisor
 
 __all__ = [
     "RUNTIME_PROTOCOL_VERSION",
@@ -12,4 +13,5 @@ __all__ = [
     "allocate_loopback_port",
     "discover_runtime_manifest",
     "publish_runtime_manifest",
+    "ApiProcessSupervisor",
 ]
