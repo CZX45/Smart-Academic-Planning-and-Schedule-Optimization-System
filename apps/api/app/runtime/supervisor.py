@@ -66,6 +66,14 @@ class ApiProcessSupervisor:
         while time.monotonic() < deadline:
             self._raise_if_exited("API process exited before readiness.")
             manifest = discover_runtime_manifest(self.manifest_path)
+            if (
+                manifest is not None
+                and self.process is not None
+                and manifest.pid != self.process.pid
+            ):
+                raise RuntimeError(
+                    self._diagnostics("Runtime manifest belongs to another API process.")
+                )
             if manifest is not None and self._readiness_is_reachable(manifest.readiness_url):
                 return manifest
             time.sleep(self.poll_interval)

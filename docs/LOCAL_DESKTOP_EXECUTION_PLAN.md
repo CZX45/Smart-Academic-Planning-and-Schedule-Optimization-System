@@ -233,7 +233,7 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
   rejection, file log routing, and a bounded single restart policy.
 - Explicitly out of scope: desktop shell, packaging, installer, Extension
   pairing, localhost request protection, and later product milestones.
-- Validation so far: focused runtime/discovery/supervisor tests 8 passed;
+- Validation so far: focused runtime/discovery/supervisor tests 10 passed;
   targeted Ruff, format, and MyPy passed.
 - Integration proof: a real `python -m app.run` child started on a dynamic
   port, reached `ready`, routed output to `api.log`, and was gracefully
@@ -328,7 +328,7 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 | `python -m ruff check .` / `format --check .` | Passed | Stage 3 API lint/format |
 | `python -m mypy .` | Passed | Stage 3 API strict typing |
 | Seeded writable-SQLite `CI=true corepack pnpm e2e` | Passed, 23 tests | Stage 3 local runtime E2E |
-| `python -m pytest tests/test_runtime_supervisor.py tests/test_runtime_discovery.py` | Passed, 8 tests | Stage 4 focused lifecycle/discovery proof |
+| `python -m pytest tests/test_runtime_supervisor.py tests/test_runtime_discovery.py` | Passed, 10 tests | Stage 4 focused lifecycle/discovery proof |
 | `python -m ruff check app/runtime tests/test_runtime_supervisor.py` / `format --check` | Passed | Stage 4 targeted lint/format |
 | `python -m mypy app/runtime` | Passed | Stage 4 targeted strict typing |
 | Real `ApiProcessSupervisor` child proof | Passed | dynamic port, readiness, log routing, graceful shutdown, manifest cleanup |

@@ -9,8 +9,9 @@ from app.runtime.supervisor import ApiProcessSupervisor
 
 
 class FakeProcess:
-    def __init__(self, returncode: int | None = None) -> None:
+    def __init__(self, returncode: int | None = None, pid: int = 1234) -> None:
         self.returncode = returncode
+        self.pid = pid
         self.terminated = False
 
     def poll(self) -> int | None:
@@ -30,8 +31,8 @@ class FakeProcess:
 def test_supervisor_waits_for_manifest_and_readiness(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    manifest = new_runtime_manifest(host="127.0.0.1", port=54321)
     process = FakeProcess()
+    manifest = new_runtime_manifest(host="127.0.0.1", port=54321, pid=process.pid)
     monkeypatch.setattr("app.runtime.supervisor.subprocess.Popen", lambda *_, **__: process)
     discoveries = iter([None, manifest])
     monkeypatch.setattr(
@@ -92,3 +93,24 @@ def test_supervisor_restart_policy_is_bounded(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError, match="restart limit reached"):
         supervisor.restart_if_crashed()
+
+
+def test_supervisor_rejects_a_manifest_from_another_process(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    process = FakeProcess(pid=1234)
+    other_manifest = new_runtime_manifest(host="127.0.0.1", port=54321, pid=5678)
+    monkeypatch.setattr("app.runtime.supervisor.subprocess.Popen", lambda *_, **__: process)
+    discoveries = iter([None, other_manifest])
+    monkeypatch.setattr(
+        "app.runtime.supervisor.discover_runtime_manifest", lambda _: next(discoveries)
+    )
+
+    supervisor = ApiProcessSupervisor(
+        manifest_path=tmp_path / "runtime.json",
+        log_path=tmp_path / "api.log",
+        poll_interval=0,
+    )
+
+    with pytest.raises(RuntimeError, match="belongs to another"):
+        supervisor.start()
