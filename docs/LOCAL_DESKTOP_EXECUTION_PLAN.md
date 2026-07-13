@@ -32,9 +32,9 @@ but LOCAL_DESKTOP is the current official product.
 ## Current verified state
 
 - Repository: `D:\Crystal`.
-- `origin/main` is at merge commit
-  `a6dc81e5dd7cd3724682432dc319b71ab836f764`; local `main` additionally
-  contains the post-merge execution-plan checkpoint commit.
+- `main` and `origin/main` are synchronized at merge commit
+  `45407d761dfbef63b20d9fa58f7d55a029387b95`, which includes the Stage 5
+  closeout-plan reconciliation.
 - PR 1 is merged as PR #35:
   `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
 - PR 1 commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
@@ -288,6 +288,26 @@ requirements. Extension pairing begins only after this foundation boundary.
   packaging until Stage 6 is independently validated and merged; do not begin
   Extension pairing or any later milestone.
 
+### PR 6 — reconcile the Stage 5 closeout plan
+
+- Status: merged.
+- Branch: `stage5-plan-closeout`; worktree: `D:\Crystal`.
+- Commits: `15b574b`, `ae1825f`, `3deb320`, and `2d96b6b`.
+- PR URL: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/41`.
+- CI: run `29267033334` passed checks, E2E, and Docker Compose; the follow-up
+  numbering correction was validated by run `29267033334` after head update.
+- Merge commit: `45407d761dfbef63b20d9fa58f7d55a029387b95`.
+- Validation: one-file documentation diff, `git diff --check`, full plan read,
+  and comparison with `ROADMAP.md`, `ARCHITECTURE.md`, `DECISIONS.md`, and
+  PR #40 state.
+- Decision: Local Runtime Foundation includes Stages 1–8; Stage 6 FastAPI
+  runtime packaging is the single next milestone, followed by Stage 7 Web UI
+  packaging. No source code or later feature work was started.
+- Remaining risks: packaged runtime proof, Windows clean-environment behavior,
+  and packaging-specific antivirus/path behavior remain unverified.
+- Exact next action: create the separately authorized Stage 6 implementation
+  PR; do not begin Stage 7 or Extension pairing in that PR.
+
 ## Decision log
 
 - 2026-07-12 — PR 1 was pushed to non-hierarchical `codex-pr-1` because the
@@ -412,10 +432,10 @@ requirements. Extension pairing begins only after this foundation boundary.
 - Current stage: Stage 6 — FastAPI runtime packaging, not started.
 - Current PR: none; PR #40 is merged.
 - Current branch/worktree: `main` / `D:\Crystal`.
-- Last completed action: PR #40 merged and local `main` fast-forwarded to
-  `a6dc81e5dd7cd3724682432dc319b71ab836f764`.
-- Last successful validation: CI run `29265910798`, corrected live Tauri proof,
-  dynamic API `/ready` 200, Web UI `/` 200, and clean close lifecycle.
+- Last completed action: PR #41 merged and local `main` synchronized with
+  `origin/main` at `45407d761dfbef63b20d9fa58f7d55a029387b95`.
+- Last successful validation: CI run `29267033334`, plus the corrected live
+  Tauri proof, dynamic API `/ready` 200, Web UI `/` 200, and clean close.
 - Outstanding blocker: Stage 6 packaging has not started and requires a
   separate approved implementation PR.
 - Exact resume instruction: create an isolated Stage 6 worktree and first
