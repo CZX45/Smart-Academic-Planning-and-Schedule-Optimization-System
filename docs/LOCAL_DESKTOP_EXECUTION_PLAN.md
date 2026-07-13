@@ -252,7 +252,8 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 
 ### Stage 5 — desktop-shell proof of concept
 
-- Status: implementation validated locally; PR pending.
+- Status: implementation validated locally; PR #40 open as a draft; CI/review
+  pending.
 - Branch/worktree: `codex/add-desktop-shell-proof` /
   `D:\Crystal\.cache\worktrees\add-desktop-shell-proof`.
 - Evaluation candidate: Tauri, as required by the approved plan.
@@ -269,8 +270,9 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
   removed the owned runtime manifest.
 - Scope decision: no packaging, installer, extension pairing, localhost
   protection, or later milestone code is included.
-- Exact next action: run the repository gates, commit only the Stage 5 files,
-  publish the existing branch, and wait for CI/review before merge.
+- PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/40`.
+- Exact next action: wait for CI/review on PR #40; do not merge until the exact
+  head `9898fb0614e84af9071d28d39889042b4728ac8f` is validated.
 
 ## Decision log
 
@@ -386,14 +388,15 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 
 - Current milestone: Local Runtime Foundation.
 - Current stage: Stage 5 — desktop-shell proof of concept.
-- Current PR: none; Stage 4 PR 5 is merged.
+- Current PR: #40 (draft); Stage 4 PR 5 is merged.
 - Current branch/worktree: `codex/add-desktop-shell-proof` /
   `D:\Crystal\.cache\worktrees\add-desktop-shell-proof`.
-- Last completed action: the live Tauri proof passed in this worktree,
-  including child-process shutdown and runtime-manifest cleanup.
+- Last completed action: PR #40 opened from commit
+  `9898fb0614e84af9071d28d39889042b4728ac8f` after the live Tauri proof
+  passed, including child-process shutdown and runtime-manifest cleanup.
 - Last successful validation: Tauri `cargo build`, live WebView2 rendering,
   dynamic API `/ready` 200, Web UI `/` 200, and clean close lifecycle.
-- Outstanding work: repository gates, scoped commit/push, CI, review, and merge.
+- Outstanding work: CI, review, and merge of PR #40.
 - Exact resume instruction: continue from this worktree and publish the current
   `codex/add-desktop-shell-proof` branch; do not create another worktree.
 
