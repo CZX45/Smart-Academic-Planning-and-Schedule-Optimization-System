@@ -112,8 +112,8 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 4. Dynamic runtime discovery — complete.
 5. API process supervision — complete.
 6. Desktop-shell proof of concept — complete; PR #40 merged.
-7. FastAPI runtime packaging.
-8. Web UI packaging.
+7. FastAPI runtime packaging — next stage in the Local Runtime Foundation.
+8. Web UI packaging — follows FastAPI runtime packaging in the same foundation.
 9. Extension pairing.
 10. Localhost request protection.
 11. Real MyProgress stabilization.
@@ -128,6 +128,12 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 20. Packaged Desktop E2E.
 21. Controlled Student Beta.
 22. Release Candidate.
+
+The Local Runtime Foundation includes stages 1–8: local database, runtime
+discovery and supervision, desktop-shell proof, FastAPI runtime packaging, and
+Web UI packaging. Stage 5 is complete, but the foundation is not complete until
+the packaged runtime can remove the user-installed Python and Node.js
+requirements. Extension pairing begins only after this foundation boundary.
 
 ## Progress log
 
@@ -277,8 +283,9 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 - Merge commit: `a6dc81e5dd7cd3724682432dc319b71ab836f764`.
 - CI: run `29265910798` passed checks, E2E, and Docker Compose for corrected
   head `385a0e90b81e47d455d5b3a675b487b18c3fb905`.
-- Exact next action: stop at the Local Runtime Foundation boundary. Do not
-  begin FastAPI/Web packaging or any later milestone without explicit scope.
+- Exact next action: begin Stage 6 FastAPI runtime packaging. Do not begin Web
+  packaging until Stage 6 is independently validated and merged; do not begin
+  Extension pairing or any later milestone.
 
 ## Decision log
 
@@ -401,17 +408,17 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 ## Resume checkpoint
 
 - Current milestone: Local Runtime Foundation.
-- Current stage: Stage 5 — desktop-shell proof of concept, complete.
-- Current PR: #40 merged; Stage 4 PR 5 is merged.
+- Current stage: Stage 6 — FastAPI runtime packaging, not started.
+- Current PR: none; PR #40 is merged.
 - Current branch/worktree: `main` / `D:\Crystal`.
 - Last completed action: PR #40 merged and local `main` fast-forwarded to
   `a6dc81e5dd7cd3724682432dc319b71ab836f764`.
 - Last successful validation: CI run `29265910798`, corrected live Tauri proof,
   dynamic API `/ready` 200, Web UI `/` 200, and clean close lifecycle.
-- Outstanding blocker: none for this milestone; later packaging is out of
-  scope for this Goal.
-- Exact resume instruction: wait for explicit authorization before beginning
-  Stage 6 FastAPI runtime packaging.
+- Outstanding blocker: Stage 6 packaging has not started and requires a
+  separate approved implementation PR.
+- Exact resume instruction: create an isolated Stage 6 worktree and first
+  produce a packaging proof without modifying the Web UI or Extension.
 
 ## Scope confirmation
 
