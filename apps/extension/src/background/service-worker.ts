@@ -47,6 +47,18 @@ async function responsePayload(response: Response): Promise<Record<string, unkno
     : {};
 }
 
+function extensionRequestHeaders(credential: string): Record<string, string> {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const nonce = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return {
+    "content-type": "application/json",
+    "X-SAPSOS-Extension-Credential": credential,
+    "X-SAPSOS-Extension-Nonce": nonce,
+    "X-SAPSOS-Extension-Timestamp": String(Date.now()),
+  };
+}
+
 function sendJson(
   sendResponse: (response: unknown) => void,
   response: Response,
@@ -89,10 +101,7 @@ async function handleMessage(message: Message, sendResponse: (response: unknown)
     }
     const response = await fetch(`${message.apiBaseUrl.replace(/\/+$/, "")}/api/v1/data-imports`, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "X-SAPSOS-Extension-Credential": pairing.credential,
-      },
+      headers: extensionRequestHeaders(pairing.credential),
       body: JSON.stringify(message.request),
     });
     await sendJson(sendResponse, response);

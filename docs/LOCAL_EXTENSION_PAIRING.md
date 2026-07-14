@@ -42,11 +42,12 @@ pairing state, protocol mismatch, verifier-only desktop persistence, and
 credential isolation from page JavaScript/content scripts. It preserves the
 read-only, explicit import and review/apply workflow.
 
-Stage 8A does not yet claim to stop arbitrary webpages, forged Host headers,
-replayed authenticated writes, or a malicious local process. CORS remains a
-browser policy, not an authorization boundary. Stage 8B must add centralized
-Host/Origin validation, the paired custom authorization header, request replay
-protection, protected-write classification, and failed-auth rate limiting.
+Stage 8B now adds the centralized loopback Host/Origin boundary, the paired
+custom authorization header, request replay protection, protected `/api/v1`
+classification, dynamic paired-origin CORS, and failed-auth rate limiting.
+CORS remains a browser policy, not the sole authorization boundary; Host
+validation, verifier-backed credentials, and replay checks enforce the local
+request policy.
 
 Neither stage protects against malware with the user's privileges, a fully
 compromised browser, school-portal compromise, or school authentication

@@ -2441,9 +2441,11 @@ test("reviewed 85-row MyProgress import drives the active real course-state snap
   request,
 }) => {
   const studentId = mockAuditRun.student_profile_id;
+  const localApiHeaders = { Origin: "http://127.0.0.1:3000" };
   const importResponse = await request.post(
     "http://127.0.0.1:8000/api/v1/data-imports",
     {
+      headers: localApiHeaders,
       data: {
         student_profile_id: studentId,
         import_type: "DEGREE_AUDIT_EXPORT",
@@ -2461,6 +2463,7 @@ test("reviewed 85-row MyProgress import drives the active real course-state snap
   const reviewResponse = await request.post(
     "http://127.0.0.1:8000/api/v1/data-import-reviews",
     {
+      headers: localApiHeaders,
       data: {
         data_import_run_id: imported.id,
         reviewer_label: "Sanitized E2E self-review",
@@ -2472,7 +2475,10 @@ test("reviewed 85-row MyProgress import drives the active real course-state snap
 
   const dryRunResponse = await request.post(
     `http://127.0.0.1:8000/api/v1/data-import-reviews/${review.id}/apply`,
-    { data: { dry_run: true, allow_advisor_review_records: false } },
+    {
+      headers: localApiHeaders,
+      data: { dry_run: true, allow_advisor_review_records: false },
+    },
   );
   expect(dryRunResponse.status()).toBe(200);
   const dryRun = (await dryRunResponse.json()) as {
@@ -2484,7 +2490,10 @@ test("reviewed 85-row MyProgress import drives the active real course-state snap
 
   const applyResponse = await request.post(
     `http://127.0.0.1:8000/api/v1/data-import-reviews/${review.id}/apply`,
-    { data: { dry_run: false, allow_advisor_review_records: false } },
+    {
+      headers: localApiHeaders,
+      data: { dry_run: false, allow_advisor_review_records: false },
+    },
   );
   expect(applyResponse.status()).toBe(200);
   const applied = (await applyResponse.json()) as {
@@ -2497,6 +2506,7 @@ test("reviewed 85-row MyProgress import drives the active real course-state snap
 
   const activeResponse = await request.get(
     `http://127.0.0.1:8000/api/v1/students/${studentId}/course-state-snapshots/active`,
+    { headers: localApiHeaders },
   );
   expect(activeResponse.status()).toBe(200);
   const active = (await activeResponse.json()) as {
@@ -2538,6 +2548,7 @@ test("reviewed 85-row MyProgress import drives the active real course-state snap
   const eligibilityResponse = await request.post(
     "http://127.0.0.1:8000/api/v1/eligibility-checks",
     {
+      headers: localApiHeaders,
       data: {
         student_profile_id: studentId,
         course_id: "e6ab2a34-d85a-5446-875e-83fd36d5b08e",
@@ -2564,6 +2575,7 @@ test("reviewed 85-row MyProgress import drives the active real course-state snap
   const plannerResponse = await request.post(
     "http://127.0.0.1:8000/api/v1/academic-plans",
     {
+      headers: localApiHeaders,
       data: {
         student_profile_id: studentId,
         program_version_id: "f65bee76-6061-515f-a3df-cdf5567514af",
@@ -2584,7 +2596,10 @@ test("reviewed 85-row MyProgress import drives the active real course-state snap
 
   const reapplyResponse = await request.post(
     `http://127.0.0.1:8000/api/v1/data-import-reviews/${review.id}/apply`,
-    { data: { dry_run: false, allow_advisor_review_records: false } },
+    {
+      headers: localApiHeaders,
+      data: { dry_run: false, allow_advisor_review_records: false },
+    },
   );
   expect(reapplyResponse.status()).toBe(200);
   const reapplied = (await reapplyResponse.json()) as {

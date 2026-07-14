@@ -549,17 +549,50 @@ requirements. Extension pairing begins only after this foundation boundary.
 
 ## Scope confirmation
 
-No work beyond the current Stage 8A pairing change has begun on localhost
-request protection, real MyProgress parser expansion, Program/Catalog ingestion, real Section import,
-real Schedule Optimization integration, UI restructuring, Backup/Restore,
-production migration, diagnostics center, installer/uninstaller, beta, or
-release-candidate work.
+Stage 8A pairing and the first Stage 8B localhost request-protection slice are
+the only active work. No work has begun on real MyProgress parser expansion,
+Program/Catalog ingestion, real Section import, real Schedule Optimization
+integration, UI restructuring, Backup/Restore, production migration,
+diagnostics center, installer/uninstaller, beta, or release-candidate work.
 
-## Stage 8A — secure local Extension pairing (in progress)
+## Stage 8A — secure local Extension pairing (merged)
 
 The separately reviewable Stage 8A implementation adds a short-lived,
 single-use random pairing code, verifier-only local persistence, protocol
 versioning, revocation, and a background-service-worker-owned Extension
-credential. It is intentionally limited to local pairing; the complete
-localhost request boundary remains Stage 8B and may begin only after Stage 8A
-is merged and `main` is synchronized.
+credential. It intentionally preceded the localhost request boundary.
+
+- Status: merged.
+- PR: #46 —
+  `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/46`.
+- Final head: `96a45c7542dd727f06f99c1d542fbb9f83d8e764`.
+- CI: run `29303946463` passed checks, typecheck, tests, build, OpenAPI,
+  E2E, Docker Compose, and `git diff --check`.
+- Merge commit: `0d058fe6b862c91788cd8d47d297ad06abf9270e`.
+- Main synchronization: `origin/main` was fetched to the merge commit while
+  the protected root-worktree files remained untouched.
+
+## Stage 8B — localhost request protection (in progress)
+
+Stage 8B begins from the merged Stage 8A main state in the isolated
+`extension-localhost-protection` worktree. Its boundary is centralized in the
+API request path and currently covers loopback Host authority, explicit
+desktop/paired-Extension Origin policy, pairing-only Extension credentials,
+local Bearer rejection, bounded nonce/timestamp replay protection, failed
+request rate limiting, and dynamic paired-Extension CORS response headers.
+
+- Status: implementation in progress; not yet published or merged.
+- Branch/worktree: `extension-localhost-protection` /
+  `D:\Crystal\.cache\worktrees\extension-localhost-protection`.
+- Starting HEAD: `0d058fe6b862c91788cd8d47d297ad06abf9270e`.
+- Current validation: API 180 tests, focused local-request tests, Ruff, and
+  mypy pass. Full repository CI remains required before a Stage 8B PR can be
+  published or merged.
+- Explicit boundary: health/readiness/runtime and pairing bootstrap routes are
+  classified separately; `/api/v1` local requests cannot substitute a Bearer
+  token for the paired Extension credential. Replay nonces are intentionally
+  in-memory and bounded; a restart clears the nonce cache, while the paired
+  verifier and timestamp skew remain authoritative.
+- Exact next action: finish the Stage 8B extension/header tests and security
+  documentation, regenerate OpenAPI if the contract changes, then run the
+  repository validation matrix before creating the Stage 8B PR.
