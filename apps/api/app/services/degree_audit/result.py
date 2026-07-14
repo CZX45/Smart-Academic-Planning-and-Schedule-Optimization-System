@@ -77,3 +77,8 @@ class DegreeAuditResult:
     source_snapshot_hash: str
     requirements: list[RequirementResult]
     warnings: list[AuditWarningResult]
+    reviewed_rule_set_id: UUID | None = None
+    rule_resolution_state: str = "MISSING"
+    rule_source_reference: str | None = None
+    rule_catalog_year: str | None = None
+    rule_resolution_explanation: str = "No reviewed rule set was selected."

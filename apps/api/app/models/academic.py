@@ -151,6 +151,7 @@ class EligibilityOverallResult(StrEnum):
     NOT_ELIGIBLE = "NOT_ELIGIBLE"
     PERMISSION_REQUIRED = "PERMISSION_REQUIRED"
     MANUAL_REVIEW_REQUIRED = "MANUAL_REVIEW_REQUIRED"
+    UNKNOWN = "UNKNOWN"
 
 
 class EligibilityRuleResult(StrEnum):
@@ -2184,6 +2185,17 @@ class DegreeAuditRun(UuidPrimaryKeyMixin, TimestampMixin, Base):
     remaining_credits: Mapped[Decimal] = mapped_column(Numeric(6, 1), nullable=False)
     completion_percentage: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
     source_snapshot_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    reviewed_rule_set_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    rule_resolution_state: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="MISSING"
+    )
+    rule_source_reference: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rule_catalog_year: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    rule_resolution_explanation: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="No reviewed rule set was selected.",
+    )
 
 
 class RequirementEvaluation(UuidPrimaryKeyMixin, Base):
@@ -2463,6 +2475,22 @@ class EligibilityCheckRun(UuidPrimaryKeyMixin, TimestampMixin, Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     source_snapshot_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    reviewed_rule_set_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    rule_resolution_state: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="MISSING"
+    )
+    rule_source_reference: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rule_catalog_year: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    rule_resolution_explanation: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="No reviewed rule set was selected.",
+    )
+    reviewed_rule_reasons: Mapped[list[dict[str, object]]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=list,
+    )
 
 
 class RuleEvaluation(UuidPrimaryKeyMixin, Base):

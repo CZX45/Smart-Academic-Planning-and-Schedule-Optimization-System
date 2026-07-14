@@ -546,3 +546,13 @@ operators, and visible unsupported statements. Validation does not persist or
 consume the payload; Stage 10B must separately add reviewed/active persistence
 and consumption. Until reviewed source material is provided, the product must
 not claim complete institutional coverage.
+
+## ADR-0013: Stage 10B reviewed-rule consumption boundary
+
+Degree Audit and Eligibility may consume only an exact active reviewed rule
+set matched by institution code, program code, and catalog year. The selected
+rule-set ID and source provenance are persisted with each run. A missing
+reviewed course definition is `UNKNOWN`, not `ELIGIBLE`; an absent active set
+is marked `MISSING` and retains the legacy path for compatibility. This keeps
+synthetic fixtures and incomplete source coverage advisory until a reviewer
+confirms authoritative source evidence.

@@ -549,6 +549,11 @@ def degree_audit_run_response(run: DegreeAuditRun) -> DegreeAuditRunResponse:
         remaining_credits=run.remaining_credits,
         completion_percentage=run.completion_percentage,
         source_snapshot_hash=run.source_snapshot_hash,
+        reviewed_rule_set_id=run.reviewed_rule_set_id,
+        rule_resolution_state=run.rule_resolution_state,
+        rule_source_reference=run.rule_source_reference,
+        rule_catalog_year=run.rule_catalog_year,
+        rule_resolution_explanation=run.rule_resolution_explanation,
         created_at=run.created_at,
         updated_at=run.updated_at,
     )
@@ -782,6 +787,10 @@ def eligibility_reason_response(
     )
 
 
+def reviewed_rule_reason_response(reason: dict[str, object]) -> EligibilityReasonResponse:
+    return EligibilityReasonResponse.model_validate(reason)
+
+
 def registration_availability_response(
     section: Section | None,
 ) -> RegistrationAvailabilityResponse | None:
@@ -868,6 +877,9 @@ def eligibility_check_response(
         for expression in expression_responses
         if expression.result == "MANUAL_REVIEW_REQUIRED"
     ]
+    reviewed_rule_reasons = [
+        reviewed_rule_reason_response(reason) for reason in (run.reviewed_rule_reasons or [])
+    ]
     corequisites_to_add = [
         expression.matched_course_id
         for expression in expression_responses
@@ -906,11 +918,17 @@ def eligibility_check_response(
         started_at=run.started_at,
         completed_at=run.completed_at,
         source_snapshot_hash=run.source_snapshot_hash,
+        reviewed_rule_set_id=run.reviewed_rule_set_id,
+        rule_resolution_state=run.rule_resolution_state,
+        rule_source_reference=run.rule_source_reference,
+        rule_catalog_year=run.rule_catalog_year,
+        rule_resolution_explanation=run.rule_resolution_explanation,
         rule_evaluations=rule_responses,
         blocking_reasons=blocking_reasons,
         conditional_reasons=conditional_reasons,
         permissions_required=permissions_required,
         manual_review_reasons=manual_review_reasons,
+        reviewed_rule_reasons=reviewed_rule_reasons,
         corequisites_to_add=unique_corequisites_to_add,
         corequisite_summary=corequisite_summary,
         registration_availability=registration_availability_response(section),

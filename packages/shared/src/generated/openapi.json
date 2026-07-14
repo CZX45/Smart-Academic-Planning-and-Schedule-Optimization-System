@@ -5310,7 +5310,8 @@
               "CONDITIONALLY_ELIGIBLE",
               "NOT_ELIGIBLE",
               "PERMISSION_REQUIRED",
-              "MANUAL_REVIEW_REQUIRED"
+              "MANUAL_REVIEW_REQUIRED",
+              "UNKNOWN"
             ],
             "title": "Eligibility Result"
           },
@@ -6784,7 +6785,8 @@
               "CONDITIONALLY_ELIGIBLE",
               "NOT_ELIGIBLE",
               "PERMISSION_REQUIRED",
-              "MANUAL_REVIEW_REQUIRED"
+              "MANUAL_REVIEW_REQUIRED",
+              "UNKNOWN"
             ],
             "title": "Overall Result"
           },
@@ -6795,7 +6797,8 @@
               "CONDITIONALLY_ELIGIBLE",
               "NOT_ELIGIBLE",
               "PERMISSION_REQUIRED",
-              "MANUAL_REVIEW_REQUIRED"
+              "MANUAL_REVIEW_REQUIRED",
+              "UNKNOWN"
             ],
             "title": "Academic Eligibility Result"
           },
@@ -6826,6 +6829,48 @@
           "source_snapshot_hash": {
             "type": "string",
             "title": "Source Snapshot Hash"
+          },
+          "reviewed_rule_set_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed Rule Set Id"
+          },
+          "rule_resolution_state": {
+            "type": "string",
+            "title": "Rule Resolution State"
+          },
+          "rule_source_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Source Reference"
+          },
+          "rule_catalog_year": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Catalog Year"
+          },
+          "rule_resolution_explanation": {
+            "type": "string",
+            "title": "Rule Resolution Explanation"
           },
           "rule_evaluations": {
             "items": {
@@ -6861,6 +6906,13 @@
             },
             "type": "array",
             "title": "Manual Review Reasons"
+          },
+          "reviewed_rule_reasons": {
+            "items": {
+              "$ref": "#/components/schemas/EligibilityReasonResponse"
+            },
+            "type": "array",
+            "title": "Reviewed Rule Reasons"
           },
           "corequisites_to_add": {
             "items": {
@@ -6921,6 +6973,8 @@
           "overall_result",
           "academic_eligibility_result",
           "source_snapshot_hash",
+          "rule_resolution_state",
+          "rule_resolution_explanation",
           "rule_evaluations",
           "blocking_reasons",
           "conditional_reasons",
@@ -8665,6 +8719,48 @@
             "type": "string",
             "title": "Source Snapshot Hash"
           },
+          "reviewed_rule_set_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed Rule Set Id"
+          },
+          "rule_resolution_state": {
+            "type": "string",
+            "title": "Rule Resolution State"
+          },
+          "rule_source_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Source Reference"
+          },
+          "rule_catalog_year": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Catalog Year"
+          },
+          "rule_resolution_explanation": {
+            "type": "string",
+            "title": "Rule Resolution Explanation"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -8691,6 +8787,8 @@
           "remaining_credits",
           "completion_percentage",
           "source_snapshot_hash",
+          "rule_resolution_state",
+          "rule_resolution_explanation",
           "created_at",
           "updated_at"
         ],
@@ -8837,6 +8935,40 @@
               }
             ],
             "title": "Actual Value"
+          },
+          "reviewed_rule_set_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed Rule Set Id"
+          },
+          "rule_source_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Source Reference"
+          },
+          "rule_catalog_year": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Catalog Year"
           }
         },
         "type": "object",
@@ -12619,7 +12751,8 @@
               "CONDITIONALLY_ELIGIBLE",
               "NOT_ELIGIBLE",
               "PERMISSION_REQUIRED",
-              "MANUAL_REVIEW_REQUIRED"
+              "MANUAL_REVIEW_REQUIRED",
+              "UNKNOWN"
             ],
             "title": "Eligibility Result"
           },

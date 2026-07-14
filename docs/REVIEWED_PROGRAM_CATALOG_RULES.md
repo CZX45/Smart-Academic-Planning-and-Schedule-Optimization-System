@@ -1,4 +1,4 @@
-# Reviewed Program/Catalog Rules (Stage 10A)
+# Reviewed Program/Catalog Rules (Stage 10A/10B)
 
 Stage 10A establishes the source and review contract for Program and Course
 Catalog rules. It is separate from Degree Audit and Eligibility; the
@@ -33,7 +33,19 @@ The staging API is intentionally separate from academic consumers:
 - `POST /api/v1/reviewed-rule-sets/{id}/activate` requires reviewed state and
   preserves/supersedes an existing active version explicitly.
 
-Consumption by Degree Audit and Eligibility is reserved for Stage 10B after
-the reviewed-rule persistence boundary is merged.
+Stage 10B now consumes only an exact `ACTIVE` match on institution code,
+program code, and catalog year. It does not select a newest-year fallback.
+Degree Audit overlays only the bounded reviewed requirement primitives onto
+the existing requirement graph and records the selected rule-set ID, source,
+catalog year, and resolution explanation. Eligibility uses the bounded
+reviewed prerequisite/corequisite declarations and persists each reviewed
+reason with the same provenance. If a reviewed course definition is absent or
+an identifier cannot be resolved, the result is `UNKNOWN` and requires advisor
+confirmation; it must not become `ELIGIBLE`. Conflicting active records are a
+manual-review error. When no active reviewed set exists, the legacy engine
+remains available but the run is explicitly marked `MISSING`.
 
-All Stage 10A fixtures are synthetic and are not institutional policy.
+The reviewed integration is advisory and read-only. It does not register,
+add/drop, swap, waitlist, poll, or mutate school systems.
+
+All Stage 10A/10B fixtures are synthetic and are not institutional policy.

@@ -451,6 +451,7 @@ EligibilityOverallResultValue = Literal[
     "NOT_ELIGIBLE",
     "PERMISSION_REQUIRED",
     "MANUAL_REVIEW_REQUIRED",
+    "UNKNOWN",
 ]
 EligibilityRuleResultValue = Literal[
     "SATISFIED",
@@ -484,6 +485,11 @@ class DegreeAuditRunResponse(BaseModel):
     remaining_credits: Decimal
     completion_percentage: Decimal
     source_snapshot_hash: str
+    reviewed_rule_set_id: UUID | None = None
+    rule_resolution_state: str
+    rule_source_reference: str | None = None
+    rule_catalog_year: str | None = None
+    rule_resolution_explanation: str
     created_at: datetime
     updated_at: datetime
 
@@ -661,6 +667,9 @@ class EligibilityReasonResponse(BaseModel):
     referenced_entity_id: UUID | None = None
     expected_value: str | None = None
     actual_value: str | None = None
+    reviewed_rule_set_id: UUID | None = None
+    rule_source_reference: str | None = None
+    rule_catalog_year: str | None = None
 
 
 class CorequisiteSummaryResponse(BaseModel):
@@ -730,11 +739,17 @@ class CourseEligibilityCheckResponse(BaseModel):
     started_at: datetime | None = None
     completed_at: datetime | None = None
     source_snapshot_hash: str
+    reviewed_rule_set_id: UUID | None = None
+    rule_resolution_state: str
+    rule_source_reference: str | None = None
+    rule_catalog_year: str | None = None
+    rule_resolution_explanation: str
     rule_evaluations: list[RuleEvaluationResponse]
     blocking_reasons: list[EligibilityReasonResponse]
     conditional_reasons: list[EligibilityReasonResponse]
     permissions_required: list[EligibilityReasonResponse]
     manual_review_reasons: list[EligibilityReasonResponse]
+    reviewed_rule_reasons: list[EligibilityReasonResponse] = Field(default_factory=list)
     corequisites_to_add: list[UUID]
     corequisite_summary: CorequisiteSummaryResponse | None = None
     registration_availability: RegistrationAvailabilityResponse | None = None

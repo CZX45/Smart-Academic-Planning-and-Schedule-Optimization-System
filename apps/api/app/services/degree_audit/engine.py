@@ -52,6 +52,11 @@ from app.services.degree_audit.result import (
     DegreeAuditResult,
     RequirementResult,
 )
+from app.services.reviewed_rules.resolution import (
+    RuleResolutionState,
+    resolve_for_program_version,
+    reviewed_requirement_view,
+)
 
 DEGREE_AUDIT_ENGINE_VERSION = "phase-3a-degree-audit-v1"
 ONE_HUNDRED = Decimal("100.00")
@@ -645,6 +650,11 @@ class DegreeAuditEngine:
             source_snapshot_hash=context.source_snapshot_hash(),
             requirements=requirements,
             warnings=warnings,
+            reviewed_rule_set_id=context.reviewed_rule_set_id,
+            rule_resolution_state=context.rule_resolution_state,
+            rule_source_reference=context.rule_source_reference,
+            rule_catalog_year=context.rule_catalog_year,
+            rule_resolution_explanation=context.rule_resolution_explanation,
         )
 
     def _load_context(
@@ -675,6 +685,12 @@ class DegreeAuditEngine:
                 select(Course).where(Course.institution_id == program_version.institution_id)
             ).all()
         )
+        resolution = resolve_for_program_version(self._db, program_version_id)
+        resolution_warnings: list[str] = []
+        if resolution.state is RuleResolutionState.ACTIVE and resolution.rule_set is not None:
+            nodes, options, resolution_warnings = reviewed_requirement_view(
+                resolution.rule_set, nodes, options, courses
+            )
         active_snapshot = active_course_state_snapshot(self._db, student_profile_id)
         attempts = effective_student_course_attempts(self._db, student_profile_id)
         transfer_statement = select(TransferCredit).where(
@@ -724,7 +740,36 @@ class DegreeAuditEngine:
             waivers_by_requirement=build_waivers_by_requirement(waivers),
             substitutions_by_requirement=build_substitutions_by_requirement(substitutions),
             equivalencies_by_equivalent=build_equivalencies_by_equivalent(equivalencies),
+            reviewed_rule_set_id=(resolution.record.id if resolution.record is not None else None),
+            rule_resolution_state=resolution.state.value,
+            rule_source_reference=(
+                resolution.rule_set.source.source_url_or_document_id
+                if resolution.rule_set is not None
+                else None
+            ),
+            rule_catalog_year=(
+                resolution.rule_set.source.catalog_year if resolution.rule_set is not None else None
+            ),
+            rule_resolution_explanation=resolution.explanation,
         )
+        for message in resolution_warnings:
+            context.warnings.append(
+                AuditWarningResult(
+                    warning_code="REVIEWED_RULE_MAPPING_REQUIRES_REVIEW",
+                    severity=AuditWarningSeverity.WARNING,
+                    message=message,
+                    requires_advisor_confirmation=True,
+                )
+            )
+        if resolution.state is RuleResolutionState.CONFLICT:
+            context.warnings.append(
+                AuditWarningResult(
+                    warning_code="REVIEWED_RULE_CONFLICT",
+                    severity=AuditWarningSeverity.ERROR,
+                    message=resolution.explanation,
+                    requires_advisor_confirmation=True,
+                )
+            )
         add_pending_record_warnings(context, transfers, waivers, substitutions)
         if active_snapshot is not None:
             context.warnings.append(

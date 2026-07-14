@@ -532,20 +532,20 @@ is complete through the merged 9A and 9B checkpoints.
 
 ## Resume checkpoint
 
-- Current milestone: Stage 10A Reviewed Program/Catalog source and review
-  foundation in progress.
-- Current stage checkpoint: Stage 9 is complete; Stage 10A uses synthetic
-  fixtures because no reviewed official Program/Catalog source inventory is
-  present. Stage 10B remains blocked until 10A is merged.
-- Current PRs: PR #49 and PR #50 are merged.
-- Current main/origin state before Stage 10A: `673a7d0f80a905caa50ab75a04a6122d62500e42`.
-- Last completed action: merged and synchronized Stage 9B validation and
-  Review/Apply safeguards; created the isolated Stage 10A worktree.
-- Last successful validation: API pytest 180 passed; Ruff check; Ruff format
-  check; mypy; Python compileall; `git diff --check`; and complete CI with
-  checks, Docker Compose, and E2E passing.
-- Exact next action: validate and publish the isolated Stage 10A source/review
-  foundation, then wait for its merge before beginning Stage 10B.
+- Current milestone: Stage 10B reviewed/active Program/Catalog consumption.
+- Current stage checkpoint: Stage 10A and Stage 10B use synthetic fixtures
+  because no reviewed official Program/Catalog source inventory is present.
+  10B consumes exact active rules only and records provenance; missing course
+  definitions remain `UNKNOWN`.
+- Current PRs: PR #52 is merged; Stage 10B integration is being validated in
+  an isolated worktree.
+- Current main/origin state after Stage 10A: `cf614bd0b0f0eaef60a4c1775accc1eece55045d`.
+- Last completed action: merged and synchronized PR #52, then implemented
+  the isolated Stage 10B Degree Audit/Eligibility integration.
+- Last successful validation: Stage 10B API pytest 186 passed before the
+  focused integration tests; focused integration tests now pass 3 tests.
+- Exact next action: finish Stage 10B validation and publish it as a separate
+  PR; do not begin Section import or Schedule Optimizer work.
 
 ## Scope confirmation
 
