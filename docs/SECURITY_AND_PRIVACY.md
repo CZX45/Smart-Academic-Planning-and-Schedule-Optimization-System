@@ -103,6 +103,7 @@ Recommended controls:
 | Misconfigured production environment              | Validate environment, database URL scheme, production database defaults, CORS origins, public API URL, and safe HTTP headers before serving traffic.                                                                   |
 | Sensitive data leakage through logs               | Log low-sensitivity event metadata only: IDs, source type, import type, counts, statuses, and reason codes. Do not log raw import content, HTML, credentials, tokens, passwords, or full academic records.             |
 | API token disclosure                              | Store only token hashes server-side, reject short tokens, support revocation/expiration metadata, and do not persist extension-entered bearer tokens in Chrome storage.                                                |
+| LOCAL_DESKTOP request forgery/replay              | Enforce the active loopback Host/port, explicit desktop or paired Extension Origin, pairing-only Extension credential, bounded nonce/timestamp replay checks, and failed-request rate limits. |
 
 ## 8. Compliance Considerations
 

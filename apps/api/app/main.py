@@ -18,6 +18,7 @@ from app.runtime.discovery import (
     publish_runtime_manifest,
 )
 from app.schemas.health import HealthResponse, ReadinessResponse
+from app.security.local_request import local_request_boundary
 
 
 @asynccontextmanager
@@ -38,12 +39,25 @@ app.add_middleware(
     allow_origins=settings.desktop_origin_list,
     allow_credentials=False,
     allow_methods=["GET", "PATCH", "POST"],
-    allow_headers=["authorization", "content-type", "x-sapsos-extension-credential"],
-    allow_origin_regex=r"^chrome-extension://[a-p]{32}$",
+    allow_headers=[
+        "authorization",
+        "content-type",
+        "x-sapsos-extension-credential",
+        "x-sapsos-extension-nonce",
+        "x-sapsos-extension-timestamp",
+    ],
 )
 
 app.include_router(academic_router)
 app.include_router(local_pairing_router)
+
+
+@app.middleware("http")
+async def enforce_local_request_boundary(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    return await local_request_boundary(request, call_next)
 
 
 def security_headers() -> dict[str, str]:
