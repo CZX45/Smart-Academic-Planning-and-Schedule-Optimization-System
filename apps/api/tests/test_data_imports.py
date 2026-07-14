@@ -809,7 +809,7 @@ def test_kean_browser_extension_import_is_labeled_non_official_and_review_gated(
     assert review_response.json()["status"] == "IN_REVIEW"
 
 
-def test_kean_myprogress_summary_is_auto_verified_and_exception_review_only(
+def test_kean_myprogress_summary_is_parser_verified_but_review_gated(
     session: Session,
 ) -> None:
     service = DataImportApplicationService(session)
@@ -839,9 +839,10 @@ def test_kean_myprogress_summary_is_auto_verified_and_exception_review_only(
     )
     assert preview is not None
     payload = cast(dict[str, Any], preview.summary_payload)
-    assert payload["real_import_status"] == "REAL_IMPORTED_DATA_AUTO_VERIFIED"
+    assert payload["real_import_status"] == "REAL_IMPORTED_DATA_PENDING_REVIEW"
     assert payload["mock_data_mixed_with_real_import"] is False
-    assert payload["can_apply_verified_import"] is True
+    assert payload["can_apply_verified_import"] is False
+    assert payload["review_required"] is True
     assert payload["downstream_analysis_allowed"] is True
     assert payload["exception_count"] == 0
     assert payload["auto_confirmed_field_count"] >= 14
@@ -1046,6 +1047,10 @@ def test_data_import_api_stores_kean_myprogress_85_rows_from_extension_payload(
     preview = client.get(f"/api/v1/data-imports/{payload['id']}/preview")
     assert preview.status_code == 200
     summary = preview.json()["summary_payload"]
+    assert summary["real_import_status"] == "REAL_IMPORTED_DATA_REQUIRES_EXCEPTION_REVIEW"
+    assert summary["can_apply_verified_import"] is False
+    assert summary["review_required"] is True
+    assert summary["exception_count"] == 1
     assert summary["extracted_degree_audit_row_count"] == 85
     assert summary["parsed_course_like_row_count"] == 84
     assert summary["parsed_requirement_row_count"] == 1

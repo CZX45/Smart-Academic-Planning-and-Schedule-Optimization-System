@@ -115,7 +115,7 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 8. Stage 7 — Web UI packaging — complete; PR #45 merged.
 9. Stage 8A — secure local Extension pairing — complete; PR #46 merged.
 10. Stage 8B — localhost request protection — complete; PR #47 merged.
-11. Stage 9 — Real MyProgress stabilization — not started.
+11. Stage 9 — Real MyProgress stabilization — Stage 9A merged; Stage 9B in progress.
 12. Reviewed Program/Catalog rules.
 13. Real Section import.
 14. Real Section optimizer integration.
@@ -131,8 +131,8 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 The Local Runtime Foundation includes stages 1–8: local database, runtime
 discovery and supervision, desktop-shell proof, FastAPI runtime packaging, Web
 UI packaging, secure Extension pairing, and localhost request protection. The
-foundation is complete through the merged Stage 8B security boundary. Stage 9
-is the next checkpoint and has not started.
+foundation is complete through the merged Stage 8B security boundary. Stage 9A
+is merged and Stage 9B is the active checkpoint.
 
 ## Progress log
 
@@ -532,23 +532,24 @@ is the next checkpoint and has not started.
 
 ## Resume checkpoint
 
-- Current milestone: Local Runtime Foundation complete through Stage 8B.
-- Current stage checkpoint: Stage 9 — Real MyProgress stabilization, not
-  started.
-- Current PR: PR #47 is merged; no Stage 9 PR exists.
-- Current main/origin state: `33451600a35b749f861825d53733cbafb576ac62`.
-- Last completed action: merged and synchronized the Stage 8B localhost
-  request-security boundary.
+- Current milestone: Local Runtime Foundation complete through Stage 8B; Stage 9A merged.
+- Current stage checkpoint: Stage 9B — validation and Review/Apply safeguards,
+  in progress.
+- Current PR: PR #49 is merged; Stage 9B PR is being prepared.
+- Current main/origin state: `f450a045d1e16e8ae4afe86a6d73c572a1f2cbf7`.
+- Last completed action: merged and synchronized Stage 9A bounded MyProgress
+  parser stabilization.
 - Last successful validation: API pytest 180 passed; Ruff check; Ruff format
   check; mypy; Python compileall; `git diff --check`; and complete CI with
   checks, Docker Compose, and E2E passing.
-- Exact next action: prepare a separately authorized Stage 9 implementation
-  for Real MyProgress stabilization. Stage 9 has not started.
+- Exact next action: complete, validate, and publish the isolated Stage 9B
+  validation and Review/Apply safeguard PR.
 
 ## Scope confirmation
 
 Stage 8A pairing and Stage 8B localhost request protection are complete and
-merged. No work has begun on Stage 9 Real MyProgress stabilization,
+merged. Stage 9A parser stabilization is merged and Stage 9B is limited to
+validation and Review/Apply safeguards;
 Program/Catalog ingestion, real Section import, real Schedule Optimization
 integration, UI restructuring, Backup/Restore, production migration,
 diagnostics center, installer/uninstaller, beta, or release-candidate work.
@@ -596,7 +597,7 @@ protect against full local-machine compromise, malware running as the user, a
 compromised browser, a compromised Extension runtime, or administrator-level
 attackers.
 
-## Stage 9 — Real MyProgress stabilization (PR 9A in progress)
+## Stage 9 — Real MyProgress stabilization (PR 9A merged; PR 9B in progress)
 
 Stage 9 is the next implementation checkpoint. It is limited to stabilizing
 extraction and parsing of the real visible MyProgress page, preserving raw
@@ -610,15 +611,28 @@ implementation is included in the Stage 8 closeout.
 
 ### Stage 9A checkpoint — snapshot/parser/provenance
 
-- Status: implementation in progress in an isolated worktree.
+- Status: merged.
 - Branch: `stabilize-myprogress-parser`.
 - Worktree: `D:\Crystal\.cache\worktrees\stabilize-myprogress-parser`.
-- Starting HEAD: `edee3c2529b0c598ff285fd3856b66911aaa2ae8`.
+- Final head: `889ca73e2c4ff890f1a13cb408d417bfdd6f0eb1`.
+- PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/49`.
+- CI: run `29309386281` passed checks, Docker Compose, and E2E.
+- Merge commit: `f450a045d1e16e8ae4afe86a6d73c572a1f2cbf7`.
 - Scope: bounded visible-page evidence, conservative MyProgress row parsing,
   summary-only staging eligibility, bounded malformed-row evidence, and the
   mandatory Review boundary.
 - Privacy: only existing synthetic/sanitized fixtures are used; no real portal
   HTML, screenshots, identifiers, credentials, cookies, tokens, or session data
   are included.
-- PR 9B has not started. Main must be synchronized after PR 9A merges before
-  validation/Review/Apply changes begin.
+
+### Stage 9B checkpoint — validation and Review/Apply safeguards
+
+- Status: implementation in progress in an isolated worktree.
+- Branch: `stabilize-myprogress-review`.
+- Worktree: `D:\Crystal\.cache\worktrees\stabilize-myprogress-review`.
+- Starting HEAD: `f450a045d1e16e8ae4afe86a6d73c572a1f2cbf7`.
+- Scope: deterministic validation-state presentation, exception classification,
+  confirmed-record application safeguards, idempotency regressions, and
+  explicit non-official/source/provenance presentation.
+- Privacy: synthetic/sanitized fixtures only; no real portal HTML, screenshots,
+  identifiers, credentials, cookies, tokens, sessions, or local databases.

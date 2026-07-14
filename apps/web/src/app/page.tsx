@@ -2167,7 +2167,7 @@ function DegreeProgress({
               <li>
                 <strong>审核范围</strong>
                 <span>
-                  高置信度行自动确认；异常队列和截断/边界警告需要人工核对。
+                  解析器会报告高置信度字段；每条导入记录仍必须经过人工 Review，异常队列和截断/边界警告需要重点核对。
                 </span>
               </li>
             </ul>
@@ -2193,7 +2193,7 @@ function DegreeProgress({
                       <h3>{name}</h3>
                       <p>{statusText}</p>
                       <p className="advisor-note">
-                        已自动确认要求行 · {statusLabel(confidence)}
+                        待人工 Review · 解析器置信度 {statusLabel(confidence)}
                       </p>
                     </div>
                   </article>
@@ -4740,11 +4740,11 @@ function DataImportResultView({
               }
             />
             <SummaryMetric
-              label="自动确认字段"
+              label="解析器确认字段"
               value={String(myProgressPreview.autoConfirmedFieldCount)}
             />
             <SummaryMetric
-              label="自动确认课程行"
+              label="解析器确认课程行"
               value={String(myProgressPreview.autoConfirmedCourseRowCount)}
             />
             <SummaryMetric
@@ -4762,9 +4762,7 @@ function DataImportResultView({
           value={
             myProgressPreview?.canApplyVerifiedImport
               ? "已通过"
-              : state.preview.official_application_ready
-                ? "可应用"
-                : "已禁用"
+              : "需 Review"
           }
         />
         <SummaryMetric
@@ -5027,7 +5025,7 @@ function MyProgressImportPreview({
           <strong>审核范围</strong>
           <span>
             {display.exceptions.length === 0
-              ? "异常数量为 0；高置信度字段和行会自动确认。"
+              ? "解析器未发现异常；记录仍必须逐条经过人工 Review。"
               : "低置信度异常必须先审核再使用。"}
           </span>
         </li>
@@ -5036,7 +5034,7 @@ function MyProgressImportPreview({
           <span>
             {display.canApplyVerifiedImport
               ? "已验证导入可通过明确点击应用进入内部快照。"
-              : "失败或带异常的验证会阻止学业审核与规划使用。"}
+              : "解析器验证不会跳过 Review；只有已确认记录才能应用到内部快照。"}
           </span>
         </li>
       </ul>
@@ -5070,7 +5068,7 @@ function MyProgressImportPreview({
               表 {row.sourceTableIndex || "?"} / 行 {row.sourceRowIndex || "?"}
               {row.requiresReview
                 ? ` · ${row.reasonCodes.map(readinessReasonLabel).join("；")}`
-                : " · 已自动确认"}
+                : " · 待人工 Review"}
             </span>
           </div>
         ))}
@@ -5585,7 +5583,7 @@ function DataReviewPanel({
             />
             {myProgressPreview ? (
               <SummaryMetric
-                label="已自动确认"
+                label="已确认记录"
                 value={String(autoConfirmedReviewCount)}
               />
             ) : null}
