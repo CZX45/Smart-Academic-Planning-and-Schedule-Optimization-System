@@ -622,6 +622,16 @@ class DataImportApplicationService:
         course_rows_payload = course_rows if isinstance(course_rows, list) else []
         row_exceptions = [
             {
+                "code": f"MY_PROGRESS_ROW_EXCEPTION_{row.get('row_number')}",
+                "message": (
+                    "Visible MyProgress row requires review: "
+                    + ", ".join(str(code) for code in (row.get("reason_codes") or []))
+                ),
+                "source": (
+                    f"visible table {row.get('source_table_index') or '?'} "
+                    f"row {row.get('source_row_index') or row.get('row_number') or '?'}"
+                ),
+                "severity": "WARNING",
                 "row_number": row.get("row_number"),
                 "raw_row_text": row.get("raw_row_text"),
                 "reason_codes": row.get("reason_codes") or [],
@@ -629,10 +639,11 @@ class DataImportApplicationService:
             for row in course_rows_payload
             if isinstance(row, dict) and row.get("reason_codes")
         ]
-        exception_count = max(
-            int(validation_payload.get("exceptionCount") or 0),
-            len(row_exceptions),
-        )
+        validation_exceptions = validation_payload.get("exceptions") or []
+        if not isinstance(validation_exceptions, list):
+            validation_exceptions = []
+        exceptions = [*validation_exceptions, *row_exceptions]
+        exception_count = len(exceptions)
         downstream_allowed = bool(validation_payload.get("downstreamAnalysisAllowed"))
         real_import_status = (
             "REAL_IMPORTED_DATA_REQUIRES_EXCEPTION_REVIEW"
@@ -647,7 +658,7 @@ class DataImportApplicationService:
             "review_required": True,
             "downstream_analysis_allowed": downstream_allowed,
             "exception_count": exception_count,
-            "exceptions": [*(validation_payload.get("exceptions") or []), *row_exceptions],
+            "exceptions": exceptions,
             "auto_confirmed_field_count": int(
                 validation_payload.get("autoConfirmedFieldCount") or 0
             ),
