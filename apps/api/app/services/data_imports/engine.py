@@ -618,13 +618,15 @@ class DataImportApplicationService:
         validation = payload.get("validation")
         validation_payload = validation if isinstance(validation, dict) else {}
         row_preview = self._myprogress_row_preview_payload(run, payload)
+        course_rows = row_preview.get("course_rows")
+        course_rows_payload = course_rows if isinstance(course_rows, list) else []
         row_exceptions = [
             {
                 "row_number": row.get("row_number"),
                 "raw_row_text": row.get("raw_row_text"),
                 "reason_codes": row.get("reason_codes") or [],
             }
-            for row in row_preview["course_rows"]
+            for row in course_rows_payload
             if isinstance(row, dict) and row.get("reason_codes")
         ]
         exception_count = max(
