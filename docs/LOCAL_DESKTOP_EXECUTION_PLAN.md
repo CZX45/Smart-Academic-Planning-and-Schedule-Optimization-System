@@ -117,7 +117,7 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 10. Stage 8B — localhost request protection — complete; PR #47 merged.
 11. Stage 9 — Real MyProgress stabilization — complete; PRs #49 and #50 merged.
 12. Stage 10 reviewed Program/Catalog architecture and post-merge correctness —
-    complete; PRs #52, #53, and #54 merged/closing.
+    complete; PRs #52, #53, and #54 merged.
 13. Stage 11 Real Section import — next milestone; not started in this goal.
 14. Real Section optimizer integration.
 15. UI workflow modularization.
@@ -533,10 +533,18 @@ is complete through the merged 9A and 9B checkpoints.
 
 ## Stage 10 — reviewed Program/Catalog architecture and correctness closeout
 
-Stage 10 architecture is complete. Degree Audit and Eligibility consume only
-exact active reviewed rule sets and preserve rule provenance. The implementation
-contains synthetic fixtures only; no authoritative WKU or Kean Program/Catalog
-coverage is claimed, and the official source inventory remains future input.
+Stage 10 is complete. It delivered reviewed Program/Catalog source and lifecycle
+architecture, exact reviewed and ACTIVE rule consumption, source provenance,
+conservative `UNKNOWN` behavior, safe PostgreSQL `UNKNOWN`-result constraints,
+no stale/mock fallback after explicit reviewed mapping failure, semantic
+Program-role priority, missing-corequisite conditional handling, and reviewed-
+corequisite persistence with POST/GET round trips.
+
+The five PR #53 correctness findings were fixed by PR #54, and all five PR #53
+review threads were replied to and resolved. Fixtures remain synthetic; no
+authoritative WKU or Kean Program/Catalog coverage is claimed. No real student
+data or private portal data was added. No Section Import was started, no
+Schedule Optimizer semantics changed, and no later milestone was started.
 
 ### Stage 10A checkpoint
 
@@ -557,10 +565,10 @@ coverage is claimed, and the official source inventory remains future input.
 - Branch: `stage10b-correctness-hotfix`.
 - Worktree: `D:\Crystal\.cache\worktrees\stage10b-correctness-hotfix`.
 - Hotfix PR: #54 — `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/54`.
-- Validated head before merge: `38bb5c749d4ba8c697d9ed2d83c3d22762c37f00`.
-- CI run: `241`, successful checks, E2E, and Docker Compose.
-- Merge commit: assigned by GitHub at merge and recorded in the final
-  post-merge synchronization report.
+- Final hotfix head: `fce4ee718f9c9cd491ac85c7bd88b6f8d237ef8b`.
+- Hosted CI workflow run ID: `29339947589`; run number: `245`; conclusion:
+  success. Checks, E2E, Docker Compose, and `git diff --check` passed.
+- Merge commit: `fdd3765b8cb81ed3ffadba9e34da095454befcd2`.
 - Corrected findings: upgraded PostgreSQL eligibility constraints now permit
   `UNKNOWN`; explicit reviewed course mappings never reuse stale options;
   missing reviewed corequisites are not unconditional `ELIGIBLE`; reviewed
@@ -569,37 +577,47 @@ coverage is claimed, and the official source inventory remains future input.
 - Migration proof: PostgreSQL base-to-head and previous-revision upgrade,
   `alembic check`, UNKNOWN persistence, invalid-value rejection, constraint
   inspection, explicit downgrade, and re-upgrade passed. LOCAL_DESKTOP SQLite
-  metadata/bootstrap and repeated startup tests passed; the pre-existing
-  full-from-base SQLite Alembic blocker at `20260623_0004` remains documented.
-- API validation: 192 pytest tests passed; full frozen-lockfile pnpm test ran
-  shared Vitest (28), Extension Vitest (54), Web Vitest (14), and API pytest
-  (192) successfully. Ruff, format, mypy, compileall, lint, typecheck, build,
-  OpenAPI drift, Docker Compose, and hosted E2E passed.
+  metadata/bootstrap and repeated startup tests passed. The full SQLite
+  Alembic-from-base path remains blocked by the pre-existing
+  `20260623_0004` direct constraint-alteration incompatibility. This limitation
+  predates PR #54; LOCAL_DESKTOP SQLite metadata/bootstrap compatibility remains
+  validated, and the limitation does not invalidate the PostgreSQL Stage 10B
+  forward-migration proof. It was not fixed by Stage 10.
+- Final local report: 194 API tests passed. Ruff check, Ruff format check, mypy,
+  compileall, PostgreSQL migration upgrade/downgrade, UNKNOWN eligibility
+  constraint validation, `corepack pnpm test`, lint, typecheck, build, OpenAPI
+  check, and `git diff --check` passed. Hosted CI run 245 passed.
 - Privacy/authenticity: synthetic fixtures only; no personal data, private
   portal data, credentials, cookies, tokens, or authoritative WKU/Kean policy
   coverage was added.
 
-The five post-merge correctness findings are fixed. Real Section import has not
-started, Schedule Optimizer semantics remain unchanged, and the next milestone
-is Stage 11 Real Section Import. Stage 11 must not begin in this goal.
+Stage 10 is complete through PRs #52, #53, and #54. Real Section Import has not
+started, Schedule Optimizer integration has not started and remains a later
+milestone, and Stage 11 must not begin in this goal.
 
 ## Resume checkpoint
 
 - Current milestone: Stage 10 complete; Stage 11 Real Section import is next and
   has not started.
+- Stage 10 status: complete.
+- Stage 11 status: Real Section Import; not started.
+- Schedule Optimizer integration: not started and remains a later milestone.
 - Current stage checkpoint: Stage 10A and Stage 10B use synthetic fixtures
   because no reviewed official Program/Catalog source inventory is present.
   10B consumes exact active rules only and records provenance; missing course
   definitions remain `UNKNOWN`.
-- Current PRs: PRs #52 and #53 are merged; hotfix PR #54 passed hosted CI and
-  is ready for merge.
-- Current main/origin state before hotfix merge: `3e12a0d8d9d680b87daa5fc4f0edd53c982a779e`.
-- Last completed action: validated and published the Stage 10B correctness
-  hotfix without beginning Section import or Schedule Optimizer work.
-- Last successful validation: hosted CI run 241 passed checks, E2E, and Docker
-  Compose; local API and JavaScript validation also passed.
-- Exact next action: merge PR #54 after branch-protection conditions pass, then
-  synchronize local `main` and `origin/main`; do not begin Stage 11 here.
+- Current PRs: PRs #52, #53, and #54 are merged. PR #54 final head is
+  `fce4ee718f9c9cd491ac85c7bd88b6f8d237ef8b`; its merge commit is
+  `fdd3765b8cb81ed3ffadba9e34da095454befcd2`.
+- Final synchronized `main`/`origin/main`:
+  `fdd3765b8cb81ed3ffadba9e34da095454befcd2`.
+- Last completed action: completed the Stage 10 documentation closeout after
+  PR #54 merged, without beginning Section import or Schedule Optimizer work.
+- Last successful validation: hosted CI workflow run ID `29339947589` (run
+  number `245`) passed; final local report states 194 API tests passed and the
+  listed lint, type, build, migration, OpenAPI, and diff checks passed.
+- Exact next action: Stage 11 Real Section Import is next but has not started.
+  Do not begin it in this goal.
 
 ## Scope confirmation
 
