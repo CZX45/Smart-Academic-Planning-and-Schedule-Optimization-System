@@ -617,23 +617,48 @@ class DataImportApplicationService:
             return None
         validation = payload.get("validation")
         validation_payload = validation if isinstance(validation, dict) else {}
-        status = str(validation_payload.get("status") or "FAILED")
-        exception_count = int(validation_payload.get("exceptionCount") or 0)
+        row_preview = self._myprogress_row_preview_payload(run, payload)
+        course_rows = row_preview.get("course_rows")
+        course_rows_payload = course_rows if isinstance(course_rows, list) else []
+        row_exceptions = [
+            {
+                "code": f"MY_PROGRESS_ROW_EXCEPTION_{row.get('row_number')}",
+                "message": (
+                    "Visible MyProgress row requires review: "
+                    + ", ".join(str(code) for code in (row.get("reason_codes") or []))
+                ),
+                "source": (
+                    f"visible table {row.get('source_table_index') or '?'} "
+                    f"row {row.get('source_row_index') or row.get('row_number') or '?'}"
+                ),
+                "severity": "WARNING",
+                "row_number": row.get("row_number"),
+                "raw_row_text": row.get("raw_row_text"),
+                "reason_codes": row.get("reason_codes") or [],
+            }
+            for row in course_rows_payload
+            if isinstance(row, dict) and row.get("reason_codes")
+        ]
+        validation_exceptions = validation_payload.get("exceptions") or []
+        if not isinstance(validation_exceptions, list):
+            validation_exceptions = []
+        exceptions = [*validation_exceptions, *row_exceptions]
+        exception_count = len(exceptions)
         downstream_allowed = bool(validation_payload.get("downstreamAnalysisAllowed"))
         real_import_status = (
-            "REAL_IMPORTED_DATA_AUTO_VERIFIED"
-            if status == "AUTO_VERIFIED"
-            else "REAL_IMPORTED_DATA_REQUIRES_EXCEPTION_REVIEW"
+            "REAL_IMPORTED_DATA_REQUIRES_EXCEPTION_REVIEW"
             if exception_count > 0
             else "REAL_IMPORTED_DATA_PENDING_REVIEW"
         )
         return {
             "real_import_status": real_import_status,
             "mock_data_mixed_with_real_import": False,
-            "can_apply_verified_import": status == "AUTO_VERIFIED",
+            # Parser consistency does not bypass the explicit user Review step.
+            "can_apply_verified_import": False,
+            "review_required": True,
             "downstream_analysis_allowed": downstream_allowed,
             "exception_count": exception_count,
-            "exceptions": validation_payload.get("exceptions") or [],
+            "exceptions": exceptions,
             "auto_confirmed_field_count": int(
                 validation_payload.get("autoConfirmedFieldCount") or 0
             ),
@@ -648,7 +673,7 @@ class DataImportApplicationService:
             "field_provenance": payload.get("fieldProvenance") or {},
             "progress_bar_segments": payload.get("progressBarSegments") or [],
             "requirement_groups": self._myprogress_requirement_groups(run),
-            **self._myprogress_row_preview_payload(run, payload),
+            **row_preview,
             "raw_snapshot": payload.get("rawSnapshot") or {},
         }
 
