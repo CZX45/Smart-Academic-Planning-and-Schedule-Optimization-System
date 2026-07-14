@@ -25,9 +25,15 @@ returns no result when the requested reviewed active version is absent; it
 never falls back to the newest year. Unsupported natural-language policy
 remains visible and requires manual review.
 
-`POST /api/v1/reviewed-rule-sets/validate` validates a bounded staged payload
-and returns `VALID`, `REQUIRES_REVIEW`, or `INVALID`; it does not persist,
-review, or activate it. Consumption by Degree Audit and Eligibility is
-reserved for Stage 10B after the reviewed-rule persistence boundary is merged.
+The staging API is intentionally separate from academic consumers:
+
+- `POST /api/v1/reviewed-rule-sets` persists a draft payload;
+- `POST /api/v1/reviewed-rule-sets/validate` validates without persistence;
+- `POST /api/v1/reviewed-rule-sets/{id}/review` requires explicit review;
+- `POST /api/v1/reviewed-rule-sets/{id}/activate` requires reviewed state and
+  preserves/supersedes an existing active version explicitly.
+
+Consumption by Degree Audit and Eligibility is reserved for Stage 10B after
+the reviewed-rule persistence boundary is merged.
 
 All Stage 10A fixtures are synthetic and are not institutional policy.

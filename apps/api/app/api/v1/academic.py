@@ -1,6 +1,6 @@
 from collections import defaultdict
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Protocol
 from uuid import UUID
 
@@ -81,6 +81,7 @@ from app.models.academic import (
     StudentAcademicProgram,
     StudentProfile,
 )
+from app.models.reviewed_rules import ReviewedRuleSetRecord
 from app.schemas.academic import (
     AcademicPlanCompareRequest,
     AcademicPlanComparisonResponse,
@@ -174,7 +175,11 @@ from app.schemas.academic import (
     StudentCourseAttemptResponse,
     StudentProfileResponse,
 )
-from app.schemas.reviewed_rules import ReviewedRuleSetResponse, RuleValidationResponse
+from app.schemas.reviewed_rules import (
+    ReviewedRuleSetRecordResponse,
+    ReviewedRuleSetResponse,
+    RuleValidationResponse,
+)
 from app.security.auth import enforce_api_authorization
 from app.services.academic_planner.engine import AcademicPlannerApplicationService
 from app.services.academic_planner.exceptions import AcademicPlannerValidationError
@@ -191,7 +196,8 @@ from app.services.data_review.exceptions import DataReviewValidationError
 from app.services.data_review.result import AppliedImportedRecordResult, DataReviewApplicationResult
 from app.services.degree_audit.exceptions import DegreeAuditValidationError
 from app.services.degree_audit.persistence import DegreeAuditApplicationService
-from app.services.reviewed_rules.engine import validate_rule_set
+from app.services.reviewed_rules.contracts import CatalogRuleSet, RuleLifecycle
+from app.services.reviewed_rules.engine import ReviewedRuleService, validate_rule_set
 from app.services.schedule_optimizer.engine import ScheduleOptimizerApplicationService
 from app.services.schedule_optimizer.exceptions import ScheduleOptimizerValidationError
 from app.services.section_monitoring.engine import (
@@ -207,6 +213,127 @@ router = APIRouter(
 )
 not_found_response = {"model": ErrorResponse}
 DatabaseSession = Annotated[Session, Depends(get_db)]
+
+
+def reviewed_rule_set_record_response(
+    record: ReviewedRuleSetRecord,
+) -> ReviewedRuleSetRecordResponse:
+    return ReviewedRuleSetRecordResponse(
+        rule_set=CatalogRuleSet.model_validate(record.payload),
+        validation_state=record.validation_state,
+        validation_errors=record.validation_errors,
+        validation_warnings=record.validation_warnings,
+    )
+
+
+@router.post(
+    "/reviewed-rule-sets",
+    response_model=ReviewedRuleSetRecordResponse,
+    status_code=201,
+    summary="Stage a Program/Catalog rule set",
+)
+def stage_reviewed_rule_set(
+    rule_set: ReviewedRuleSetResponse,
+    db: DatabaseSession,
+) -> ReviewedRuleSetRecordResponse:
+    """Persist a draft only; imports never become reviewed or active implicitly."""
+
+    result = validate_rule_set(rule_set)
+    record = ReviewedRuleSetRecord(
+        id=rule_set.rule_set_id,
+        institution_identifier=rule_set.source.institution_id,
+        program_identifier=rule_set.source.program_id,
+        catalog_year=rule_set.source.catalog_year,
+        version=rule_set.version,
+        lifecycle=RuleLifecycle.DRAFT,
+        source_title=rule_set.source.source_title,
+        source_location=rule_set.source.source_location,
+        source_evidence=rule_set.source.source_evidence,
+        source_fingerprint=rule_set.source.checksum,
+        payload=rule_set.model_copy(update={"lifecycle": RuleLifecycle.DRAFT}).model_dump(
+            mode="json"
+        ),
+        validation_state=result.state.value,
+        validation_errors=list(result.errors),
+        validation_warnings=list(result.warnings),
+        reviewer_confirmed=False,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return reviewed_rule_set_record_response(record)
+
+
+@router.post(
+    "/reviewed-rule-sets/{rule_set_id}/review",
+    response_model=ReviewedRuleSetRecordResponse,
+    summary="Explicitly review a staged rule set",
+)
+def review_staged_rule_set(
+    rule_set_id: UUID,
+    db: DatabaseSession,
+) -> ReviewedRuleSetRecordResponse:
+    record = db.get(ReviewedRuleSetRecord, rule_set_id)
+    if record is None:
+        raise not_found("ReviewedRuleSet", rule_set_id)
+    reviewed = ReviewedRuleService().review(
+        CatalogRuleSet.model_validate(record.payload), reviewer_confirmed=True
+    )
+    result = validate_rule_set(reviewed)
+    record.payload = reviewed.model_dump(mode="json")
+    record.lifecycle = RuleLifecycle.REVIEWED
+    record.reviewer_confirmed = True
+    record.reviewed_at = datetime.now(UTC)
+    record.validation_state = result.state.value
+    record.validation_errors = list(result.errors)
+    record.validation_warnings = list(result.warnings)
+    db.commit()
+    db.refresh(record)
+    return reviewed_rule_set_record_response(record)
+
+
+@router.post(
+    "/reviewed-rule-sets/{rule_set_id}/activate",
+    response_model=ReviewedRuleSetRecordResponse,
+    summary="Explicitly activate a reviewed rule set",
+)
+def activate_reviewed_rule_set(
+    rule_set_id: UUID,
+    db: DatabaseSession,
+) -> ReviewedRuleSetRecordResponse:
+    record = db.get(ReviewedRuleSetRecord, rule_set_id)
+    if record is None:
+        raise not_found("ReviewedRuleSet", rule_set_id)
+    if record.lifecycle is not RuleLifecycle.REVIEWED or not record.reviewer_confirmed:
+        raise HTTPException(
+            status_code=409,
+            detail="Only explicitly reviewed rules can be activated.",
+        )
+    rule_set = CatalogRuleSet.model_validate(record.payload)
+    active_records = db.scalars(
+        select(ReviewedRuleSetRecord).where(
+            ReviewedRuleSetRecord.institution_identifier == record.institution_identifier,
+            ReviewedRuleSetRecord.program_identifier == record.program_identifier,
+            ReviewedRuleSetRecord.catalog_year == record.catalog_year,
+            ReviewedRuleSetRecord.lifecycle == RuleLifecycle.ACTIVE,
+        )
+    ).all()
+    if active_records:
+        supersedes = rule_set.supersedes_rule_set_id
+        if supersedes is None or all(active.id != supersedes for active in active_records):
+            raise HTTPException(
+                status_code=409,
+                detail="An active version exists; provide its ID as supersedes_rule_set_id.",
+            )
+        for active in active_records:
+            active.lifecycle = RuleLifecycle.SUPERSEDED
+    activated = ReviewedRuleService().activate(rule_set)
+    record.payload = activated.model_dump(mode="json")
+    record.lifecycle = RuleLifecycle.ACTIVE
+    record.activated_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(record)
+    return reviewed_rule_set_record_response(record)
 
 
 @router.post(

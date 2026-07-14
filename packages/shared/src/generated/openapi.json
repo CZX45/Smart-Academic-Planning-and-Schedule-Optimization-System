@@ -5,6 +5,149 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/reviewed-rule-sets": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Stage a Program/Catalog rule set",
+        "description": "Persist a draft only; imports never become reviewed or active implicitly.",
+        "operationId": "stage_reviewed_rule_set_api_v1_reviewed_rule_sets_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewedRuleSetResponse"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewedRuleSetRecordResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reviewed-rule-sets/{rule_set_id}/review": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Explicitly review a staged rule set",
+        "operationId": "review_staged_rule_set_api_v1_reviewed_rule_sets__rule_set_id__review_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "rule_set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Rule Set Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewedRuleSetRecordResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reviewed-rule-sets/{rule_set_id}/activate": {
+      "post": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Explicitly activate a reviewed rule set",
+        "operationId": "activate_reviewed_rule_set_api_v1_reviewed_rule_sets__rule_set_id__activate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "rule_set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Rule Set Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewedRuleSetRecordResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reviewed-rule-sets/validate": {
       "post": {
         "tags": [
@@ -6292,6 +6435,85 @@
         ],
         "title": "CampusResponse"
       },
+      "CatalogRuleSet": {
+        "properties": {
+          "rule_set_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Rule Set Id"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Version"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/RuleLifecycle",
+            "default": "DRAFT"
+          },
+          "source": {
+            "$ref": "#/components/schemas/RuleSource"
+          },
+          "courses": {
+            "items": {
+              "$ref": "#/components/schemas/CourseDefinition-Output"
+            },
+            "type": "array",
+            "title": "Courses"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/RequirementRule-Output"
+            },
+            "type": "array",
+            "title": "Requirements"
+          },
+          "unsupported_statements": {
+            "items": {
+              "$ref": "#/components/schemas/UnsupportedStatement"
+            },
+            "type": "array",
+            "title": "Unsupported Statements"
+          },
+          "supersedes_rule_set_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Rule Set Id"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewer_confirmed": {
+            "type": "boolean",
+            "title": "Reviewer Confirmed",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rule_set_id",
+          "version",
+          "source"
+        ],
+        "title": "CatalogRuleSet"
+      },
       "CorequisiteSummaryResponse": {
         "properties": {
           "required_corequisite_courses": {
@@ -6336,7 +6558,7 @@
         ],
         "title": "CorequisiteSummaryResponse"
       },
-      "CourseDefinition": {
+      "CourseDefinition-Input": {
         "properties": {
           "course_id": {
             "type": "string",
@@ -6377,6 +6599,59 @@
                 "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
               }
             ],
+            "title": "Credits Max"
+          },
+          "prerequisite_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Prerequisite Ids"
+          },
+          "corequisite_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Corequisite Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "course_id",
+          "code",
+          "title",
+          "credits_min",
+          "credits_max"
+        ],
+        "title": "CourseDefinition"
+      },
+      "CourseDefinition-Output": {
+        "properties": {
+          "course_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Course Id"
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Title"
+          },
+          "credits_min": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Credits Min"
+          },
+          "credits_max": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Credits Max"
           },
           "prerequisite_ids": {
@@ -9864,7 +10139,7 @@
         ],
         "title": "RequirementNodeResponse"
       },
-      "RequirementRule": {
+      "RequirementRule-Input": {
         "properties": {
           "rule_id": {
             "type": "string",
@@ -9937,6 +10212,75 @@
         ],
         "title": "RequirementRule"
       },
+      "RequirementRule-Output": {
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Rule Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "operator": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Operator"
+          },
+          "course_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Course Ids"
+          },
+          "choose_n": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choose N"
+          },
+          "minimum_credits": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Credits"
+          },
+          "minimum_grade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Grade"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rule_id",
+          "name",
+          "operator"
+        ],
+        "title": "RequirementRule"
+      },
       "RequirementTreeResponse": {
         "properties": {
           "program_version_id": {
@@ -9959,6 +10303,39 @@
         ],
         "title": "RequirementTreeResponse"
       },
+      "ReviewedRuleSetRecordResponse": {
+        "properties": {
+          "rule_set": {
+            "$ref": "#/components/schemas/CatalogRuleSet"
+          },
+          "validation_state": {
+            "type": "string",
+            "title": "Validation State"
+          },
+          "validation_errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Validation Errors"
+          },
+          "validation_warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Validation Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rule_set",
+          "validation_state",
+          "validation_errors",
+          "validation_warnings"
+        ],
+        "title": "ReviewedRuleSetRecordResponse"
+      },
       "ReviewedRuleSetResponse": {
         "properties": {
           "rule_set_id": {
@@ -9980,14 +10357,14 @@
           },
           "courses": {
             "items": {
-              "$ref": "#/components/schemas/CourseDefinition"
+              "$ref": "#/components/schemas/CourseDefinition-Input"
             },
             "type": "array",
             "title": "Courses"
           },
           "requirements": {
             "items": {
-              "$ref": "#/components/schemas/RequirementRule"
+              "$ref": "#/components/schemas/RequirementRule-Input"
             },
             "type": "array",
             "title": "Requirements"

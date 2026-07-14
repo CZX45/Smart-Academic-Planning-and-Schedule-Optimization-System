@@ -14,3 +14,10 @@ class RuleValidationResponse(BaseModel):
 
 class ReviewedRuleSetResponse(CatalogRuleSet):
     pass
+
+
+class ReviewedRuleSetRecordResponse(BaseModel):
+    rule_set: CatalogRuleSet
+    validation_state: str
+    validation_errors: list[str]
+    validation_warnings: list[str]
