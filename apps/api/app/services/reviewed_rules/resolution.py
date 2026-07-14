@@ -88,6 +88,21 @@ def reviewed_requirement_view(
             if matched_course is None:
                 matched_course = courses_by_identifier.get(course_identifier.upper())
             if matched_course is None:
+                definition = next(
+                    (
+                        candidate
+                        for candidate in rule_set.courses
+                        if candidate.course_id == course_identifier
+                    ),
+                    None,
+                )
+                if definition is not None:
+                    matched_course = courses_by_identifier.get(definition.code.upper())
+                    if matched_course is None:
+                        matched_course = courses_by_identifier.get(
+                            definition.code.replace(" ", "").upper()
+                        )
+            if matched_course is None:
                 unresolved_identifiers.append(course_identifier)
                 continue
             allowed_courses.add(matched_course.id)

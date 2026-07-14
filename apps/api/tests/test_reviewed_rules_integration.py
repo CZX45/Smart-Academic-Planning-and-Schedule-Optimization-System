@@ -39,7 +39,7 @@ from app.services.reviewed_rules.contracts import (
     RuleLifecycle,
     RuleSource,
 )
-from app.services.reviewed_rules.resolution import resolve_for_student
+from app.services.reviewed_rules.resolution import resolve_for_student, reviewed_requirement_view
 
 
 @pytest.fixture()
@@ -134,7 +134,9 @@ def test_degree_audit_consumes_exact_active_reviewed_rules(session: Session) -> 
     node = session.scalar(
         select(RequirementNode).where(RequirementNode.program_version_id == version.id)
     )
-    course = session.scalar(select(Course).where(Course.subject_code == "FIN"))
+    course = session.scalar(
+        select(Course).where(Course.subject_code == "FIN", Course.course_number == "300")
+    )
     student = session.scalar(select(StudentProfile))
     assert node is not None
     assert course is not None
@@ -281,7 +283,9 @@ def test_unmapped_reviewed_requirement_does_not_reuse_legacy_options(session: Se
         select(RequirementNode).where(RequirementNode.program_version_id == version.id)
     )
     student = session.scalar(select(StudentProfile))
-    course = session.scalar(select(Course).where(Course.subject_code == "FIN"))
+    course = session.scalar(
+        select(Course).where(Course.subject_code == "FIN", Course.course_number == "300")
+    )
     assert node is not None and student is not None and course is not None
     legacy_option = session.scalar(
         select(RequirementCourseOption).where(
@@ -320,6 +324,62 @@ def test_unmapped_reviewed_requirement_does_not_reuse_legacy_options(session: Se
         select(DegreeAuditWarning).where(DegreeAuditWarning.degree_audit_run_id == run.id)
     ).all()
     assert any("SYNTHETIC-UNMAPPED-999" in warning.message for warning in warnings)
+
+
+def test_reviewed_source_course_identifier_maps_through_definition_code(session: Session) -> None:
+    institution, program, version = _catalog_context(session)
+    node = session.scalar(
+        select(RequirementNode).where(RequirementNode.program_version_id == version.id)
+    )
+    course = session.scalar(
+        select(Course).where(Course.subject_code == "FIN", Course.course_number == "300")
+    )
+    student = session.scalar(select(StudentProfile))
+    assert node is not None and course is not None and student is not None
+    record, _ = _rule_set(
+        institution,
+        program,
+        version,
+        courses=[
+            CourseDefinition(
+                course_id="SYNTHETIC-FIN-300",
+                code=f"{course.subject_code} {course.course_number}",
+                title=course.title,
+                credits_min=course.credits_min,
+                credits_max=course.credits_max,
+            )
+        ],
+        requirements=[
+            RequirementRule(
+                rule_id=node.code,
+                name=node.name,
+                operator="REQUIRED_COURSE",
+                course_ids=["SYNTHETIC-FIN-300"],
+            )
+        ],
+    )
+    session.add(record)
+    session.commit()
+
+    nodes = list(
+        session.scalars(
+            select(RequirementNode).where(RequirementNode.program_version_id == version.id)
+        )
+    )
+    options = list(
+        session.scalars(
+            select(RequirementCourseOption).where(
+                RequirementCourseOption.program_version_id == version.id
+            )
+        )
+    )
+    selected_nodes, selected_options, warnings = reviewed_requirement_view(
+        _, nodes, options, list(session.scalars(select(Course)).all())
+    )
+
+    assert selected_nodes
+    assert not warnings
+    assert selected_options == []
 
 
 def test_missing_reviewed_corequisite_is_conditional_and_survives_get_round_trip(
