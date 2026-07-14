@@ -121,6 +121,13 @@
       API base URL
       <input id="apiBaseUrlInput" value="http://localhost:8000" />
     </label>
+    <section>
+      <strong>Local app pairing</strong>
+      <span>The pairing credential is only for local app communication and is never sent to the school portal.</span>
+      <input id="pairingCodeInput" placeholder="Enter the code shown in the local app" autocomplete="off" />
+      <button id="pairExtensionButton" type="button">Pair with local app</button>
+      <span id="pairingStatusText">Pairing state is unknown.</span>
+    </section>
     <label>
       Student profile ID
       <input id="studentProfileIdInput" />

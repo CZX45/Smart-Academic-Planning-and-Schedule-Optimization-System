@@ -175,8 +175,39 @@ async function importPopupWithFetch(
   elements.apiBaseUrlInput.value = apiBaseUrl;
   elements.apiBearerTokenInput.value = apiBearerToken;
   const fetchMock = vi.fn(fetchImpl);
+  const runtime = {
+    sendMessage: (message: unknown, callback: (response: unknown) => void) => {
+      if (
+        typeof message !== "object" ||
+        message === null ||
+        !("type" in message) ||
+        message.type !== "SAPSOS_SUBMIT_IMPORT" ||
+        !("apiBaseUrl" in message) ||
+        typeof message.apiBaseUrl !== "string" ||
+        !("request" in message)
+      ) {
+        callback({
+          ok: false,
+          status: 400,
+          payload: { detail: "Unsupported popup test message." },
+        });
+        return;
+      }
+      void fetchMock(`${message.apiBaseUrl}/api/v1/data-imports`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(message.request),
+      }).then(async (response) => {
+        callback({
+          ok: response.ok,
+          status: response.status,
+          payload: await response.json().catch(() => null),
+        });
+      });
+    },
+  };
   const chromeApi = {
-    runtime: {},
+    runtime,
     storage: {
       local: {
         get: (

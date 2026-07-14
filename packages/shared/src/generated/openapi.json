@@ -4779,6 +4779,110 @@
         }
       }
     },
+    "/local/pairing/status": {
+      "get": {
+        "tags": [
+          "local-pairing"
+        ],
+        "summary": "Pairing Status",
+        "operationId": "pairing_status_local_pairing_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/local/pairing/session": {
+      "post": {
+        "tags": [
+          "local-pairing"
+        ],
+        "summary": "Create Pairing Session",
+        "operationId": "create_pairing_session_local_pairing_session_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingSessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/local/pairing/complete": {
+      "post": {
+        "tags": [
+          "local-pairing"
+        ],
+        "summary": "Complete Pairing",
+        "operationId": "complete_pairing_local_pairing_complete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PairingCompleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingCompleteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/local/pairing/revoke": {
+      "post": {
+        "tags": [
+          "local-pairing"
+        ],
+        "summary": "Revoke Pairing",
+        "operationId": "revoke_pairing_local_pairing_revoke_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -8994,6 +9098,111 @@
           "source"
         ],
         "title": "InstitutionResponse"
+      },
+      "PairingCompleteRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Code"
+          },
+          "protocol_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Protocol Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "protocol_version"
+        ],
+        "title": "PairingCompleteRequest"
+      },
+      "PairingCompleteResponse": {
+        "properties": {
+          "credential": {
+            "type": "string",
+            "minLength": 20,
+            "title": "Credential"
+          },
+          "protocol_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Protocol Version"
+          },
+          "extension_id": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 32,
+            "title": "Extension Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "credential",
+          "protocol_version",
+          "extension_id"
+        ],
+        "title": "PairingCompleteResponse"
+      },
+      "PairingSessionResponse": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 20,
+            "title": "Code"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "protocol_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Protocol Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "expires_at",
+          "protocol_version"
+        ],
+        "title": "PairingSessionResponse"
+      },
+      "PairingStatusResponse": {
+        "properties": {
+          "paired": {
+            "type": "boolean",
+            "title": "Paired"
+          },
+          "extension_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extension Id"
+          },
+          "protocol_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Protocol Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "paired",
+          "protocol_version"
+        ],
+        "title": "PairingStatusResponse"
       },
       "ProgramVersionDetailResponse": {
         "properties": {

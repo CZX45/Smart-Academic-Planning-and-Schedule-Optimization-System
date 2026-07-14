@@ -549,8 +549,17 @@ requirements. Extension pairing begins only after this foundation boundary.
 
 ## Scope confirmation
 
-No work has begun on Extension pairing, localhost request protection, real
-MyProgress parser expansion, Program/Catalog ingestion, real Section import,
+No work beyond the current Stage 8A pairing change has begun on localhost
+request protection, real MyProgress parser expansion, Program/Catalog ingestion, real Section import,
 real Schedule Optimization integration, UI restructuring, Backup/Restore,
 production migration, diagnostics center, installer/uninstaller, beta, or
 release-candidate work.
+
+## Stage 8A — secure local Extension pairing (in progress)
+
+The separately reviewable Stage 8A implementation adds a short-lived,
+single-use random pairing code, verifier-only local persistence, protocol
+versioning, revocation, and a background-service-worker-owned Extension
+credential. It is intentionally limited to local pairing; the complete
+localhost request boundary remains Stage 8B and may begin only after Stage 8A
+is merged and `main` is synchronized.

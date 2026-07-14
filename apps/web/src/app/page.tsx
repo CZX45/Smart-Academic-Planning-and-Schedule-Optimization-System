@@ -78,6 +78,7 @@ import {
   type SetStateAction,
   startTransition,
   useEffect,
+  useCallback,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -1551,6 +1552,8 @@ export default function Home() {
           downstreamAnalysisAllowed={downstreamAnalysisAllowed}
         />
 
+        <LocalPairingPanel apiBaseUrl={apiBaseUrl} />
+
         <h1>学业进度</h1>
         <p className="subtle">
           高风险学业建议需要 advisor / registrar / 学校确认。
@@ -1871,6 +1874,79 @@ function DevelopmentDiagnostics({
       {shouldShowGuidance ? (
         <p className="advisor-note">{localApiRestartGuidance()}</p>
       ) : null}
+    </section>
+  );
+}
+
+type PairingPanelState =
+  | { status: "loading" | "unpaired" | "paired" | "error"; message?: string }
+  | { status: "code"; code: string; expiresAt: string; message?: string };
+
+function LocalPairingPanel({ apiBaseUrl }: { apiBaseUrl: string | undefined }) {
+  const [state, setState] = useState<PairingPanelState>({ status: "loading" });
+
+  const refresh = useCallback(async (): Promise<void> => {
+    if (!apiBaseUrl) {
+      setState({ status: "error", message: "API 基础地址未配置。" });
+      return;
+    }
+    try {
+      const response = await fetch(`${apiBaseUrl}/local/pairing/status`, {
+        cache: "no-store",
+      });
+      const payload: unknown = await response.json();
+      if (!response.ok || typeof payload !== "object" || payload === null) {
+        throw new Error("无法读取本地配对状态。");
+      }
+      setState({
+        status: (payload as { paired?: boolean }).paired ? "paired" : "unpaired",
+      });
+    } catch (error: unknown) {
+      setState({
+        status: "error",
+        message: error instanceof Error ? error.message : "本地配对状态不可用。",
+      });
+    }
+  }, [apiBaseUrl]);
+
+  async function createCode(): Promise<void> {
+    if (!apiBaseUrl) return;
+    try {
+      const response = await fetch(`${apiBaseUrl}/local/pairing/session`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+      });
+      const payload = (await response.json()) as { code?: string; expires_at?: string };
+      if (!response.ok || !payload.code || !payload.expires_at) {
+        throw new Error("无法生成配对码。");
+      }
+      setState({ status: "code", code: payload.code, expiresAt: payload.expires_at });
+    } catch (error: unknown) {
+      setState({ status: "error", message: error instanceof Error ? error.message : "配对失败。" });
+    }
+  }
+
+  async function revoke(): Promise<void> {
+    if (!apiBaseUrl) return;
+    await fetch(`${apiBaseUrl}/local/pairing/revoke`, { method: "POST" });
+    await refresh();
+  }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(timer);
+  }, [refresh]);
+
+  return (
+    <section className="diagnostics-panel" aria-label="本地浏览器扩展配对">
+      <h2>本地扩展配对</h2>
+      <p>配对凭据仅用于本地应用与浏览器扩展通信，不是学校登录凭据，也不会发送到学校门户。</p>
+      <p>
+        状态：{state.status === "paired" ? "已配对" : state.status === "code" ? "等待扩展确认" : state.status === "unpaired" ? "未配对" : state.status === "loading" ? "检查中" : state.message}
+      </p>
+      {state.status === "code" ? <p>配对码：<strong>{state.code}</strong>（截至 {new Date(state.expiresAt).toLocaleTimeString()}）</p> : null}
+      <button type="button" onClick={() => void createCode()} disabled={!apiBaseUrl}>生成 / 重新生成配对码</button>
+      <button type="button" onClick={() => void revoke()} disabled={state.status !== "paired"}>撤销扩展凭据</button>
     </section>
   );
 }
