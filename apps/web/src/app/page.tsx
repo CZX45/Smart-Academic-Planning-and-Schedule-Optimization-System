@@ -4762,7 +4762,11 @@ function DataImportResultView({
           value={
             myProgressPreview?.canApplyVerifiedImport
               ? "已通过"
-              : "需 Review"
+              : myProgressPreview
+                ? "需 Review"
+                : state.preview.official_application_ready
+                  ? "可应用"
+                  : "已禁用"
           }
         />
         <SummaryMetric

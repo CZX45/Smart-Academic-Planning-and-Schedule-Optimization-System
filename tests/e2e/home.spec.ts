@@ -2348,7 +2348,7 @@ test("saved auto-verified MyProgress import overrides mock dashboard values", as
   await expect(
     importSummary.locator(".metric").filter({ hasText: "提取有边界 / 截断" }),
   ).toContainText("是");
-  await expect(page.getByText("截断/边界警告需要人工核对")).toBeVisible();
+  await expect(page.getByText("截断/边界警告需要重点核对")).toBeVisible();
   const myProgressRows = page.getByLabel("MyProgress 课程行");
   await expect(
     myProgressRows.locator(".comparison-row").filter({ hasText: "MATH 1044" }),
@@ -2402,9 +2402,9 @@ test("home page reviews and applies confirmed MyProgress import summaries", asyn
   await page.getByRole("button", { name: /^创建审核$/ }).click();
   const reviewSummary = page.getByLabel("数据审核汇总");
   await expect(reviewSummary.getByText("可应用")).toBeVisible();
-  await expect(reviewSummary.getByText("已自动确认")).toBeVisible();
+  await expect(reviewSummary.getByText("已确认记录")).toBeVisible();
   await expect(
-    reviewSummary.locator(".metric").filter({ hasText: "已自动确认" }),
+    reviewSummary.locator(".metric").filter({ hasText: "已确认记录" }),
   ).toContainText("0");
   await page.getByRole("button", { name: /^加载最新审核$/ }).click();
   await expect(reviewSummary.getByText("可应用")).toBeVisible();
@@ -3139,7 +3139,7 @@ test("home page loads the sanitized MyProgress sample for local verification", a
     page.getByText("脱敏本地测试数据仅为示例").first(),
   ).toBeVisible();
   const importSummary = page.getByLabel("数据导入预览汇总");
-  await expect(importSummary.getByText("自动确认字段")).toBeVisible();
+  await expect(importSummary.getByText("解析器确认字段")).toBeVisible();
   await expect(importSummary.getByText("异常", { exact: true })).toBeVisible();
   await expect(
     importSummary.getByText("已通过", { exact: true }),
