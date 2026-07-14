@@ -115,7 +115,7 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 8. Stage 7 — Web UI packaging — complete; PR #45 merged.
 9. Stage 8A — secure local Extension pairing — complete; PR #46 merged.
 10. Stage 8B — localhost request protection — complete; PR #47 merged.
-11. Stage 9 — Real MyProgress stabilization — Stage 9A merged; Stage 9B in progress.
+11. Stage 9 — Real MyProgress stabilization — complete; PRs #49 and #50 merged.
 12. Reviewed Program/Catalog rules.
 13. Real Section import.
 14. Real Section optimizer integration.
@@ -131,8 +131,8 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 The Local Runtime Foundation includes stages 1–8: local database, runtime
 discovery and supervision, desktop-shell proof, FastAPI runtime packaging, Web
 UI packaging, secure Extension pairing, and localhost request protection. The
-foundation is complete through the merged Stage 8B security boundary. Stage 9A
-is merged and Stage 9B is the active checkpoint.
+foundation is complete through the merged Stage 8B security boundary. Stage 9
+is complete through the merged 9A and 9B checkpoints.
 
 ## Progress log
 
@@ -532,24 +532,25 @@ is merged and Stage 9B is the active checkpoint.
 
 ## Resume checkpoint
 
-- Current milestone: Local Runtime Foundation complete through Stage 8B; Stage 9A merged.
-- Current stage checkpoint: Stage 9B — validation and Review/Apply safeguards,
-  in progress.
-- Current PR: PR #49 is merged; Stage 9B PR is being prepared.
-- Current main/origin state: `f450a045d1e16e8ae4afe86a6d73c572a1f2cbf7`.
-- Last completed action: merged and synchronized Stage 9A bounded MyProgress
-  parser stabilization.
+- Current milestone: Stage 9 Real MyProgress stabilization complete through
+  merged PRs #49 and #50.
+- Current stage checkpoint: Stage 9 complete; later milestones remain not
+  started.
+- Current PRs: PR #49 and PR #50 are merged.
+- Current main/origin state: `1c36fe99d8da69474be863bfe7809b1f5c4c86e1`.
+- Last completed action: merged and synchronized Stage 9B validation and
+  Review/Apply safeguards.
 - Last successful validation: API pytest 180 passed; Ruff check; Ruff format
   check; mypy; Python compileall; `git diff --check`; and complete CI with
   checks, Docker Compose, and E2E passing.
-- Exact next action: complete, validate, and publish the isolated Stage 9B
-  validation and Review/Apply safeguard PR.
+- Exact next action: none within Stage 9; do not begin Program/Catalog,
+  Section, optimizer, or later milestones without a new explicit scope.
 
 ## Scope confirmation
 
 Stage 8A pairing and Stage 8B localhost request protection are complete and
-merged. Stage 9A parser stabilization is merged and Stage 9B is limited to
-validation and Review/Apply safeguards;
+merged. Stage 9A parser stabilization and Stage 9B validation/Review/Apply
+safeguards are complete;
 Program/Catalog ingestion, real Section import, real Schedule Optimization
 integration, UI restructuring, Backup/Restore, production migration,
 diagnostics center, installer/uninstaller, beta, or release-candidate work.
@@ -597,7 +598,7 @@ protect against full local-machine compromise, malware running as the user, a
 compromised browser, a compromised Extension runtime, or administrator-level
 attackers.
 
-## Stage 9 — Real MyProgress stabilization (PR 9A merged; PR 9B in progress)
+## Stage 9 — Real MyProgress stabilization (PRs 9A and 9B merged)
 
 Stage 9 is the next implementation checkpoint. It is limited to stabilizing
 extraction and parsing of the real visible MyProgress page, preserving raw
@@ -627,10 +628,14 @@ implementation is included in the Stage 8 closeout.
 
 ### Stage 9B checkpoint — validation and Review/Apply safeguards
 
-- Status: implementation in progress in an isolated worktree.
+- Status: merged.
 - Branch: `stabilize-myprogress-review`.
 - Worktree: `D:\Crystal\.cache\worktrees\stabilize-myprogress-review`.
 - Starting HEAD: `f450a045d1e16e8ae4afe86a6d73c572a1f2cbf7`.
+- Final head: `a43b4b59f594e5a057182bb9923315980647f133`.
+- PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/50`.
+- CI: run `29310590691` passed checks, Docker Compose, and E2E.
+- Merge commit: `1c36fe99d8da69474be863bfe7809b1f5c4c86e1`.
 - Scope: deterministic validation-state presentation, exception classification,
   confirmed-record application safeguards, idempotency regressions, and
   explicit non-official/source/provenance presentation.
