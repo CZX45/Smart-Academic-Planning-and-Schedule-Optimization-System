@@ -34,11 +34,11 @@ def test_sqlite_model_metadata_initializes_repeatedly(tmp_path: Path) -> None:
     Base.metadata.create_all(engine)
 
     inspector = inspect(engine)
-    assert len(inspector.get_table_names()) == 68
+    assert len(inspector.get_table_names()) == 69
     assert (
         sum(len(inspector.get_foreign_keys(table)) for table in inspector.get_table_names()) == 176
     )
-    assert sum(len(inspector.get_indexes(table)) for table in inspector.get_table_names()) == 86
+    assert sum(len(inspector.get_indexes(table)) for table in inspector.get_table_names()) == 87
 
 
 def test_sqlite_uuid_json_and_server_default_round_trip(tmp_path: Path) -> None:

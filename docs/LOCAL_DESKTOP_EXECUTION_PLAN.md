@@ -532,19 +532,20 @@ is complete through the merged 9A and 9B checkpoints.
 
 ## Resume checkpoint
 
-- Current milestone: Stage 9 Real MyProgress stabilization complete through
-  merged PRs #49 and #50.
-- Current stage checkpoint: Stage 9 complete; later milestones remain not
-  started.
+- Current milestone: Stage 10A Reviewed Program/Catalog source and review
+  foundation in progress.
+- Current stage checkpoint: Stage 9 is complete; Stage 10A uses synthetic
+  fixtures because no reviewed official Program/Catalog source inventory is
+  present. Stage 10B remains blocked until 10A is merged.
 - Current PRs: PR #49 and PR #50 are merged.
-- Current main/origin state: `1c36fe99d8da69474be863bfe7809b1f5c4c86e1`.
+- Current main/origin state before Stage 10A: `673a7d0f80a905caa50ab75a04a6122d62500e42`.
 - Last completed action: merged and synchronized Stage 9B validation and
-  Review/Apply safeguards.
+  Review/Apply safeguards; created the isolated Stage 10A worktree.
 - Last successful validation: API pytest 180 passed; Ruff check; Ruff format
   check; mypy; Python compileall; `git diff --check`; and complete CI with
   checks, Docker Compose, and E2E passing.
-- Exact next action: none within Stage 9; do not begin Program/Catalog,
-  Section, optimizer, or later milestones without a new explicit scope.
+- Exact next action: validate and publish the isolated Stage 10A source/review
+  foundation, then wait for its merge before beginning Stage 10B.
 
 ## Scope confirmation
 

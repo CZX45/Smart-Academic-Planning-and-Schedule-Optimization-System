@@ -174,6 +174,7 @@ from app.schemas.academic import (
     StudentCourseAttemptResponse,
     StudentProfileResponse,
 )
+from app.schemas.reviewed_rules import ReviewedRuleSetResponse, RuleValidationResponse
 from app.security.auth import enforce_api_authorization
 from app.services.academic_planner.engine import AcademicPlannerApplicationService
 from app.services.academic_planner.exceptions import AcademicPlannerValidationError
@@ -190,6 +191,7 @@ from app.services.data_review.exceptions import DataReviewValidationError
 from app.services.data_review.result import AppliedImportedRecordResult, DataReviewApplicationResult
 from app.services.degree_audit.exceptions import DegreeAuditValidationError
 from app.services.degree_audit.persistence import DegreeAuditApplicationService
+from app.services.reviewed_rules.engine import validate_rule_set
 from app.services.schedule_optimizer.engine import ScheduleOptimizerApplicationService
 from app.services.schedule_optimizer.exceptions import ScheduleOptimizerValidationError
 from app.services.section_monitoring.engine import (
@@ -205,6 +207,23 @@ router = APIRouter(
 )
 not_found_response = {"model": ErrorResponse}
 DatabaseSession = Annotated[Session, Depends(get_db)]
+
+
+@router.post(
+    "/reviewed-rule-sets/validate",
+    response_model=RuleValidationResponse,
+    summary="Validate a staged Program/Catalog rule set",
+)
+def validate_reviewed_rule_set(rule_set: ReviewedRuleSetResponse) -> RuleValidationResponse:
+    """Validate staged rules without persisting, reviewing, or activating them."""
+
+    result = validate_rule_set(rule_set)
+    return RuleValidationResponse(
+        rule_set_id=str(rule_set.rule_set_id),
+        state=result.state.value,
+        errors=list(result.errors),
+        warnings=list(result.warnings),
+    )
 
 
 class SourceRecord(Protocol):

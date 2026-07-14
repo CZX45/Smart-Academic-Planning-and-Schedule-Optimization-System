@@ -62,6 +62,10 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
 - Phase 8B adds read-only section monitoring endpoints under `/api/v1/section-monitoring`. The service stores user-selected advisory monitor targets, compares user-triggered non-official section-search snapshots, emits structured change alerts, and does not poll, refresh portals, change seat or waitlist state, or perform registration actions.
 - Phase 9A adds product-hardening UI helpers and dashboard polish. It summarizes existing workflow status, empty states, manual next actions, and advisory labels without adding backend domains or changing the read-only/advisory boundary.
 - Phase 9B adds production-readiness hardening. The API validates environment, database, timeout, and CORS settings; applies safe response headers; narrows CORS request headers; and emits low-sensitivity audit logs for imports and section-monitoring comparisons without adding product domains.
+- Stage 10A adds an independent source-backed Program/Catalog rule review
+  contract with explicit lifecycle, bounded supported grammar, unsupported
+  statement preservation, exact catalog-year identity, and staging-only
+  validation. It does not feed Degree Audit or Eligibility until Stage 10B.
 - Phase 10A adds release-readiness QA and final product review documentation. It covers user-flow QA, demo-safe wording, final checklist review, and safety-boundary audit without adding backend domains or changing workflow authority.
 - Phase 11B adds Kean Student Portal browser-extension import handling through
   the existing `/api/v1/data-imports` and Phase 7B review path. It adds no new
