@@ -55,6 +55,8 @@ from app.services.course_state.engine import (
     effective_student_course_attempts,
 )
 from app.services.degree_audit.grade_policy import GradePolicy
+from app.services.reviewed_rules.eligibility import evaluate_reviewed_prerequisites
+from app.services.reviewed_rules.resolution import resolve_for_student
 
 ENGINE_VERSION = "phase-4-course-eligibility-v1"
 
@@ -71,6 +73,7 @@ class EligibilityRequestContext:
     section: Section | None
     mode: EligibilityMode
     planned_corequisite_course_ids: frozenset[UUID]
+    catalog_courses: list[Course]
 
 
 @dataclass(frozen=True)
@@ -146,6 +149,13 @@ class CourseEligibilityEngine:
             mode=mode,
             planned_corequisite_course_ids=planned_corequisite_course_ids or [],
         )
+        reviewed_result = evaluate_reviewed_prerequisites(
+            self._db,
+            context,
+            resolve_for_student(self._db, context.student.id),
+        )
+        if reviewed_result is not None:
+            return reviewed_result
         active_snapshot = active_course_state_snapshot(self._db, context.student.id)
         rules = self._load_rules(context)
         if not rules:
@@ -337,6 +347,11 @@ class CourseEligibilityEngine:
             section=section,
             mode=mode,
             planned_corequisite_course_ids=frozenset(planned_corequisite_course_ids),
+            catalog_courses=list(
+                self._db.scalars(
+                    select(Course).where(Course.institution_id == course.institution_id)
+                ).all()
+            ),
         )
 
     def _load_rules(self, context: EligibilityRequestContext) -> list[CourseRule]:
@@ -1114,6 +1129,33 @@ class CourseEligibilityApplicationService:
             started_at=utc_now(),
             completed_at=utc_now(),
             source_snapshot_hash=result.source_snapshot_hash,
+            reviewed_rule_set_id=result.reviewed_rule_set_id,
+            rule_resolution_state=result.rule_resolution_state,
+            rule_source_reference=result.rule_source_reference,
+            rule_catalog_year=result.rule_catalog_year,
+            rule_resolution_explanation=result.rule_resolution_explanation,
+            reviewed_rule_reasons=[
+                {
+                    "reason_code": reason.reason_code,
+                    "explanation": reason.explanation,
+                    "course_rule_id": str(reason.course_rule_id) if reason.course_rule_id else None,
+                    "course_rule_expression_id": str(reason.course_rule_expression_id)
+                    if reason.course_rule_expression_id
+                    else None,
+                    "referenced_entity_type": reason.referenced_entity_type,
+                    "referenced_entity_id": str(reason.referenced_entity_id)
+                    if reason.referenced_entity_id
+                    else None,
+                    "expected_value": reason.expected_value,
+                    "actual_value": reason.actual_value,
+                    "reviewed_rule_set_id": str(reason.reviewed_rule_set_id)
+                    if reason.reviewed_rule_set_id
+                    else None,
+                    "rule_source_reference": reason.rule_source_reference,
+                    "rule_catalog_year": reason.rule_catalog_year,
+                }
+                for reason in result.reviewed_rule_reasons
+            ],
         )
         self._db.add(run)
         self._db.flush()

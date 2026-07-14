@@ -68,6 +68,11 @@ class AuditContext:
     waivers_by_requirement: dict[UUID, list[CourseWaiver]] = field(default_factory=dict)
     substitutions_by_requirement: dict[UUID, list[CourseSubstitution]] = field(default_factory=dict)
     equivalencies_by_equivalent: dict[UUID, list[CourseEquivalency]] = field(default_factory=dict)
+    reviewed_rule_set_id: UUID | None = None
+    rule_resolution_state: str = "MISSING"
+    rule_source_reference: str | None = None
+    rule_catalog_year: str | None = None
+    rule_resolution_explanation: str = "No reviewed rule set was selected."
 
     def waiver_candidates(self, node: RequirementNode) -> list[CourseCandidate]:
         candidates: list[CourseCandidate] = []
@@ -363,6 +368,8 @@ class AuditContext:
             "student_profile_id": str(self.student_profile_id),
             "program_version_id": str(self.program_version_id),
             "mode": self.mode.value,
+            "reviewed_rule_set_id": str(self.reviewed_rule_set_id or ""),
+            "rule_resolution_state": self.rule_resolution_state,
             "nodes": sorted(str(node_id) for node_id in self.nodes_by_id),
             "attempts": [
                 [str(attempt.id), str(attempt.course_id), attempt.status.value, attempt.grade]

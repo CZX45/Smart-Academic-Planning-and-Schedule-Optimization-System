@@ -49,6 +49,8 @@ class DegreeAuditApplicationService:
             remaining_credits=Decimal("0.0"),
             completion_percentage=Decimal("0.00"),
             source_snapshot_hash="pending",
+            rule_resolution_state="MISSING",
+            rule_resolution_explanation="No reviewed rule set was selected.",
         )
         self._db.add(run)
         self._db.flush()
@@ -74,6 +76,10 @@ class DegreeAuditApplicationService:
                 remaining_credits=Decimal("0.0"),
                 completion_percentage=Decimal("0.00"),
                 source_snapshot_hash="failed",
+                rule_resolution_state="MISSING",
+                rule_resolution_explanation=(
+                    "The degree audit failed before rule resolution completed."
+                ),
             )
             self._db.add(run)
             self._db.commit()
@@ -133,6 +139,11 @@ def persist_degree_audit_success(
     run.remaining_credits = result.remaining_credits
     run.completion_percentage = result.completion_percentage
     run.source_snapshot_hash = result.source_snapshot_hash
+    run.reviewed_rule_set_id = result.reviewed_rule_set_id
+    run.rule_resolution_state = result.rule_resolution_state
+    run.rule_source_reference = result.rule_source_reference
+    run.rule_catalog_year = result.rule_catalog_year
+    run.rule_resolution_explanation = result.rule_resolution_explanation
 
     evaluation_ids: dict[UUID, UUID] = {}
     for requirement in result.requirements:

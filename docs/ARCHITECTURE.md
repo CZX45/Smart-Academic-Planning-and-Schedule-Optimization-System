@@ -66,6 +66,10 @@ A pnpm workspace with Turborepo orchestration is appropriate because it can coor
   contract with explicit lifecycle, bounded supported grammar, unsupported
   statement preservation, exact catalog-year identity, and staging-only
   validation. It does not feed Degree Audit or Eligibility until Stage 10B.
+- Stage 10B consumes only exact active reviewed rule sets. Degree Audit and
+  Eligibility persist rule-set provenance and explanations; missing course
+  definitions resolve to `UNKNOWN`, while absent active reviewed sets retain
+  explicit `MISSING` legacy fallback behavior.
 - Phase 10A adds release-readiness QA and final product review documentation. It covers user-flow QA, demo-safe wording, final checklist review, and safety-boundary audit without adding backend domains or changing workflow authority.
 - Phase 11B adds Kean Student Portal browser-extension import handling through
   the existing `/api/v1/data-imports` and Phase 7B review path. It adds no new

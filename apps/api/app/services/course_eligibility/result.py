@@ -22,6 +22,9 @@ class EligibilityReason:
     referenced_entity_id: UUID | None = None
     expected_value: str | None = None
     actual_value: str | None = None
+    reviewed_rule_set_id: UUID | None = None
+    rule_source_reference: str | None = None
+    rule_catalog_year: str | None = None
 
 
 @dataclass(frozen=True)
@@ -84,7 +87,13 @@ class EligibilityResult:
     conditional_reasons: list[EligibilityReason] = field(default_factory=list)
     permissions_required: list[EligibilityReason] = field(default_factory=list)
     manual_review_reasons: list[EligibilityReason] = field(default_factory=list)
+    reviewed_rule_reasons: list[EligibilityReason] = field(default_factory=list)
     corequisites_to_add: list[UUID] = field(default_factory=list)
     corequisite_summary: CorequisiteSummary | None = None
     registration_availability: RegistrationAvailability | None = None
     warnings: list[EligibilityWarningResult] = field(default_factory=list)
+    reviewed_rule_set_id: UUID | None = None
+    rule_resolution_state: str = "MISSING"
+    rule_source_reference: str | None = None
+    rule_catalog_year: str | None = None
+    rule_resolution_explanation: str = "No reviewed rule set was selected."
