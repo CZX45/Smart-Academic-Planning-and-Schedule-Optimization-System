@@ -254,8 +254,54 @@ def evaluate_reviewed_prerequisites(
         matching = attempts_by_course.get(corequisite.id, [])
         if any(attempt.status is StudentCourseAttemptStatus.COMPLETED for attempt in matching):
             completed_corequisites.append(corequisite.id)
+            reasons.append(
+                EligibilityReason(
+                    reason_code="REVIEWED_COREQUISITE_SATISFIED",
+                    explanation=(
+                        "Reviewed corequisite "
+                        f"{corequisite.subject_code} {corequisite.course_number} "
+                        "is already completed."
+                    ),
+                    referenced_entity_type="COURSE",
+                    referenced_entity_id=corequisite.id,
+                    reviewed_rule_set_id=reviewed_id,
+                    rule_source_reference=source_reference,
+                    rule_catalog_year=catalog_year,
+                )
+            )
         elif any(attempt.status is StudentCourseAttemptStatus.IN_PROGRESS for attempt in matching):
             in_progress_corequisites.append(corequisite.id)
+            conditional.append(
+                EligibilityReason(
+                    reason_code="REVIEWED_COREQUISITE_IN_PROGRESS",
+                    explanation=(
+                        "Reviewed corequisite "
+                        f"{corequisite.subject_code} {corequisite.course_number} "
+                        "is currently in progress."
+                    ),
+                    referenced_entity_type="COURSE",
+                    referenced_entity_id=corequisite.id,
+                    reviewed_rule_set_id=reviewed_id,
+                    rule_source_reference=source_reference,
+                    rule_catalog_year=catalog_year,
+                )
+            )
+        else:
+            conditional.append(
+                EligibilityReason(
+                    reason_code="REVIEWED_COREQUISITE_REQUIRED",
+                    explanation=(
+                        "Reviewed corequisite "
+                        f"{corequisite.subject_code} {corequisite.course_number} "
+                        "must be added concurrently; it is not completed or in progress."
+                    ),
+                    referenced_entity_type="COURSE",
+                    referenced_entity_id=corequisite.id,
+                    reviewed_rule_set_id=reviewed_id,
+                    rule_source_reference=source_reference,
+                    rule_catalog_year=catalog_year,
+                )
+            )
 
     if manual:
         overall = EligibilityOverallResult.UNKNOWN

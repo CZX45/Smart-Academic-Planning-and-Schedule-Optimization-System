@@ -18,6 +18,7 @@ from app.models.academic import (
     RequirementType,
     StudentAcademicProgram,
     StudentAcademicProgramStatus,
+    StudentProgramType,
 )
 from app.models.reviewed_rules import ReviewedRuleSetRecord
 from app.services.reviewed_rules.contracts import CatalogRuleSet, RuleLifecycle
@@ -81,19 +82,25 @@ def reviewed_requirement_view(
         reviewed_node.choose_n = rule.choose_n
         selected_nodes.append(reviewed_node)
         allowed_courses: set[UUID] = set()
+        unresolved_identifiers: list[str] = []
         for course_identifier in rule.course_ids:
             matched_course = courses_by_identifier.get(course_identifier)
             if matched_course is None:
                 matched_course = courses_by_identifier.get(course_identifier.upper())
             if matched_course is None:
-                warnings.append(
-                    f"Reviewed rule {rule.rule_id} references course {course_identifier} "
-                    "that is not in the institution catalog."
-                )
+                unresolved_identifiers.append(course_identifier)
                 continue
             allowed_courses.add(matched_course.id)
+        if unresolved_identifiers:
+            warnings.append(
+                f"Reviewed rule {rule.rule_id} has unresolved course references "
+                f"{', '.join(unresolved_identifiers)}; review is required and no persisted "
+                "requirement options were reused."
+            )
         for option in options_by_node.get(node.id, []):
-            if not allowed_courses or option.course_id in allowed_courses:
+            if not rule.course_ids or (
+                not unresolved_identifiers and option.course_id in allowed_courses
+            ):
                 selected_options.append(copy(option))
     if not rule_set.requirements:
         warnings.append("The active reviewed rule set contains no supported requirements.")
@@ -147,21 +154,68 @@ def resolve_for_program_version(db: Session, program_version_id: UUID) -> RuleRe
     )
 
 
-def resolve_for_student(db: Session, student_id: UUID) -> RuleResolution:
-    program_version_id = db.scalar(
-        select(StudentAcademicProgram.program_version_id)
-        .where(
+PROGRAM_PRIORITY = {
+    StudentProgramType.PRIMARY_MAJOR: 0,
+    StudentProgramType.SECOND_MAJOR: 1,
+    StudentProgramType.MINOR: 2,
+    StudentProgramType.CERTIFICATE: 3,
+}
+
+
+def resolve_for_student(
+    db: Session,
+    student_id: UUID,
+    program_version_id: UUID | None = None,
+) -> RuleResolution:
+    active_programs = db.scalars(
+        select(StudentAcademicProgram).where(
             StudentAcademicProgram.student_profile_id == student_id,
             StudentAcademicProgram.status == StudentAcademicProgramStatus.ACTIVE,
         )
-        .order_by(StudentAcademicProgram.program_type, StudentAcademicProgram.id)
-        .limit(1)
-    )
-    if program_version_id is None:
+    ).all()
+    if program_version_id is not None:
+        selected = next(
+            (
+                program
+                for program in active_programs
+                if program.program_version_id == program_version_id
+            ),
+            None,
+        )
+        if selected is None:
+            return RuleResolution(
+                RuleResolutionState.MISSING,
+                None,
+                None,
+                "The explicitly selected ProgramVersion is not an active Program for this student.",
+            )
+        return resolve_for_program_version(db, selected.program_version_id)
+    if not active_programs:
         return RuleResolution(
             RuleResolutionState.MISSING,
             None,
             None,
             "The student has no active ProgramVersion for reviewed-rule resolution.",
         )
-    return resolve_for_program_version(db, program_version_id)
+    active_programs = sorted(
+        active_programs,
+        key=lambda program: (
+            PROGRAM_PRIORITY[program.program_type],
+            str(program.program_version_id),
+        ),
+    )
+    best_priority = PROGRAM_PRIORITY[active_programs[0].program_type]
+    best_programs = [
+        program
+        for program in active_programs
+        if PROGRAM_PRIORITY[program.program_type] == best_priority
+    ]
+    if len(best_programs) > 1:
+        return RuleResolution(
+            RuleResolutionState.CONFLICT,
+            None,
+            None,
+            "Multiple active Programs share the highest semantic priority; "
+            "explicit Program selection is required.",
+        )
+    return resolve_for_program_version(db, best_programs[0].program_version_id)

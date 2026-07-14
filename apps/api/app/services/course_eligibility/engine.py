@@ -1156,6 +1156,28 @@ class CourseEligibilityApplicationService:
                 }
                 for reason in result.reviewed_rule_reasons
             ],
+            reviewed_corequisite_summary=(
+                {
+                    "required_corequisite_courses": [
+                        str(course_id)
+                        for course_id in result.corequisite_summary.required_corequisite_courses
+                    ],
+                    "already_completed": [
+                        str(course_id) for course_id in result.corequisite_summary.already_completed
+                    ],
+                    "currently_in_progress": [
+                        str(course_id)
+                        for course_id in result.corequisite_summary.currently_in_progress
+                    ],
+                    "must_enroll_concurrently": [
+                        str(course_id)
+                        for course_id in result.corequisite_summary.must_enroll_concurrently
+                    ],
+                }
+                if result.reviewed_rule_set_id is not None
+                and result.corequisite_summary is not None
+                else None
+            ),
         )
         self._db.add(run)
         self._db.flush()

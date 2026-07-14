@@ -2491,6 +2491,10 @@ class EligibilityCheckRun(UuidPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
         default=list,
     )
+    reviewed_corequisite_summary: Mapped[dict[str, object] | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
 
 
 class RuleEvaluation(UuidPrimaryKeyMixin, Base):
