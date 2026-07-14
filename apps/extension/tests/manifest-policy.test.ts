@@ -54,7 +54,9 @@ describe("browser extension safety policy", () => {
     expect(manifest).not.toContain("cookies");
     expect(serviceWorker).not.toContain("setInterval");
     expect(serviceWorker).not.toContain("chrome.alarms");
-    expect(serviceWorker).not.toContain("fetch(");
+    expect(serviceWorker).toContain("SAPSOS_PAIR_EXTENSION");
+    expect(serviceWorker).toContain("SAPSOS_SUBMIT_IMPORT");
+    expect(serviceWorker).toContain("X-SAPSOS-Extension-Credential");
   });
 
   it("uses direct active-tab script execution instead of a content-script receiver for popup extraction", () => {
@@ -110,18 +112,21 @@ describe("browser extension safety policy", () => {
   });
 
   it("does not expose credential-like extraction fields or background polling primitives", () => {
-    const source = [
+    const extractionSource = [
       readProjectFile("src/content/content-script.ts"),
       readProjectFile("src/content/extractors.ts"),
       readProjectFile("src/shared/types.ts"),
-      readProjectFile("src/background/service-worker.ts"),
     ].join("\n");
 
-    expect(source).not.toMatch(
+    expect(extractionSource).not.toMatch(
       /\b(password|portal_password|credential|session_cookie|saml|mfa|captcha)\b/i,
     );
-    expect(source).not.toMatch(/\b(setInterval|setTimeout|chrome\.alarms)\b/);
-    expect(source).not.toMatch(/\bMutationObserver\b/);
+    const serviceWorker = readProjectFile("src/background/service-worker.ts");
+    expect(serviceWorker).not.toMatch(
+      /\b(password|portal_password|session_cookie|saml|mfa|captcha)\b/i,
+    );
+    expect(serviceWorker).not.toMatch(/\b(setInterval|setTimeout|chrome\.alarms)\b/);
+    expect(serviceWorker).not.toMatch(/\bMutationObserver\b/);
   });
 
   it("keeps the injected content script standalone for programmatic injection", () => {
