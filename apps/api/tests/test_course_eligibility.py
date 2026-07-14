@@ -120,6 +120,30 @@ def test_eligibility_database_constraints(session: Session) -> None:
         session.commit()
 
 
+def test_unknown_eligibility_results_persist_in_local_sqlite(session: Session) -> None:
+    run = EligibilityCheckRun(
+        id=seed_uuid("eligibility-check:unknown"),
+        institution_id=seed_uuid("institution:mock-university"),
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        course_id=seed_uuid("course:FIN-300"),
+        section_id=None,
+        target_term_id=seed_uuid("term:2024-fall"),
+        mode=EligibilityMode.CURRENT,
+        status="COMPLETED_WITH_WARNINGS",
+        engine_version="phase-4-course-eligibility-v1",
+        overall_result=EligibilityOverallResult.UNKNOWN,
+        academic_eligibility_result=EligibilityOverallResult.UNKNOWN,
+        source_snapshot_hash="unknown-proof",
+    )
+    session.add(run)
+    session.commit()
+
+    stored = session.get(EligibilityCheckRun, run.id)
+    assert stored is not None
+    assert stored.overall_result is EligibilityOverallResult.UNKNOWN
+    assert stored.academic_eligibility_result is EligibilityOverallResult.UNKNOWN
+
+
 def test_engine_evaluates_completed_prerequisite_and_minimum_grade(session: Session) -> None:
     result = CourseEligibilityEngine(session).evaluate(
         student_profile_id=seed_uuid("student-profile:mock-student"),

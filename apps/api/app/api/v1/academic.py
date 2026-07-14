@@ -1,7 +1,7 @@
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Annotated, Protocol
+from typing import Annotated, Protocol, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -880,23 +880,44 @@ def eligibility_check_response(
     reviewed_rule_reasons = [
         reviewed_rule_reason_response(reason) for reason in (run.reviewed_rule_reasons or [])
     ]
-    corequisites_to_add = [
-        expression.matched_course_id
-        for expression in expression_responses
-        if expression.matched_course_id is not None
-        and expression.reason_code in {"COREQUISITE_MUST_ENROLL", "COREQUISITE_CONCURRENT_PLAN"}
-    ]
-    unique_corequisites_to_add = list(dict.fromkeys(corequisites_to_add))
-    corequisite_summary = (
-        CorequisiteSummaryResponse(
-            required_corequisite_courses=unique_corequisites_to_add,
-            already_completed=[],
-            currently_in_progress=[],
-            must_enroll_concurrently=unique_corequisites_to_add,
+    persisted_summary = run.reviewed_corequisite_summary
+    corequisite_summary: CorequisiteSummaryResponse | None
+    if persisted_summary is not None:
+        corequisite_summary = CorequisiteSummaryResponse(
+            required_corequisite_courses=[
+                UUID(value)
+                for value in cast(list[str], persisted_summary["required_corequisite_courses"])
+            ],
+            already_completed=[
+                UUID(value) for value in cast(list[str], persisted_summary["already_completed"])
+            ],
+            currently_in_progress=[
+                UUID(value) for value in cast(list[str], persisted_summary["currently_in_progress"])
+            ],
+            must_enroll_concurrently=[
+                UUID(value)
+                for value in cast(list[str], persisted_summary["must_enroll_concurrently"])
+            ],
         )
-        if unique_corequisites_to_add
-        else None
-    )
+        unique_corequisites_to_add = list(corequisite_summary.must_enroll_concurrently)
+    else:
+        corequisites_to_add = [
+            expression.matched_course_id
+            for expression in expression_responses
+            if expression.matched_course_id is not None
+            and expression.reason_code in {"COREQUISITE_MUST_ENROLL", "COREQUISITE_CONCURRENT_PLAN"}
+        ]
+        unique_corequisites_to_add = list(dict.fromkeys(corequisites_to_add))
+        corequisite_summary = (
+            CorequisiteSummaryResponse(
+                required_corequisite_courses=unique_corequisites_to_add,
+                already_completed=[],
+                currently_in_progress=[],
+                must_enroll_concurrently=unique_corequisites_to_add,
+            )
+            if unique_corequisites_to_add
+            else None
+        )
     warnings = db.scalars(
         select(EligibilityWarning)
         .where(EligibilityWarning.eligibility_check_run_id == run.id)
