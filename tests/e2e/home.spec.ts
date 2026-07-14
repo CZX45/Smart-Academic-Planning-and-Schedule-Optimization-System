@@ -2473,6 +2473,31 @@ test("reviewed 85-row MyProgress import drives the active real course-state snap
   expect(reviewResponse.status()).toBe(201);
   const review = (await reviewResponse.json()) as { id: string };
 
+  const reviewRecordsResponse = await request.get(
+    `http://127.0.0.1:8000/api/v1/data-import-reviews/${review.id}/records`,
+    { headers: localApiHeaders },
+  );
+  expect(reviewRecordsResponse.status()).toBe(200);
+  const reviewRecords = (await reviewRecordsResponse.json()) as Array<{
+    id: string;
+    imported_record: {
+      normalized_payload: { course_code?: string };
+    };
+  }>;
+  for (const record of reviewRecords) {
+    if (!record.imported_record.normalized_payload.course_code) {
+      continue;
+    }
+    const confirmResponse = await request.patch(
+      `http://127.0.0.1:8000/api/v1/data-import-reviews/${review.id}/records/${record.id}`,
+      {
+        headers: localApiHeaders,
+        data: { decision: "CONFIRMED" },
+      },
+    );
+    expect(confirmResponse.status()).toBe(200);
+  }
+
   const dryRunResponse = await request.post(
     `http://127.0.0.1:8000/api/v1/data-import-reviews/${review.id}/apply`,
     {

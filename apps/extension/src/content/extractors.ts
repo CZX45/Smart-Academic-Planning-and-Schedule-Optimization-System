@@ -61,6 +61,9 @@ type ParserDiagnostics = Pick<
 type MyProgressParseResult = {
   records: ExtractedRecord[];
   diagnostics: ParserDiagnostics;
+  malformedRows: string[];
+  unsupportedRows: string[];
+  duplicateRows: string[];
 };
 
 type ConfidenceLevel = "high" | "medium" | "low";
@@ -71,6 +74,8 @@ type FieldProvenance = {
   source: string;
   confidence: ConfidenceLevel;
   requiresReview: boolean;
+  valueType: "DIRECT" | "DERIVED";
+  derivationInputs?: string[];
 };
 
 type MyProgressProgramSummary = {
@@ -156,6 +161,12 @@ type MyProgressRawSnapshot = {
     rowCount: number;
     requirementGroupCount: number;
     courseLikeRowCount: number;
+    skippedRowCount: number;
+    unsupportedRowCount: number;
+    malformedRows: string[];
+    unsupportedRows: string[];
+    duplicateRowCount: number;
+    duplicateRows: string[];
     truncated: boolean;
   };
 };
@@ -548,6 +559,12 @@ function extractKeanMyProgressPage(
     snapshot,
     parseResult.records,
     extractedAt,
+    {
+      parserDiagnostics: parseResult.diagnostics,
+      malformedRows: parseResult.malformedRows,
+      unsupportedRows: parseResult.unsupportedRows,
+      duplicateRows: parseResult.duplicateRows,
+    },
   );
   if (
     parseResult.records.length === 0 &&
@@ -580,7 +597,14 @@ function extractKeanMyProgressPage(
     snapshot,
     parseResult.records,
     extractedAt,
-    { warnings, diagnostics },
+    {
+      warnings,
+      diagnostics,
+      parserDiagnostics: parseResult.diagnostics,
+      malformedRows: parseResult.malformedRows,
+      unsupportedRows: parseResult.unsupportedRows,
+      duplicateRows: parseResult.duplicateRows,
+    },
   );
   return {
     pageType: spec.pageType,
@@ -596,9 +620,40 @@ function extractKeanMyProgressPage(
     records: parseResult.records,
     warnings,
     diagnostics,
-    requiresReview: content.validation.status !== "AUTO_VERIFIED",
+    // AUTO_VERIFIED describes parser consistency only; user Review remains mandatory.
+    requiresReview: true,
     extractedAt,
   };
+}
+
+export function hasStagedImportContent(
+  extraction: BrowserExtensionExtraction,
+): boolean {
+  if (extraction.records.length > 0) {
+    return true;
+  }
+  if (extraction.pageType !== "KEAN_MY_PROGRESS_PAGE") {
+    return false;
+  }
+  try {
+    const payload: unknown = JSON.parse(extraction.content);
+    if (!isRecord(payload)) {
+      return false;
+    }
+    return [
+      payload.programSummary,
+      payload.creditSummary,
+      payload.requirementGroups,
+      payload.courseRows,
+    ].some((value) => {
+      if (Array.isArray(value)) {
+        return value.length > 0;
+      }
+      return isRecord(value) && Object.keys(value).length > 0;
+    });
+  } catch {
+    return false;
+  }
 }
 
 export function createDataImportRequestFromExtraction(
@@ -634,7 +689,7 @@ export function createDataImportRequestsFromExtractions(
   extractions: readonly BrowserExtensionExtraction[],
 ): BrowserExtensionDataImportRequest[] {
   return extractions
-    .filter((extraction) => extraction.records.length > 0)
+    .filter(hasStagedImportContent)
     .map((extraction) =>
       createDataImportRequestFromExtraction(studentProfileId, extraction),
     );
@@ -755,6 +810,10 @@ function recordsFromMyProgressTables(
   const relevantTables = tables.filter((table) => scoreTable(spec, table) > 0);
   diagnostics.academicTablesDetected = relevantTables.length;
   const records: ExtractedRecord[] = [];
+  const malformedRows: string[] = [];
+  const unsupportedRows: string[] = [];
+  const duplicateRows: string[] = [];
+  const seenRows = new Set<string>();
 
   for (const table of relevantTables) {
     const parsedBeforeTable = records.length;
@@ -782,8 +841,23 @@ function recordsFromMyProgressTables(
       );
       if (!hasRequiredFields(spec, record)) {
         diagnostics.academicRowsSkipped += 1;
+        if (malformedRows.length < 20) {
+          malformedRows.push(rowText);
+        }
         continue;
       }
+      const duplicateKey = [
+        record.requirement_section,
+        record.status,
+        record.course_code,
+        record.term_code,
+      ]
+        .map((value) => cleanText(value ?? "").toUpperCase())
+        .join("|");
+      if (seenRows.has(duplicateKey) && duplicateRows.length < 20) {
+        duplicateRows.push(rowText);
+      }
+      seenRows.add(duplicateKey);
       if (records.length >= BOUNDED_EXTRACTION_LIMITS.maxTotalRows) {
         diagnostics.academicRowsCapped += 1;
         continue;
@@ -804,6 +878,34 @@ function recordsFromMyProgressTables(
       message: `Skipped ${diagnostics.academicRowsSkipped} visible MyProgress row(s) that were missing required academic fields.`,
     });
   }
+  if (malformedRows.length > 0) {
+    pushUniqueWarning(warnings, {
+      code: "MY_PROGRESS_MALFORMED_ROWS",
+      severity: "WARNING",
+      message: `Retained bounded evidence for ${diagnostics.academicRowsSkipped} visible MyProgress row(s) that could not be parsed safely.`,
+    });
+  }
+  if (duplicateRows.length > 0) {
+    pushUniqueWarning(warnings, {
+      code: "MY_PROGRESS_DUPLICATE_ROWS",
+      severity: "WARNING",
+      message: `Retained ${duplicateRows.length} duplicate visible MyProgress row(s) for user review.`,
+    });
+  }
+  if (records.length === 0 && relevantTables.some((table) => table.rows.length > 0)) {
+    unsupportedRows.push(
+      ...relevantTables
+        .flatMap((table) => table.rows.map((row) => cleanText(row.join(" "))))
+        .filter(Boolean)
+        .slice(0, 20),
+    );
+    pushUniqueWarning(warnings, {
+      code: "MY_PROGRESS_UNSUPPORTED_LAYOUT",
+      severity: "WARNING",
+      message:
+        "A visible MyProgress academic structure was found, but its row layout is not supported safely.",
+    });
+  }
   if (diagnostics.academicRowsCapped > 0) {
     pushUniqueWarning(warnings, {
       code: "MY_PROGRESS_ROWS_CAPPED",
@@ -822,7 +924,7 @@ function recordsFromMyProgressTables(
   diagnostics.parserWarningCodes = warnings
     .slice(parserWarningsStart)
     .map((warning) => warning.code);
-  return { records, diagnostics };
+  return { records, diagnostics, malformedRows, unsupportedRows, duplicateRows };
 }
 
 function myProgressRecordFromRow(
@@ -1045,6 +1147,10 @@ function myProgressContentFromSnapshot(
   options: {
     warnings?: readonly ExtensionExtractionWarning[];
     diagnostics?: ExtensionDiagnostics;
+    parserDiagnostics?: ParserDiagnostics;
+    malformedRows?: readonly string[];
+    unsupportedRows?: readonly string[];
+    duplicateRows?: readonly string[];
   } = {},
 ): MyProgressContent {
   const visibleText = cleanText(
@@ -1061,6 +1167,10 @@ function myProgressContentFromSnapshot(
     requirementGroups,
     segments,
     capturedAt,
+    options.parserDiagnostics,
+    options.malformedRows,
+    options.unsupportedRows,
+    options.duplicateRows,
   );
   const fieldProvenance = myProgressFieldProvenance(
     programSummary,
@@ -1159,6 +1269,7 @@ function provenanceField(
     source,
     confidence: value ? "high" : "medium",
     requiresReview: !value,
+    valueType: "DIRECT",
   };
 }
 
@@ -1339,8 +1450,17 @@ function myProgressRawSnapshot(
   requirementGroups: readonly MyProgressRequirementGroup[],
   segments: readonly MyProgressProgressSegment[],
   capturedAt: string,
+  parserDiagnostics?: ParserDiagnostics,
+  malformedRows: readonly string[] = [],
+  unsupportedRows: readonly string[] = [],
+  duplicateRows: readonly string[] = [],
 ): MyProgressRawSnapshot {
-  const visibleRows = snapshot.tables.flatMap((table) => table.rows);
+  const visibleRows = [
+    ...snapshot.tables.flatMap((table) => table.rows),
+    ...(snapshot.rowLikeBlocks ?? []).map((block) =>
+      block.cells && block.cells.length > 0 ? block.cells : [block.text],
+    ),
+  ];
   const courseLikeRows = visibleRows
     .map((row) => cleanText(row.join(" ")))
     .filter((row) => myProgressCourseLikePattern().test(row));
@@ -1372,9 +1492,15 @@ function myProgressRawSnapshot(
     progressSegmentText: segments.map((segment) => segment.rawText),
     diagnostics: {
       tableCount: snapshot.tables.length,
-      rowCount: visibleRows.length + (snapshot.rowLikeBlocks?.length ?? 0),
+      rowCount: visibleRows.length,
       requirementGroupCount: requirementGroups.length,
       courseLikeRowCount: courseLikeRows.length,
+      skippedRowCount: parserDiagnostics?.academicRowsSkipped ?? malformedRows.length,
+      unsupportedRowCount: unsupportedRows.length,
+      malformedRows: malformedRows.slice(0, 20),
+      unsupportedRows: unsupportedRows.slice(0, 20),
+      duplicateRowCount: duplicateRows.length,
+      duplicateRows: duplicateRows.slice(0, 20),
       truncated:
         snapshot.snapshotMetadata?.bounded === true ||
         snapshot.warnings?.some(
@@ -1399,6 +1525,7 @@ function myProgressFieldProvenance(
         source: "MyProgress At a Glance summary",
         confidence: "high",
         requiresReview: false,
+        valueType: "DIRECT",
       };
     }
   }
@@ -1411,6 +1538,7 @@ function myProgressFieldProvenance(
         source: "MyProgress Total Credits summary",
         confidence: "high",
         requiresReview: false,
+        valueType: "DIRECT",
       };
     }
   }
@@ -1438,6 +1566,7 @@ function myProgressFieldProvenance(
       source: segmentSources[segment.classification],
       confidence: segment.confidence,
       requiresReview: segment.requiresReview,
+      valueType: "DIRECT",
     };
   }
   for (const key of ["remainingCredits", "completionPercent"] as const) {
@@ -1449,6 +1578,8 @@ function myProgressFieldProvenance(
         source: "Reconciled from MyProgress Total Credits summary",
         confidence: "high",
         requiresReview: false,
+        valueType: "DERIVED",
+        derivationInputs: ["totalRequiredCredits", "totalAppliedCredits"],
       };
     }
   }
@@ -1610,6 +1741,15 @@ function validateMyProgressContent({
       message: "The browser snapshot was truncated before parsing completed.",
       source: "Raw Snapshot",
       severity: "ERROR",
+    });
+  }
+  if (rawSnapshot.diagnostics.duplicateRowCount > 0) {
+    exceptions.push({
+      code: "MY_PROGRESS_DUPLICATE_ROWS",
+      message: "Duplicate visible course rows require user confirmation.",
+      source: "Course Row",
+      severity: "WARNING",
+      rawText: rawSnapshot.diagnostics.duplicateRows.join(" | "),
     });
   }
 

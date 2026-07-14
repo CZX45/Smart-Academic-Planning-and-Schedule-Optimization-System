@@ -7,6 +7,7 @@ import {
   createDataImportRequestsFromExtractions,
   createDataImportRequestFromExtraction,
   extractAcademicPageFromTables,
+  hasStagedImportContent,
 } from "../src/content/extractors.js";
 import {
   KEAN_SOURCE_LABEL,
@@ -393,7 +394,7 @@ describe("browser extension academic table extractors", () => {
 
     expect(extraction.pageType).toBe("KEAN_MY_PROGRESS_PAGE");
     expect(extraction.importType).toBe("DEGREE_AUDIT_EXPORT");
-    expect(extraction.requiresReview).toBe(false);
+    expect(extraction.requiresReview).toBe(true);
     expect(content.programSummary).toMatchObject({
       programName: "Finance, BS",
       degree: "Bachelor of Science",
@@ -458,6 +459,90 @@ describe("browser extension academic table extractors", () => {
     });
     expect(content.rawSnapshot.visibleTextSample).toContain("Finance, BS");
     expect(content.rawSnapshot.progressBarText).toBe("67 24 13");
+  });
+
+  it("keeps a summary-only MyProgress extraction eligible for staging", () => {
+    const visibleText = textOnly(
+      fixture("kean-my-progress-finance-summary.html"),
+    );
+    const extraction = extractAcademicPageFromTables({
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      tables: tablesFromFixture("kean-my-progress-finance-summary.html"),
+      visibleText,
+      headings: ["My Progress", "Finance, BS"],
+    });
+
+    expect(hasStagedImportContent(extraction)).toBe(true);
+    const [request] = createDataImportRequestsFromExtractions("student", [
+      extraction,
+    ]);
+    expect(request).toMatchObject({
+      page_type: "KEAN_MY_PROGRESS_PAGE",
+      extracted_record_count: extraction.records.length,
+    });
+  });
+
+  it("retains bounded evidence for malformed MyProgress rows", () => {
+    const extraction = extractAcademicPageFromTables({
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress`,
+      tables: [
+        {
+          index: 0,
+          caption: "Major Requirements",
+          headers: ["Status", "Course", "Title", "Grade", "Term", "Credits"],
+          rows: [["Completed", "", "Unparseable visible row", "", "", ""]],
+        },
+      ],
+    });
+    const content = JSON.parse(extraction.content) as {
+      rawSnapshot: { diagnostics: { malformedRows: string[] } };
+    };
+
+    expect(extraction.warnings.map((warning) => warning.code)).toContain(
+      "MY_PROGRESS_MALFORMED_ROWS",
+    );
+    expect(content.rawSnapshot.diagnostics.malformedRows).toContain(
+      "Completed Unparseable visible row",
+    );
+  });
+
+  it("retains duplicate rows and requires exception review", () => {
+    const snapshot = {
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress`,
+      tables: [
+        {
+          index: 0,
+          caption: "Major Requirements",
+          headers: ["Status", "Course", "Title", "Grade", "Term", "Credits"],
+          rows: [
+            ["Completed", "FIN*300", "Managerial Finance", "A", "2024FA", "3"],
+            ["Completed", "FIN*300", "Managerial Finance", "A", "2024FA", "3"],
+          ],
+        },
+      ],
+      visibleText:
+        "Program Finance, BS Catalog 2024 Cumulative GPA 3.2 Institution GPA 3.2 Total Credits 6 of 120 3 0 3",
+    };
+    const extraction = extractAcademicPageFromTables(snapshot);
+    const content = JSON.parse(extraction.content) as {
+      rawSnapshot: {
+        diagnostics: {
+          duplicateRowCount: number;
+          duplicateRows: string[];
+        };
+      };
+      fieldProvenance: Record<string, { valueType: string }>;
+      validation: { status: string };
+    };
+
+    expect(extraction.records).toHaveLength(2);
+    expect(content.rawSnapshot.diagnostics.duplicateRowCount).toBe(1);
+    expect(content.rawSnapshot.diagnostics.duplicateRows).toHaveLength(1);
+    expect(content.fieldProvenance.remainingCredits?.valueType).toBe("DERIVED");
+    expect(content.validation.status).toBe("REQUIRES_EXCEPTION_REVIEW");
   });
 
   it("extracts sanitized Kean MyProgress course rows across visible requirement tables", () => {

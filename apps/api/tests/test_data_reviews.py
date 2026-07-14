@@ -240,6 +240,21 @@ def select_review_record(
     return review_record
 
 
+def confirm_all_review_records(session: Session, review_id: UUID) -> None:
+    service = DataReviewApplicationService(session)
+    records = session.scalars(
+        select(ImportedRecordReview)
+        .where(ImportedRecordReview.review_session_id == review_id)
+        .order_by(ImportedRecordReview.created_at, ImportedRecordReview.id)
+    ).all()
+    for record in records:
+        service.update_record_review(
+            review_session_id=review_id,
+            record_review_id=record.id,
+            decision=ImportedRecordReviewDecision.CONFIRMED,
+        )
+
+
 def select_created_application_record(
     session: Session,
     application_id: UUID,
@@ -472,6 +487,16 @@ def test_course_state_snapshot_api_returns_active_student_scoped_snapshot(
         },
     )
     assert review_response.status_code == 201
+    review_records = client.get(
+        f"/api/v1/data-import-reviews/{review_response.json()['id']}/records"
+    )
+    assert review_records.status_code == 200
+    for record in review_records.json():
+        confirm_response = client.patch(
+            f"/api/v1/data-import-reviews/{review_response.json()['id']}/records/{record['id']}",
+            json={"decision": "CONFIRMED"},
+        )
+        assert confirm_response.status_code == 200
     apply_response = client.post(
         f"/api/v1/data-import-reviews/{review_response.json()['id']}/apply",
         json={"dry_run": False, "allow_advisor_review_records": False},
@@ -578,6 +603,7 @@ def test_reviewed_myprogress_states_apply_with_status_semantics_and_idempotency(
         data_import_run_id=run_id,
         reviewer_label="Sanitized MyProgress self-review",
     )
+    confirm_all_review_records(session, review.id)
 
     dry_run = service.apply_review_session(review.id, dry_run=True)
     assert dry_run.course_state_snapshot is None
@@ -678,6 +704,7 @@ def test_newer_invalid_myprogress_import_does_not_replace_active_snapshot(
         data_import_run_id=valid_run_id,
         reviewer_label="Valid sanitized review",
     )
+    confirm_all_review_records(session, valid_review.id)
     valid_result = service.apply_review_session(valid_review.id)
     assert valid_result.course_state_snapshot is not None
     active_snapshot_id = valid_result.course_state_snapshot.id
@@ -741,6 +768,20 @@ def test_sanitized_85_row_fixture_applies_deterministic_course_state_distributio
         data_import_run_id=run.id,
         reviewer_label="Sanitized 85-row review",
     )
+    for record in session.scalars(
+        select(ImportedRecordReview)
+        .join(ImportedRecord, ImportedRecordReview.imported_record_id == ImportedRecord.id)
+        .where(ImportedRecordReview.review_session_id == review.id)
+    ).all():
+        imported_record = session.get(ImportedRecord, record.imported_record_id)
+        assert imported_record is not None
+        row_validation = imported_record.normalized_payload.get("row_validation")
+        if not isinstance(row_validation, dict) or not row_validation.get("reason_codes"):
+            DataReviewApplicationService(session).update_record_review(
+                review_session_id=review.id,
+                record_review_id=record.id,
+                decision=ImportedRecordReviewDecision.CONFIRMED,
+            )
     result = service.apply_review_session(review.id)
     snapshot = result.course_state_snapshot
     assert snapshot is not None
@@ -827,6 +868,11 @@ def test_rejected_deferred_and_exception_rows_do_not_enter_reliable_history(
         record_review_id=select_review_record(session, review.id, "FIN 350").id,
         decision=ImportedRecordReviewDecision.DEFERRED,
     )
+    service.update_record_review(
+        review_session_id=review.id,
+        record_review_id=select_review_record(session, review.id, "FIN 450").id,
+        decision=ImportedRecordReviewDecision.CONFIRMED,
+    )
     exception_review = session.scalar(
         select(ImportedRecordReview)
         .join(ImportedRecord, ImportedRecordReview.imported_record_id == ImportedRecord.id)
@@ -899,6 +945,7 @@ def test_eligibility_distinguishes_reviewed_completed_in_progress_and_planned(
         data_import_run_id=run_id,
         reviewer_label=f"Eligibility {imported_status} review",
     )
+    confirm_all_review_records(session, review.id)
     result = service.apply_review_session(review.id)
     assert result.course_state_snapshot is not None
 

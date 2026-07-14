@@ -1,6 +1,7 @@
 import {
   createDataImportRequestsFromExtractions,
   createDataImportRequestFromExtraction,
+  hasStagedImportContent,
 } from "../content/extractors.js";
 import {
   ensureHostPermission,
@@ -421,7 +422,7 @@ async function handleExtract(): Promise<void> {
     }
     latestExtraction = await executeExtraction(chrome, tab);
     renderPreview([latestExtraction]);
-    setConfirmEnabled(latestExtraction.records.length > 0);
+    setConfirmEnabled(hasStagedImportContent(latestExtraction));
     setStatus("Preview ready. Confirm before sending to staging import.");
   } catch (error: unknown) {
     latestExtraction = null;
@@ -479,7 +480,7 @@ async function handleCaptureGuidedPage(): Promise<void> {
     latestCapturedUrl = tab.url;
     if (!shouldAttemptExtractionForUrl(tab.url)) {
       renderPreview([], { capturedUrl: tab.url });
-      setConfirmEnabled(guidedExtractions.length > 0);
+      setConfirmEnabled(guidedExtractions.some(hasStagedImportContent));
       setStatus("This browser page cannot be inspected by the extension.");
       return;
     }
@@ -487,10 +488,10 @@ async function handleCaptureGuidedPage(): Promise<void> {
     if (
       extraction.sourceLabel !== KEAN_SOURCE_LABEL ||
       extraction.pageType === "UNKNOWN_PAGE" ||
-      extraction.records.length === 0
+      !hasStagedImportContent(extraction)
     ) {
       renderPreview([extraction]);
-      setConfirmEnabled(guidedExtractions.length > 0);
+      setConfirmEnabled(guidedExtractions.some(hasStagedImportContent));
       setStatus("This page did not add supported Kean academic rows.");
       return;
     }
