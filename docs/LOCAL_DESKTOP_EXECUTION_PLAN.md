@@ -111,12 +111,11 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 4. Dynamic runtime discovery — complete.
 5. API process supervision — complete.
 6. Stage 5 — desktop-shell proof of concept — complete; PR #40 merged.
-7. Stage 6 — FastAPI runtime packaging — next stage in the Local Runtime
-   Foundation.
-8. Stage 7 — Web UI packaging — follows Stage 6 in the same foundation.
-9. Extension pairing.
-10. Localhost request protection.
-11. Real MyProgress stabilization.
+7. Stage 6 — FastAPI runtime packaging — complete; PR #44 merged.
+8. Stage 7 — Web UI packaging — complete; PR #45 merged.
+9. Stage 8A — secure local Extension pairing — complete; PR #46 merged.
+10. Stage 8B — localhost request protection — complete; PR #47 merged.
+11. Stage 9 — Real MyProgress stabilization — not started.
 12. Reviewed Program/Catalog rules.
 13. Real Section import.
 14. Real Section optimizer integration.
@@ -130,10 +129,10 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 22. Release Candidate.
 
 The Local Runtime Foundation includes stages 1–8: local database, runtime
-discovery and supervision, desktop-shell proof, FastAPI runtime packaging, and
-Web UI packaging. Stage 5 is complete, but the foundation is not complete until
-the packaged runtime can remove the user-installed Python and Node.js
-requirements. Extension pairing begins only after this foundation boundary.
+discovery and supervision, desktop-shell proof, FastAPI runtime packaging, Web
+UI packaging, secure Extension pairing, and localhost request protection. The
+foundation is complete through the merged Stage 8B security boundary. Stage 9
+is the next checkpoint and has not started.
 
 ## Progress log
 
@@ -283,9 +282,8 @@ requirements. Extension pairing begins only after this foundation boundary.
 - Merge commit: `a6dc81e5dd7cd3724682432dc319b71ab836f764`.
 - CI: run `29265910798` passed checks, E2E, and Docker Compose for corrected
   head `385a0e90b81e47d455d5b3a675b487b18c3fb905`.
-- Exact next action: begin Stage 6 FastAPI runtime packaging. Do not begin Web
-  packaging until Stage 6 is independently validated and merged; do not begin
-  Extension pairing or any later milestone.
+- Follow-up completed: Stage 6 was subsequently implemented and merged through
+  PR #44; later milestones were kept out of this Stage 5 implementation.
 
 ### PR 6 — reconcile the Stage 5 closeout plan
 
@@ -304,13 +302,13 @@ requirements. Extension pairing begins only after this foundation boundary.
   packaging. No source code or later feature work was started.
 - Remaining risks: packaged runtime proof, Windows clean-environment behavior,
   and packaging-specific antivirus/path behavior remain unverified.
-- Exact next action: create the separately authorized Stage 6 implementation
-  PR; do not begin Stage 7 or Extension pairing in that PR.
+- Follow-up completed: Stage 6 was subsequently merged through PR #44, Stage 7
+  through PR #45, and Stage 8A/8B through PRs #46/#47.
 
 ### Stage 6 — package the FastAPI LOCAL_DESKTOP runtime
 
-- Status: implementation and local validation complete in the isolated
-  `package-fastapi-runtime` worktree. Stage 7 has not started.
+- Status: complete and merged through PR #44.
+- Merge commit: `4d265ff001dc09211949bfa0860c29976b10b874`.
 - Packaging decision: PyInstaller one-folder (`sapsos-api\\sapsos-api.exe`).
   FastAPI/Uvicorn, SQLAlchemy, SQLite, Pydantic/settings, and the existing
   `app.run` entrypoint remain intact. One-folder is preferred over one-file so
@@ -365,8 +363,8 @@ requirements. Extension pairing begins only after this foundation boundary.
 
 ### Stage 7 — package the LOCAL_DESKTOP Web UI
 
-- Status: implementation complete in the isolated `package-web-ui` worktree;
-  merge and final CI are pending.
+- Status: complete and merged through PR #45.
+- Merge commit: `ad57e944fcb95d28311d0018a553dd4d2d2cf5b1`.
 - Decision: Next.js static export is viable and selected. The current UI has
   only static App Router routes and browser-side API calls, so a packaged Node
   server is unnecessary. Release Tauri builds load
@@ -523,44 +521,45 @@ requirements. Extension pairing begins only after this foundation boundary.
 | Review-fix live proof with dynamic API base URL | Passed; manifest port `61232`, API `/ready` 200, Web UI `/` 200, clean close | Stage 5 review correction |
 | CI run `29265910798` | Passed | corrected Stage 5 head, checks, E2E, Docker Compose |
 
+## Validation ledger — Stage 8 closeout
+
+| Milestone | Status | Evidence |
+| --- | --- | --- |
+| Stage 6 — FastAPI runtime packaging | Complete and merged | PR #44; merge commit `4d265ff001dc09211949bfa0860c29976b10b874` |
+| Stage 7 — Web UI packaging | Complete and merged | PR #45; merge commit `ad57e944fcb95d28311d0018a553dd4d2d2cf5b1` |
+| Stage 8A — secure local Extension pairing | Complete and merged | PR #46; final head `96a45c7542dd727f06f99c1d542fbb9f83d8e764`; merge commit `0d058fe6b862c91788cd8d47d297ad06abf9270e` |
+| Stage 8B — localhost request protection | Complete and merged | PR #47; final head `38414db6774cff8173e15cd6fe3cfa8397e399f4`; merge commit `33451600a35b749f861825d53733cbafb576ac62`; CI run `29304954951` passed checks, Docker Compose, and E2E |
+
 ## Resume checkpoint
 
-- Current milestone: Local Runtime Foundation.
-- Current stage: Stage 6 — FastAPI runtime packaging, implementation and
-  validation complete; awaiting publish/merge.
-- Current PR: none; PR #40 is merged.
-- Current branch/worktree: `package-fastapi-runtime` /
-  `D:\Crystal\\.cache\\worktrees\\package-fastapi-runtime`.
-- Starting HEAD: `fe03571a48c1ff2ddeef7eade8392b583f297a4f`.
-- Last completed action: built and validated the PyInstaller one-folder
-  artifact, completed the controlled no-Python-PATH proof, and passed the
-  applicable repository validation matrix.
-- Last successful validation: API 165 tests, repository Vitest 91 tests,
-  Playwright E2E 23/23, lint/typecheck/build/OpenAPI, Ruff/format/MyPy, Tauri
-  cargo fmt/check, packaged readiness/restart/persistence, and supervisor
-  manifest cleanup.
-- Outstanding work: review/stage the scoped diff, publish one PR, monitor CI,
-  merge only after required gates, synchronize main, and remove the isolated
-  worktree safely.
-- Exact resume instruction: from the isolated worktree, run
-  `powershell -NoProfile -ExecutionPolicy Bypass -File
-  scripts/windows/Build-FastAPI-Runtime.ps1`, then execute the documented
-  packaged-runtime proof before touching Stage 7.
+- Current milestone: Local Runtime Foundation complete through Stage 8B.
+- Current stage checkpoint: Stage 9 — Real MyProgress stabilization, not
+  started.
+- Current PR: PR #47 is merged; no Stage 9 PR exists.
+- Current main/origin state: `33451600a35b749f861825d53733cbafb576ac62`.
+- Last completed action: merged and synchronized the Stage 8B localhost
+  request-security boundary.
+- Last successful validation: API pytest 180 passed; Ruff check; Ruff format
+  check; mypy; Python compileall; `git diff --check`; and complete CI with
+  checks, Docker Compose, and E2E passing.
+- Exact next action: prepare a separately authorized Stage 9 implementation
+  for Real MyProgress stabilization. Stage 9 has not started.
 
 ## Scope confirmation
 
-Stage 8A pairing and the first Stage 8B localhost request-protection slice are
-the only active work. No work has begun on real MyProgress parser expansion,
+Stage 8A pairing and Stage 8B localhost request protection are complete and
+merged. No work has begun on Stage 9 Real MyProgress stabilization,
 Program/Catalog ingestion, real Section import, real Schedule Optimization
 integration, UI restructuring, Backup/Restore, production migration,
 diagnostics center, installer/uninstaller, beta, or release-candidate work.
 
 ## Stage 8A — secure local Extension pairing (merged)
 
-The separately reviewable Stage 8A implementation adds a short-lived,
-single-use random pairing code, verifier-only local persistence, protocol
-versioning, revocation, and a background-service-worker-owned Extension
-credential. It intentionally preceded the localhost request boundary.
+The separately reviewable Stage 8A implementation adds user-initiated local
+Extension pairing with a short-lived, single-use random pairing code,
+verifier-only local persistence, protocol versioning, revocation, and a
+background-service-worker-owned Extension credential. It intentionally
+preceded the localhost request boundary.
 
 - Status: merged.
 - PR: #46 —
@@ -572,27 +571,39 @@ credential. It intentionally preceded the localhost request boundary.
 - Main synchronization: `origin/main` was fetched to the merge commit while
   the protected root-worktree files remained untouched.
 
-## Stage 8B — localhost request protection (in progress)
+## Stage 8B — localhost request protection (merged)
 
-Stage 8B begins from the merged Stage 8A main state in the isolated
-`extension-localhost-protection` worktree. Its boundary is centralized in the
+Stage 8B began from the merged Stage 8A main state. Its boundary is centralized in the
 API request path and currently covers loopback Host authority, explicit
 desktop/paired-Extension Origin policy, pairing-only Extension credentials,
 local Bearer rejection, bounded nonce/timestamp replay protection, failed
 request rate limiting, and dynamic paired-Extension CORS response headers.
 
-- Status: implementation in progress; not yet published or merged.
-- Branch/worktree: `extension-localhost-protection` /
-  `D:\Crystal\.cache\worktrees\extension-localhost-protection`.
-- Starting HEAD: `0d058fe6b862c91788cd8d47d297ad06abf9270e`.
-- Current validation: API 180 tests, focused local-request tests, Ruff, and
-  mypy pass. Full repository CI remains required before a Stage 8B PR can be
-  published or merged.
+- Status: complete and merged through PR #47.
+- Final head: `38414db6774cff8173e15cd6fe3cfa8397e399f4`.
+- Merge commit: `33451600a35b749f861825d53733cbafb576ac62`.
+- CI: run `29304954951` passed checks, Docker Compose, and E2E.
+- Validation: API pytest 180 passed; Ruff check; Ruff format check; mypy;
+  Python compileall; and `git diff --check` passed.
 - Explicit boundary: health/readiness/runtime and pairing bootstrap routes are
   classified separately; `/api/v1` local requests cannot substitute a Bearer
   token for the paired Extension credential. Replay nonces are intentionally
   in-memory and bounded; a restart clears the nonce cache, while the paired
   verifier and timestamp skew remain authoritative.
-- Exact next action: finish the Stage 8B extension/header tests and security
-  documentation, regenerate OpenAPI if the contract changes, then run the
-  repository validation matrix before creating the Stage 8B PR.
+
+Stage 8 security is limited to the local application boundary. It does not
+protect against full local-machine compromise, malware running as the user, a
+compromised browser, a compromised Extension runtime, or administrator-level
+attackers.
+
+## Stage 9 — Real MyProgress stabilization (not started)
+
+Stage 9 is the next implementation checkpoint. It is limited to stabilizing
+extraction and parsing of the real visible MyProgress page, preserving raw
+source evidence and field provenance, improving deterministic validation and
+exception review, and keeping imported data non-official until reviewed.
+
+Stage 9 must preserve Import → Review → Apply, must not silently infer
+uncertain academic facts, and must not begin Program/Catalog ingestion, real
+Section import, or any change to Schedule Optimizer semantics. No Stage 9
+implementation is included in this Stage 8 closeout.
