@@ -116,8 +116,9 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 9. Stage 8A — secure local Extension pairing — complete; PR #46 merged.
 10. Stage 8B — localhost request protection — complete; PR #47 merged.
 11. Stage 9 — Real MyProgress stabilization — complete; PRs #49 and #50 merged.
-12. Reviewed Program/Catalog rules.
-13. Real Section import.
+12. Stage 10 reviewed Program/Catalog architecture and post-merge correctness —
+    complete; PRs #52, #53, and #54 merged/closing.
+13. Stage 11 Real Section import — next milestone; not started in this goal.
 14. Real Section optimizer integration.
 15. UI workflow modularization.
 16. Backup/Restore.
@@ -530,22 +531,75 @@ is complete through the merged 9A and 9B checkpoints.
 | Stage 8A — secure local Extension pairing | Complete and merged | PR #46; final head `96a45c7542dd727f06f99c1d542fbb9f83d8e764`; merge commit `0d058fe6b862c91788cd8d47d297ad06abf9270e` |
 | Stage 8B — localhost request protection | Complete and merged | PR #47; final head `38414db6774cff8173e15cd6fe3cfa8397e399f4`; merge commit `33451600a35b749f861825d53733cbafb576ac62`; CI run `29304954951` passed checks, Docker Compose, and E2E |
 
+## Stage 10 — reviewed Program/Catalog architecture and correctness closeout
+
+Stage 10 architecture is complete. Degree Audit and Eligibility consume only
+exact active reviewed rule sets and preserve rule provenance. The implementation
+contains synthetic fixtures only; no authoritative WKU or Kean Program/Catalog
+coverage is claimed, and the official source inventory remains future input.
+
+### Stage 10A checkpoint
+
+- Status: merged.
+- PR: #52.
+- Merge commit: `cf614bd0b0f0eaef60a4c1775accc1eece55045d`.
+
+### Stage 10B checkpoint
+
+- Status: merged.
+- PR: #53 — `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/53`.
+- Original head: `de0dfb6a801c3a20c184d4f48a00457466a4bd20`.
+- Merge commit: `3e12a0d8d9d680b87daa5fc4f0edd53c982a779e`.
+- CI run: `238`, successful.
+
+### Stage 10B post-merge correctness hotfix
+
+- Branch: `stage10b-correctness-hotfix`.
+- Worktree: `D:\Crystal\.cache\worktrees\stage10b-correctness-hotfix`.
+- Hotfix PR: #54 — `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/54`.
+- Validated head before merge: `38bb5c749d4ba8c697d9ed2d83c3d22762c37f00`.
+- CI run: `241`, successful checks, E2E, and Docker Compose.
+- Merge commit: assigned by GitHub at merge and recorded in the final
+  post-merge synchronization report.
+- Corrected findings: upgraded PostgreSQL eligibility constraints now permit
+  `UNKNOWN`; explicit reviewed course mappings never reuse stale options;
+  missing reviewed corequisites are not unconditional `ELIGIBLE`; reviewed
+  corequisite summaries survive persistence and GET; and Program selection uses
+  explicit semantic priority with conservative ambiguity handling.
+- Migration proof: PostgreSQL base-to-head and previous-revision upgrade,
+  `alembic check`, UNKNOWN persistence, invalid-value rejection, constraint
+  inspection, explicit downgrade, and re-upgrade passed. LOCAL_DESKTOP SQLite
+  metadata/bootstrap and repeated startup tests passed; the pre-existing
+  full-from-base SQLite Alembic blocker at `20260623_0004` remains documented.
+- API validation: 192 pytest tests passed; full frozen-lockfile pnpm test ran
+  shared Vitest (28), Extension Vitest (54), Web Vitest (14), and API pytest
+  (192) successfully. Ruff, format, mypy, compileall, lint, typecheck, build,
+  OpenAPI drift, Docker Compose, and hosted E2E passed.
+- Privacy/authenticity: synthetic fixtures only; no personal data, private
+  portal data, credentials, cookies, tokens, or authoritative WKU/Kean policy
+  coverage was added.
+
+The five post-merge correctness findings are fixed. Real Section import has not
+started, Schedule Optimizer semantics remain unchanged, and the next milestone
+is Stage 11 Real Section Import. Stage 11 must not begin in this goal.
+
 ## Resume checkpoint
 
-- Current milestone: Stage 10B reviewed/active Program/Catalog consumption.
+- Current milestone: Stage 10 complete; Stage 11 Real Section import is next and
+  has not started.
 - Current stage checkpoint: Stage 10A and Stage 10B use synthetic fixtures
   because no reviewed official Program/Catalog source inventory is present.
   10B consumes exact active rules only and records provenance; missing course
   definitions remain `UNKNOWN`.
-- Current PRs: PR #52 is merged; Stage 10B integration is being validated in
-  an isolated worktree.
-- Current main/origin state after Stage 10A: `cf614bd0b0f0eaef60a4c1775accc1eece55045d`.
-- Last completed action: merged and synchronized PR #52, then implemented
-  the isolated Stage 10B Degree Audit/Eligibility integration.
-- Last successful validation: Stage 10B API pytest 186 passed before the
-  focused integration tests; focused integration tests now pass 3 tests.
-- Exact next action: finish Stage 10B validation and publish it as a separate
-  PR; do not begin Section import or Schedule Optimizer work.
+- Current PRs: PRs #52 and #53 are merged; hotfix PR #54 passed hosted CI and
+  is ready for merge.
+- Current main/origin state before hotfix merge: `3e12a0d8d9d680b87daa5fc4f0edd53c982a779e`.
+- Last completed action: validated and published the Stage 10B correctness
+  hotfix without beginning Section import or Schedule Optimizer work.
+- Last successful validation: hosted CI run 241 passed checks, E2E, and Docker
+  Compose; local API and JavaScript validation also passed.
+- Exact next action: merge PR #54 after branch-protection conditions pass, then
+  synchronize local `main` and `origin/main`; do not begin Stage 11 here.
 
 ## Scope confirmation
 
