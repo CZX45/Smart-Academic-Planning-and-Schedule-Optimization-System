@@ -535,3 +535,14 @@ Consequences:
   mode remains a valid loopback local runtime.
 - Local desktop API binding is loopback-only and Docker publishes its API port
   on loopback by default.
+## ADR-0012: Stage 10A source-backed Program/Catalog review boundary
+
+Existing ProgramVersion, RequirementNode, CourseRule, Degree Audit, and
+Eligibility models describe academic rules, but imported or mock content must
+not silently become authoritative policy. Stage 10A therefore introduces a
+typed, source-aware staged rule-set contract with exact institution/program/
+catalog-year identity, explicit lifecycle transitions, bounded deterministic
+operators, and visible unsupported statements. Validation does not persist or
+consume the payload; Stage 10B must separately add reviewed/active persistence
+and consumption. Until reviewed source material is provided, the product must
+not claim complete institutional coverage.

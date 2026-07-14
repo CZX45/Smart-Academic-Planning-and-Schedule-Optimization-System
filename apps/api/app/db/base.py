@@ -25,3 +25,4 @@ class DevSeedRecord(Base):
 
 
 import app.models.academic  # noqa: E402,F401
+import app.models.reviewed_rules  # noqa: E402,F401
