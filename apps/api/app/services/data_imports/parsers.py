@@ -168,9 +168,10 @@ def _parse_kean_myprogress_payload(payload: dict[str, Any]) -> list[ParsedImport
     extraction_warnings = list_value(payload.get("warnings"))
     source_page_type = str(payload.get("page_type") or "KEAN_MY_PROGRESS_PAGE")
     source_type = str(payload.get("source_type") or "BROWSER_EXTENSION")
-    validation_status = str(validation.get("status") or "")
     confidence = decimal_confidence(validation.get("overallConfidenceScore"))
-    requires_review = validation_status != "AUTO_VERIFIED"
+    # AUTO_VERIFIED describes parser consistency only. Imported MyProgress data
+    # must still pass the explicit user Review step before it is applyable.
+    requires_review = True
     program_name = str(program_summary.get("programName") or "Kean MyProgress summary")
     records = [
         ParsedImportRecord(
@@ -206,7 +207,7 @@ def _parse_kean_myprogress_payload(payload: dict[str, Any]) -> list[ParsedImport
             continue
         name = str(group.get("name") or f"MyProgress requirement group {row_number}")
         status_text = str(group.get("statusText") or "")
-        group_requires_review = bool(group.get("requiresReview") or requires_review)
+        group_requires_review = True
         group_confidence = Decimal("0.95") if not group_requires_review else Decimal("0.60")
         records.append(
             ParsedImportRecord(
@@ -243,9 +244,7 @@ def _parse_kean_myprogress_payload(payload: dict[str, Any]) -> list[ParsedImport
             extraction_bounded=extraction_bounded,
             extraction_truncated=extraction_truncated,
         )
-        row_validation = object_value(normalized.get("row_validation"))
-        reason_codes = list_value(row_validation.get("reason_codes"))
-        row_requires_review = requires_review or bool(reason_codes)
+        row_requires_review = True
         row_confidence = decimal_confidence(normalized.get("confidence_score"))
         records.append(
             ParsedImportRecord(

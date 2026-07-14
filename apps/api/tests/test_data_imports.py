@@ -880,6 +880,10 @@ def test_kean_myprogress_summary_is_auto_verified_and_exception_review_only(
         ImportedRecordType.REQUIREMENT,
     ]
     assert all(record.status is ImportedRecordStatus.VALID for record in records)
+    assert all(
+        cast(dict[str, Any], record.normalized_payload)["requiresReview"] is True
+        for record in records
+    )
     program_record_payload = cast(dict[str, Any], records[0].normalized_payload)
     program_summary = cast(dict[str, Any], program_record_payload["programSummary"])
     credit_summary = cast(dict[str, Any], program_record_payload["creditSummary"])
@@ -890,18 +894,26 @@ def test_kean_myprogress_summary_is_auto_verified_and_exception_review_only(
         data_import_run_id=run.id,
         reviewer_label="Kean student self-review",
     )
-    assert review.status is DataImportReviewStatus.READY_TO_APPLY
+    assert review.status is DataImportReviewStatus.IN_REVIEW
 
     review_records = session.scalars(
         select(ImportedRecordReview).where(ImportedRecordReview.review_session_id == review.id)
     ).all()
     assert review_records
     assert {record_review.decision for record_review in review_records} == {
-        ImportedRecordReviewDecision.CONFIRMED
+        ImportedRecordReviewDecision.UNREVIEWED
     }
     assert all(
-        record_review.requires_advisor_confirmation is False for record_review in review_records
+        record_review.requires_advisor_confirmation is True for record_review in review_records
     )
+
+    review_service = DataReviewApplicationService(session)
+    for record_review in review_records:
+        review_service.update_record_review(
+            review_session_id=review.id,
+            record_review_id=record_review.id,
+            decision=ImportedRecordReviewDecision.CONFIRMED,
+        )
 
     attempts_before = count_rows(session, StudentCourseAttempt)
     result = DataReviewApplicationService(session).apply_review_session(review.id, dry_run=True)

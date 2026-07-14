@@ -279,14 +279,10 @@ class DataImportApplicationService:
         parsed_record: ParsedImportRecord,
     ) -> tuple[ImportedRecordStatus, Decimal]:
         if self._is_myprogress_record(parsed_record):
-            if parsed_record.requires_review:
-                has_error = self._myprogress_record_has_error(parsed_record)
-                return (
-                    ImportedRecordStatus.INVALID
-                    if has_error
-                    else ImportedRecordStatus.VALID_WITH_WARNINGS,
-                    parsed_record.confidence_score,
-                )
+            if self._myprogress_record_has_error(parsed_record):
+                return ImportedRecordStatus.INVALID, parsed_record.confidence_score
+            if self._myprogress_record_has_warning(parsed_record):
+                return ImportedRecordStatus.VALID_WITH_WARNINGS, parsed_record.confidence_score
             return ImportedRecordStatus.VALID, parsed_record.confidence_score
         if not parsed_record.normalized_payload.get("course_code"):
             return ImportedRecordStatus.INVALID, Decimal("0.00")
@@ -303,6 +299,17 @@ class DataImportApplicationService:
         if isinstance(row_validation, dict) and row_validation.get("reason_codes"):
             return True
         return False
+
+    def _myprogress_record_has_warning(self, parsed_record: ParsedImportRecord) -> bool:
+        row_validation = parsed_record.normalized_payload.get("row_validation")
+        if isinstance(row_validation, dict):
+            warnings = row_validation.get("warnings")
+            if isinstance(warnings, list) and any(
+                str(warning) != "BOUNDED_OR_TRUNCATED_EXTRACTION" for warning in warnings
+            ):
+                return True
+        extraction_warnings = parsed_record.normalized_payload.get("extractionWarnings")
+        return isinstance(extraction_warnings, list) and bool(extraction_warnings)
 
     def _should_match_course_candidate(self, parsed_record: ParsedImportRecord) -> bool:
         return not self._is_myprogress_record(parsed_record)
@@ -675,7 +682,9 @@ class DataImportApplicationService:
         diagnostics_payload = diagnostics if isinstance(diagnostics, dict) else {}
         course_rows = self._myprogress_course_rows(run)
         course_record_count = len(course_rows)
-        exception_row_count = sum(1 for row in course_rows if row.get("requires_review") is True)
+        # Every staged MyProgress row requires the explicit user Review step,
+        # but exception counts describe parser/data-quality problems only.
+        exception_row_count = sum(1 for row in course_rows if row.get("reason_codes"))
         parsed_course_like_row_count = course_record_count - exception_row_count
         extracted_row_count = self._int_value(
             diagnostics_payload.get("courseLikeRowCount"),
