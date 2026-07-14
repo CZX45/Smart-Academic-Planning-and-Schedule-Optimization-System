@@ -596,7 +596,7 @@ protect against full local-machine compromise, malware running as the user, a
 compromised browser, a compromised Extension runtime, or administrator-level
 attackers.
 
-## Stage 9 — Real MyProgress stabilization (not started)
+## Stage 9 — Real MyProgress stabilization (PR 9A in progress)
 
 Stage 9 is the next implementation checkpoint. It is limited to stabilizing
 extraction and parsing of the real visible MyProgress page, preserving raw
@@ -606,4 +606,19 @@ exception review, and keeping imported data non-official until reviewed.
 Stage 9 must preserve Import → Review → Apply, must not silently infer
 uncertain academic facts, and must not begin Program/Catalog ingestion, real
 Section import, or any change to Schedule Optimizer semantics. No Stage 9
-implementation is included in this Stage 8 closeout.
+implementation is included in the Stage 8 closeout.
+
+### Stage 9A checkpoint — snapshot/parser/provenance
+
+- Status: implementation in progress in an isolated worktree.
+- Branch: `stabilize-myprogress-parser`.
+- Worktree: `D:\Crystal\.cache\worktrees\stabilize-myprogress-parser`.
+- Starting HEAD: `edee3c2529b0c598ff285fd3856b66911aaa2ae8`.
+- Scope: bounded visible-page evidence, conservative MyProgress row parsing,
+  summary-only staging eligibility, bounded malformed-row evidence, and the
+  mandatory Review boundary.
+- Privacy: only existing synthetic/sanitized fixtures are used; no real portal
+  HTML, screenshots, identifiers, credentials, cookies, tokens, or session data
+  are included.
+- PR 9B has not started. Main must be synchronized after PR 9A merges before
+  validation/Review/Apply changes begin.
