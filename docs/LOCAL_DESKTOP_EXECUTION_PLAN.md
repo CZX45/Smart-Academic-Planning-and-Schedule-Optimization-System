@@ -121,8 +121,8 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
     complete; PRs #52, #53, and #54 merged.
 13. Stage 11 Real Section Import — complete; PRs #56, #57, and #58 merged.
 14. Real Section Optimizer Integration — complete; PRs #60 and #61 merged.
-15. UI workflow modularization — next milestone; not started.
-16. Backup/Restore.
+15. UI workflow modularization — complete; PRs #63 and #64 merged.
+16. Backup/Restore — next milestone; not started.
 17. Safe migration and rollback.
 18. Diagnostics.
 19. Windows Installer/Uninstaller.
@@ -595,7 +595,9 @@ Schedule Optimizer semantics changed, and no later milestone was started.
 Stage 10 is complete through PRs #52, #53, and #54. Stage 11 Real Section
 Import is complete through PRs #56, #57, and #58. Stage 12 Real Section
 Optimizer Integration and its documentation closeout are complete through PRs
-#60, #61, and #62. UI workflow modularization is now in progress.
+#60, #61, and #62. UI Workflow Modularization is complete through PRs #63,
+#64, and the documentation closeout below. Backup/Restore is next and has not
+started.
 
 ## Resume checkpoint
 
@@ -651,8 +653,22 @@ Optimizer Integration and its documentation closeout are complete through PRs
   Request guards ignore stale responses and mutation guards prevent replay;
   Import → Review → Apply, academic semantics, real/mock isolation, and
   static-export/Tauri API-base behavior remain unchanged.
-- Exact next action: finish PR B validation and publish the complete branch;
-  Backup/Restore has not started.
+- UI Workflow Modularization PR B: branch `ui-workflow-feature-modules`, final
+  remote head `ccdced2725bcf2917349f9255811256998a3d446`, PR #64, exact-head
+  CI workflow run `29410865812` / run `295` (success), and merge commit
+  `bacbe70efc40dd619fbea3c6b25db3201deadfc4`. PR B extracted applied
+  course-state, Section Monitoring, and local pairing workflow owners and
+  added Import, Review/Apply, Degree Audit, Eligibility, Academic Plan,
+  What-If, reviewed Sections, and Schedule Optimizer identity/readiness
+  boundaries with stale-response and mutation-replay tests.
+- Final UI Workflow Modularization state: complete. Static export remains
+  supported; packaged desktop runtime API discovery continues through the
+  `api_base_url` bridge. Existing workflows, Import → Review → Apply, Degree
+  Audit, Eligibility, Planner, What-If, reviewed real Sections, optimizer
+  provenance, and real/mock isolation remain intact. No registration, portal
+  mutation, automatic monitoring, polling, or private data was added.
+- Final synchronized remote `main`: `bacbe70efc40dd619fbea3c6b25db3201deadfc4`.
+  Backup/Restore is the next milestone and has not started.
 
 ## Scope confirmation
 
@@ -660,7 +676,7 @@ Stage 8A pairing and Stage 8B localhost request protection are complete and
 merged. Stage 9A parser stabilization and Stage 9B validation/Review/Apply
 safeguards are complete. Stage 11 Real Section Import is also complete through
 PRs #56, #57, and #58. Program/Catalog ingestion, Real Section Optimizer
-Integration, UI restructuring, Backup/Restore, production migration,
+Integration, Backup/Restore, production migration,
 diagnostics center, installer/uninstaller, beta, or release-candidate work.
 
 ## Stage 8A — secure local Extension pairing (merged)
@@ -825,7 +841,8 @@ campus, and unambiguous Section identity.
   SectionMeeting records with provenance. Availability remains advisory and
   separate from canonical structural data. Stage 12 optimizer work was kept
   out of Stage 11 and delivered afterward through the gated PRs above.
-- Next milestone: UI workflow modularization — not started.
+- Next milestone: Backup/Restore — UI Workflow Modularization is complete;
+  Backup/Restore has not started.
 
 ## Stage 12A — Real Section optimizer input boundary checkpoint
 
@@ -906,10 +923,10 @@ reviewed-imported mode in the schedule builder UI.
   tests 11 passed; lint, typecheck, OpenAPI check, Ruff, mypy, and
   `git diff --check` passed; hosted Docker Compose and hosted Playwright E2E
   passed.
-- Final milestone state: Stage 11 Real Section Import and Stage 12 Real Section
-  Optimizer Integration are complete; PRs #60 and #61 are merged; synchronized
-  `main`/`origin/main` is `0d58ae99123b7b3a2a2070ab64037eb221b9a1d5`; UI
-  workflow modularization is next and not started.
+- Final milestone state: Stage 11 Real Section Import, Stage 12 Real Section
+  Optimizer Integration, and Stage 13 UI Workflow Modularization are complete;
+  PRs #60, #61, #63, and #64 are merged. Final synchronized `main` is
+  recorded in the Stage 13 checkpoint below; Backup/Restore is next.
 - Protected root artifacts remain untouched: `apps/web/next-env.d.ts`,
   `.codex-worktrees/`, and `localize-web-ui-zh-cn.patch`.
 - Known limitation: the full SQLite Alembic-from-base path remains blocked by
@@ -917,3 +934,60 @@ reviewed-imported mode in the schedule builder UI.
   predates Stage 12 and Stage 12 did not repair it. LOCAL_DESKTOP
   metadata/bootstrap behavior remains separate; PostgreSQL migration
   validation is authoritative for the new Stage 12 migrations.
+
+## Stage 13 — UI Workflow Modularization checkpoint
+
+Stage 13 is complete through PRs #63 and #64 plus this documentation-only
+closeout. The shell/navigation work and feature workflow boundaries were
+dependency-gated; PR B was published from merged PR A `main`, not from the
+local pre-merge clone ancestry.
+
+- PR A: branch `ui-workflow-shell-modularization`; final head
+  `773d4b4390d030e13f27039b6f478be2c51970e2`; CI workflow run
+  `29408328244` / run `289`; merge `9e610ef274053adc681c2baaa5ed09b12fd6c791`.
+- PR B: branch `ui-workflow-feature-modules`; final head
+  `ccdced2725bcf2917349f9255811256998a3d446`; base
+  `9e610ef274053adc681c2baaa5ed09b12fd6c791`; CI workflow run
+  `29410865812` / run `295`; merge
+  `bacbe70efc40dd619fbea3c6b25db3201deadfc4`.
+- Documentation closeout: branch `ui-workflow-final-closeout`; scope is only
+  `docs/LOCAL_DESKTOP_EXECUTION_PLAN.md`. It records the final Stage 13
+  evidence and does not alter application behavior.
+- Original UI measurements: `apps/web/src/app/page.tsx` was 6,028 lines with
+  31 hook calls, 6 effects, 86 headings, 24 buttons, and approximately 230
+  local declaration/handler lines spanning runtime/API, student/source,
+  Import/Review/Apply, audit, eligibility, planning, sections, optimizer,
+  monitoring, and pairing.
+- Module boundaries: the shell owns identity, navigation, API/source context,
+  and workflow content. Feature boundaries cover MyProgress Import, Review and
+  Apply, Degree Audit, Eligibility, Academic Plan, What-If, reviewed Sections,
+  Schedule Optimizer, Section Monitoring, applied course-state reads, and local
+  Extension pairing. Workflow keys isolate imports, reviews, students,
+  scenarios, terms, and optimizer snapshots.
+- Protection behavior: stale responses are ignored across request/effect
+  changes; review/import and student/course identities cannot collide; real
+  reviewed Section mode cannot mix with demo mock mode; mutation replay is
+  guarded; route entry, refresh, back/forward, and saved-result viewing do not
+  invoke Apply or optimizer generation.
+- Accessibility/static export: semantic navigation and main landmarks,
+  keyboard-operable hash links, `aria-current`, visible focus, async status,
+  safety copy, and narrow-layout styles remain present. Static export produced
+  `/` and `/_not-found`; packaged Tauri discovery continues through the
+  runtime `api_base_url` query bridge. No server routes, middleware, Server
+  Actions, or packaged Node runtime were introduced.
+- Validation: local workspace tests passed with API 200, Extension 55, Shared
+  28, Web 19; workspace lint, strict typecheck, build, OpenAPI check, Ruff
+  check/format, mypy, compileall, pytest 200, and `git diff --check` passed.
+  Focused local Playwright workflow-shell coverage passed 1 test; hosted PR B
+  CI passed Docker Compose and the full Playwright E2E job. Review P2 findings
+  for empty course-state snapshots and cross-effect stale reads were fixed in
+  forward commit `ccdced2725bcf2917349f9255811256998a3d446` and resolved.
+- Safety and privacy: academic semantics, Import → Review → Apply, Degree
+  Audit, Eligibility, Planner, What-If, reviewed real Section optimizer
+  semantics, provenance, and real/mock isolation remain intact. No
+  registration, portal mutation, automatic monitoring, polling, credential
+  capture, private data, or protected artifact changes were added. The known
+  SQLite Alembic-from-base limitation at `20260623_0004` remains unchanged.
+- Final state: UI Workflow Modularization is complete; static export and
+  packaged runtime discovery remain supported; Backup/Restore is next and has
+  not started.
