@@ -118,8 +118,8 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 11. Stage 9 — Real MyProgress stabilization — complete; PRs #49 and #50 merged.
 12. Stage 10 reviewed Program/Catalog architecture and post-merge correctness —
     complete; PRs #52, #53, and #54 merged.
-13. Stage 11 Real Section import — in progress through PR 11A staging work.
-14. Real Section optimizer integration.
+13. Stage 11 Real Section Import — complete; PRs #56, #57, and #58 merged.
+14. Real Section Optimizer Integration — not started.
 15. UI workflow modularization.
 16. Backup/Restore.
 17. Safe migration and rollback.
@@ -591,41 +591,44 @@ Schedule Optimizer semantics changed, and no later milestone was started.
   portal data, credentials, cookies, tokens, or authoritative WKU/Kean policy
   coverage was added.
 
-Stage 10 is complete through PRs #52, #53, and #54. Stage 11A Real Section
-Import staging work is in progress; Schedule Optimizer integration has not
-started and remains a later milestone.
+Stage 10 is complete through PRs #52, #53, and #54. Stage 11 Real Section
+Import is complete through PRs #56, #57, and #58; Real Section Optimizer
+Integration has not started and remains the next milestone.
 
 ## Resume checkpoint
 
-- Current milestone: Stage 11A Real Section import staging; Stage 10 is complete.
+- Current milestone: Real Section Optimizer Integration; Stage 11 is complete.
 - Stage 10 status: complete.
-- Stage 11 status: Real Section Import; PR 11A in progress, PR 11B not started.
-- Schedule Optimizer integration: not started and remains a later milestone.
+- Stage 11 status: Real Section Import complete; PRs #56, #57, and #58 merged.
+- Real Section Optimizer Integration: not started and remains the next milestone.
 - Current stage checkpoint: Stage 10A and Stage 10B use synthetic fixtures
   because no reviewed official Program/Catalog source inventory is present.
   10B consumes exact active rules only and records provenance; missing course
   definitions remain `UNKNOWN`.
-- Current PRs: PRs #52, #53, and #54 are merged. PR #54 final head is
-  `fce4ee718f9c9cd491ac85c7bd88b6f8d237ef8b`; its merge commit is
-  `fdd3765b8cb81ed3ffadba9e34da095454befcd2`.
+- Current PRs: PRs #52, #53, #54, #56, #57, and #58 are merged. Stage 11A
+  PR #56 merged at `068a38eae02ef51b70172da1f380f398cea9419d`; Stage 11B
+  PR #57 merged at `749dd959ce7a82c982fe3df2962376cfdab6bbc0`; closeout PR #58
+  final head is `c2c9b3915e2c1c557f24e79f43e7c87675e342d9` and merged at
+  `6040c36e9766e62d2e5566cd23a4b89723319847`.
 - Final synchronized `main`/`origin/main`:
-  `fdd3765b8cb81ed3ffadba9e34da095454befcd2`.
-- Last completed action: implemented and focused-tested the PR 11A parser and
-  staging contract; canonical Section application and optimizer integration
-  remain out of scope.
-- Last successful validation: hosted CI workflow run ID `29339947589` (run
-  number `245`) passed; final local report states 194 API tests passed and the
-  listed lint, type, build, migration, OpenAPI, and diff checks passed.
-- Exact next action: finish PR 11A full validation, then create and merge its
-  staging-only PR before starting the PR 11B worktree.
+  `6040c36e9766e62d2e5566cd23a4b89723319847`.
+- Last completed action: completed the Stage 11A extraction/staging and Stage
+  11B Review/Apply deliveries. Imported Sections and SectionMeetings remain
+  non-official; Import → Review → Apply remains mandatory; volatile availability
+  remains advisory. No monitoring, registration, portal mutation, or optimizer
+  integration began.
+- Last successful validation: hosted CI workflow run ID `29382651009` (run
+  number `261`) passed checks, Docker Compose, and E2E for the Stage 11 closeout.
+- Exact next action: begin Real Section Optimizer Integration only as the next
+  milestone; it has not started in Stage 11.
 
 ## Scope confirmation
 
 Stage 8A pairing and Stage 8B localhost request protection are complete and
 merged. Stage 9A parser stabilization and Stage 9B validation/Review/Apply
-safeguards are complete;
-Program/Catalog ingestion, real Section import, real Schedule Optimization
-integration, UI restructuring, Backup/Restore, production migration,
+safeguards are complete. Stage 11 Real Section Import is also complete through
+PRs #56, #57, and #58. Program/Catalog ingestion, Real Section Optimizer
+Integration, UI restructuring, Backup/Restore, production migration,
 diagnostics center, installer/uninstaller, beta, or release-candidate work.
 
 ## Stage 8A — secure local Extension pairing (merged)
@@ -752,9 +755,9 @@ rows are not created or updated by this checkpoint. Review remains mandatory;
 - Protected root artifacts remain outside this worktree and untouched:
   `apps/web/next-env.d.ts`, `.codex-worktrees/`, and
   `localize-web-ui-zh-cn.patch`.
-- Exact next checkpoint: complete PR 11B Review/Apply and idempotent persistence
-  of non-official Section and SectionMeeting rows. Real Section Optimizer
-  Integration remains out of scope.
+- Completed checkpoint: PR 11B Review/Apply and idempotent persistence of
+  non-official Section and SectionMeeting rows. Real Section Optimizer
+  Integration remains out of scope and unstarted.
 
 ## Stage 11B — Real Section Review/Apply checkpoint
 
