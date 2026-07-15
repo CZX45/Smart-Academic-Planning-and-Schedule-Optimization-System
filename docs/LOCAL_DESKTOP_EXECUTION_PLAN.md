@@ -1077,9 +1077,9 @@ and this closeout started from merged PR B at `bb0b6d55dbe368af64557c5c646286ce1
 No Safe migration and rollback work began. The pre-existing SQLite
 Alembic-from-base limitation at `20260623_0004` remains unchanged.
 
-- Final synchronized `main`/`origin/main`: `bb0b6d55dbe368af64557c5c646286ce170772b5`
-  before this documentation-only closeout; the final closeout merge is recorded
-  after publication.
+- Final synchronized `main`/`origin/main` before this documentation-only
+  closeout: `bb0b6d55dbe368af64557c5c646286ce170772b5`. Closeout PR #68 merged
+  at `af2148e533dec3c39b0508ef18316d05c8dc400c` after exact-head CI run 314.
 - Scope remains local-only and advisory: no registration, portal mutation,
   credentials, cloud sync, scheduling, arbitrary filesystem access, or
   automatic monitoring was added.
