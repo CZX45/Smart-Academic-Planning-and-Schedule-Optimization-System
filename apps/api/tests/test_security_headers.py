@@ -22,7 +22,7 @@ def test_local_web_fallback_port_is_allowed_by_cors() -> None:
         CORSMiddleware,
         allow_origins=Settings(_env_file=None).cors_origin_list,
         allow_credentials=False,
-        allow_methods=["GET", "PATCH", "POST"],
+        allow_methods=["DELETE", "GET", "PATCH", "POST"],
         allow_headers=["authorization", "content-type"],
     )
 
@@ -45,7 +45,7 @@ def test_cors_preflight_allows_authorization_header() -> None:
         CORSMiddleware,
         allow_origins=Settings(_env_file=None).cors_origin_list,
         allow_credentials=False,
-        allow_methods=["GET", "PATCH", "POST"],
+        allow_methods=["DELETE", "GET", "PATCH", "POST"],
         allow_headers=["authorization", "content-type"],
     )
 

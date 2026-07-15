@@ -281,11 +281,22 @@ fn apply_pending_restore(
     if !marker_path.is_file() {
         return Ok(None);
     }
+    let quarantine_dir = app_data.join("restore-safety");
+    fs::create_dir_all(&quarantine_dir)
+        .map_err(|error| format!("Could not create restore safety copy: {error}"))?;
+    let mut quarantined_marker = quarantine_dir.join("invalid-pending-restore.json");
+    let mut suffix = 1_u32;
+    while quarantined_marker.exists() {
+        quarantined_marker = quarantine_dir.join(format!("invalid-pending-restore-{suffix}.json"));
+        suffix += 1;
+    }
+    fs::rename(&marker_path, &quarantined_marker)
+        .map_err(|error| format!("Could not consume restore marker: {error}"))?;
     let marker: PendingRestoreMarker = serde_json::from_slice(
-        &fs::read(&marker_path)
+        &fs::read(&quarantined_marker)
             .map_err(|error| format!("Could not read restore marker: {error}"))?,
     )
-    .map_err(|error| format!("Invalid restore marker: {error}"))?;
+    .map_err(|error| format!("Invalid restore marker; it was quarantined: {error}"))?;
     if marker.marker_version != 1
         || marker.status != "pending"
         || marker.expected_schema_version != 1
@@ -315,7 +326,7 @@ fn apply_pending_restore(
     fs::create_dir_all(&safety_dir)
         .map_err(|error| format!("Could not create restore safety copy: {error}"))?;
     let consumed_marker = safety_dir.join("pending-restore.json");
-    fs::rename(&marker_path, &consumed_marker)
+    fs::rename(&quarantined_marker, &consumed_marker)
         .map_err(|error| format!("Could not consume restore marker: {error}"))?;
     write_restore_status(
         app_data,
@@ -581,6 +592,27 @@ mod tests {
             b"matching-old-wal"
         );
         assert!(!root.join("pending-restore.json").exists());
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[test]
+    fn quarantines_corrupt_restore_candidate_without_startup_loop() {
+        let root = test_root("corrupt");
+        let database = root.join("custom.sqlite");
+        let staged = root.join("restore-staging").join("candidate.sqlite");
+        fs::create_dir_all(staged.parent().expect("staging parent")).expect("create staging");
+        fs::write(&database, b"old").expect("write old");
+        fs::write(&staged, b"corrupt").expect("write staged");
+        marker(&root, &staged, "request-corrupt");
+        assert!(apply_pending_restore(&root, &database).is_err());
+        assert!(!root.join("pending-restore.json").exists());
+        assert!(root
+            .join("restore-safety")
+            .join("invalid-pending-restore.json")
+            .is_file());
+        assert!(apply_pending_restore(&root, &database)
+            .expect("relaunch check")
+            .is_none());
         fs::remove_dir_all(root).expect("remove test root");
     }
 }
