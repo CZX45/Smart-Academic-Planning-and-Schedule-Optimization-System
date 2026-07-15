@@ -119,8 +119,8 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 12. Stage 10 reviewed Program/Catalog architecture and post-merge correctness —
     complete; PRs #52, #53, and #54 merged.
 13. Stage 11 Real Section Import — complete; PRs #56, #57, and #58 merged.
-14. Real Section Optimizer Integration — not started.
-15. UI workflow modularization.
+14. Real Section Optimizer Integration — complete; PRs #60 and #61 merged.
+15. UI workflow modularization — next milestone; not started.
 16. Backup/Restore.
 17. Safe migration and rollback.
 18. Diagnostics.
@@ -592,15 +592,16 @@ Schedule Optimizer semantics changed, and no later milestone was started.
   coverage was added.
 
 Stage 10 is complete through PRs #52, #53, and #54. Stage 11 Real Section
-Import is complete through PRs #56, #57, and #58; Real Section Optimizer
-Integration has not started and remains the next milestone.
+Import is complete through PRs #56, #57, and #58. Stage 12 Real Section
+Optimizer Integration is complete through PRs #60 and #61; UI workflow
+modularization is the next milestone and has not started.
 
 ## Resume checkpoint
 
-- Current milestone: Real Section Optimizer Integration; Stage 11 is complete.
+- Current milestone: UI workflow modularization; Stage 12 is complete.
 - Stage 10 status: complete.
 - Stage 11 status: Real Section Import complete; PRs #56, #57, and #58 merged.
-- Real Section Optimizer Integration: not started and remains the next milestone.
+- Real Section Optimizer Integration: complete; PRs #60 and #61 merged.
 - Current stage checkpoint: Stage 10A and Stage 10B use synthetic fixtures
   because no reviewed official Program/Catalog source inventory is present.
   10B consumes exact active rules only and records provenance; missing course
@@ -619,8 +620,7 @@ Integration has not started and remains the next milestone.
   integration began.
 - Last successful validation: hosted CI workflow run ID `29382651009` (run
   number `261`) passed checks, Docker Compose, and E2E for the Stage 11 closeout.
-- Exact next action: begin Real Section Optimizer Integration only as the next
-  milestone; it has not started in Stage 11.
+- Exact next action: begin UI workflow modularization as the next milestone.
 
 ## Scope confirmation
 
@@ -791,9 +791,9 @@ campus, and unambiguous Section identity.
 - Stage 11 result: real visible-page Section data now follows Import → Review →
   explicit dry-run/Apply into non-official structural Section and
   SectionMeeting records with provenance. Availability remains advisory and
-  separate from canonical structural data. No monitoring, registration,
-  portal mutation, or optimizer integration was started.
-- Next milestone: Real Section Optimizer Integration is not started.
+  separate from canonical structural data. Stage 12 optimizer work was kept
+  out of Stage 11 and delivered afterward through the gated PRs above.
+- Next milestone: UI workflow modularization — not started.
 
 ## Stage 12A — Real Section optimizer input boundary checkpoint
 
@@ -839,29 +839,49 @@ backend boundary for the dependency-ordered optimizer integration.
 
 ## Stage 12B — Real Section optimizer execution and provenance checkpoint
 
-Stage 12B is implemented in a new isolated worktree created only after Stage
-12A merged and `origin/main` synchronized. It persists selected Section
-provenance and source-age evidence, computes a deterministic Section snapshot,
-reports drift without automatic rerun, and exposes the reviewed-imported mode
-in the schedule builder UI.
+Stage 12B is complete and merged through PR #61. It persists selected Section
+provenance and source-age evidence, computes deterministic Section snapshots,
+reports structural drift without automatic reruns, and exposes the
+reviewed-imported mode in the schedule builder UI.
 
-- Status: PR pending creation; branch `real-section-optimizer-integration`.
+- Status: complete and merged; branch `real-section-optimizer-integration`.
 - Worktree: `D:\Crystal\.cache\worktrees\real-section-optimizer-integration`.
 - Starting commit: `9e0e2d251dd5a29bc42d4228ee837a95e986d77b`.
-- Implementation head: `4a7a9fa217ba95fa649dd097a4171d87d1b9b067`.
+- Final head: `4e25d8d110cade1786621fddddf178f74055bd94`.
+- PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/61`.
+- CI: workflow run `29387637590` passed checks, Docker Compose, and hosted
+  Playwright E2E.
+- Merge commit: `0d58ae99123b7b3a2a2070ab64037eb221b9a1d5`.
+- Completed behavior: only reviewed and successfully applied Stage 11
+  structural Sections are eligible in `REVIEWED_IMPORTED` mode; real and mock
+  workflows remain isolated with no silent mock fallback; selected Section
+  provenance, source age, and deterministic snapshots are persisted; structural
+  drift is detected and reported without automatic reruns; the UI exposes
+  reviewed-imported mode, provenance, source age, and drift; availability
+  remains advisory and does not determine structural feasibility or ranking;
+  optimizer output remains non-official and advisory, requiring manual official
+  portal verification.
 - Persistence: migration `20260715_0020` stores selected source provenance,
   source age, and Section snapshot hash on each selected option Section.
 - API/UI: selected Sections report provenance, source age, and
   `NOT_CAPTURED`/`UNCHANGED`/`CHANGED` drift status; the UI requests
   `REVIEWED_IMPORTED` with a 24-hour source-age limit and tells the student to
   regenerate when a snapshot changes.
-- Safety: drift is advisory only; no registration, portal mutation, seat
-  grabbing, waitlist, or monitoring behavior was added.
-- Validation: focused optimizer tests 11 passed; final workspace test run passed API 200,
-  Extension 55, shared 28, and web 14; workspace lint and typecheck passed;
-  OpenAPI was regenerated and `git diff --check` passed. The existing full
-  Alembic-from-base SQLite blocker remains documented at revision
-  `20260623_0004`.
-- Exact next action: push this implementation, create PR B, wait for exact-head
-  CI/review, then merge and synchronize `main` before declaring Stage 12
-  complete.
+- Safety: no registration, add/drop/swap, waitlist automation, seat grabbing,
+  portal mutation, background monitoring, or polling was added; no real student
+  or private portal data was committed.
+- Validation: API 200, Extension 55, Shared 28, Web 14, and focused optimizer
+  tests 11 passed; lint, typecheck, OpenAPI check, Ruff, mypy, and
+  `git diff --check` passed; hosted Docker Compose and hosted Playwright E2E
+  passed.
+- Final milestone state: Stage 11 Real Section Import and Stage 12 Real Section
+  Optimizer Integration are complete; PRs #60 and #61 are merged; synchronized
+  `main`/`origin/main` is `0d58ae99123b7b3a2a2070ab64037eb221b9a1d5`; UI
+  workflow modularization is next and not started.
+- Protected root artifacts remain untouched: `apps/web/next-env.d.ts`,
+  `.codex-worktrees/`, and `localize-web-ui-zh-cn.patch`.
+- Known limitation: the full SQLite Alembic-from-base path remains blocked by
+  the pre-existing `20260623_0004` constraint-alteration incompatibility. This
+  predates Stage 12 and Stage 12 did not repair it. LOCAL_DESKTOP
+  metadata/bootstrap behavior remains separate; PostgreSQL migration
+  validation is authoritative for the new Stage 12 migrations.
