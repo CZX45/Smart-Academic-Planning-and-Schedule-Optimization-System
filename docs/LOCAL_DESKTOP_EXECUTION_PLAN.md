@@ -101,9 +101,10 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 5. Real Section Optimization remains inside MVP. Section Monitoring remains
    after MVP.
 6. Because the existing PostgreSQL Alembic history cannot currently initialize
-   SQLite safely, the next database PR will evaluate a separate deterministic
-   LOCAL_DESKTOP baseline/bootstrap with version tracking before considering
-   any data-preserving migration corrections. No academic semantics may change.
+   SQLite safely, LOCAL_DESKTOP uses the separate deterministic baseline,
+   version tracking, and safe migration orchestration recorded below. No
+   academic semantics change, and the PostgreSQL history remains authoritative
+   for SERVER mode.
 
 ## Dependency-ordered milestones
 
@@ -123,10 +124,11 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 13. Stage 11 Real Section Import — complete; PRs #56, #57, and #58 merged.
 14. Real Section Optimizer Integration — complete; PRs #60 and #61 merged.
 15. UI workflow modularization — complete; PRs #63 and #64 merged.
-16. Backup/Restore — current milestone; PR A merged and PR B in progress on an
-    isolated branch.
-17. Safe migration and rollback.
-18. Diagnostics.
+16. Backup/Restore — complete through PRs #66, #67, and the documentation
+    closeout.
+17. Safe migration and rollback — complete through PRs #70, #71, and this
+    documentation closeout.
+18. Diagnostics — next milestone.
 19. Windows Installer/Uninstaller.
 20. Packaged Desktop E2E.
 21. Controlled Student Beta.
@@ -337,526 +339,7 @@ is complete through the merged 9A and 9B checkpoints.
 - Runtime contract preserved: `PRODUCT_MODE=LOCAL_DESKTOP`, dynamic loopback
   port discovery, owned runtime manifest, `/runtime`, `/ready`, SQLite
   bootstrap, persistence, graceful shutdown, restart, and server-mode
-  PostgreSQL/Bearer behavior remain unchanged.
-- Clean-environment proof: no Windows VM or Sandbox was available. The
-  documented fallback simulation launched the packaged executable with
-  `PATH=C:\\Windows\\System32;C:\\Windows`, so no Python executable was
-  discoverable through PATH; Python remained installed elsewhere on the build
-  machine. The artifact ran from its one-folder output directory, with the
-  source checkout present elsewhere on disk but not used as the runtime working
-  directory. It reached `/ready` 200, published dynamic ports 63358 and
-  63366 across restart, initialized the isolated SQLite file, and preserved its
-  size across restart. Supervisor proof removed the owned manifest on stop.
-  This is an honest controlled fallback simulation, not a clean Windows image.
-- Measurements: the PyInstaller build completed in approximately 97 seconds;
-  the one-folder artifact contains 1,570 files totaling 91.71 MiB, with a
-  15.50 MiB executable. Packaged startup to the first ready probe was 4.23
-  seconds in the controlled proof. These are machine-specific proof
-  measurements, not release performance guarantees.
-- Known limitations: this stage does not sign binaries, produce an installer,
-  package the Web UI, remove Node.js, or claim antivirus/SmartScreen approval.
-
-- Validation completed: API pytest 165 passed; repository Vitest 91 passed;
-  repository lint, typecheck, build, OpenAPI drift, API Ruff, API format,
-  strict MyPy, Tauri cargo fmt/check, packaged artifact build, packaged
-  no-Python-PATH startup/restart, supervisor lifecycle, missing-build-tool
-  failure, and Playwright E2E 23/23 passed. The first E2E attempt was blocked
-  by the known AppData ACL and missing browser cache under the temporary
-  `LOCALAPPDATA`; the successful rerun used writable `LOCALAPPDATA` and the
-  existing Playwright browser cache explicitly.
-
-### Stage 7 — package the LOCAL_DESKTOP Web UI
-
-- Status: complete and merged through PR #45.
-- Merge commit: `ad57e944fcb95d28311d0018a553dd4d2d2cf5b1`.
-- Decision: Next.js static export is viable and selected. The current UI has
-  only static App Router routes and browser-side API calls, so a packaged Node
-  server is unnecessary. Release Tauri builds load
-  `dist\local-desktop-web` directly and compile out the development-server
-  launch.
-- Build contract: `scripts/windows/Build-Web-UI.ps1`, exposed as
-  `corepack pnpm web:package:windows`, builds the Web UI from the lockfile and
-  copies the export to the deterministic `dist\local-desktop-web` directory.
-  It records commit, strategy, file count, byte count, and the runtime bridge
-  in `build-manifest.txt`; missing Corepack or missing `index.html` fails with
-  an actionable message.
-- Runtime bridge: after the packaged FastAPI executable publishes a ready
-  manifest, Tauri creates the release window with
-  `index.html?api_base_url=<manifest base_url>`. The Web UI validates that URL
-  and uses it for all existing API-backed workflows. It does not hard-code an
-  API port or use a build-time dynamic `NEXT_PUBLIC_*` value.
-- Measurements: the controlled build produced 28 files totaling 1,133,023
-  bytes. The Web packaging script completed in 5.95 seconds in this worktree.
-  These are
-  machine-specific measurements, not release guarantees.
-- Validation completed so far: Web Vitest 14/14, Web lint, Web typecheck,
-  static export, generated-asset scan, Tauri cargo fmt/check, and release
-  cargo build. The generated asset scan found no developer absolute paths or
-  `localhost:8000`/`127.0.0.1:8000` literals.
-- Proof limitation: no Windows VM or Sandbox is available in this environment.
-  The combined packaged API/Tauri no-Node/no-Python run must be recorded as a
-  controlled PATH simulation, not as a clean Windows image. Installer,
-  signing, updater, and Stage 8 remain out of scope.
-
-## Decision log
-
-- 2026-07-14 — Stage 6 selected PyInstaller one-folder packaging after
-  evaluating FastAPI/Uvicorn compatibility, SQLAlchemy/SQLite inclusion,
-  Pydantic/settings, hidden imports and metadata, resource handling, Windows
-  paths, startup, size, reproducibility, diagnostics, and antivirus tradeoffs.
-  The built proof artifact is 91.71 MiB and starts in 4.23 seconds on this
-  machine. The Tauri shell selects it only through `SAPSOS_API_EXECUTABLE` and
-  uses the artifact directory as its working directory; missing packaged
-  artifacts fail without a Python fallback.
-
-- 2026-07-12 — PR 1 was pushed to non-hierarchical `codex-pr-1` because the
-  existing remote `codex` branch must not be modified; PR #35 merged normally
-  after exact-head CI success.
-- 2026-07-12 — SQLAlchemy model metadata is sufficiently portable for an
-  initial SQLite proof, but the historical PostgreSQL Alembic path is not.
-  The first failing operation is a direct check-constraint alteration in
-  `20260623_0004`; local baseline/bootstrap is the safer next evaluation.
-- 2026-07-12 — No Extension pairing, real academic-data expansion, real
-  Section import, optimizer integration, installer, Backup/Restore, or later
-  milestone work began.
-- 2026-07-12 — LOCAL_DESKTOP now defaults to file-backed SQLite under the
-  stable app-data contract; SERVER remains PostgreSQL-backed and Alembic-owned.
-  Local startup creates the schema and records schema version 1. No production
-  upgrade migration or installer behavior is included.
-- 2026-07-12 — Dynamic runtime discovery uses a versioned atomic manifest,
-  loopback port allocation, stale process detection, and a single-instance
-  ownership check. API process supervision remains a later stage.
-- 2026-07-13 — PR 4 merged with a versioned runtime manifest and `/runtime`
-  discovery endpoint. The follow-up review fixed IPv6 URL construction and
-  shutdown manifest cleanup before merge.
-- 2026-07-13 — Stage 4 supervision is isolated behind an explicit supervisor
-  object. It starts `python -m app.run`, waits for manifest plus `/ready`,
-  routes child output to a file, reports bounded log-tail diagnostics, shuts
-  down gracefully before killing after timeout, rejects duplicate live
-  instances, cleans stale manifests before launch, and permits at most one
-  automatic restart by default.
-- 2026-07-13 — PR 5 merged with bounded child-process supervision. The
-  follow-up review added a PID ownership guard so a supervisor cannot adopt or
-  delete another process's runtime manifest.
-- 2026-07-13 — Stage 5 uses the approved minimal Tauri 2 proof. The shell
-  starts the existing Web UI and FastAPI local runtime, waits for readiness,
-  renders the Web UI in WebView2, and owns child-process shutdown. Packaging,
-  installer work, and later milestones remain out of scope.
-- 2026-07-13 — The approved official Windows prerequisites were installed and
-  verified. The Tauri CLI bootstrapper was not required; the proof uses the
-  official Tauri Rust crates directly. No repository source was changed during
-  prerequisite installation.
-- 2026-07-14 — PR #40 merged after the dynamic API base URL review correction.
-  The shell now passes the ready manifest's discovered `base_url` to the Web
-  child; CI run `29265910798` passed checks, E2E, and Docker Compose.
-- 2026-07-14 — Automated review found that dynamic API discovery was not being
-  passed to the Web child. The Tauri proof now waits for the ready manifest and
-  passes its discovered `base_url` to `NEXT_PUBLIC_API_BASE_URL`.
-- 2026-07-13 — The usage limit cleared. Full Stage 3 local gates and seeded
-  writable-SQLite E2E completed; default AppData remained an environment ACL
-  limitation, so runtime discovery was verified with an isolated writable
-  LOCALAPPDATA path.
-- 2026-07-12 — CI run `29196835215` showed the existing Alembic setup steps
-  inherited the new SQLite default and failed before checks/E2E. The workflow
-  now sets explicit SERVER/PostgreSQL environment only for migration, seed,
-  and E2E setup, preserving LOCAL_DESKTOP as the ordinary test default.
-- 2026-07-12 — Corrected CI run `29196975368` proved checks and Docker, but
-  E2E returned 401 when forced into SERVER bearer mode. E2E now uses seeded
-  file-backed LOCAL_DESKTOP SQLite; checks continue to validate SERVER
-  PostgreSQL separately.
-- 2026-07-12 — Automated review identified that SQLite foreign keys were
-  enabled only in tests. Production SQLite connections now enable
-  `PRAGMA foreign_keys=ON`, with a focused regression test; the standalone
-  seed entrypoint also initializes the local schema before writing.
-
-## Validation ledger
-
-| Command or proof | Result | Scope |
-| --- | --- | --- |
-| PR 1 CI run `29195826320` | Passed | checks, E2E, Docker Compose |
-| `git diff --check` on PR 1 | Passed | PR 1 diff |
-| SQLite `Base.metadata.create_all` twice | Passed | 68 tables, 176 FKs, 86 indexes |
-| Sequential existing Alembic upgrades on SQLite | Blocked | revision `20260623_0004`; direct constraint alteration unsupported |
-| `python -m pytest apps/api/tests/test_sqlite_compatibility.py -q` | Passed, 3 tests | model/schema/storage proof |
-| `python -m pytest` in `apps/api` | Passed, 149 tests, 1 warning | API regression |
-| `CI=true corepack pnpm test` | Passed | recursive API/extension/shared/web tests |
-| `CI=true corepack pnpm lint` | Passed | recursive lint |
-| `CI=true corepack pnpm typecheck` | Passed | recursive type checking |
-| `CI=true corepack pnpm build` | Passed | API/extension/shared/web build |
-| `CI=true corepack pnpm openapi:check` | Passed | generated OpenAPI drift |
-| `CI=true corepack pnpm e2e` | Passed, 23 tests | local API/web E2E |
-| `python -m ruff check .` / `format --check .` | Passed | API lint/format |
-| `python -m mypy .` | Passed | API strict typing |
-| `git diff --check` | Passed | PR 2 diff |
-| `python -m pytest` in `apps/api` | Passed, 151 tests, 1 warning | Stage 2 API regression |
-| `CI=true corepack pnpm test` | Passed | Stage 2 recursive tests |
-| `CI=true corepack pnpm lint` | Passed | Stage 2 recursive lint |
-| `CI=true corepack pnpm typecheck` | Passed | Stage 2 recursive typecheck |
-| `CI=true corepack pnpm build` | Passed | Stage 2 build |
-| `CI=true corepack pnpm openapi:check` | Passed | Stage 2 OpenAPI drift |
-| `CI=true corepack pnpm e2e` with seeded writable SQLite | Passed, 23 tests | Stage 2 local runtime E2E |
-| `python -m app.seed_dev` twice with writable SQLite | Passed, 1 institution | Stage 2 persistence/idempotence |
-| CI run `29196835215` before workflow fix | Failed at Alembic | SQLite default reached PostgreSQL-only CI setup |
-| CI YAML parse / `node --check scripts/run-e2e.mjs` | Passed | CI follow-up validation |
-| Focused config/local database tests after CI fix | Passed, 22 tests | CI follow-up validation |
-| `python -m pytest tests/test_runtime_discovery.py -q` | Passed, 4 tests | Stage 3 discovery proof |
-| Manual `python -m app.run` with `API_PORT=0` | Passed | dynamic port, ready manifest, `/runtime`, `/ready` |
-| `python -m pytest` in `apps/api` | Passed, 156 tests, 1 warning | Stage 3 API regression |
-| `CI=true corepack pnpm test` | Passed | Stage 3 recursive tests |
-| `CI=true corepack pnpm lint` | Passed | Stage 3 recursive lint |
-| `CI=true corepack pnpm typecheck` | Passed | Stage 3 recursive typecheck |
-| `CI=true corepack pnpm build` | Passed | Stage 3 build |
-| `python -m ruff check .` / `format --check .` | Passed | Stage 3 API lint/format |
-| `python -m mypy .` | Passed | Stage 3 API strict typing |
-| Seeded writable-SQLite `CI=true corepack pnpm e2e` | Passed, 23 tests | Stage 3 local runtime E2E |
-| `python -m pytest tests/test_runtime_supervisor.py tests/test_runtime_discovery.py` | Passed, 10 tests | Stage 4 focused lifecycle/discovery proof |
-| `python -m ruff check app/runtime tests/test_runtime_supervisor.py` / `format --check` | Passed | Stage 4 targeted lint/format |
-| `python -m mypy app/runtime` | Passed | Stage 4 targeted strict typing |
-| Real `ApiProcessSupervisor` child proof | Passed | dynamic port, readiness, log routing, graceful shutdown, manifest cleanup |
-| Seeded writable-SQLite `CI=true corepack pnpm e2e` | Passed, 23 tests in CI; local run reached 22/23 before the pre-existing seeded-import 404 setup mismatch | Stage 4 regression; CI remains authoritative |
-| `rustup --version`, `rustc --version`, `cargo --version`, `rustup show` | Passed; stable `x86_64-pc-windows-msvc` active/default | Stage 5 Rust prerequisite |
-| `cargo run` MSVC smoke program | Passed; printed `Hello, world!` | Stage 5 Rust/MSVC prerequisite |
-| `vswhere` component query, MSVC `cl.exe`/`link.exe`, MSBuild, CMake, Windows SDK | Passed; Build Tools complete, MSVC 14.44.35207, SDK 10.0.26100.0 | Stage 5 Windows prerequisite |
-| WebView2 registry detection | Passed; 150.0.4078.65 already installed | Stage 5 WebView2 prerequisite |
-| `cargo check --manifest-path desktop-shell/src-tauri/Cargo.toml` | Passed | Stage 5 Rust scaffold |
-| `cargo build --manifest-path desktop-shell/src-tauri/Cargo.toml --jobs 2` | Passed | Stage 5 Rust/Tauri build |
-| Live Tauri launch, runtime manifest, `/ready`, Web UI `/` | Passed; dynamic loopback API, both HTTP probes 200, existing Web UI rendered | Stage 5 desktop-shell proof |
-| Close-window lifecycle probe | Passed; Tauri/API/Web stopped and owned manifest removed | Stage 5 desktop-shell proof |
-| Review-fix live proof with dynamic API base URL | Passed; manifest port `61232`, API `/ready` 200, Web UI `/` 200, clean close | Stage 5 review correction |
-| CI run `29265910798` | Passed | corrected Stage 5 head, checks, E2E, Docker Compose |
-
-## Validation ledger — Stage 8 closeout
-
-| Milestone | Status | Evidence |
-| --- | --- | --- |
-| Stage 6 — FastAPI runtime packaging | Complete and merged | PR #44; merge commit `4d265ff001dc09211949bfa0860c29976b10b874` |
-| Stage 7 — Web UI packaging | Complete and merged | PR #45; merge commit `ad57e944fcb95d28311d0018a553dd4d2d2cf5b1` |
-| Stage 8A — secure local Extension pairing | Complete and merged | PR #46; final head `96a45c7542dd727f06f99c1d542fbb9f83d8e764`; merge commit `0d058fe6b862c91788cd8d47d297ad06abf9270e` |
-| Stage 8B — localhost request protection | Complete and merged | PR #47; final head `38414db6774cff8173e15cd6fe3cfa8397e399f4`; merge commit `33451600a35b749f861825d53733cbafb576ac62`; CI run `29304954951` passed checks, Docker Compose, and E2E |
-
-## Stage 10 — reviewed Program/Catalog architecture and correctness closeout
-
-Stage 10 is complete. It delivered reviewed Program/Catalog source and lifecycle
-architecture, exact reviewed and ACTIVE rule consumption, source provenance,
-conservative `UNKNOWN` behavior, safe PostgreSQL `UNKNOWN`-result constraints,
-no stale/mock fallback after explicit reviewed mapping failure, semantic
-Program-role priority, missing-corequisite conditional handling, and reviewed-
-corequisite persistence with POST/GET round trips.
-
-The five PR #53 correctness findings were fixed by PR #54, and all five PR #53
-review threads were replied to and resolved. Fixtures remain synthetic; no
-authoritative WKU or Kean Program/Catalog coverage is claimed. No real student
-data or private portal data was added. No Section Import was started, no
-Schedule Optimizer semantics changed, and no later milestone was started.
-
-### Stage 10A checkpoint
-
-- Status: merged.
-- PR: #52.
-- Merge commit: `cf614bd0b0f0eaef60a4c1775accc1eece55045d`.
-
-### Stage 10B checkpoint
-
-- Status: merged.
-- PR: #53 — `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/53`.
-- Original head: `de0dfb6a801c3a20c184d4f48a00457466a4bd20`.
-- Merge commit: `3e12a0d8d9d680b87daa5fc4f0edd53c982a779e`.
-- CI run: `238`, successful.
-
-### Stage 10B post-merge correctness hotfix
-
-- Branch: `stage10b-correctness-hotfix`.
-- Worktree: `D:\Crystal\.cache\worktrees\stage10b-correctness-hotfix`.
-- Hotfix PR: #54 — `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/54`.
-- Final hotfix head: `fce4ee718f9c9cd491ac85c7bd88b6f8d237ef8b`.
-- Hosted CI workflow run ID: `29339947589`; run number: `245`; conclusion:
-  success. Checks, E2E, Docker Compose, and `git diff --check` passed.
-- Merge commit: `fdd3765b8cb81ed3ffadba9e34da095454befcd2`.
-- Corrected findings: upgraded PostgreSQL eligibility constraints now permit
-  `UNKNOWN`; explicit reviewed course mappings never reuse stale options;
-  missing reviewed corequisites are not unconditional `ELIGIBLE`; reviewed
-  corequisite summaries survive persistence and GET; and Program selection uses
-  explicit semantic priority with conservative ambiguity handling.
-- Migration proof: PostgreSQL base-to-head and previous-revision upgrade,
-  `alembic check`, UNKNOWN persistence, invalid-value rejection, constraint
-  inspection, explicit downgrade, and re-upgrade passed. LOCAL_DESKTOP SQLite
-  metadata/bootstrap and repeated startup tests passed. The full SQLite
-  Alembic-from-base path remains blocked by the pre-existing
-  `20260623_0004` direct constraint-alteration incompatibility. This limitation
-  predates PR #54; LOCAL_DESKTOP SQLite metadata/bootstrap compatibility remains
-  validated, and the limitation does not invalidate the PostgreSQL Stage 10B
-  forward-migration proof. It was not fixed by Stage 10.
-- Final local report: 194 API tests passed. Ruff check, Ruff format check, mypy,
-  compileall, PostgreSQL migration upgrade/downgrade, UNKNOWN eligibility
-  constraint validation, `corepack pnpm test`, lint, typecheck, build, OpenAPI
-  check, and `git diff --check` passed. Hosted CI run 245 passed.
-- Privacy/authenticity: synthetic fixtures only; no personal data, private
-  portal data, credentials, cookies, tokens, or authoritative WKU/Kean policy
-  coverage was added.
-
-Stage 10 is complete through PRs #52, #53, and #54. Stage 11 Real Section
-Import is complete through PRs #56, #57, and #58. Stage 12 Real Section
-Optimizer Integration and its documentation closeout are complete through PRs
-#60, #61, and #62. UI Workflow Modularization is complete through PRs #63,
-#64, the Backup/Restore PR A and PR B merges, and the documentation closeout
-below. Backup/Restore is complete; Safe migration and rollback is next.
-
-## Resume checkpoint
-
-- Current milestone: Backup/Restore is complete; Safe migration and rollback is
-  next and has not started.
-- Stage 10 status: complete.
-- Stage 11 status: Real Section Import complete; PRs #56, #57, and #58 merged.
-- Real Section Optimizer Integration: complete; PRs #60 and #61 merged.
-- Current stage checkpoint: Stage 10A and Stage 10B use synthetic fixtures
-  because no reviewed official Program/Catalog source inventory is present.
-  10B consumes exact active rules only and records provenance; missing course
-  definitions remain `UNKNOWN`.
-- Current PRs: PRs #52, #53, #54, #56, #57, #58, #60, #61, and #62 are merged.
-  Stage 11A
-  PR #56 merged at `068a38eae02ef51b70172da1f380f398cea9419d`; Stage 11B
-  PR #57 merged at `749dd959ce7a82c982fe3df2962376cfdab6bbc0`; closeout PR #58
-  final head is `c2c9b3915e2c1c557f24e79f43e7c87675e342d9` and merged at
-  `6040c36e9766e62d2e5566cd23a4b89723319847`.
-- Final synchronized `main`/`origin/main` before UI modularization:
-  `c4cbffa843d16134efb37b6b17aed7c53ebf5dfb`.
-- Last completed action: completed the Stage 11A extraction/staging and Stage
-  11B Review/Apply deliveries. Imported Sections and SectionMeetings remain
-  non-official; Import → Review → Apply remains mandatory; volatile availability
-  remains advisory. No monitoring, registration, portal mutation, or optimizer
-  integration began.
-- Last successful validation: hosted CI workflow run ID `29382651009` (run
-  number `261`) passed checks, Docker Compose, and E2E for the Stage 11 closeout;
-  Stage 12 closeout is synchronized at the commit above.
-- UI Workflow Modularization PR A: branch `ui-workflow-shell-modularization`,
-  isolated clone/worktree path
-  `D:\Crystal\.cache\worktrees\ui-workflow-shell-modularization`, starting
-  commit `c4cbffa843d16134efb37b6b17aed7c53ebf5dfb`. The original Web page is
-  6,028 lines with 31 hook calls, 6 effects, 86 headings, 24 buttons, and
-  approximately 230 local declaration/handler lines. Its measured coupling
-  spans runtime/API discovery, student/source context, import Review/Apply,
-  audit, eligibility, planning, sections, optimization, monitoring, and
-  pairing. PR A establishes static-export-safe hash navigation, an application
-  shell, workflow anchors, and shared shell status/context without moving
-  feature mutation state. Final PR A head is
-  `773d4b4390d030e13f27039b6f478be2c51970e2`; exact-head CI is workflow run
-  `29408328244` / run `289` (success); merge commit is
-  `9e610ef274053adc681c2baaa5ed09b12fd6c791`. The remote tree was verified
-  after correcting earlier connector encoding/line-ending attempts.
-- UI Workflow Modularization PR B local checkpoint: branch
-  `ui-workflow-feature-modules`, isolated clone/worktree path
-  `D:\Crystal\.cache\worktrees\ui-workflow-feature-modules`, checkpoint
-  `499ee6d0f0238c744f17632f111a1a91c8e76777`. The local clone retains the
-  equivalent PR A tree through the preserved local commit; final publication
-  will use current remote `main` (including PR A merge) as its parent.
-- PR B module boundaries now include import/review identity keys, audit and
-  eligibility readiness contracts, plan draft/read-only route guards, What-If
-  identity isolation, reviewed Section predicates, optimizer run identity,
-  Section Monitoring reads, applied course-state reads, and local pairing.
-  Request guards ignore stale responses and mutation guards prevent replay;
-  Import → Review → Apply, academic semantics, real/mock isolation, and
-  static-export/Tauri API-base behavior remain unchanged.
-- UI Workflow Modularization PR B: branch `ui-workflow-feature-modules`, final
-  remote head `ccdced2725bcf2917349f9255811256998a3d446`, PR #64, exact-head
-  CI workflow run `29410865812` / run `295` (success), and merge commit
-  `bacbe70efc40dd619fbea3c6b25db3201deadfc4`. PR B extracted applied
-  course-state, Section Monitoring, and local pairing workflow owners and
-  added Import, Review/Apply, Degree Audit, Eligibility, Academic Plan,
-  What-If, reviewed Sections, and Schedule Optimizer identity/readiness
-  boundaries with stale-response and mutation-replay tests.
-- Final UI Workflow Modularization state: complete. Static export remains
-  supported; packaged desktop runtime API discovery continues through the
-  `api_base_url` bridge. Existing workflows, Import → Review → Apply, Degree
-  Audit, Eligibility, Planner, What-If, reviewed real Sections, optimizer
-  provenance, and real/mock isolation remain intact. No registration, portal
-  mutation, automatic monitoring, polling, or private data was added.
-- Final synchronized remote `main` before Backup/Restore:
-  `bacbe70efc40dd619fbea3c6b25db3201deadfc4`. Backup/Restore was then
-  completed through PRs #66 and #67 and the documentation closeout below.
-
-## Scope confirmation
-
-Stage 8A pairing and Stage 8B localhost request protection are complete and
-merged. Stage 9A parser stabilization and Stage 9B validation/Review/Apply
-safeguards are complete. Stage 11 Real Section Import is also complete through
-PRs #56, #57, and #58. Program/Catalog ingestion, Real Section Optimizer
-Integration, production migration,
-diagnostics center, installer/uninstaller, beta, or release-candidate work.
-
-## Stage 8A — secure local Extension pairing (merged)
-
-The separately reviewable Stage 8A implementation adds user-initiated local
-Extension pairing with a short-lived, single-use random pairing code,
-verifier-only local persistence, protocol versioning, revocation, and a
-background-service-worker-owned Extension credential. It intentionally
-preceded the localhost request boundary.
-
-- Status: merged.
-- PR: #46 —
-  `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/46`.
-- Final head: `96a45c7542dd727f06f99c1d542fbb9f83d8e764`.
-- CI: run `29303946463` passed checks, typecheck, tests, build, OpenAPI,
-  E2E, Docker Compose, and `git diff --check`.
-- Merge commit: `0d058fe6b862c91788cd8d47d297ad06abf9270e`.
-- Main synchronization: `origin/main` was fetched to the merge commit while
-  the protected root-worktree files remained untouched.
-
-## Stage 8B — localhost request protection (merged)
-
-Stage 8B began from the merged Stage 8A main state. Its boundary is centralized in the
-API request path and currently covers loopback Host authority, explicit
-desktop/paired-Extension Origin policy, pairing-only Extension credentials,
-local Bearer rejection, bounded nonce/timestamp replay protection, failed
-request rate limiting, and dynamic paired-Extension CORS response headers.
-
-- Status: complete and merged through PR #47.
-- Final head: `38414db6774cff8173e15cd6fe3cfa8397e399f4`.
-- Merge commit: `33451600a35b749f861825d53733cbafb576ac62`.
-- CI: run `29304954951` passed checks, Docker Compose, and E2E.
-- Validation: API pytest 180 passed; Ruff check; Ruff format check; mypy;
-  Python compileall; and `git diff --check` passed.
-- Explicit boundary: health/readiness/runtime and pairing bootstrap routes are
-  classified separately; `/api/v1` local requests cannot substitute a Bearer
-  token for the paired Extension credential. Replay nonces are intentionally
-  in-memory and bounded; a restart clears the nonce cache, while the paired
-  verifier and timestamp skew remain authoritative.
-
-Stage 8 security is limited to the local application boundary. It does not
-protect against full local-machine compromise, malware running as the user, a
-compromised browser, a compromised Extension runtime, or administrator-level
-attackers.
-
-## Stage 9 — Real MyProgress stabilization (PRs 9A and 9B merged)
-
-Stage 9 is the next implementation checkpoint. It is limited to stabilizing
-extraction and parsing of the real visible MyProgress page, preserving raw
-source evidence and field provenance, improving deterministic validation and
-exception review, and keeping imported data non-official until reviewed.
-
-Stage 9 must preserve Import → Review → Apply, must not silently infer
-uncertain academic facts, and must not begin Program/Catalog ingestion, real
-Section import, or any change to Schedule Optimizer semantics. No Stage 9
-implementation is included in the Stage 8 closeout.
-
-### Stage 9A checkpoint — snapshot/parser/provenance
-
-- Status: merged.
-- Branch: `stabilize-myprogress-parser`.
-- Worktree: `D:\Crystal\.cache\worktrees\stabilize-myprogress-parser`.
-- Final head: `889ca73e2c4ff890f1a13cb408d417bfdd6f0eb1`.
-- PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/49`.
-- CI: run `29309386281` passed checks, Docker Compose, and E2E.
-- Merge commit: `f450a045d1e16e8ae4afe86a6d73c572a1f2cbf7`.
-- Scope: bounded visible-page evidence, conservative MyProgress row parsing,
-  summary-only staging eligibility, bounded malformed-row evidence, and the
-  mandatory Review boundary.
-- Privacy: only existing synthetic/sanitized fixtures are used; no real portal
-  HTML, screenshots, identifiers, credentials, cookies, tokens, or session data
-  are included.
-
-### Stage 9B checkpoint — validation and Review/Apply safeguards
-
-- Status: merged.
-- Branch: `stabilize-myprogress-review`.
-- Worktree: `D:\Crystal\.cache\worktrees\stabilize-myprogress-review`.
-- Starting HEAD: `f450a045d1e16e8ae4afe86a6d73c572a1f2cbf7`.
-- Final head: `a43b4b59f594e5a057182bb9923315980647f133`.
-- PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/50`.
-- CI: run `29310590691` passed checks, Docker Compose, and E2E.
-- Merge commit: `1c36fe99d8da69474be863bfe7809b1f5c4c86e1`.
-- Scope: deterministic validation-state presentation, exception classification,
-  confirmed-record application safeguards, idempotency regressions, and
-  explicit non-official/source/provenance presentation.
-- Privacy: synthetic/sanitized fixtures only; no real portal HTML, screenshots,
-  identifiers, credentials, cookies, tokens, sessions, or local databases.
-
-## Stage 11A — Real Section Import parser and staging checkpoint
-
-Stage 11A is merged from an isolated worktree based on synchronized Stage 10
-`origin/main`. Its scope was limited to visible-page Section extraction,
-deterministic grouping and normalization, bounded evidence, field provenance,
-validation diagnostics, and staging. Canonical `Section` and `SectionMeeting`
-rows are not created or updated by this checkpoint. Review remains mandatory;
-`AUTO_VERIFIED` describes structural parser consistency only.
-
-- Status: merged through PR #56.
-- Branch: `stage11a-section-import-parser`.
-- Worktree: `D:\Crystal\.cache\worktrees\stage11a-section-import-parser`.
-- Starting commit: `b90c19a4c4db47cad93f5973fa3b5f60ea07ee5c`.
-- Final head: `f7ff558114408b5f6d33deb093e7dfc60d6a84ae`.
-- PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/56`.
-- CI: run `29381550519` passed checks, Docker Compose, and E2E.
-- Merge commit: `068a38eae02ef51b70172da1f380f398cea9419d`.
-- Parser contract: Section identity is grouped conservatively by visible term,
-  course code, and Section code. Repeated rows preserve multiple meetings;
-  recognized day/time forms are normalized while raw text remains evidence.
-- Provenance: staged normalized records retain raw evidence, source table/row
-  indices, field-level direct/derived metadata, validation state, completeness,
-  and bounded/truncation diagnostics.
-- Privacy: source references remain sanitized by the existing Extension path;
-  credentials, cookies, tokens, authentication forms, action controls, and
-  unrelated student-profile content are excluded. Fixtures are synthetic or
-  sanitized only.
-- Volatile availability: seats, capacity, and waitlist values remain nested
-  staging evidence and are not written to canonical structural Section data or
-  Section Monitoring targets.
-- Focused validation: Extension Vitest 55 passed; Extension TypeScript
-  typecheck and ESLint passed; API pytest 195 passed; API Ruff, format, mypy,
-  TypeScript checks, workspace tests, build, OpenAPI check, and `git diff --check`
-  passed.
-- Protected root artifacts remain outside this worktree and untouched:
-  `apps/web/next-env.d.ts`, `.codex-worktrees/`, and
-  `localize-web-ui-zh-cn.patch`.
-- Completed checkpoint: PR 11B Review/Apply and idempotent persistence of
-  non-official Section and SectionMeeting rows. Real Section Optimizer
-  Integration remains out of scope and unstarted.
-
-## Stage 11B — Real Section Review/Apply checkpoint
-
-Stage 11B is complete and merged on an isolated worktree created only after PR
-11A merged and `origin/main` synchronized. It reuses the existing Import → Review →
-Apply session, application-run, and audit records. It adds explicit dry-run and
-Apply behavior for reviewed Section evidence, requiring mapped Course, term,
-campus, and unambiguous Section identity.
-
-- Status: complete and merged through PR #57.
-- Branch: `stage11b-section-review-apply`.
-- Worktree: `D:\Crystal\.cache\worktrees\stage11b-section-review-apply`.
-- Starting commit: `068a38eae02ef51b70172da1f380f398cea9419d`.
-- Final head: `d658ba0e67eec0fb055c50f4b676cce54a6e506d`.
-- PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/57`.
-- CI: run `29382465246` passed checks, Docker Compose, and E2E.
-- Merge commit: `749dd959ce7a82c982fe3df2962376cfdab6bbc0`.
-- Scope: non-official structural Section and SectionMeeting persistence,
-  provenance, explicit conflicts for official/MOCK targets, no mutation on
-  dry-run, repeat-Apply idempotency, and incomplete-snapshot deletion safety.
-- Volatile availability: capacity, available seats, and waitlist values remain
-  advisory evidence and are never written to canonical Section fields.
-- Privacy and safety: no credentials, cookies, tokens, portal mutation,
-  registration automation, monitoring, or schedule-optimizer integration.
-- Validation: API pytest 197 passed; Extension Vitest 55, shared Vitest 28,
-  and web Vitest 14 passed; Ruff check/format, mypy, workspace lint,
-  typecheck, build, OpenAPI check, and `git diff --check` passed.
-- Protected root artifacts remain outside this worktree and untouched:
-  `apps/web/next-env.d.ts`, `.codex-worktrees/`, and
-  `localize-web-ui-zh-cn.patch`.
-- Stage 11 result: real visible-page Section data now follows Import → Review →
-  explicit dry-run/Apply into non-official structural Section and
-  SectionMeeting records with provenance. Availability remains advisory and
-  separate from canonical structural data. Stage 12 optimizer work was kept
-  out of Stage 11 and delivered afterward through the gated PRs above.
-- Next milestone: Safe migration and rollback — Backup/Restore is complete;
-  Safe migration and rollback has not started.
-
-## Stage 12A — Real Section optimizer input boundary checkpoint
-
-Stage 12A is complete and merged through PR 60. It established the safe
-backend boundary for the dependency-ordered optimizer integration.
-
-- Status: complete and merged.
-- Branch: `real-section-optimizer-input-boundary`.
-- Worktree: `D:\Crystal\.cache\worktrees\real-section-optimizer-input-boundary`.
-- Starting commit: `42fdd6c0f6efab0b55b0c762948564a29e83a9a8`.
+  PostgreSQL/Bearer behavior remain unchanged.…8436 tokens truncated…mmit: `42fdd6c0f6efab0b55b0c762948564a29e83a9a8`.
 - Final head: `9d9ebc1f3d9697e7c7d23d24c5cb268dcaf6e787`.
 - PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/60`.
 - CI: workflow run `29387106741` (run number `275`) passed checks, Docker Compose, and E2E.
@@ -992,9 +475,9 @@ local pre-merge clone ancestry.
   registration, portal mutation, automatic monitoring, polling, credential
   capture, private data, or protected artifact changes were added. The known
   SQLite Alembic-from-base limitation at `20260623_0004` remains unchanged.
-- Final state: UI Workflow Modularization is complete; static export and
-  packaged runtime discovery remain supported; Backup/Restore is now the
-  current dependency-ordered milestone.
+- Final state: UI Workflow Modularization, Backup/Restore, and Safe migration
+  and rollback are complete; static export and packaged runtime discovery
+  remain supported; Diagnostics is the next dependency-ordered milestone.
 
 ## Backup/Restore — PR A checkpoint
 
@@ -1071,11 +554,12 @@ rollback.
 
 ## Backup/Restore — final documentation closeout
 
-Backup/Restore is complete through PR A #66, PR B #67, and this docs-only
-closeout. The dependency gate was preserved: PR B started from merged PR A,
-and this closeout started from merged PR B at `bb0b6d55dbe368af64557c5c646286ce170772b5`.
-No Safe migration and rollback work began. The pre-existing SQLite
-Alembic-from-base limitation at `20260623_0004` remains unchanged.
+Backup/Restore is complete through PR A #66, PR B #67, and the docs-only
+closeout in PR #68. The dependency gate was preserved: PR B started from
+merged PR A, and the closeout started from merged PR B at
+`bb0b6d55dbe368af64557c5c646286ce170772b5`. Safe migration and rollback is
+recorded in the closeout below. The pre-existing SQLite Alembic-from-base
+limitation at `20260623_0004` remains unchanged.
 
 - Final synchronized `main`/`origin/main` before this documentation-only
   closeout: `bb0b6d55dbe368af64557c5c646286ce170772b5`. Closeout PR #68 merged
@@ -1083,3 +567,124 @@ Alembic-from-base limitation at `20260623_0004` remains unchanged.
 - Scope remains local-only and advisory: no registration, portal mutation,
   credentials, cloud sync, scheduling, arbitrary filesystem access, or
   automatic monitoring was added.
+
+## Safe migration and rollback — final documentation closeout
+
+Safe migration and rollback is complete through two implementation PRs and
+this documentation-only closeout. PR #70 established the LOCAL_DESKTOP SQLite
+migration foundation; PR #71 added Tauri pre-start orchestration, readiness,
+automatic rollback, interrupted-attempt recovery, and replay prevention. The
+closeout starts from merged PR #71 at `6142016` and does not change
+implementation code.
+
+### PR #70 — safe migration and rollback foundation
+
+- PR: #70.
+- CI: run `29438130368` passed.
+- Final API validation: 216 passed; focused migration/Backup/Restore tests:
+  17 passed.
+- Final merge/main state before PR #71: `de5161d`.
+- Delivered the LOCAL_DESKTOP migration registry with explicit from/to schema
+  versions, deterministic migration planning, schema-status classification,
+  migration journal, migration runner, integrity validation, foreign-key
+  validation, and a validated safety-backup contract.
+- Production LOCAL_DESKTOP schema version remains 1. No formal production
+  version 2 migration was created.
+- PostgreSQL Alembic behavior remains unchanged. Historical revision
+  `20260623_0004` was not fixed or bypassed.
+
+### PR #71 — Tauri startup orchestration
+
+- PR: #71, `Add safe local migration startup orchestration`.
+- CI: run `29440757350` passed checks, pnpm lint/typecheck/test/build,
+  OpenAPI validation, Docker Compose, and Playwright.
+- Merge commit: `6142016`.
+- Delivered the versioned Python JSON preflight/execute contract,
+  attempt-bound safety backup, Tauri startup lock, API readiness gate,
+  pending-restore-first ordering, automatic rollback after migration or
+  post-migration API startup failure, interrupted-attempt handling, marker
+  replay prevention, and recovery-loop prevention.
+- Migration safety backups remain application-owned and do not include
+  pairing/runtime state. SERVER/PostgreSQL startup and Alembic behavior remain
+  unchanged. ADR-0024 records the orchestration decision.
+- Validation: API pytest 219 passed; Ruff, mypy, compileall, Rust fmt/test/
+  build, hosted pnpm checks, OpenAPI, Docker Compose, and Playwright passed.
+
+### Final LOCAL_DESKTOP startup and database lifecycle
+
+```text
+acquire startup/database lock
+→ process pending restore first
+→ inspect interrupted migration state
+→ migration preflight
+→ CURRENT: start API normally
+→ UPGRADE_REQUIRED:
+   create attempt
+   create and validate safety backup
+   execute ordered migration plan
+   validate integrity and foreign keys
+   start API
+   wait for readiness
+→ readiness success: complete startup
+→ migration or readiness failure:
+   stop API
+   preserve failed database evidence
+   restore verified safety backup
+   record rollback
+   stop safely
+```
+
+Restore has priority over migration; restore and migration do not run
+concurrently, and one startup permits only one database replacement or
+migration operation. Completing the migration command is not equivalent to a
+successful upgrade: the API process, runtime manifest, target database, and
+readiness endpoint must also be correct. After rollback, the same startup does
+not migrate again. An interrupted attempt is recognized on the next startup
+and must enter recovery preflight before normal startup can proceed.
+
+### Safety boundaries and remaining limitations
+
+The orchestration is LOCAL_DESKTOP-only and does not apply to SERVER/PostgreSQL.
+It does not perform downgrade migration or cross-schema restore; automatically
+repair unknown/corrupt databases; silently rebuild or delete a user database;
+delete migration safety backups; restore `pairing.json` or `runtime.json`; or
+accept a user-controlled database path. It rejects marker replay, stale safety backup reuse,
+and unbounded migration/rollback loops. It never stores
+school accounts, cookies, tokens, MFA secrets, or portal credentials, and it
+does not emit unsanitized tracebacks or student records.
+
+The full SQLite Alembic-from-base path still fails at revision
+`20260623_0004`. This is a historical PostgreSQL-specific migration limitation;
+LOCAL_DESKTOP does not depend on the complete Alembic history, PR #70 did not
+modify that revision, and PostgreSQL migration history remains unchanged.
+
+The current production local schema version remains 1. There is no real
+production version 2 migration; orchestration was validated with test-only
+migrations and temporary SQLite databases, without manufacturing a formal
+schema bump for testing.
+
+The local complete Windows packaged-desktop proof remains unexecuted. The
+isolated clone lacked `node_modules`, so local full pnpm verification was
+environment-limited; hosted CI supplied pnpm, OpenAPI, Docker Compose, and
+Playwright evidence. Package-level proof remains part of the later Packaged
+Desktop E2E milestone and must not be described as complete here.
+
+### Next milestone: Diagnostics
+
+Diagnostics is the next milestone and is only recorded here as scope. It may
+provide a local diagnostics center covering API/runtime health, database health,
+schema version, migration status, last migration/rollback result, restore
+result, runtime manifest status, extension pairing status, and recent sanitized
+startup failures. A privacy-safe log export may be included, with no student
+records or credentials in the diagnostics bundle. No Diagnostics API, UI, or
+implementation is part of this closeout.
+
+The remaining dependency-ordered route is:
+
+```text
+Diagnostics
+→ Windows Installer/Uninstaller
+→ Packaged Desktop E2E
+→ Controlled Student Beta
+→ Release Candidate
+```
