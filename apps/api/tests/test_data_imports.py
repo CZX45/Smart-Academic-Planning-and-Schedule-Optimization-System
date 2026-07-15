@@ -33,6 +33,7 @@ from app.models.academic import (
     ImportPreviewSummary,
     ImportTargetEntityType,
     ImportValidationWarning,
+    Section,
     SourceType,
     StudentCourseAttempt,
 )
@@ -636,6 +637,48 @@ def test_browser_extension_import_enters_staging_and_preserves_review_boundary(
     disclaimers = " ".join(str(item) for item in disclaimer_items)
     assert "Browser extension imports are staging-only" in disclaimers
     assert "Phase 7B review is required" in disclaimers
+
+
+def test_section_import_preserves_grouped_meetings_provenance_and_volatile_evidence(
+    session: Session,
+) -> None:
+    service = DataImportApplicationService(session)
+    content = "\n".join(
+        [
+            "term_code,course_code,course_title,section_code,component,credits,modality,status,meeting_days,meeting_time,location,instructor_display,meetings_json,field_provenance_json,availability_evidence_json,validation_state,completeness,raw_evidence",
+            (
+                "2025FA,FIN 403,Mock Investments,001,LECTURE,3,IN_PERSON,OPEN,"
+                '"MONDAY,WEDNESDAY",09:00-10:15,Mock Hall 101,Mock Instructor,'
+                '"[{""component"": ""LECTURE""},{""days"": ""MONDAY,WEDNESDAY""}]",'
+                '"{""course_code"": {""value"": ""FIN 403""}}",'
+                '"{""seats_available"": ""4""}",AUTO_VERIFIED,COMPLETE,visible-row'
+            ),
+        ]
+    )
+
+    run = service.create_import(
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        import_type=DataImportType.SECTION_SCHEDULE,
+        file_name="section.json.csv",
+        file_mime_type="text/csv",
+        content=content,
+        source_type=SourceType.BROWSER_EXTENSION,
+        source_reference="Browser extension visible-page import: https://portal.example.edu/sections",
+    )
+    record = session.scalar(
+        select(ImportedRecord).where(ImportedRecord.data_import_run_id == run.id)
+    )
+    assert record is not None
+    assert record.record_type is ImportedRecordType.SECTION
+    assert record.normalized_payload["structural_import"] is True
+    assert record.normalized_payload["is_official"] is False
+    assert record.normalized_payload["advisory_only"] is True
+    assert isinstance(record.normalized_payload["meetings_json"], list)
+    availability = cast(dict[str, Any], record.normalized_payload["availability_evidence_json"])
+    provenance = cast(dict[str, Any], record.normalized_payload["field_provenance_json"])
+    assert availability["seats_available"] == "4"
+    assert cast(dict[str, Any], provenance["course_code"])["value"] == "FIN 403"
+    assert session.scalar(select(Section).where(Section.id == record.id)) is None
 
 
 def test_data_import_api_exposes_preview_records_candidates_warnings_and_validation(

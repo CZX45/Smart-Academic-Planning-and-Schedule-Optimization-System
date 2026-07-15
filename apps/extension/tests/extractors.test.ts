@@ -185,6 +185,44 @@ describe("browser extension academic table extractors", () => {
     expect(extraction.content).toContain("location");
   });
 
+  it("groups repeated section rows into multiple meetings with provenance", () => {
+    const extraction = extractAcademicPageFromTables({
+      title: "Visible Section Results",
+      url: "https://portal.example.edu/sections",
+      tables: [
+        {
+          index: 0,
+          caption: "Visible sections",
+          headers: [
+            "Term",
+            "Course",
+            "Title",
+            "Section",
+            "Component",
+            "Days",
+            "Time",
+            "Location",
+          ],
+          rows: [
+            ["2025FA", "FIN 403", "Mock Investments", "001", "Lecture", "M W", "9:00 AM-10:15 AM", "Mock Hall 101"],
+            ["2025FA", "FIN 403", "Mock Investments", "001", "Lab", "F", "10:30-11:20", "Mock Hall 202"],
+          ],
+        },
+      ],
+    });
+    expect(extraction.records).toHaveLength(1);
+    expect(extraction.records[0]).toMatchObject({
+      course_code: "FIN 403",
+      section_code: "001",
+      meeting_days: "MONDAY,WEDNESDAY",
+      start_time: "09:00",
+      end_time: "10:15",
+    });
+    const meetings = JSON.parse(extraction.records[0]?.meetings_json ?? "[]") as unknown[];
+    expect(meetings).toHaveLength(2);
+    expect(extraction.records[0]?.field_provenance_json).toContain("course_code");
+  });
+
   it("returns a no-data result for unknown pages and empty tables", () => {
     const unknown = extractFixture("unknown-page.html");
     const empty = extractFixture("empty-table.html");

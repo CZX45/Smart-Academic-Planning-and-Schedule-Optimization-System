@@ -4,6 +4,7 @@ import hashlib
 import logging
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
@@ -94,6 +95,8 @@ class DataImportApplicationService:
         content: str,
         source_type: SourceType = SourceType.STUDENT_PROVIDED,
         source_reference: str | None = None,
+        extraction_warnings: list[dict[str, Any]] | None = None,
+        extraction_diagnostics: dict[str, Any] | None = None,
     ) -> DataImportRun:
         student = self._validate_import_request(
             student_profile_id=student_profile_id,
@@ -157,6 +160,17 @@ class DataImportApplicationService:
                 ),
             )
 
+        for warning in extraction_warnings or []:
+            if not isinstance(warning, dict):
+                continue
+            self._add_warning(
+                run.id,
+                None,
+                str(warning.get("code") or "EXTRACTION_WARNING"),
+                self._warning_severity(warning.get("severity")),
+                str(warning.get("message") or "The browser extraction reported a review warning."),
+            )
+
         for parsed_record in parsed_records:
             record_status, confidence = self._record_status(parsed_record)
 
@@ -175,6 +189,8 @@ class DataImportApplicationService:
             self._db.flush()
             if self._should_match_course_candidate(parsed_record):
                 self._persist_mapping_candidates(student, imported_record, parsed_record)
+            if parsed_record.record_type is ImportedRecordType.SECTION:
+                self._persist_section_term_candidate(imported_record, parsed_record)
             if self._is_myprogress_record(parsed_record):
                 self._persist_myprogress_mapping_candidate(
                     student,
@@ -284,6 +300,12 @@ class DataImportApplicationService:
             if self._myprogress_record_has_warning(parsed_record):
                 return ImportedRecordStatus.VALID_WITH_WARNINGS, parsed_record.confidence_score
             return ImportedRecordStatus.VALID, parsed_record.confidence_score
+        if parsed_record.record_type is ImportedRecordType.SECTION:
+            state = parsed_record.normalized_payload.get("section_validation_state")
+            if state == "FAILED":
+                return ImportedRecordStatus.INVALID, Decimal("0.00")
+            if state == "REQUIRES_EXCEPTION_REVIEW":
+                return ImportedRecordStatus.VALID_WITH_WARNINGS, parsed_record.confidence_score
         if not parsed_record.normalized_payload.get("course_code"):
             return ImportedRecordStatus.INVALID, Decimal("0.00")
         return ImportedRecordStatus.VALID_WITH_WARNINGS, Decimal("0.80")
@@ -447,6 +469,35 @@ class DataImportApplicationService:
                 AuditWarningSeverity.WARNING,
                 f"{term_code} is staged but did not match a known mock academic term.",
             )
+
+    def _persist_section_term_candidate(
+        self,
+        imported_record: ImportedRecord,
+        parsed_record: ParsedImportRecord,
+    ) -> None:
+        term_code = str(parsed_record.normalized_payload.get("term") or "").strip()
+        if not term_code:
+            self._add_no_match(imported_record, None, "MISSING_SECTION_TERM")
+            return
+        term = self._db.scalar(select(AcademicTerm).where(AcademicTerm.term_code == term_code))
+        if term is None:
+            self._add_no_match(imported_record, term_code, "UNMATCHED_SECTION_TERM")
+            return
+        self._db.add(
+            ImportMappingCandidate(
+                id=uuid4(),
+                imported_record_id=imported_record.id,
+                target_entity_type=ImportTargetEntityType.ACADEMIC_TERM,
+                target_entity_id=term.id,
+                match_type=ImportMatchType.TERM_MATCH,
+                confidence_score=Decimal("1.00"),
+                is_selected=True,
+                reason_code="EXACT_SECTION_TERM",
+                explanation=(
+                    f"Visible Section term {term_code} exactly matches an existing academic term."
+                ),
+            )
+        )
 
     def _add_no_match(
         self,

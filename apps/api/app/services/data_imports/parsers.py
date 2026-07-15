@@ -335,6 +335,8 @@ def _parsed_record(
     row_number: int,
     row: dict[str, Any],
 ) -> ParsedImportRecord:
+    if import_type is DataImportType.SECTION_SCHEDULE:
+        return _parsed_section_record(row_number, row)
     course_code = row.get("course_code")
     title = row.get("title")
     raw_label_parts = [part for part in (course_code, title) if part]
@@ -346,6 +348,66 @@ def _parsed_record(
         external_identifier=course_code or row.get("external_identifier") or None,
         normalized_payload=row,
     )
+
+
+def _parsed_section_record(row_number: int, row: dict[str, Any]) -> ParsedImportRecord:
+    payload = _normalize_section_row(row)
+    course_code = str(payload.get("course_code") or "").strip()
+    section_code = str(payload.get("section_code") or "").strip()
+    raw_label = " ".join(
+        part for part in (course_code, section_code, payload.get("course_title")) if part
+    )
+    state = str(payload.get("validation_state") or "REQUIRES_EXCEPTION_REVIEW")
+    confidence = Decimal("0.95") if state == "AUTO_VERIFIED" else Decimal("0.60")
+    if state == "FAILED":
+        confidence = Decimal("0.00")
+    return ParsedImportRecord(
+        row_number=row_number,
+        record_type=ImportedRecordType.SECTION,
+        raw_label=raw_label or f"Section row {row_number}",
+        external_identifier=str(payload.get("external_reference") or "") or None,
+        normalized_payload=payload,
+        confidence_score=confidence,
+        requires_review=True,
+    )
+
+
+def _normalize_section_row(row: dict[str, Any]) -> dict[str, Any]:
+    normalized: dict[str, Any] = dict(_normalize_row(row))
+    normalized["course_title"] = _first_value(normalized, "course_title", "title", "name") or ""
+    normalized["term"] = _first_value(normalized, "term_code", "term", "semester") or ""
+    normalized["section_code"] = (
+        _first_value(normalized, "section_code", "section", "class_section") or ""
+    )
+    normalized["external_reference"] = (
+        _first_value(normalized, "external_reference", "crn", "external_id", "class_id") or ""
+    )
+    for json_field in (
+        "meetings_json",
+        "field_provenance_json",
+        "availability_evidence_json",
+        "mapping_candidates_json",
+    ):
+        raw_value = normalized.get(json_field, "")
+        if isinstance(raw_value, str) and raw_value:
+            try:
+                parsed = json.loads(raw_value)
+            except json.JSONDecodeError:
+                parsed = {"raw": raw_value}
+            normalized[json_field] = parsed
+    normalized["source_type"] = (
+        "BROWSER_EXTENSION"
+        if normalized.get("source_type") == ""
+        else normalized.get("source_type")
+    )
+    normalized["is_official"] = False
+    normalized["advisory_only"] = True
+    normalized["requires_review"] = True
+    normalized["section_validation_state"] = (
+        normalized.get("validation_state") or "REQUIRES_EXCEPTION_REVIEW"
+    )
+    normalized["structural_import"] = True
+    return normalized
 
 
 def object_value(value: Any) -> dict[str, Any]:
