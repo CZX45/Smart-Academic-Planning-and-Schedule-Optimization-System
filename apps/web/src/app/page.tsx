@@ -19,7 +19,6 @@ import {
   fetchAcademicScenarioComparison,
   fetchAcademicScenarioPrograms,
   fetchAcademicScenarioWarnings,
-  fetchActiveCourseStateSnapshot,
   fetchDataImportReviewApplications,
   fetchDataImportReviewRecords,
   fetchDataImportReviewWarnings,
@@ -31,13 +30,12 @@ import {
   fetchDegreeAuditRequirements,
   fetchHealth,
   fetchLatestDegreeAudit,
-  fetchSectionMonitorAlerts,
-  fetchSectionMonitorTargets,
   fetchStudentDataImports,
   fetchStudentScheduleOptimizations,
   fetchStudentAcademicPlans,
   fetchStudentEligibilityChecks,
   fetchStudentAcademicScenarios,
+  fetchActiveCourseStateSnapshot,
   formatAcademicTimestamp,
   updateImportedRecordReview,
   validateDataImport,
@@ -78,7 +76,6 @@ import {
   type SetStateAction,
   startTransition,
   useEffect,
-  useCallback,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -100,6 +97,9 @@ import {
   useActiveWorkflow,
   WorkflowShell,
 } from "../components/workflow-shell";
+import { useCourseStateWorkflow } from "../lib/course-state-workflow";
+import { useSectionMonitoringWorkflow } from "../lib/section-monitoring-workflow";
+import { usePairingWorkflow } from "../lib/pairing-workflow";
 
 type HealthState =
   | { status: "loading" }
@@ -762,16 +762,6 @@ function describeDataImportError(error: unknown): string {
   return error instanceof Error ? error.message : "未知数据导入错误";
 }
 
-function describeSectionMonitoringError(error: unknown): string {
-  if (error instanceof ApiResponseSchemaError) {
-    return "API 返回了意外的课节监控响应结构。";
-  }
-  if (error instanceof ApiRequestError) {
-    return describeApiRequestFailure(error);
-  }
-  return error instanceof Error ? error.message : "未知课节监控错误";
-}
-
 function localApiRestartGuidance(): string {
   return `API 可能未重启或仍是旧版本。请重启 API 和 web dev server，确认浏览器端口已被 CORS 允许，并核对当前 API 基础地址：${
     apiBaseUrl ?? "未配置"
@@ -1229,23 +1219,13 @@ export default function Home() {
           message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
         },
   );
-  const [sectionMonitoringState, setSectionMonitoringState] =
-    useState<SectionMonitoringState>(() =>
-      apiBaseUrl
-        ? { status: "loading" }
-        : {
-            status: "offline",
-            message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
-          },
-    );
-  const [courseStateState, setCourseStateState] = useState<CourseStateState>(
-    () =>
-      apiBaseUrl
-        ? { status: "loading" }
-        : {
-            status: "offline",
-            message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
-          },
+  const sectionMonitoringState = useSectionMonitoringWorkflow(
+    apiBaseUrl,
+    mockStudentId,
+  );
+  const [courseStateState, setCourseStateState] = useCourseStateWorkflow(
+    apiBaseUrl,
+    mockStudentId,
   );
   const [demoModeEnabled, setDemoModeEnabled] = useState(false);
 
@@ -1347,91 +1327,6 @@ export default function Home() {
       cancelled = true;
     };
   }, [apiBaseUrl, health.status]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!apiBaseUrl) {
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    async function loadSectionMonitoring(baseUrl: string): Promise<void> {
-      setSectionMonitoringState({ status: "loading" });
-      try {
-        const [targets, alerts] = await Promise.all([
-          fetchSectionMonitorTargets(baseUrl, mockStudentId, {
-            timeoutMs: 5_000,
-          }),
-          fetchSectionMonitorAlerts(baseUrl, mockStudentId, {
-            timeoutMs: 5_000,
-          }),
-        ]);
-        if (cancelled) {
-          return;
-        }
-        setSectionMonitoringState({ status: "ready", targets, alerts });
-      } catch (error: unknown) {
-        if (!cancelled) {
-          setSectionMonitoringState({
-            status:
-              error instanceof ApiResponseSchemaError
-                ? "schema-error"
-                : "failed",
-            message: describeSectionMonitoringError(error),
-          });
-        }
-      }
-    }
-
-    void loadSectionMonitoring(apiBaseUrl);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBaseUrl]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!apiBaseUrl) {
-      return () => {
-        cancelled = true;
-      };
-    }
-    async function loadActiveSnapshot(baseUrl: string): Promise<void> {
-      try {
-        const detail = await fetchActiveCourseStateSnapshot(
-          baseUrl,
-          mockStudentId,
-          { timeoutMs: 5_000 },
-        );
-        if (!cancelled) {
-          setCourseStateState({ status: "ready", detail });
-        }
-      } catch (error: unknown) {
-        if (cancelled) {
-          return;
-        }
-        if (isNotFound(error)) {
-          setCourseStateState({
-            status: "empty",
-            message: "尚未应用经过审核的 MyProgress 课程状态快照。",
-          });
-          return;
-        }
-        setCourseStateState({
-          status:
-            error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
-          message: describeDataImportError(error),
-        });
-      }
-    }
-    void loadActiveSnapshot(apiBaseUrl);
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBaseUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1895,64 +1790,8 @@ function DevelopmentDiagnostics({
   );
 }
 
-type PairingPanelState =
-  | { status: "loading" | "unpaired" | "paired" | "error"; message?: string }
-  | { status: "code"; code: string; expiresAt: string; message?: string };
-
 function LocalPairingPanel({ apiBaseUrl }: { apiBaseUrl: string | undefined }) {
-  const [state, setState] = useState<PairingPanelState>({ status: "loading" });
-
-  const refresh = useCallback(async (): Promise<void> => {
-    if (!apiBaseUrl) {
-      setState({ status: "error", message: "API 基础地址未配置。" });
-      return;
-    }
-    try {
-      const response = await fetch(`${apiBaseUrl}/local/pairing/status`, {
-        cache: "no-store",
-      });
-      const payload: unknown = await response.json();
-      if (!response.ok || typeof payload !== "object" || payload === null) {
-        throw new Error("无法读取本地配对状态。");
-      }
-      setState({
-        status: (payload as { paired?: boolean }).paired ? "paired" : "unpaired",
-      });
-    } catch (error: unknown) {
-      setState({
-        status: "error",
-        message: error instanceof Error ? error.message : "本地配对状态不可用。",
-      });
-    }
-  }, [apiBaseUrl]);
-
-  async function createCode(): Promise<void> {
-    if (!apiBaseUrl) return;
-    try {
-      const response = await fetch(`${apiBaseUrl}/local/pairing/session`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-      });
-      const payload = (await response.json()) as { code?: string; expires_at?: string };
-      if (!response.ok || !payload.code || !payload.expires_at) {
-        throw new Error("无法生成配对码。");
-      }
-      setState({ status: "code", code: payload.code, expiresAt: payload.expires_at });
-    } catch (error: unknown) {
-      setState({ status: "error", message: error instanceof Error ? error.message : "配对失败。" });
-    }
-  }
-
-  async function revoke(): Promise<void> {
-    if (!apiBaseUrl) return;
-    await fetch(`${apiBaseUrl}/local/pairing/revoke`, { method: "POST" });
-    await refresh();
-  }
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => void refresh(), 0);
-    return () => window.clearTimeout(timer);
-  }, [refresh]);
+  const { state, createCode, revoke } = usePairingWorkflow(apiBaseUrl);
 
   return (
     <section className="diagnostics-panel" aria-label="本地浏览器扩展配对">

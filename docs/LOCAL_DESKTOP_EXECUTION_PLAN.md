@@ -32,8 +32,9 @@ but LOCAL_DESKTOP is the current official product.
 ## Current verified state
 
 - Repository: `D:\Crystal`.
-- `main` and `origin/main` are synchronized after the Stage 12 closeout.
-  PRs #62 and the preceding milestone PRs are merged.
+- `main` and `origin/main` were synchronized at the Stage 12 closeout before
+  this milestone. PRs #62 and the preceding milestone PRs are merged; UI
+  Workflow Modularization PR A is now merged as PR #63.
 - PR 1 is merged as PR #35:
   `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
 - PR 1 commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
@@ -632,10 +633,26 @@ Optimizer Integration and its documentation closeout are complete through PRs
   audit, eligibility, planning, sections, optimization, monitoring, and
   pairing. PR A establishes static-export-safe hash navigation, an application
   shell, workflow anchors, and shared shell status/context without moving
-  feature mutation state. PR and CI identifiers will be recorded once the
-  branch is published.
-- Exact next action: validate and publish UI Workflow Modularization PR A,
-  then merge it before starting PR B.
+  feature mutation state. Final PR A head is
+  `773d4b4390d030e13f27039b6f478be2c51970e2`; exact-head CI is workflow run
+  `29408328244` / run `289` (success); merge commit is
+  `9e610ef274053adc681c2baaa5ed09b12fd6c791`. The remote tree was verified
+  after correcting earlier connector encoding/line-ending attempts.
+- UI Workflow Modularization PR B local checkpoint: branch
+  `ui-workflow-feature-modules`, isolated clone/worktree path
+  `D:\Crystal\.cache\worktrees\ui-workflow-feature-modules`, checkpoint
+  `499ee6d0f0238c744f17632f111a1a91c8e76777`. The local clone retains the
+  equivalent PR A tree through the preserved local commit; final publication
+  will use current remote `main` (including PR A merge) as its parent.
+- PR B module boundaries now include import/review identity keys, audit and
+  eligibility readiness contracts, plan draft/read-only route guards, What-If
+  identity isolation, reviewed Section predicates, optimizer run identity,
+  Section Monitoring reads, applied course-state reads, and local pairing.
+  Request guards ignore stale responses and mutation guards prevent replay;
+  Import → Review → Apply, academic semantics, real/mock isolation, and
+  static-export/Tauri API-base behavior remain unchanged.
+- Exact next action: finish PR B validation and publish the complete branch;
+  Backup/Restore has not started.
 
 ## Scope confirmation
 
