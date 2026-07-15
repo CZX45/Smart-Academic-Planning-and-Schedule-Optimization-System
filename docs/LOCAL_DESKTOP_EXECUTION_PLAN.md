@@ -717,17 +717,21 @@ implementation is included in the Stage 8 closeout.
 
 ## Stage 11A — Real Section Import parser and staging checkpoint
 
-Stage 11A is in progress on an isolated worktree from synchronized Stage 10
-`origin/main`. Its scope is limited to visible-page Section extraction,
+Stage 11A is merged from an isolated worktree based on synchronized Stage 10
+`origin/main`. Its scope was limited to visible-page Section extraction,
 deterministic grouping and normalization, bounded evidence, field provenance,
 validation diagnostics, and staging. Canonical `Section` and `SectionMeeting`
 rows are not created or updated by this checkpoint. Review remains mandatory;
 `AUTO_VERIFIED` describes structural parser consistency only.
 
+- Status: merged through PR #56.
 - Branch: `stage11a-section-import-parser`.
 - Worktree: `D:\Crystal\.cache\worktrees\stage11a-section-import-parser`.
 - Starting commit: `b90c19a4c4db47cad93f5973fa3b5f60ea07ee5c`.
-- PR: pending implementation and validation; no PR 11B work has started.
+- Final head: `f7ff558114408b5f6d33deb093e7dfc60d6a84ae`.
+- PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/56`.
+- CI: run `29381550519` passed checks, Docker Compose, and E2E.
+- Merge commit: `068a38eae02ef51b70172da1f380f398cea9419d`.
 - Parser contract: Section identity is grouped conservatively by visible term,
   course code, and Section code. Repeated rows preserve multiple meetings;
   recognized day/time forms are normalized while raw text remains evidence.
@@ -742,12 +746,36 @@ rows are not created or updated by this checkpoint. Review remains mandatory;
   staging evidence and are not written to canonical structural Section data or
   Section Monitoring targets.
 - Focused validation: Extension Vitest 55 passed; Extension TypeScript
-  typecheck and ESLint passed; API Ruff passed; API compileall passed; focused
-  Section/import pytest passed 2 tests.
+  typecheck and ESLint passed; API pytest 195 passed; API Ruff, format, mypy,
+  TypeScript checks, workspace tests, build, OpenAPI check, and `git diff --check`
+  passed.
 - Protected root artifacts remain outside this worktree and untouched:
   `apps/web/next-env.d.ts`, `.codex-worktrees/`, and
   `localize-web-ui-zh-cn.patch`.
-- Exact next checkpoint: finish the full PR 11A validation matrix, review the
-  complete diff, commit and push this staging-only branch, create PR 11A, and
-  merge it before creating the PR 11B worktree. Real Section Optimizer
+- Exact next checkpoint: complete PR 11B Review/Apply and idempotent persistence
+  of non-official Section and SectionMeeting rows. Real Section Optimizer
   Integration remains out of scope.
+
+## Stage 11B — Real Section Review/Apply checkpoint
+
+Stage 11B is in progress on an isolated worktree created only after PR 11A
+merged and `origin/main` synchronized. It reuses the existing Import → Review →
+Apply session, application-run, and audit records. It adds explicit dry-run and
+Apply behavior for reviewed Section evidence, requiring mapped Course, term,
+campus, and unambiguous Section identity.
+
+- Branch: `stage11b-section-review-apply`.
+- Worktree: `D:\Crystal\.cache\worktrees\stage11b-section-review-apply`.
+- Starting commit: `068a38eae02ef51b70172da1f380f398cea9419d`.
+- Scope: non-official structural Section and SectionMeeting persistence,
+  provenance, explicit conflicts for official/MOCK targets, no mutation on
+  dry-run, repeat-Apply idempotency, and incomplete-snapshot deletion safety.
+- Volatile availability: capacity, available seats, and waitlist values remain
+  advisory evidence and are never written to canonical Section fields.
+- Privacy and safety: no credentials, cookies, tokens, portal mutation,
+  registration automation, monitoring, or schedule-optimizer integration.
+- Focused validation: Section Review/Apply and official-conflict tests pass;
+  full API and workspace validation passed before PR creation.
+- Protected root artifacts remain outside this worktree and untouched:
+  `apps/web/next-env.d.ts`, `.codex-worktrees/`, and
+  `localize-web-ui-zh-cn.patch`.

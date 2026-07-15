@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 from decimal import Decimal, InvalidOperation
 from uuid import UUID, uuid4
 
@@ -14,6 +14,7 @@ from app.models.academic import (
     AppliedImportStatus,
     AppliedImportTargetEntityType,
     AuditWarningSeverity,
+    Campus,
     Course,
     CourseStateSnapshot,
     DataApplicationRun,
@@ -22,6 +23,7 @@ from app.models.academic import (
     DataImportReviewStatus,
     DataImportRun,
     DataReviewWarning,
+    DayOfWeek,
     ImportedRecord,
     ImportedRecordReview,
     ImportedRecordReviewDecision,
@@ -30,6 +32,11 @@ from app.models.academic import (
     ImportMappingCandidate,
     ImportTargetEntityType,
     ImportValidationWarning,
+    MeetingType,
+    Section,
+    SectionMeeting,
+    SectionModality,
+    SectionStatus,
     SourceType,
     StudentCourseAttempt,
     StudentCourseAttemptStatus,
@@ -429,6 +436,15 @@ class DataReviewApplicationService:
                 "UNSUPPORTED_REVIEW_DECISION",
                 f"Decision {record_review.decision.value} is not applyable.",
             )
+        section_result = self._section_application_result(
+            application_id,
+            run,
+            record_review,
+            record,
+            dry_run=dry_run,
+        )
+        if section_result is not None:
+            return section_result
         myprogress_result = self._myprogress_application_result(
             application_id,
             review,
@@ -466,7 +482,15 @@ class DataReviewApplicationService:
                 previous_application.target_entity_id,
             )
 
-        candidate = self._candidate_for_review(record_review, None)
+        candidate = self._db.scalar(
+            select(ImportMappingCandidate)
+            .where(
+                ImportMappingCandidate.imported_record_id == record.id,
+                ImportMappingCandidate.target_entity_type == ImportTargetEntityType.COURSE,
+                ImportMappingCandidate.is_selected.is_(True),
+            )
+            .order_by(ImportMappingCandidate.confidence_score.desc())
+        )
         if candidate is None or candidate.target_entity_type is not ImportTargetEntityType.COURSE:
             return self._outcome(
                 application_id,
@@ -596,6 +620,423 @@ class DataReviewApplicationService:
             "CREATED_STUDENT_COURSE_ATTEMPT",
             "Created an internal student course attempt from a confirmed imported record.",
             attempt.id,
+        )
+
+    def _section_application_result(
+        self,
+        application_id: UUID | None,
+        run: DataImportRun,
+        record_review: ImportedRecordReview,
+        record: ImportedRecord,
+        *,
+        dry_run: bool,
+    ) -> AppliedImportedRecordResult | None:
+        if record.record_type is not ImportedRecordType.SECTION:
+            return None
+        payload = self._review_payload(record_review, record)
+        validation_state = str(
+            payload.get("section_validation_state") or payload.get("validation_state") or ""
+        ).upper()
+        if validation_state == "FAILED":
+            return self._section_outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.SKIPPED_UNSUPPORTED,
+                AppliedImportStatus.SKIPPED,
+                "SKIP_FAILED_VALIDATION",
+                "Failed Section validation cannot be applied.",
+            )
+        if str(payload.get("completeness") or "").upper() == "UNCERTAIN":
+            return self._section_outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.SKIPPED_UNSUPPORTED,
+                AppliedImportStatus.SKIPPED,
+                "SKIP_TRUNCATED_IMPORT",
+                "A bounded or incomplete Section snapshot cannot be applied as complete.",
+            )
+
+        candidate = self._db.scalar(
+            select(ImportMappingCandidate)
+            .where(
+                ImportMappingCandidate.imported_record_id == record.id,
+                ImportMappingCandidate.target_entity_type == ImportTargetEntityType.COURSE,
+                ImportMappingCandidate.is_selected.is_(True),
+            )
+            .order_by(ImportMappingCandidate.confidence_score.desc())
+        )
+        if candidate is None or candidate.target_entity_type is not ImportTargetEntityType.COURSE:
+            return self._section_outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.SKIPPED_UNSUPPORTED,
+                AppliedImportStatus.SKIPPED,
+                "SKIP_UNKNOWN_COURSE",
+                "A confirmed existing Course mapping is required before Section Apply.",
+            )
+        course = (
+            self._db.get(Course, candidate.target_entity_id) if candidate.target_entity_id else None
+        )
+        if course is None:
+            return self._section_outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.SKIPPED_UNSUPPORTED,
+                AppliedImportStatus.SKIPPED,
+                "SKIP_UNKNOWN_COURSE",
+                "The selected Course mapping no longer exists.",
+            )
+        term_code = str(payload.get("term") or payload.get("term_code") or "").strip()
+        term = (
+            self._db.scalar(
+                select(AcademicTerm).where(
+                    AcademicTerm.institution_id == course.institution_id,
+                    AcademicTerm.term_code == term_code,
+                )
+            )
+            if term_code
+            else None
+        )
+        if term is None:
+            return self._section_outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.SKIPPED_UNSUPPORTED,
+                AppliedImportStatus.SKIPPED,
+                "SKIP_UNKNOWN_TERM",
+                f"Visible term {term_code or 'missing'} is not mapped to this institution.",
+            )
+        campus = self._section_campus(course.institution_id, payload)
+        if campus is None:
+            return self._section_outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.SKIPPED_UNSUPPORTED,
+                AppliedImportStatus.SKIPPED,
+                "SKIP_UNKNOWN_CAMPUS",
+                "A visible or explicitly selected existing Campus mapping is required.",
+            )
+        section_code = str(payload.get("section_code") or "").strip()
+        if not section_code:
+            return self._section_outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.SKIPPED_UNSUPPORTED,
+                AppliedImportStatus.SKIPPED,
+                "SKIP_AMBIGUOUS_SECTION_IDENTITY",
+                "Section code is required and cannot be inferred.",
+            )
+        section = self._db.scalar(
+            select(Section).where(
+                Section.institution_id == course.institution_id,
+                Section.term_id == term.id,
+                Section.course_id == course.id,
+                Section.section_code == section_code,
+            )
+        )
+        if section is not None and (section.is_official or section.source_type.name == "MOCK"):
+            return self._section_outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.SKIPPED_UNSUPPORTED,
+                AppliedImportStatus.SKIPPED,
+                "CONFLICT_OFFICIAL_OR_MOCK_TARGET",
+                "Official or MOCK Section records are never overwritten by imported data.",
+            )
+        if section is not None and section.source_type.name not in {
+            "BROWSER_EXTENSION",
+            "IMPORTED",
+        }:
+            return self._section_outcome(
+                application_id,
+                record_review,
+                AppliedImportAction.SKIPPED_UNSUPPORTED,
+                AppliedImportStatus.SKIPPED,
+                "CONFLICT_UNRELATED_SOURCE",
+                "An unrelated Section source requires explicit conflict review.",
+            )
+
+        status = self._section_status(payload.get("status"))
+        modality = self._section_modality(payload.get("modality"))
+        credits = self._parse_credits(payload.get("credits"))
+        if not dry_run:
+            if section is None:
+                section = Section(
+                    id=uuid4(),
+                    institution_id=course.institution_id,
+                    course_id=course.id,
+                    term_id=term.id,
+                    campus_id=campus.id,
+                    section_code=section_code,
+                    external_reference=self._optional_text(payload.get("external_reference")),
+                    title_override=self._optional_text(
+                        payload.get("course_title") or payload.get("title")
+                    ),
+                    credits=credits,
+                    status=status,
+                    modality=modality,
+                    capacity=None,
+                    available_seats=None,
+                    waitlist_capacity=None,
+                    waitlist_available=None,
+                    instructor_display=self._optional_text(payload.get("instructor_display")),
+                    last_synced_at=None,
+                    source_type=SourceType.BROWSER_EXTENSION,
+                    is_official=False,
+                    source_reference=self._section_source_reference(run, record),
+                    source_retrieved_at=run.created_at,
+                    source_confidence="reviewed_import",
+                )
+                self._db.add(section)
+                self._db.flush()
+                action = AppliedImportAction.CREATED
+                reason = "CREATED_IMPORTED_SECTION"
+                message_prefix = "Created non-official imported Section."
+            else:
+                section.external_reference = self._optional_text(payload.get("external_reference"))
+                section.title_override = self._optional_text(
+                    payload.get("course_title") or payload.get("title")
+                )
+                section.credits = credits
+                section.status = status
+                section.modality = modality
+                section.campus_id = campus.id
+                section.instructor_display = self._optional_text(payload.get("instructor_display"))
+                section.source_reference = self._section_source_reference(run, record)
+                section.source_retrieved_at = run.created_at
+                section.source_confidence = "reviewed_import"
+                action = AppliedImportAction.UPDATED
+                reason = "UPDATED_IMPORTED_SECTION"
+                message_prefix = "Updated same-source non-official imported Section."
+            meeting_message = self._apply_section_meetings(section, payload, run, record)
+        else:
+            action = AppliedImportAction.CREATED if section is None else AppliedImportAction.UPDATED
+            reason = (
+                "WOULD_CREATE_IMPORTED_SECTION"
+                if section is None
+                else "WOULD_UPDATE_IMPORTED_SECTION"
+            )
+            message_prefix = (
+                "Dry run would create a non-official imported Section."
+                if section is None
+                else "Dry run would update a same-source imported Section."
+            )
+            meeting_message = self._preview_section_meetings(payload)
+        return self._section_outcome(
+            application_id,
+            record_review,
+            action,
+            AppliedImportStatus.SUCCESS,
+            reason,
+            f"{message_prefix} {meeting_message}",
+            section.id if section is not None else None,
+        )
+
+    def _section_campus(self, institution_id: UUID, payload: dict[str, object]) -> Campus | None:
+        raw = (
+            str(
+                payload.get("campus")
+                or payload.get("campus_code")
+                or payload.get("campus_label")
+                or ""
+            )
+            .strip()
+            .casefold()
+        )
+        if not raw:
+            return None
+        campuses = self._db.scalars(
+            select(Campus).where(Campus.institution_id == institution_id)
+        ).all()
+        return next(
+            (
+                campus
+                for campus in campuses
+                if raw in {campus.code.casefold(), campus.name.casefold()}
+            ),
+            None,
+        )
+
+    def _section_status(self, value: object) -> SectionStatus:
+        normalized = str(value or "").strip().upper()
+        return (
+            SectionStatus(normalized)
+            if normalized in {item.value for item in SectionStatus}
+            else SectionStatus.UNKNOWN
+        )
+
+    def _section_modality(self, value: object) -> SectionModality:
+        normalized = str(value or "").strip().upper()
+        return (
+            SectionModality(normalized)
+            if normalized in {item.value for item in SectionModality}
+            else SectionModality.UNKNOWN
+        )
+
+    def _section_meeting_type(self, value: object) -> MeetingType:
+        normalized = str(value or "").strip().upper()
+        return (
+            MeetingType(normalized)
+            if normalized in {item.value for item in MeetingType}
+            else MeetingType.OTHER
+        )
+
+    def _section_day(self, value: object) -> DayOfWeek | None:
+        normalized = str(value or "").strip().upper()
+        return DayOfWeek(normalized) if normalized in {item.value for item in DayOfWeek} else None
+
+    def _section_time(self, value: object) -> time | None:
+        raw = str(value or "").strip()
+        try:
+            return time.fromisoformat(raw) if raw else None
+        except ValueError:
+            return None
+
+    def _section_date(self, value: object) -> date | None:
+        raw = str(value or "").strip()
+        try:
+            return date.fromisoformat(raw) if raw else None
+        except ValueError:
+            return None
+
+    def _section_source_reference(self, run: DataImportRun, record: ImportedRecord) -> str:
+        return f"{(run.source_reference or 'reviewed Section import')[:430]}#record={record.id}"
+
+    def _optional_text(self, value: object) -> str | None:
+        text = str(value or "").strip()
+        return text or None
+
+    def _section_meetings(self, payload: dict[str, object]) -> list[dict[str, object]]:
+        meetings = payload.get("meetings_json")
+        return (
+            [item for item in meetings if isinstance(item, dict)]
+            if isinstance(meetings, list)
+            else []
+        )
+
+    def _preview_section_meetings(self, payload: dict[str, object]) -> str:
+        meetings = self._section_meetings(payload)
+        return (
+            f"Would reconcile {len(meetings)} confirmed meeting evidence row(s); "
+            "volatile availability is not applied."
+        )
+
+    def _apply_section_meetings(
+        self,
+        section: Section,
+        payload: dict[str, object],
+        run: DataImportRun,
+        record: ImportedRecord,
+    ) -> str:
+        meetings = self._section_meetings(payload)
+        complete = str(payload.get("completeness") or "").upper() == "COMPLETE"
+        existing = self._db.scalars(
+            select(SectionMeeting)
+            .where(SectionMeeting.section_id == section.id)
+            .order_by(SectionMeeting.display_order)
+        ).all()
+        source_meetings = [
+            meeting
+            for meeting in existing
+            if meeting.source_type.name in {"BROWSER_EXTENSION", "IMPORTED"}
+            and not meeting.is_official
+        ]
+        desired: list[tuple[dict[str, object], DayOfWeek | None]] = []
+        for meeting in meetings:
+            days = [self._section_day(day) for day in str(meeting.get("days") or "").split(",")]
+            days = [day for day in days if day is not None] or [None]
+            desired.extend((meeting, day) for day in days)
+        changed = 0
+        for index, (meeting_payload, day) in enumerate(desired):
+            identity = (
+                day,
+                self._section_time(meeting_payload.get("start_time")),
+                self._section_time(meeting_payload.get("end_time")),
+                self._optional_text(meeting_payload.get("location")),
+            )
+            current = next(
+                (
+                    item
+                    for item in source_meetings
+                    if (item.day_of_week, item.start_time, item.end_time, item.building) == identity
+                ),
+                None,
+            )
+            if current is None:
+                current = SectionMeeting(
+                    id=uuid4(),
+                    section_id=section.id,
+                    meeting_type=self._section_meeting_type(meeting_payload.get("component")),
+                    day_of_week=day,
+                    start_time=identity[1],
+                    end_time=identity[2],
+                    start_date=self._section_date(meeting_payload.get("start_date")),
+                    end_date=self._section_date(meeting_payload.get("end_date")),
+                    building=self._optional_text(meeting_payload.get("location")),
+                    room=self._optional_text(meeting_payload.get("room")),
+                    timezone="America/New_York",
+                    is_arranged=bool(meeting_payload.get("is_arranged"))
+                    or not identity[0]
+                    and not identity[1]
+                    and not identity[2],
+                    is_online=bool(meeting_payload.get("is_async"))
+                    or "ONLINE" in str(meeting_payload.get("modality") or "").upper(),
+                    display_order=index,
+                    source_type=SourceType.BROWSER_EXTENSION,
+                    is_official=False,
+                    source_reference=(
+                        f"{self._section_source_reference(run, record)}#meeting={index}"
+                    ),
+                    source_retrieved_at=run.created_at,
+                    source_confidence="reviewed_import",
+                )
+                self._db.add(current)
+                changed += 1
+        if complete:
+            desired_identities = {
+                (
+                    day,
+                    self._section_time(item.get("start_time")),
+                    self._section_time(item.get("end_time")),
+                    self._optional_text(item.get("location")),
+                )
+                for item, day in desired
+            }
+            for current in source_meetings:
+                identity = (
+                    current.day_of_week,
+                    current.start_time,
+                    current.end_time,
+                    current.building,
+                )
+                if identity not in desired_identities:
+                    self._db.delete(current)
+                    changed += 1
+        return (
+            f"Reconciled {len(desired)} meeting row(s); "
+            f"{changed} meeting action(s) recorded with the Section application. "
+            "Volatile availability was not applied."
+        )
+
+    def _section_outcome(
+        self,
+        application_id: UUID | None,
+        record_review: ImportedRecordReview,
+        action: AppliedImportAction,
+        status: AppliedImportStatus,
+        reason_code: str,
+        message: str,
+        target_entity_id: UUID | None = None,
+    ) -> AppliedImportedRecordResult:
+        return self._outcome(
+            application_id,
+            record_review,
+            action,
+            status,
+            reason_code,
+            message,
+            target_entity_id,
+            target_entity_type=AppliedImportTargetEntityType.SECTION,
         )
 
     def _myprogress_application_result(
