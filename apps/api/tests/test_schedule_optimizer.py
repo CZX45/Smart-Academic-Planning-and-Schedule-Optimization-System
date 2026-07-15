@@ -49,6 +49,7 @@ from app.services.schedule_optimizer.engine import ScheduleOptimizerApplicationS
 from app.services.schedule_optimizer.real_sections import (
     evaluate_reviewed_section,
     input_snapshot_hash,
+    section_snapshot_hash,
 )
 from tests.test_data_reviews import section_csv
 
@@ -476,6 +477,25 @@ def test_reviewed_imported_mode_never_falls_back_to_mock_sections(session: Sessi
         .where(ScheduleOption.schedule_optimization_run_id == run.id)
     ).all()
     assert not selected
+
+
+def test_section_snapshot_hash_changes_when_meeting_shape_changes(session: Session) -> None:
+    section = session.scalar(
+        select(Section).where(Section.id == seed_uuid("section:2024-fall-fin-300-web"))
+    )
+    assert section is not None
+    meetings = list(
+        session.scalars(
+            select(SectionMeeting)
+            .where(SectionMeeting.section_id == section.id)
+            .order_by(SectionMeeting.display_order, SectionMeeting.id)
+        ).all()
+    )
+    assert meetings
+    original_hash = section_snapshot_hash(section, meetings)
+    original_start = meetings[0].start_time
+    meetings[0].start_time = time(8, 0) if original_start != time(8, 0) else time(8, 30)
+    assert section_snapshot_hash(section, meetings) != original_hash
 
 
 def test_schedule_engine_records_time_conflicts_and_prefers_online_when_requested(

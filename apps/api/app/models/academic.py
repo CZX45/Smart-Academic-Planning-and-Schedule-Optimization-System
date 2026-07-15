@@ -3726,6 +3726,9 @@ class ScheduleOptionSection(UuidPrimaryKeyMixin, Base):
         nullable=False,
     )
     selection_reason: Mapped[str] = mapped_column(String(120), nullable=False)
+    source_provenance: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    section_snapshot_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source_age_minutes: Mapped[int | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

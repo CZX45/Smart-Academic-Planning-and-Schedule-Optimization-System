@@ -12866,6 +12866,50 @@
             "type": "string",
             "title": "Selection Reason"
           },
+          "source_provenance": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Provenance"
+          },
+          "source_age_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Age Minutes"
+          },
+          "section_snapshot_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Snapshot Hash"
+          },
+          "drift_status": {
+            "type": "string",
+            "enum": [
+              "NOT_CAPTURED",
+              "UNCHANGED",
+              "CHANGED"
+            ],
+            "title": "Drift Status",
+            "default": "NOT_CAPTURED"
+          },
           "meetings": {
             "items": {
               "$ref": "#/components/schemas/SectionMeetingResponse"
