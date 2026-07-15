@@ -6,7 +6,7 @@ use std::fs;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command, Output, Stdio};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -18,6 +18,55 @@ struct RuntimeManifest {
     pid: u32,
     port: u16,
     status: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct MigrationContract {
+    contract_version: u32,
+    command: String,
+    database_identity: Option<String>,
+    current_schema_version: Option<u32>,
+    supported_schema_version: u32,
+    schema_status: String,
+    migration_required: bool,
+    migration_plan: Vec<String>,
+    safety_backup_required: bool,
+    blocking_reason: Option<String>,
+    interrupted_attempt: Option<serde_json::Value>,
+    journal_attempt_id: Option<String>,
+    attempt_id: Option<String>,
+    safety_backup_reference: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct MigrationMarker {
+    marker_version: u32,
+    attempt_id: String,
+    status: String,
+    database_identity: String,
+    safety_backup_reference: Option<String>,
+}
+
+struct StartupLock {
+    path: PathBuf,
+}
+
+impl StartupLock {
+    fn acquire(app_data: &Path) -> Result<Self, String> {
+        let path = app_data.join("startup.lock");
+        fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .map_err(|_| "Another SAPSOS desktop startup is already in progress.".to_string())?;
+        Ok(Self { path })
+    }
+}
+
+impl Drop for StartupLock {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,6 +107,254 @@ struct Processes {
 #[derive(Default)]
 struct DesktopProcesses(Mutex<Processes>);
 
+struct MigrationApplication {
+    app_data: PathBuf,
+    database: PathBuf,
+    marker_path: PathBuf,
+    marker: MigrationMarker,
+}
+
+fn migration_database_identity(database: &Path) -> String {
+    format!(
+        "{:x}",
+        Sha256::digest(database.to_string_lossy().as_bytes())
+    )
+}
+
+fn write_migration_marker(path: &Path, marker: &MigrationMarker) -> Result<(), String> {
+    let temporary = path.with_extension(format!("{}.tmp", std::process::id()));
+    let bytes = serde_json::to_vec(marker)
+        .map_err(|error| format!("Could not encode migration marker: {error}"))?;
+    fs::write(&temporary, bytes)
+        .map_err(|error| format!("Could not write migration marker: {error}"))?;
+    fs::rename(&temporary, path)
+        .map_err(|error| format!("Could not publish migration marker: {error}"))
+}
+
+fn contained_app_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    let candidate = root.join(relative).components().collect::<PathBuf>();
+    if Path::new(relative).is_absolute()
+        || Path::new(relative).components().any(|component| {
+            matches!(
+                component,
+                std::path::Component::ParentDir
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
+            )
+        })
+    {
+        return Err("Migration contract contains an unsafe path".to_string());
+    }
+    let resolved = candidate.canonicalize().unwrap_or(candidate);
+    resolved
+        .strip_prefix(root)
+        .map_err(|_| "Migration contract path escapes app data".to_string())?;
+    Ok(resolved)
+}
+
+fn run_migration_command(
+    executable: &Path,
+    arguments: &[String],
+    working_directory: &Path,
+    app_data: &Path,
+    database: &Path,
+    command: &str,
+) -> Result<MigrationContract, String> {
+    let database_url = format!(
+        "sqlite+pysqlite:///{}",
+        database.to_string_lossy().replace('\\', "/")
+    );
+    let output: Output = Command::new(executable)
+        .args(arguments)
+        .arg(command)
+        .current_dir(working_directory)
+        .env("LOCALAPPDATA", app_data.parent().unwrap_or(app_data))
+        .env("DATABASE_URL", database_url)
+        .env("PRODUCT_MODE", "LOCAL_DESKTOP")
+        .env("AUTH_MODE", "local")
+        .env("ENVIRONMENT", "test")
+        .env("API_HOST", "127.0.0.1")
+        .output()
+        .map_err(|error| format!("Could not start migration command: {error}"))?;
+    let parsed: MigrationContract = serde_json::from_slice(&output.stdout)
+        .map_err(|_| "Migration command returned malformed JSON.".to_string())?;
+    if parsed.contract_version != 1 || parsed.command != command {
+        return Err("Migration command contract is incompatible.".to_string());
+    }
+    if parsed.supported_schema_version == 0
+        || parsed
+            .current_schema_version
+            .is_some_and(|version| version > parsed.supported_schema_version)
+        || (parsed.migration_required && parsed.migration_plan.is_empty())
+        || (parsed.schema_status == "UPGRADE_REQUIRED" && !parsed.safety_backup_required)
+    {
+        return Err("Migration command returned an inconsistent result.".to_string());
+    }
+    Ok(parsed)
+}
+
+fn rollback_migration(application: &MigrationApplication) -> Result<(), String> {
+    let Some(reference) = application.marker.safety_backup_reference.as_deref() else {
+        return Err("No safety backup is bound to this migration attempt.".to_string());
+    };
+    let backup = contained_app_path(&application.app_data, reference)?;
+    if !backup.is_file() {
+        return Err("The migration safety backup is missing.".to_string());
+    }
+    let evidence = application
+        .app_data
+        .join("migration-safety")
+        .join(&application.marker.attempt_id)
+        .join("failed-database.sqlite");
+    if application.database.is_file() {
+        fs::rename(&application.database, &evidence)
+            .map_err(|error| format!("Could not preserve failed database evidence: {error}"))?;
+    }
+    for sidecar in sqlite_sidecars(&application.database) {
+        if sidecar.is_file() {
+            let evidence_sidecar =
+                evidence.with_file_name(sidecar.file_name().ok_or("Invalid SQLite sidecar name")?);
+            fs::rename(sidecar, evidence_sidecar)
+                .map_err(|error| format!("Could not preserve failed SQLite sidecar: {error}"))?;
+        }
+    }
+    let temporary = application.database.with_extension("rollback.tmp");
+    fs::copy(&backup, &temporary)
+        .map_err(|error| format!("Could not stage migration rollback: {error}"))?;
+    if let Err(error) = fs::rename(&temporary, &application.database) {
+        let _ = fs::remove_file(&temporary);
+        return Err(format!("Could not install migration rollback: {error}"));
+    }
+    let marker = MigrationMarker {
+        status: "ROLLED_BACK".to_string(),
+        ..application.marker.clone()
+    };
+    write_migration_marker(&application.marker_path, &marker)?;
+    Ok(())
+}
+
+fn prepare_migration(
+    api_executable: &Path,
+    api_arguments: &[String],
+    api_working_directory: &Path,
+    app_data: &Path,
+    database: &Path,
+) -> Result<Option<MigrationApplication>, String> {
+    let marker_path = app_data.join("migration-attempt.json");
+    if marker_path.is_file() {
+        let marker: MigrationMarker = serde_json::from_slice(
+            &fs::read(&marker_path)
+                .map_err(|error| format!("Could not read migration marker: {error}"))?,
+        )
+        .map_err(|_| "Migration marker is malformed; startup is blocked.".to_string())?;
+        if marker.marker_version != 1
+            || marker.database_identity != migration_database_identity(database)
+        {
+            return Err(
+                "Migration marker is unsupported or belongs to another database.".to_string(),
+            );
+        }
+        if marker.status == "ROLLED_BACK" {
+            return Err(
+                "The previous migration was rolled back; startup is safely stopped.".to_string(),
+            );
+        }
+        let application = MigrationApplication {
+            app_data: app_data.to_path_buf(),
+            database: database.to_path_buf(),
+            marker_path: marker_path.clone(),
+            marker,
+        };
+        rollback_migration(&application)?;
+        return Err(
+            "An interrupted migration was rolled back; startup is safely stopped.".to_string(),
+        );
+    }
+    let preflight = run_migration_command(
+        api_executable,
+        api_arguments,
+        api_working_directory,
+        app_data,
+        database,
+        "preflight",
+    )?;
+    if preflight.schema_status == "CURRENT" {
+        return Ok(None);
+    }
+    if preflight.schema_status != "UPGRADE_REQUIRED" || !preflight.migration_required {
+        return Err(preflight
+            .blocking_reason
+            .unwrap_or_else(|| "Local database cannot be safely started.".to_string()));
+    }
+    if preflight.interrupted_attempt.is_some() {
+        return Err("An interrupted local migration requires recovery before startup.".to_string());
+    }
+    let executed = run_migration_command(
+        api_executable,
+        api_arguments,
+        api_working_directory,
+        app_data,
+        database,
+        "execute",
+    )?;
+    if executed.schema_status != "CURRENT" {
+        if let (Some(attempt_id), Some(database_identity), Some(reference)) = (
+            executed
+                .attempt_id
+                .clone()
+                .or(executed.journal_attempt_id.clone()),
+            executed.database_identity.clone(),
+            executed.safety_backup_reference.clone(),
+        ) {
+            let marker = MigrationMarker {
+                marker_version: 1,
+                attempt_id,
+                status: "MIGRATION_FAILED".to_string(),
+                database_identity,
+                safety_backup_reference: Some(reference),
+            };
+            write_migration_marker(&marker_path, &marker)?;
+            let application = MigrationApplication {
+                app_data: app_data.to_path_buf(),
+                database: database.to_path_buf(),
+                marker_path: marker_path.clone(),
+                marker,
+            };
+            rollback_migration(&application)?;
+        }
+        return Err(executed
+            .blocking_reason
+            .unwrap_or_else(|| "Local migration failed; startup is safely stopped.".to_string()));
+    }
+    if executed.safety_backup_reference.is_none() {
+        return Err("Local migration did not complete with a validated safety backup.".to_string());
+    }
+    let attempt_id = executed
+        .attempt_id
+        .or(executed.journal_attempt_id)
+        .ok_or("Migration attempt ID is missing")?;
+    let database_identity = executed
+        .database_identity
+        .ok_or("Migration database identity is missing")?;
+    if database_identity != migration_database_identity(database) {
+        return Err("Migration used an unexpected database.".to_string());
+    }
+    let marker = MigrationMarker {
+        marker_version: 1,
+        attempt_id,
+        status: "MIGRATED_BEFORE_READINESS".to_string(),
+        database_identity,
+        safety_backup_reference: executed.safety_backup_reference,
+    };
+    write_migration_marker(&marker_path, &marker)?;
+    Ok(Some(MigrationApplication {
+        app_data: app_data.to_path_buf(),
+        database: database.to_path_buf(),
+        marker_path,
+        marker,
+    }))
+}
+
 impl DesktopProcesses {
     fn start(&self) -> Result<RuntimeManifest, String> {
         let mut guard = self.0.lock().map_err(|_| "process lock poisoned")?;
@@ -86,13 +383,12 @@ impl DesktopProcesses {
         let app_data = local_app_data.join("SAPSOS");
         fs::create_dir_all(&app_data)
             .map_err(|error| format!("Could not create proof app-data directory: {error}"))?;
+        let _startup_lock = StartupLock::acquire(&app_data)?;
         let database_path = app_data.join("tauri-proof.db");
         let database_url = format!(
             "sqlite+pysqlite:///{}",
             database_path.to_string_lossy().replace('\\', "/")
         );
-        let restore = apply_pending_restore(&app_data, &database_path)?;
-
         let packaged_api = std::env::var_os("SAPSOS_API_EXECUTABLE").map(PathBuf::from);
         let (api_executable, api_arguments, api_working_directory) = if let Some(path) =
             packaged_api
@@ -114,6 +410,22 @@ impl DesktopProcesses {
                 vec!["-m".to_string(), "app.run".to_string()],
                 api_directory.clone(),
             )
+        };
+        let restore = apply_pending_restore(&app_data, &database_path)?;
+        let migration = match prepare_migration(
+            &api_executable,
+            &api_arguments,
+            &api_working_directory,
+            &app_data,
+            &database_path,
+        ) {
+            Ok(application) => application,
+            Err(error) => {
+                if let Some(application) = restore {
+                    let _ = rollback_restore(&application, &database_path);
+                }
+                return Err(error);
+            }
         };
         let api_child = Command::new(api_executable)
             .args(api_arguments)
@@ -141,13 +453,18 @@ impl DesktopProcesses {
                 if let Some(application) = restore {
                     finalize_restore(&application)?;
                 }
+                if let Some(application) = &migration {
+                    let _ = fs::remove_file(&application.marker_path);
+                }
                 manifest
             }
             Err(error) => {
                 self.stop();
+                if let Some(application) = &migration {
+                    rollback_migration(application)?;
+                }
                 if let Some(application) = restore {
                     rollback_restore(&application, &database_path)?;
-                    return self.start();
                 }
                 return Err(error);
             }
@@ -180,6 +497,9 @@ impl DesktopProcesses {
             drop(guard);
             if let Err(error) = wait_for_web(&self.0, web_pid) {
                 self.stop();
+                if let Some(application) = &migration {
+                    rollback_migration(application)?;
+                }
                 return Err(error);
             }
         }
@@ -668,3 +988,4 @@ fn main() {
             }
         });
 }
+

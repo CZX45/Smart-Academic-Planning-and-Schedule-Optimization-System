@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 import uvicorn
@@ -13,6 +14,10 @@ from app.runtime.discovery import (
 )
 
 if __name__ == "__main__":
+    if len(sys.argv) == 2 and sys.argv[1] in {"preflight", "execute"}:
+        from app.runtime.migration_contract import main as migration_main
+
+        raise SystemExit(migration_main(sys.argv[1]))
     port = settings.api_port or allocate_loopback_port()
     settings.api_port = port
     manifest_path = default_runtime_manifest_path(

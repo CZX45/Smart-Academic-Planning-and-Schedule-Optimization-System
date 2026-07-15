@@ -312,7 +312,7 @@ Status: Accepted
 
 Context: Phase 7A staging data can be mock, student-provided, ambiguous, unsupported, or unmatched. Automatically applying those records would create planning state that appears more authoritative than its source. At the same time, students need a controlled way to turn reviewed unofficial transcript rows into internal planning records for estimates.
 
-Decision: Implement Phase 7B as an explicit Data Review and Confirmation workflow. Persist `DataImportReviewSession`, `ImportedRecordReview`, `DataApplicationRun`, `AppliedImportedRecord`, and `DataReviewWarning`. Require per-record decisions and apply only through `POST /data-import-reviews/{review_id}/apply`; GET endpoints remain read-only. Support dry-run with no domain writes. Limit real application to confirmed unofficial transcript course attempts that map to a known course and term, create non-official internal `StudentCourseAttempt` records with source metadata, and audit every applied or skipped record with action, status, reason code, and message.
+Decision: Implement Phase 7B as an expl…51 tokens truncated…s and apply only through `POST /data-import-reviews/{review_id}/apply`; GET endpoints remain read-only. Support dry-run with no domain writes. Limit real application to confirmed unofficial transcript course attempts that map to a known course and term, create non-official internal `StudentCourseAttempt` records with source metadata, and audit every applied or skipped record with action, status, reason code, and message.
 
 Consequences:
 
@@ -574,3 +574,28 @@ change PostgreSQL/Alembic behavior. Destructive migrations require a validated
 safety-backup reference for the active database. The journal stores only safe
 metadata and sanitized error text; it never stores credentials, cookies,
 tokens, MFA data, pairing secrets, or academic data contents.
+
+# ADR-0024: Orchestrate LOCAL_DESKTOP migrations before startup
+
+Status: Accepted
+
+LOCAL_DESKTOP schema upgrades are orchestrated by the Tauri shell before the
+FastAPI child is started. The shell calls a versioned, JSON-only Python
+preflight/execute contract; Python remains the owner of the migration registry,
+plan calculation, journal semantics, SQLite integrity checks, and safety
+snapshot creation. The shell owns startup ordering, the single-instance lock,
+attempt marker, API/runtime-manifest/readiness gate, and rollback replacement.
+
+Pending restore is processed before migration and never concurrently with it.
+`CURRENT` databases do not create a migration safety snapshot. An upgrade must
+have a validated snapshot bound to its attempt before execution. Migration
+success is not startup success until the normal API reaches readiness and its
+manifest identifies the expected child. Any later failure stops the child,
+preserves failed-database evidence, restores the attempt-bound snapshot, and
+leaves a non-replayable rollback marker. Interrupted or malformed markers fail
+closed; the shell never retries migration in the same startup.
+
+The contract accepts no database path argument. The active database is derived
+from trusted LOCAL_DESKTOP runtime configuration, and all subprocess output is
+machine-readable JSON on stdout with sanitized diagnostics only.
+
