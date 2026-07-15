@@ -69,6 +69,58 @@ class SectionEligibility:
     source_age_minutes: int | None
 
 
+def provenance_payload(provenance: SectionProvenance | None) -> dict[str, object] | None:
+    if provenance is None:
+        return None
+    return {
+        "import_id": str(provenance.import_id),
+        "application_run_id": str(provenance.application_run_id),
+        "review_session_id": str(provenance.review_session_id),
+        "imported_record_id": str(provenance.imported_record_id),
+        "extraction_at": provenance.extraction_at.isoformat() if provenance.extraction_at else None,
+        "import_created_at": provenance.import_created_at.isoformat(),
+        "review_completed_at": (
+            provenance.review_completed_at.isoformat() if provenance.review_completed_at else None
+        ),
+        "application_completed_at": (
+            provenance.application_completed_at.isoformat()
+            if provenance.application_completed_at
+            else None
+        ),
+    }
+
+
+def section_snapshot_hash(section: Section, meetings: list[SectionMeeting]) -> str:
+    payload = {
+        "section_id": str(section.id),
+        "section_code": section.section_code,
+        "status": section.status.value,
+        "modality": section.modality.value,
+        "credits": str(section.credits) if section.credits is not None else None,
+        "source_type": section.source_type.value,
+        "source_reference": section.source_reference,
+        "source_retrieved_at": (
+            section.source_retrieved_at.isoformat() if section.source_retrieved_at else None
+        ),
+        "meetings": [
+            {
+                "day_of_week": meeting.day_of_week.value if meeting.day_of_week else None,
+                "start_time": meeting.start_time.isoformat() if meeting.start_time else None,
+                "end_time": meeting.end_time.isoformat() if meeting.end_time else None,
+                "is_online": meeting.is_online,
+                "is_arranged": meeting.is_arranged,
+                "building": meeting.building,
+                "room": meeting.room,
+                "display_order": meeting.display_order,
+            }
+            for meeting in meetings
+        ],
+    }
+    return hashlib.sha256(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest()
+
+
 def evaluate_reviewed_section(
     db: Session,
     *,

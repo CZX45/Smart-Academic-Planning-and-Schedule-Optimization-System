@@ -52,8 +52,11 @@ from app.services.course_eligibility.result import EligibilityResult
 from app.services.degree_audit.engine import DegreeAuditEngine, quantize_credits
 from app.services.schedule_optimizer.exceptions import ScheduleOptimizerValidationError
 from app.services.schedule_optimizer.real_sections import (
+    SectionEligibility,
     evaluate_reviewed_section,
     input_snapshot_hash,
+    provenance_payload,
+    section_snapshot_hash,
 )
 
 ENGINE_VERSION = "phase-6b-schedule-optimizer-v1"
@@ -102,6 +105,9 @@ class SectionCandidate:
     credits: Decimal
     selection_reason: str
     warning_codes: tuple[str, ...] = ()
+    source_provenance: dict[str, object] | None = None
+    section_snapshot_hash: str | None = None
+    source_age_minutes: int | None = None
 
 
 @dataclass(frozen=True)
@@ -1052,6 +1058,17 @@ class ScheduleOptimizerApplicationService:
             for section in sections:
                 if required_for_course and section.id not in required_for_course:
                     continue
+                reviewed_decision = None
+                if section_data_mode is SectionDataMode.REVIEWED_IMPORTED:
+                    reviewed_decision = evaluate_reviewed_section(
+                        self._db,
+                        section=section,
+                        student=student,
+                        target_term_id=term.id,
+                        requested_course_id=candidate.course.id,
+                        now=utc_now(),
+                        maximum_source_age_minutes=source_age_max_minutes,
+                    )
                 section_candidate = self._section_candidate(
                     student=student,
                     term=term,
@@ -1067,6 +1084,7 @@ class ScheduleOptimizerApplicationService:
                     allow_permission_required=allow_permission_required,
                     warnings=warnings,
                     conflicts=conflicts,
+                    reviewed_decision=reviewed_decision,
                 )
                 if section_candidate is not None:
                     selected.append(section_candidate)
@@ -1095,6 +1113,7 @@ class ScheduleOptimizerApplicationService:
         allow_permission_required: bool,
         warnings: list[WarningDraft],
         conflicts: list[ConflictDraft],
+        reviewed_decision: SectionEligibility | None = None,
     ) -> SectionCandidate | None:
         if section.id in excluded_section_ids:
             return None
@@ -1217,6 +1236,19 @@ class ScheduleOptimizerApplicationService:
             credits=quantize_credits(section.credits or course.credits_min),
             selection_reason="SECTION_SATISFIES_HARD_CONSTRAINTS",
             warning_codes=tuple(dict.fromkeys(warning_codes)),
+            source_provenance=(
+                provenance_payload(reviewed_decision.provenance)
+                if reviewed_decision is not None
+                else None
+            ),
+            section_snapshot_hash=(
+                section_snapshot_hash(section, list(meetings))
+                if reviewed_decision is not None
+                else None
+            ),
+            source_age_minutes=(
+                reviewed_decision.source_age_minutes if reviewed_decision is not None else None
+            ),
         )
 
     def _meetings(self, section_id: UUID) -> list[SectionMeeting]:
@@ -2119,6 +2151,9 @@ class ScheduleOptimizerApplicationService:
                         credits=selected.credits,
                         eligibility_result=selected.eligibility.overall_result,
                         selection_reason=selected.selection_reason,
+                        source_provenance=selected.source_provenance,
+                        section_snapshot_hash=selected.section_snapshot_hash,
+                        source_age_minutes=selected.source_age_minutes,
                     )
                 )
             for warning in draft.warnings:

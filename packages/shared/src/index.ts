@@ -978,6 +978,10 @@ export const ScheduleOptionSectionSchema = z.object({
   credits: DecimalValueSchema,
   eligibility_result: EligibilityOverallResultSchema,
   selection_reason: z.string(),
+  source_provenance: z.record(z.string(), z.unknown()).nullable().default(null),
+  source_age_minutes: z.number().nullable().default(null),
+  section_snapshot_hash: z.string().nullable().default(null),
+  drift_status: z.enum(["NOT_CAPTURED", "UNCHANGED", "CHANGED"]).default("NOT_CAPTURED"),
   meetings: z.array(ScheduleSectionMeetingSchema),
   created_at: DateTimeSchema,
 });

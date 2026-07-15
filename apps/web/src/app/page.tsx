@@ -3731,6 +3731,8 @@ function SemesterScheduleBuilder({
           term_id: selectedPreset.termId,
           academic_plan_run_id: null,
           planning_mode: "CUSTOM_COURSE_SET",
+          section_data_mode: "REVIEWED_IMPORTED",
+          source_age_max_minutes: 1440,
           candidate_course_ids: selectedPreset.candidateCourseIds,
           minimum_credits: "3.0",
           maximum_credits: "6.0",
@@ -3866,14 +3868,14 @@ function SemesterScheduleBuilder({
         <div>
           <h2>学期课表生成器</h2>
           <p className="subtle">
-            演示模式：除非导入真实课节搜索数据，否则不用于真实课表决策。
+            真实导入模式：仅使用已 Review/Apply 的课节；来源年龄上限为 24 小时。
           </p>
         </div>
         <p className="notice compact">这不是注册课程。</p>
       </div>
 
       <ul className="disclaimer-list" aria-label="课表生成器边界">
-        <li>演示数据 / 模拟数据，不是官方学校政策。</li>
+        <li>仅使用已 Review/Apply 的导入课节；不会回退到演示课节。</li>
         <li>生成课表不是注册课程。</li>
         <li>课节座位状态必须在官方门户人工核对。</li>
         <li>不会 add/drop/swap，不会加入 waitlist。</li>
@@ -4219,6 +4221,16 @@ function ScheduleResultView({
                       - {statusLabel(selected.eligibility_result)}
                     </span>
                     <span>{formatMeetingList(selected.meetings)}</span>
+                    <span>
+                      来源 · {selected.drift_status === "CHANGED"
+                        ? "已变化，请重新生成"
+                        : selected.drift_status === "UNCHANGED"
+                          ? "快照一致"
+                          : "未捕获快照"}
+                      {selected.source_age_minutes !== null
+                        ? ` · ${selected.source_age_minutes} 分钟前`
+                        : " · 来源年龄未知"}
+                    </span>
                   </li>
                 ))}
               </ul>

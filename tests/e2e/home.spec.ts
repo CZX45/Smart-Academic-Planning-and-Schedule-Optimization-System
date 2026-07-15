@@ -409,6 +409,18 @@ const mockScheduleOptimization = {
   term_id: "f0f8e29f-d65a-568c-b2aa-22ca4e5dcaec",
   academic_plan_run_id: null,
   planning_mode: "CUSTOM_COURSE_SET",
+  section_data_mode: "REVIEWED_IMPORTED",
+  source_age_max_minutes: 1440,
+  input_snapshot_hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  source_readiness: {
+    status: "READY_WITH_WARNINGS",
+    section_data_mode: "REVIEWED_IMPORTED",
+    requested_course_count: 2,
+    covered_course_count: 2,
+    uncovered_course_count: 0,
+    reviewed_candidate_count: 2,
+    source_age_max_minutes: 1440,
+  },
   status: "COMPLETED_WITH_WARNINGS",
   engine_version: "phase-6b-schedule-optimizer-v1",
   minimum_credits: "3.0",
@@ -690,7 +702,7 @@ const mockScheduleOptimization = {
       id: "00000000-0000-4000-8000-000000000609",
       schedule_optimization_run_id: "00000000-0000-4000-8000-000000000601",
       schedule_option_id: null,
-      warning_code: "MOCK_SECTION_DATA_NOT_OFFICIAL",
+      warning_code: "REVIEWED_IMPORTED_SECTION_DATA_NOT_OFFICIAL",
       severity: "INFO",
       message: "This schedule uses mock non-official section data.",
       requires_advisor_confirmation: true,
@@ -3050,7 +3062,9 @@ test("home page builds and compares semester schedules", async ({ page }) => {
     "RELAX UNAVAILABLE BLOCK",
   );
   await expect(page.getByText("TIME_OVERLAP")).toBeVisible();
-  await expect(page.getByText("MOCK_SECTION_DATA_NOT_OFFICIAL")).toBeVisible();
+  await expect(
+    page.getByText("REVIEWED_IMPORTED_SECTION_DATA_NOT_OFFICIAL"),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: /比较已保存课表/ }).click();
   await expect(

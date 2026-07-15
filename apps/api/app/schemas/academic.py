@@ -992,6 +992,10 @@ class ScheduleOptionSectionResponse(BaseModel):
     credits: Decimal
     eligibility_result: EligibilityOverallResultValue
     selection_reason: str
+    source_provenance: dict[str, Any] | None = None
+    source_age_minutes: int | None = None
+    section_snapshot_hash: str | None = None
+    drift_status: Literal["NOT_CAPTURED", "UNCHANGED", "CHANGED"] = "NOT_CAPTURED"
     meetings: list[SectionMeetingResponse]
     created_at: datetime
 

@@ -1,7 +1,7 @@
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Annotated, Protocol, cast
+from typing import Annotated, Literal, Protocol, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -201,6 +201,7 @@ from app.services.reviewed_rules.contracts import CatalogRuleSet, RuleLifecycle
 from app.services.reviewed_rules.engine import ReviewedRuleService, validate_rule_set
 from app.services.schedule_optimizer.engine import ScheduleOptimizerApplicationService
 from app.services.schedule_optimizer.exceptions import ScheduleOptimizerValidationError
+from app.services.schedule_optimizer.real_sections import section_snapshot_hash
 from app.services.section_monitoring.engine import (
     SectionMonitoringApplicationService,
     SnapshotCompareResult,
@@ -1222,6 +1223,12 @@ def schedule_option_section_response(
     course: Course,
     meetings: list[SectionMeeting],
 ) -> ScheduleOptionSectionResponse:
+    current_snapshot_hash = section_snapshot_hash(section, meetings)
+    drift_status: Literal["NOT_CAPTURED", "UNCHANGED", "CHANGED"] = "NOT_CAPTURED"
+    if selected.section_snapshot_hash:
+        drift_status = (
+            "UNCHANGED" if selected.section_snapshot_hash == current_snapshot_hash else "CHANGED"
+        )
     return ScheduleOptionSectionResponse(
         id=selected.id,
         schedule_option_id=selected.schedule_option_id,
@@ -1235,6 +1242,10 @@ def schedule_option_section_response(
         credits=selected.credits,
         eligibility_result=selected.eligibility_result.value,
         selection_reason=selected.selection_reason,
+        source_provenance=selected.source_provenance,
+        source_age_minutes=selected.source_age_minutes,
+        section_snapshot_hash=selected.section_snapshot_hash,
+        drift_status=drift_status,
         meetings=[section_meeting_response(meeting) for meeting in meetings],
         created_at=selected.created_at,
     )
