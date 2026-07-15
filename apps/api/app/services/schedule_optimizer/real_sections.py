@@ -140,10 +140,8 @@ def evaluate_reviewed_section(
         )
         .order_by(AppliedImportedRecord.created_at.desc(), AppliedImportedRecord.id.desc())
     ).all()
-    if len(rows) != 1:
-        reasons.append(
-            "SECTION_IDENTITY_CONFLICT" if len(rows) > 1 else "SECTION_SOURCE_NOT_APPLIED"
-        )
+    if not rows:
+        reasons.append("SECTION_SOURCE_NOT_APPLIED")
 
     provenance: SectionProvenance | None = None
     payload: dict[str, object] = {}
@@ -175,9 +173,9 @@ def evaluate_reviewed_section(
             reasons.append("SECTION_SOURCE_TRUNCATED")
         if payload.get("unsupported_layout") is True:
             reasons.append("SECTION_SOURCE_UNSUPPORTED_LAYOUT")
-        if (
-            section.source_reference is None
-            or f"record={record.id}" not in section.source_reference
+        applied_record_ids = {candidate_row[4].id for candidate_row in rows}
+        if section.source_reference is None or not any(
+            f"record={record_id}" in section.source_reference for record_id in applied_record_ids
         ):
             reasons.append("SECTION_PROVENANCE_MISSING")
 

@@ -375,6 +375,43 @@ def test_reviewed_imported_boundary_requires_successful_stage_11_apply(session: 
     )
     assert decision.eligible
     assert decision.provenance is not None
+
+    refreshed_run = DataImportApplicationService(session).create_import(
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        import_type=DataImportType.SECTION_SCHEDULE,
+        file_name="reviewed-section-refresh.csv",
+        file_mime_type="text/csv",
+        content=section_csv("REAL-1"),
+        source_type=SourceType.BROWSER_EXTENSION,
+        source_reference="Synthetic visible-page section refresh fixture",
+    )
+    refreshed_review = review_service.create_review_session(
+        data_import_run_id=refreshed_run.id,
+        reviewer_label="Synthetic reviewer",
+    )
+    refreshed_record_review = session.scalar(
+        select(ImportedRecordReview).where(
+            ImportedRecordReview.review_session_id == refreshed_review.id
+        )
+    )
+    assert refreshed_record_review is not None
+    review_service.update_record_review(
+        review_session_id=refreshed_review.id,
+        record_review_id=refreshed_record_review.id,
+        decision=ImportedRecordReviewDecision.CONFIRMED,
+    )
+    refreshed_applied = review_service.apply_review_session(refreshed_review.id)
+    assert refreshed_applied.application is not None
+    refreshed_decision = evaluate_reviewed_section(
+        session,
+        section=section,
+        student=student,
+        target_term_id=seed_uuid("term:2024-fall"),
+        requested_course_id=seed_uuid("course:FIN-300"),
+        now=datetime.now(UTC),
+    )
+    assert refreshed_decision.eligible
+    assert refreshed_decision.provenance is not None
     assert input_snapshot_hash(
         section_data_mode=SectionDataMode.REVIEWED_IMPORTED.value,
         student_id=seed_uuid("student-profile:mock-student"),
