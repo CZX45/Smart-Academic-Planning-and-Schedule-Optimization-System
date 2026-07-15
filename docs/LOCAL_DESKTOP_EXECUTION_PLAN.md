@@ -797,18 +797,17 @@ campus, and unambiguous Section identity.
 
 ## Stage 12A — Real Section optimizer input boundary checkpoint
 
-Stage 12A is implemented on an isolated worktree from synchronized
-`origin/main`. It establishes the safe backend boundary for the next
-dependency-ordered milestone; PR 60 must merge and `main` must synchronize
-before Stage 12B begins.
+Stage 12A is complete and merged through PR 60. It established the safe
+backend boundary for the dependency-ordered optimizer integration.
 
-- Status: PR 60 open; CI is in progress.
+- Status: complete and merged.
 - Branch: `real-section-optimizer-input-boundary`.
 - Worktree: `D:\Crystal\.cache\worktrees\real-section-optimizer-input-boundary`.
 - Starting commit: `42fdd6c0f6efab0b55b0c762948564a29e83a9a8`.
-- Final head: `d0b06fd4933a0c517d229c1dff2b6c150d246ed2`.
+- Final head: `9d9ebc1f3d9697e7c7d23d24c5cb268dcaf6e787`.
 - PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/60`.
-- CI: workflow run `29386664333` (run number `267`), in progress at checkpoint time.
+- CI: workflow run `29387106741` (run number `275`) passed checks, Docker Compose, and E2E.
+- Merge commit: `9e0e2d251dd5a29bc42d4228ee837a95e986d77b`.
 - Data modes: explicit `DEMO_MOCK` preserves existing seeded behavior;
   `REVIEWED_IMPORTED` requires successful Stage 11 application provenance.
 - Reviewed/applied predicate: centralized audit-chain evaluation requires the
@@ -834,7 +833,35 @@ before Stage 12B begins.
   typecheck, build, API Ruff, format, mypy, compileall, and diff checks passed.
   The documented SQLite full-Alembic-from-base blocker remains at revision
   `20260623_0004`.
-- Exact next action: after PR 60 exact-head CI and review pass, merge PR 60,
-  synchronize local `main` with `origin/main`, then create the separate
-  `real-section-optimizer-integration` worktree for Stage 12B. Do not begin
-  Stage 12B before that gate.
+- Gate evidence: root `main` and `origin/main` are synchronized at
+  `9e0e2d251dd5a29bc42d4228ee837a95e986d77b`; protected root artifacts remain
+  untouched.
+
+## Stage 12B — Real Section optimizer execution and provenance checkpoint
+
+Stage 12B is implemented in a new isolated worktree created only after Stage
+12A merged and `origin/main` synchronized. It persists selected Section
+provenance and source-age evidence, computes a deterministic Section snapshot,
+reports drift without automatic rerun, and exposes the reviewed-imported mode
+in the schedule builder UI.
+
+- Status: PR pending creation; branch `real-section-optimizer-integration`.
+- Worktree: `D:\Crystal\.cache\worktrees\real-section-optimizer-integration`.
+- Starting commit: `9e0e2d251dd5a29bc42d4228ee837a95e986d77b`.
+- Implementation head: `4a7a9fa217ba95fa649dd097a4171d87d1b9b067`.
+- Persistence: migration `20260715_0020` stores selected source provenance,
+  source age, and Section snapshot hash on each selected option Section.
+- API/UI: selected Sections report provenance, source age, and
+  `NOT_CAPTURED`/`UNCHANGED`/`CHANGED` drift status; the UI requests
+  `REVIEWED_IMPORTED` with a 24-hour source-age limit and tells the student to
+  regenerate when a snapshot changes.
+- Safety: drift is advisory only; no registration, portal mutation, seat
+  grabbing, waitlist, or monitoring behavior was added.
+- Validation: focused optimizer tests 11 passed; final workspace test run passed API 200,
+  Extension 55, shared 28, and web 14; workspace lint and typecheck passed;
+  OpenAPI was regenerated and `git diff --check` passed. The existing full
+  Alembic-from-base SQLite blocker remains documented at revision
+  `20260623_0004`.
+- Exact next action: push this implementation, create PR B, wait for exact-head
+  CI/review, then merge and synchronize `main` before declaring Stage 12
+  complete.
