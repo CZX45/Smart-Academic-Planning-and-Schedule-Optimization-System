@@ -316,6 +316,7 @@ def test_schedule_engine_generates_no_friday_feasible_options_and_warnings(
     )
     assert not friday_meetings
     assert any(warning.warning_code == "MOCK_SECTION_DATA_NOT_OFFICIAL" for warning in warnings)
+    assert any("credits" in option.explanation.lower() for option in options)
 
 
 def test_reviewed_imported_boundary_requires_successful_stage_11_apply(session: Session) -> None:
