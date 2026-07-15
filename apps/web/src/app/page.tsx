@@ -31,6 +31,9 @@ import {
   fetchHealth,
   fetchLocalBackupStatus,
   downloadLocalBackup,
+  validateLocalRestore,
+  confirmLocalRestore,
+  cancelLocalRestore,
   fetchLatestDegreeAudit,
   fetchStudentDataImports,
   fetchStudentScheduleOptimizations,
@@ -57,6 +60,7 @@ import {
   type DegreeAuditRun,
   type HealthResponse,
   type BackupStatus,
+  type RestorePreview,
   type ImportedRecord,
   type ImportedRecordReview,
   type ImportMappingCandidate,
@@ -1614,6 +1618,10 @@ function BackupPanel({ apiBaseUrl }: { apiBaseUrl: string | undefined }) {
   );
   const [creating, setCreating] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [restorePreview, setRestorePreview] = useState<RestorePreview | null>(null);
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [restoreConfirmation, setRestoreConfirmation] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -1670,6 +1678,48 @@ function BackupPanel({ apiBaseUrl }: { apiBaseUrl: string | undefined }) {
     }
   }
 
+  async function validateRestore(): Promise<void> {
+    if (!apiBaseUrl || !selectedFile || restoreBusy) return;
+    setRestoreBusy(true);
+    setResult(null);
+    try {
+      setRestorePreview(await validateLocalRestore(apiBaseUrl, selectedFile, { timeoutMs: 60_000 }));
+    } catch (error: unknown) {
+      setResult(error instanceof Error ? error.message : "恢复文件验证失败。");
+    } finally {
+      setRestoreBusy(false);
+    }
+  }
+
+  async function stageRestore(): Promise<void> {
+    if (!apiBaseUrl || !restorePreview || restoreBusy) return;
+    setRestoreBusy(true);
+    try {
+      const staged = await confirmLocalRestore(apiBaseUrl, restorePreview.session_id, restoreConfirmation);
+      setResult(staged.message);
+    } catch (error: unknown) {
+      setResult(error instanceof Error ? error.message : "恢复暂存失败。");
+    } finally {
+      setRestoreBusy(false);
+    }
+  }
+
+  async function cancelRestore(): Promise<void> {
+    if (!apiBaseUrl || !restorePreview || restoreBusy) return;
+    setRestoreBusy(true);
+    try {
+      await cancelLocalRestore(apiBaseUrl, restorePreview.session_id);
+      setRestorePreview(null);
+      setSelectedFile(null);
+      setRestoreConfirmation("");
+      setResult("已取消未确认的恢复。" );
+    } catch (error: unknown) {
+      setResult(error instanceof Error ? error.message : "取消恢复失败。");
+    } finally {
+      setRestoreBusy(false);
+    }
+  }
+
   return (
     <section
       id="backup-restore"
@@ -1708,6 +1758,36 @@ function BackupPanel({ apiBaseUrl }: { apiBaseUrl: string | undefined }) {
         </>
       ) : null}
       {result ? <p role="status">{result}</p> : null}
+      <hr />
+      <h3>恢复（需要重启）</h3>
+      <p>选择文件不会上传；点击“验证恢复文件”后才会进行严格验证。</p>
+      <input
+        type="file"
+        accept=".sapsos-backup,application/vnd.sapsos.backup+zip"
+        onChange={(event) => {
+          setSelectedFile(event.target.files?.[0] ?? null);
+          setRestorePreview(null);
+          setRestoreConfirmation("");
+        }}
+      />
+      <button type="button" onClick={() => void validateRestore()} disabled={!selectedFile || restoreBusy}>
+        {restoreBusy ? "正在处理…" : "验证恢复文件"}
+      </button>
+      {restorePreview ? (
+        <section aria-label="恢复预览" className="state-panel">
+          <h4>恢复预览</h4>
+          <p>{restorePreview.full_replacement_warning}</p>
+          <p>{restorePreview.pairing_notice}</p>
+          <p>{restorePreview.restart_notice}</p>
+          {restorePreview.warnings.map((warning) => <p key={warning}>{warning}</p>)}
+          <label>
+            输入 RESTORE 以确认
+            <input value={restoreConfirmation} onChange={(event) => setRestoreConfirmation(event.target.value)} />
+          </label>
+          <button type="button" onClick={() => void stageRestore()} disabled={restoreBusy || restoreConfirmation !== "RESTORE"}>暂存恢复并要求重启</button>
+          <button type="button" onClick={() => void cancelRestore()} disabled={restoreBusy}>取消</button>
+        </section>
+      ) : null}
     </section>
   );
 }

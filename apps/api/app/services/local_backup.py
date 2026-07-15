@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import sqlite3
 import tempfile
@@ -11,6 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from uuid import UUID, uuid4
 
+from fastapi import UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.engine import Engine, make_url
 
@@ -57,6 +59,42 @@ class BackupStatus(BaseModel):
     product_mode: str
     schema_name: str
     schema_version: int
+    message: str
+
+
+class RestorePreview(BaseModel):
+    session_id: UUID
+    backup_id: UUID
+    created_at: datetime
+    source_application_version: str | None
+    format_version: int
+    schema_version: int
+    database_size_bytes: int
+    database_sha256: str
+    integrity_checks_passed: bool
+    full_replacement_warning: str
+    encrypted: bool
+    pairing_notice: str
+    restart_notice: str
+    compatibility: str
+    blocking_errors: list[str]
+    warnings: list[str]
+
+
+class RestoreConfirmation(BaseModel):
+    confirmation: str
+
+
+class RestoreStageResult(BaseModel):
+    status: str
+    message: str
+    restart_required: bool
+
+
+class RestoreStatus(BaseModel):
+    status: str
+    backup_id: UUID | None = None
+    updated_at: datetime | None = None
     message: str
 
 
@@ -196,7 +234,8 @@ def validate_backup_archive(archive_path: Path) -> BackupManifest:
             except ValueError as error:
                 raise BackupError("manifest_invalid", "Backup manifest is invalid.") from error
             if (
-                manifest.format_version != BACKUP_FORMAT_VERSION
+                manifest.format_identifier != BACKUP_FORMAT
+                or manifest.format_version != BACKUP_FORMAT_VERSION
                 or manifest.application_id != APP_ID
             ):
                 raise BackupError(
@@ -231,6 +270,169 @@ def validate_backup_archive(archive_path: Path) -> BackupManifest:
         finally:
             connection.close()
     return manifest
+
+
+def _restore_root(engine: Engine) -> Path:
+    source = active_sqlite_path(engine)
+    root = (
+        settings.runtime_manifest_path.parent if settings.runtime_manifest_path else source.parent
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    return root.resolve()
+
+
+def _safe_restore_path(root: Path, relative: str) -> Path:
+    candidate = (root / relative).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError as error:
+        raise BackupError("restore_path_invalid", "Restore staging path is invalid.") from error
+    return candidate
+
+
+def _write_json_atomic(path: Path, payload: dict[str, object]) -> None:
+    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    temporary.write_text(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")), encoding="utf-8"
+    )
+    os.replace(temporary, path)
+
+
+def restore_status(engine: Engine) -> RestoreStatus:
+    if settings.product_mode != "LOCAL_DESKTOP":
+        return RestoreStatus(status="unsupported", message="本地恢复仅适用于 LOCAL_DESKTOP。")
+    try:
+        path = _restore_root(engine) / "restore-status.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return RestoreStatus.model_validate(payload)
+    except (OSError, ValueError):
+        return RestoreStatus(status="none", message="没有待处理的恢复操作。")
+
+
+def validate_and_stage_restore(engine: Engine, upload: UploadFile) -> RestorePreview:
+    if settings.product_mode != "LOCAL_DESKTOP":
+        raise BackupError("local_desktop_only", "Restore is available only in LOCAL_DESKTOP mode.")
+    root = _restore_root(engine)
+    staging = root / "restore-staging"
+    staging.mkdir(parents=True, exist_ok=True)
+    pending = root / "pending-restore.json"
+    if pending.exists():
+        raise BackupError("restore_pending", "A restore is already pending.")
+    session_id = uuid4()
+    temporary = staging / f".{session_id}.upload"
+    try:
+        size = 0
+        with temporary.open("wb") as target:
+            while True:
+                chunk = upload.file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > MAX_ARCHIVE_BYTES:
+                    raise BackupError(
+                        "archive_too_large", "Backup archive exceeds the supported size limit."
+                    )
+                target.write(chunk)
+        manifest = validate_backup_archive(temporary)
+        candidate_name = f"{session_id}.sqlite"
+        candidate = staging / candidate_name
+        with zipfile.ZipFile(temporary) as archive:
+            candidate.write_bytes(archive.read(DATABASE_PAYLOAD_NAME))
+        temporary.unlink(missing_ok=True)
+        session = {
+            "session_id": str(session_id),
+            "candidate": f"restore-staging/{candidate_name}",
+            "backup_id": str(manifest.backup_id),
+            "sha256": manifest.database_sha256,
+            "size": manifest.database_size_bytes,
+            "created_at": manifest.created_at.isoformat(),
+            "expires_at": (datetime.now(UTC).timestamp() + 1800),
+        }
+        _write_json_atomic(staging / f"{session_id}.json", session)
+        return RestorePreview(
+            session_id=session_id,
+            backup_id=manifest.backup_id,
+            created_at=manifest.created_at,
+            source_application_version=manifest.source_application_version,
+            format_version=manifest.format_version,
+            schema_version=manifest.schema_version,
+            database_size_bytes=manifest.database_size_bytes,
+            database_sha256=manifest.database_sha256,
+            integrity_checks_passed=True,
+            full_replacement_warning="恢复会替换当前全部本地数据。",
+            encrypted=manifest.encrypted,
+            pairing_notice="不会恢复浏览器扩展配对凭据。",
+            restart_notice="恢复将在应用重启后执行。",
+            compatibility="exact_supported_schema",
+            blocking_errors=[],
+            warnings=["备份文件包含个人学业数据。", "备份文件未加密。"],
+        )
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def cancel_restore(engine: Engine, session_id: UUID) -> None:
+    root = _restore_root(engine)
+    session_file = _safe_restore_path(root, f"restore-staging/{session_id}.json")
+    try:
+        session = json.loads(session_file.read_text(encoding="utf-8"))
+        _safe_restore_path(root, session["candidate"]).unlink(missing_ok=True)
+        session_file.unlink(missing_ok=True)
+    except (OSError, ValueError, KeyError) as error:
+        raise BackupError(
+            "restore_session_invalid", "Restore session is invalid or expired."
+        ) from error
+
+
+def confirm_restore(engine: Engine, session_id: UUID, confirmation: str) -> RestoreStageResult:
+    if confirmation.strip() != "RESTORE":
+        raise BackupError("confirmation_required", "Type RESTORE to confirm replacing local data.")
+    root = _restore_root(engine)
+    pending = root / "pending-restore.json"
+    if pending.exists():
+        raise BackupError("restore_pending", "A restore is already pending.")
+    session_file = _safe_restore_path(root, f"restore-staging/{session_id}.json")
+    try:
+        session = json.loads(session_file.read_text(encoding="utf-8"))
+        if float(session["expires_at"]) < datetime.now(UTC).timestamp():
+            raise BackupError("restore_session_expired", "Restore session has expired.")
+        candidate = _safe_restore_path(root, session["candidate"])
+        if (
+            candidate.stat().st_size != int(session["size"])
+            or _sha256(candidate) != session["sha256"]
+        ):
+            raise BackupError("restore_candidate_changed", "Validated restore candidate changed.")
+        marker = {
+            "marker_version": 1,
+            "restore_request_id": str(uuid4()),
+            "backup_id": session["backup_id"],
+            "requested_at": datetime.now(UTC).isoformat(),
+            "staged_database": session["candidate"],
+            "expected_sha256": session["sha256"],
+            "expected_size": session["size"],
+            "expected_schema_version": LOCAL_SCHEMA_VERSION,
+            "status": "pending",
+        }
+        _write_json_atomic(pending, marker)
+        _write_json_atomic(
+            root / "restore-status.json",
+            {
+                "status": "restart_required",
+                "backup_id": session["backup_id"],
+                "updated_at": datetime.now(UTC).isoformat(),
+                "message": "恢复将在应用重启后执行。",
+            },
+        )
+        return RestoreStageResult(
+            status="restart_required",
+            message="请关闭并重新打开应用以执行恢复。",
+            restart_required=True,
+        )
+    except FileNotFoundError as error:
+        raise BackupError(
+            "restore_session_invalid", "Restore session is invalid or expired."
+        ) from error
 
 
 def create_backup_archive(engine: Engine) -> tuple[Path, BackupManifest]:
