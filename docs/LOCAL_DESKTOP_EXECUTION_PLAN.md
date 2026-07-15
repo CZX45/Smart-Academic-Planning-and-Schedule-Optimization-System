@@ -758,15 +758,20 @@ rows are not created or updated by this checkpoint. Review remains mandatory;
 
 ## Stage 11B — Real Section Review/Apply checkpoint
 
-Stage 11B is in progress on an isolated worktree created only after PR 11A
-merged and `origin/main` synchronized. It reuses the existing Import → Review →
+Stage 11B is complete and merged on an isolated worktree created only after PR
+11A merged and `origin/main` synchronized. It reuses the existing Import → Review →
 Apply session, application-run, and audit records. It adds explicit dry-run and
 Apply behavior for reviewed Section evidence, requiring mapped Course, term,
 campus, and unambiguous Section identity.
 
+- Status: complete and merged through PR #57.
 - Branch: `stage11b-section-review-apply`.
 - Worktree: `D:\Crystal\.cache\worktrees\stage11b-section-review-apply`.
 - Starting commit: `068a38eae02ef51b70172da1f380f398cea9419d`.
+- Final head: `d658ba0e67eec0fb055c50f4b676cce54a6e506d`.
+- PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/57`.
+- CI: run `29382465246` passed checks, Docker Compose, and E2E.
+- Merge commit: `749dd959ce7a82c982fe3df2962376cfdab6bbc0`.
 - Scope: non-official structural Section and SectionMeeting persistence,
   provenance, explicit conflicts for official/MOCK targets, no mutation on
   dry-run, repeat-Apply idempotency, and incomplete-snapshot deletion safety.
@@ -774,8 +779,15 @@ campus, and unambiguous Section identity.
   advisory evidence and are never written to canonical Section fields.
 - Privacy and safety: no credentials, cookies, tokens, portal mutation,
   registration automation, monitoring, or schedule-optimizer integration.
-- Focused validation: Section Review/Apply and official-conflict tests pass;
-  full API and workspace validation passed before PR creation.
+- Validation: API pytest 197 passed; Extension Vitest 55, shared Vitest 28,
+  and web Vitest 14 passed; Ruff check/format, mypy, workspace lint,
+  typecheck, build, OpenAPI check, and `git diff --check` passed.
 - Protected root artifacts remain outside this worktree and untouched:
   `apps/web/next-env.d.ts`, `.codex-worktrees/`, and
   `localize-web-ui-zh-cn.patch`.
+- Stage 11 result: real visible-page Section data now follows Import → Review →
+  explicit dry-run/Apply into non-official structural Section and
+  SectionMeeting records with provenance. Availability remains advisory and
+  separate from canonical structural data. No monitoring, registration,
+  portal mutation, or optimizer integration was started.
+- Next milestone: Real Section Optimizer Integration is not started.
