@@ -647,7 +647,7 @@ def test_section_import_preserves_grouped_meetings_provenance_and_volatile_evide
         [
             "term_code,course_code,course_title,section_code,component,credits,modality,status,meeting_days,meeting_time,location,instructor_display,meetings_json,field_provenance_json,availability_evidence_json,validation_state,completeness,raw_evidence",
             (
-                '2025FA,FIN 403,Mock Investments,001,LECTURE,3,IN_PERSON,OPEN,'
+                "2025FA,FIN 403,Mock Investments,001,LECTURE,3,IN_PERSON,OPEN,"
                 '"MONDAY,WEDNESDAY",09:00-10:15,Mock Hall 101,Mock Instructor,'
                 '"[{""component"": ""LECTURE""},{""days"": ""MONDAY,WEDNESDAY""}]",'
                 '"{""course_code"": {""value"": ""FIN 403""}}",'
