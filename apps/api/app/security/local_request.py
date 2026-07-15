@@ -148,7 +148,7 @@ def _cors_headers(origin: str | None, *, bootstrap: bool = False) -> dict[str, s
         return {}
     return {
         "Access-Control-Allow-Origin": origin.rstrip("/"),
-        "Access-Control-Allow-Methods": "GET, PATCH, POST, OPTIONS",
+        "Access-Control-Allow-Methods": "DELETE, GET, PATCH, POST, OPTIONS",
         "Access-Control-Allow-Headers": (
             "authorization, content-type, x-sapsos-extension-credential, "
             "x-sapsos-extension-nonce, x-sapsos-extension-timestamp"

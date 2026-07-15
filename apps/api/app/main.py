@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.local_backup import router as local_backup_router
 from app.api.local_pairing import router as local_pairing_router
+from app.api.local_restore import router as local_restore_router
 from app.api.v1.academic import router as academic_router
 from app.config import settings
 from app.db.bootstrap import initialize_database
@@ -39,7 +40,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.desktop_origin_list,
     allow_credentials=False,
-    allow_methods=["GET", "PATCH", "POST"],
+    allow_methods=["DELETE", "GET", "PATCH", "POST"],
     allow_headers=[
         "authorization",
         "content-type",
@@ -52,6 +53,7 @@ app.add_middleware(
 app.include_router(academic_router)
 app.include_router(local_pairing_router)
 app.include_router(local_backup_router)
+app.include_router(local_restore_router)
 
 
 @app.middleware("http")

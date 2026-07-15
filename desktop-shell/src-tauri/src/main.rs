@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
@@ -17,6 +18,34 @@ struct RuntimeManifest {
     pid: u32,
     port: u16,
     status: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PendingRestoreMarker {
+    marker_version: u32,
+    restore_request_id: String,
+    backup_id: String,
+    staged_database: String,
+    expected_sha256: String,
+    expected_size: u64,
+    expected_schema_version: u32,
+    status: String,
+}
+
+#[derive(Debug)]
+struct RestoreApplication {
+    safety_dir: PathBuf,
+    marker_path: PathBuf,
+    staged_path: PathBuf,
+    sidecars: Vec<(PathBuf, PathBuf)>,
+    backup_id: String,
+}
+
+#[derive(Debug, Serialize)]
+struct RestoreStatusFile<'a> {
+    status: &'a str,
+    backup_id: &'a str,
+    message: &'a str,
 }
 
 #[derive(Default)]
@@ -62,6 +91,7 @@ impl DesktopProcesses {
             "sqlite+pysqlite:///{}",
             database_path.to_string_lossy().replace('\\', "/")
         );
+        let restore = apply_pending_restore(&app_data, &database_path)?;
 
         let packaged_api = std::env::var_os("SAPSOS_API_EXECUTABLE").map(PathBuf::from);
         let (api_executable, api_arguments, api_working_directory) = if let Some(path) =
@@ -107,9 +137,18 @@ impl DesktopProcesses {
         drop(guard);
 
         let api_manifest = match wait_for_api(&self.0, &manifest_path, api_pid) {
-            Ok(manifest) => manifest,
+            Ok(manifest) => {
+                if let Some(application) = restore {
+                    finalize_restore(&application)?;
+                }
+                manifest
+            }
             Err(error) => {
                 self.stop();
+                if let Some(application) = restore {
+                    rollback_restore(&application, &database_path)?;
+                    return self.start();
+                }
                 return Err(error);
             }
         };
@@ -163,6 +202,222 @@ impl DesktopProcesses {
             }
         }
     }
+}
+
+fn restore_status_path(app_data: &Path) -> PathBuf {
+    app_data.join("restore-status.json")
+}
+
+fn write_restore_status(
+    app_data: &Path,
+    status: &str,
+    backup_id: &str,
+    message: &str,
+) -> Result<(), String> {
+    let path = restore_status_path(app_data);
+    let temporary = path.with_extension(format!("{}.tmp", std::process::id()));
+    let contents = serde_json::to_vec(&RestoreStatusFile {
+        status,
+        backup_id,
+        message,
+    })
+    .map_err(|error| format!("Could not serialize restore status: {error}"))?;
+    fs::write(&temporary, contents)
+        .map_err(|error| format!("Could not write restore status: {error}"))?;
+    fs::rename(temporary, path)
+        .map_err(|error| format!("Could not publish restore status: {error}"))
+}
+
+fn contained_restore_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    let relative_path = Path::new(relative);
+    if relative_path.is_absolute()
+        || relative_path.components().any(|component| {
+            matches!(
+                component,
+                std::path::Component::ParentDir
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
+            )
+        })
+    {
+        return Err("Restore marker contains an unsafe path".to_string());
+    }
+    Ok(root.join(relative_path))
+}
+
+fn sha256_file(path: &Path) -> Result<String, String> {
+    let mut file = fs::File::open(path)
+        .map_err(|error| format!("Could not open restore candidate: {error}"))?;
+    let mut digest = Sha256::new();
+    let mut buffer = [0_u8; 1024 * 1024];
+    loop {
+        let bytes = file
+            .read(&mut buffer)
+            .map_err(|error| format!("Could not hash restore candidate: {error}"))?;
+        if bytes == 0 {
+            break;
+        }
+        digest.update(&buffer[..bytes]);
+    }
+    Ok(format!("{:x}", digest.finalize()))
+}
+
+fn sqlite_sidecars(database_path: &Path) -> Vec<PathBuf> {
+    let file_name = database_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("database");
+    ["-wal", "-shm", "-journal"]
+        .iter()
+        .map(|suffix| database_path.with_file_name(format!("{file_name}{suffix}")))
+        .collect()
+}
+
+fn apply_pending_restore(
+    app_data: &Path,
+    database_path: &Path,
+) -> Result<Option<RestoreApplication>, String> {
+    let marker_path = app_data.join("pending-restore.json");
+    if !marker_path.is_file() {
+        return Ok(None);
+    }
+    let quarantine_dir = app_data.join("restore-safety");
+    fs::create_dir_all(&quarantine_dir)
+        .map_err(|error| format!("Could not create restore safety copy: {error}"))?;
+    let mut quarantined_marker = quarantine_dir.join("invalid-pending-restore.json");
+    let mut suffix = 1_u32;
+    while quarantined_marker.exists() {
+        quarantined_marker = quarantine_dir.join(format!("invalid-pending-restore-{suffix}.json"));
+        suffix += 1;
+    }
+    fs::rename(&marker_path, &quarantined_marker)
+        .map_err(|error| format!("Could not consume restore marker: {error}"))?;
+    let marker: PendingRestoreMarker = serde_json::from_slice(
+        &fs::read(&quarantined_marker)
+            .map_err(|error| format!("Could not read restore marker: {error}"))?,
+    )
+    .map_err(|error| format!("Invalid restore marker; it was quarantined: {error}"))?;
+    if marker.marker_version != 1
+        || marker.status != "pending"
+        || marker.expected_schema_version != 1
+    {
+        return Err("Restore marker is unsupported or already consumed".to_string());
+    }
+    let staged_path = contained_restore_path(app_data, &marker.staged_database)?;
+    if !staged_path.is_file()
+        || fs::metadata(&staged_path)
+            .map_err(|error| error.to_string())?
+            .len()
+            != marker.expected_size
+        || sha256_file(&staged_path)? != marker.expected_sha256
+    {
+        return Err("Restore candidate checksum or size verification failed".to_string());
+    }
+    let mut header = [0_u8; 16];
+    fs::File::open(&staged_path)
+        .and_then(|mut file| file.read_exact(&mut header))
+        .map_err(|error| format!("Could not read restored SQLite header: {error}"))?;
+    if &header != b"SQLite format 3\0" {
+        return Err("Restore candidate is not a SQLite database".to_string());
+    }
+    let safety_dir = app_data
+        .join("restore-safety")
+        .join(&marker.restore_request_id);
+    fs::create_dir_all(&safety_dir)
+        .map_err(|error| format!("Could not create restore safety copy: {error}"))?;
+    let consumed_marker = safety_dir.join("pending-restore.json");
+    fs::rename(&quarantined_marker, &consumed_marker)
+        .map_err(|error| format!("Could not consume restore marker: {error}"))?;
+    write_restore_status(
+        app_data,
+        "applying",
+        &marker.backup_id,
+        "Restore is being applied before API startup.",
+    )?;
+    let mut sidecars = Vec::new();
+    for sidecar in sqlite_sidecars(database_path) {
+        if sidecar.is_file() {
+            let destination = safety_dir.join(sidecar.file_name().ok_or("Invalid sidecar name")?);
+            if let Err(error) = fs::rename(&sidecar, &destination) {
+                for (original, preserved) in sidecars.iter().rev() {
+                    let _ = fs::rename(preserved, original);
+                }
+                return Err(format!("Could not preserve SQLite sidecar: {error}"));
+            }
+            sidecars.push((sidecar, destination));
+        }
+    }
+    let safety_database =
+        safety_dir.join(database_path.file_name().ok_or("Invalid database name")?);
+    if database_path.is_file() {
+        if let Err(error) = fs::rename(database_path, &safety_database) {
+            for (original, preserved) in sidecars.iter().rev() {
+                let _ = fs::rename(preserved, original);
+            }
+            return Err(format!("Could not preserve current database: {error}"));
+        }
+    }
+    if let Err(error) = fs::rename(&staged_path, database_path) {
+        if safety_database.is_file() {
+            let _ = fs::rename(&safety_database, database_path);
+        }
+        for (original, preserved) in sidecars.iter().rev() {
+            let _ = fs::rename(preserved, original);
+        }
+        return Err(format!("Could not install staged database: {error}"));
+    }
+    Ok(Some(RestoreApplication {
+        safety_dir,
+        marker_path,
+        staged_path,
+        sidecars,
+        backup_id: marker.backup_id,
+    }))
+}
+
+fn finalize_restore(application: &RestoreApplication) -> Result<(), String> {
+    let _ = fs::remove_file(&application.marker_path);
+    let _ = fs::remove_file(&application.staged_path);
+    write_restore_status(
+        application
+            .marker_path
+            .parent()
+            .ok_or("Invalid restore marker path")?,
+        "succeeded",
+        &application.backup_id,
+        "Restore completed successfully.",
+    )
+}
+
+fn rollback_restore(application: &RestoreApplication, database_path: &Path) -> Result<(), String> {
+    let quarantine = application.safety_dir.join("failed-restored.sqlite");
+    if database_path.is_file() {
+        fs::rename(database_path, quarantine)
+            .map_err(|error| format!("Could not quarantine failed restored database: {error}"))?;
+    }
+    let original = application
+        .safety_dir
+        .join(database_path.file_name().ok_or("Invalid database name")?);
+    if original.is_file() {
+        fs::rename(original, database_path)
+            .map_err(|error| format!("Could not roll back database: {error}"))?;
+    }
+    for (active, preserved) in &application.sidecars {
+        if preserved.is_file() {
+            fs::rename(preserved, active)
+                .map_err(|error| format!("Could not roll back SQLite sidecar: {error}"))?;
+        }
+    }
+    let _ = fs::remove_file(&application.marker_path);
+    write_restore_status(
+        application
+            .marker_path
+            .parent()
+            .ok_or("Invalid restore marker path")?,
+        "rolled_back",
+        &application.backup_id,
+        "Restore startup failed; original data was restored.",
+    )
 }
 
 fn proof_local_app_data() -> PathBuf {
@@ -252,6 +507,114 @@ fn http_probe(port: u16, path: &str) -> bool {
         return false;
     };
     String::from_utf8_lossy(&response[..bytes_read]).starts_with("HTTP/1.1 200")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_root(name: &str) -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock before epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("sapsos-restore-{name}-{suffix}"));
+        fs::create_dir_all(&root).expect("create test root");
+        root
+    }
+
+    fn marker(root: &Path, staged: &Path, request_id: &str) {
+        let relative = staged.strip_prefix(root).expect("staged path under root");
+        let marker = serde_json::json!({
+            "marker_version": 1,
+            "restore_request_id": request_id,
+            "backup_id": "backup-test",
+            "staged_database": relative.to_string_lossy().replace('\\', "/"),
+            "expected_sha256": sha256_file(staged).expect("hash staged"),
+            "expected_size": fs::metadata(staged).expect("staged metadata").len(),
+            "expected_schema_version": 1,
+            "status": "pending"
+        });
+        fs::write(root.join("pending-restore.json"), marker.to_string()).expect("write marker");
+    }
+
+    #[test]
+    fn rejects_restore_path_escape() {
+        let root = PathBuf::from(r"C:\safe\app");
+        assert!(contained_restore_path(&root, "../outside.sqlite").is_err());
+        assert!(contained_restore_path(&root, r"C:\outside.sqlite").is_err());
+    }
+
+    #[test]
+    fn applies_restore_before_startup_and_prevents_replay() {
+        let root = test_root("apply");
+        let database = root.join("custom.sqlite");
+        let staged = root.join("restore-staging").join("candidate.sqlite");
+        fs::create_dir_all(staged.parent().expect("staging parent")).expect("create staging");
+        fs::write(&database, b"old").expect("write old");
+        fs::write(&staged, b"SQLite format 3\0restored").expect("write staged");
+        marker(&root, &staged, "request-1");
+        let applied = apply_pending_restore(&root, &database)
+            .expect("apply")
+            .expect("context");
+        assert!(database.is_file());
+        assert_eq!(
+            fs::read(&database).expect("read active"),
+            b"SQLite format 3\0restored"
+        );
+        finalize_restore(&applied).expect("finalize");
+        assert!(!root.join("pending-restore.json").exists());
+        assert!(apply_pending_restore(&root, &database)
+            .expect("replay check")
+            .is_none());
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[test]
+    fn rollback_preserves_database_and_sidecars() {
+        let root = test_root("rollback");
+        let database = root.join("custom.sqlite");
+        let sidecar = root.join("custom.sqlite-wal");
+        let staged = root.join("restore-staging").join("candidate.sqlite");
+        fs::create_dir_all(staged.parent().expect("staging parent")).expect("create staging");
+        fs::write(&database, b"old").expect("write old");
+        fs::write(&sidecar, b"matching-old-wal").expect("write wal");
+        fs::write(&staged, b"SQLite format 3\0restored").expect("write staged");
+        marker(&root, &staged, "request-2");
+        let applied = apply_pending_restore(&root, &database)
+            .expect("apply")
+            .expect("context");
+        rollback_restore(&applied, &database).expect("rollback");
+        assert_eq!(fs::read(&database).expect("read rollback"), b"old");
+        assert_eq!(
+            fs::read(&sidecar).expect("read sidecar"),
+            b"matching-old-wal"
+        );
+        assert!(!root.join("pending-restore.json").exists());
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[test]
+    fn quarantines_corrupt_restore_candidate_without_startup_loop() {
+        let root = test_root("corrupt");
+        let database = root.join("custom.sqlite");
+        let staged = root.join("restore-staging").join("candidate.sqlite");
+        fs::create_dir_all(staged.parent().expect("staging parent")).expect("create staging");
+        fs::write(&database, b"old").expect("write old");
+        fs::write(&staged, b"corrupt").expect("write staged");
+        marker(&root, &staged, "request-corrupt");
+        assert!(apply_pending_restore(&root, &database).is_err());
+        assert!(!root.join("pending-restore.json").exists());
+        assert!(root
+            .join("restore-safety")
+            .join("invalid-pending-restore.json")
+            .is_file());
+        assert!(apply_pending_restore(&root, &database)
+            .expect("relaunch check")
+            .is_none());
+        fs::remove_dir_all(root).expect("remove test root");
+    }
 }
 
 fn main() {

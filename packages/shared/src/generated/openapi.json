@@ -5117,6 +5117,157 @@
         }
       }
     },
+    "/api/v1/local-backup/restore/status": {
+      "get": {
+        "tags": [
+          "local-restore"
+        ],
+        "summary": "Get Restore Status",
+        "operationId": "get_restore_status_api_v1_local_backup_restore_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/local-backup/restore/validate": {
+      "post": {
+        "tags": [
+          "local-restore"
+        ],
+        "summary": "Validate Restore",
+        "operationId": "validate_restore_api_v1_local_backup_restore_validate_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validate_restore_api_v1_local_backup_restore_validate_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestorePreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/local-backup/restore/sessions/{session_id}": {
+      "delete": {
+        "tags": [
+          "local-restore"
+        ],
+        "summary": "Cancel Restore Session",
+        "operationId": "cancel_restore_session_api_v1_local_backup_restore_sessions__session_id__delete",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/local-backup/restore/sessions/{session_id}/confirm": {
+      "post": {
+        "tags": [
+          "local-restore"
+        ],
+        "summary": "Confirm Restore Session",
+        "operationId": "confirm_restore_session_api_v1_local_backup_restore_sessions__session_id__confirm_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreConfirmation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreStageResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -6467,6 +6618,20 @@
           "message"
         ],
         "title": "BackupStatus"
+      },
+      "Body_validate_restore_api_v1_local_backup_restore_validate_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_validate_restore_api_v1_local_backup_restore_validate_post"
       },
       "CampusResponse": {
         "properties": {
@@ -10511,6 +10676,188 @@
           "nodes"
         ],
         "title": "RequirementTreeResponse"
+      },
+      "RestoreConfirmation": {
+        "properties": {
+          "confirmation": {
+            "type": "string",
+            "title": "Confirmation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmation"
+        ],
+        "title": "RestoreConfirmation"
+      },
+      "RestorePreview": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id"
+          },
+          "backup_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Backup Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "source_application_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Application Version"
+          },
+          "format_version": {
+            "type": "integer",
+            "title": "Format Version"
+          },
+          "schema_version": {
+            "type": "integer",
+            "title": "Schema Version"
+          },
+          "database_size_bytes": {
+            "type": "integer",
+            "title": "Database Size Bytes"
+          },
+          "database_sha256": {
+            "type": "string",
+            "title": "Database Sha256"
+          },
+          "integrity_checks_passed": {
+            "type": "boolean",
+            "title": "Integrity Checks Passed"
+          },
+          "full_replacement_warning": {
+            "type": "string",
+            "title": "Full Replacement Warning"
+          },
+          "encrypted": {
+            "type": "boolean",
+            "title": "Encrypted"
+          },
+          "pairing_notice": {
+            "type": "string",
+            "title": "Pairing Notice"
+          },
+          "restart_notice": {
+            "type": "string",
+            "title": "Restart Notice"
+          },
+          "compatibility": {
+            "type": "string",
+            "title": "Compatibility"
+          },
+          "blocking_errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocking Errors"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "backup_id",
+          "created_at",
+          "source_application_version",
+          "format_version",
+          "schema_version",
+          "database_size_bytes",
+          "database_sha256",
+          "integrity_checks_passed",
+          "full_replacement_warning",
+          "encrypted",
+          "pairing_notice",
+          "restart_notice",
+          "compatibility",
+          "blocking_errors",
+          "warnings"
+        ],
+        "title": "RestorePreview"
+      },
+      "RestoreStageResult": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "restart_required": {
+            "type": "boolean",
+            "title": "Restart Required"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message",
+          "restart_required"
+        ],
+        "title": "RestoreStageResult"
+      },
+      "RestoreStatus": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "backup_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup Id"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "RestoreStatus"
       },
       "ReviewedRuleSetRecordResponse": {
         "properties": {

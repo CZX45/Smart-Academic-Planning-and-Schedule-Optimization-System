@@ -123,7 +123,8 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 13. Stage 11 Real Section Import — complete; PRs #56, #57, and #58 merged.
 14. Real Section Optimizer Integration — complete; PRs #60 and #61 merged.
 15. UI workflow modularization — complete; PRs #63 and #64 merged.
-16. Backup/Restore — current milestone; PR A in progress on an isolated branch.
+16. Backup/Restore — current milestone; PR A merged and PR B in progress on an
+    isolated branch.
 17. Safe migration and rollback.
 18. Diagnostics.
 19. Windows Installer/Uninstaller.
@@ -1000,9 +1001,12 @@ export. It does not replace the active database and does not expose a working
 restore action. PR B must begin only after PR A merges and local `main` is
 synchronized with `origin/main`.
 
-- Branch: `local-backup-archive-foundation`.
-- Worktree: `D:\Crystal\.cache\worktrees\local-backup-archive-foundation`.
-- Starting commit: `c9be585a41cb54c303b032a7bafd6bbbb24c781f`.
+- PR A: branch `local-backup-archive-foundation`; starting commit
+  `c9be585a41cb54c303b032a7bafd6bbbb24c781f`; final head
+  `0ec009a21795cb81cf788336f1a0d3fa4c518341`; PR #66; exact-head CI run
+  `29426489035` / run `306`; merge commit
+  `067bc959519f6699b093fa330bc8cbc40b7083b1`.
+- PR A worktree: `D:\Crystal\.cache\worktrees\local-backup-archive-foundation`.
 - Backup format: `sapsos-backup` version 1, `.sapsos-backup` filename, ZIP
   entries exactly `manifest.json` and `database.sqlite`.
 - Snapshot method: Python SQLite backup API from the active configured SQLite
@@ -1018,10 +1022,40 @@ synchronized with `origin/main`.
 - Web: the static hash-routed `备份与恢复` workflow provides status, inclusion
   and exclusion warnings, an unencrypted-data warning, duplicate-click
   protection, and a manual binary download. Restore remains dependency-gated.
-- Validation: focused API backup tests, Web/shared tests, Ruff, mypy,
-  compileall, Web typecheck/lint/build, and generated OpenAPI checks are being
-  recorded with the PR evidence. The exact PR number, head, CI run, and merge
-  commit will be added after publication.
+- Validation: PR A exact-head CI passed checks, Docker Compose, and full
+  Playwright E2E. Local focused and full workspace validation passed; the
+  local browser proof was environment-limited by the isolated Chromium cache,
+  while hosted CI supplied the authoritative browser proof.
 - Protected artifacts: `apps/web/next-env.d.ts`, `.codex-worktrees/`, and
   `localize-web-ui-zh-cn.patch` remain root-only and are excluded from this
   branch.
+
+## Backup/Restore — PR B checkpoint
+
+PR B begins only after PR A merge commit `067bc959519f6699b093fa330bc8cbc40b7083b1`
+and synchronization of `main` with `origin/main`. PR B adds strict restore
+validation, bounded staging, explicit confirmation, and pre-start desktop-shell
+application with rollback. It does not add schema migration or migration
+rollback.
+
+- Branch: `local-restore-orchestration`.
+- Worktree: `D:\Crystal\.cache\worktrees\local-restore-orchestration`.
+- Starting commit: `067bc959519f6699b093fa330bc8cbc40b7083b1`.
+- Restore API: multipart validation creates a server-controlled single-use
+  session; `RESTORE` confirmation atomically writes `pending-restore.json`.
+  Validation and confirmation never replace the active database.
+- Marker: version 1, request/backup IDs, relative staged candidate, expected
+  SHA-256/size/schema version, and pending status; no absolute paths, tokens,
+  pairing data, or database URLs.
+- Desktop startup: Tauri verifies marker containment, candidate checksum/size,
+  SQLite header, and exact schema version marker before moving current SQLite
+  database and `-wal`/`-shm`/`-journal` sidecars into a unique safety directory.
+  It installs the staged database before FastAPI starts, keeps the safety copy
+  on success, and restores the original database/sidecars after failed startup.
+  Failed restore markers are consumed so startup cannot loop.
+- Web: the existing `备份与恢复` workflow now supports explicit file selection,
+  explicit validation, compatibility preview, `RESTORE` confirmation, cancel,
+  restart-required state, and safe warnings. File selection alone has no side
+  effect.
+- Validation: local focused restore tests and Tauri unit tests pass; exact PR,
+  CI, review, and merge evidence will be appended after publication.

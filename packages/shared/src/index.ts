@@ -26,6 +26,35 @@ export const BackupStatusSchema = z.object({
 
 export type BackupStatus = z.infer<typeof BackupStatusSchema>;
 
+export const RestorePreviewSchema = z.object({
+  session_id: z.string().uuid(),
+  backup_id: z.string().uuid(),
+  created_at: z.string(),
+  source_application_version: z.string().nullable(),
+  format_version: z.number().int(),
+  schema_version: z.number().int(),
+  database_size_bytes: z.number().int(),
+  database_sha256: z.string(),
+  integrity_checks_passed: z.boolean(),
+  full_replacement_warning: z.string(),
+  encrypted: z.boolean(),
+  pairing_notice: z.string(),
+  restart_notice: z.string(),
+  compatibility: z.string(),
+  blocking_errors: z.array(z.string()),
+  warnings: z.array(z.string()),
+});
+
+export type RestorePreview = z.infer<typeof RestorePreviewSchema>;
+
+export const RestoreStageResultSchema = z.object({
+  status: z.string(),
+  message: z.string(),
+  restart_required: z.boolean(),
+});
+
+export type RestoreStageResult = z.infer<typeof RestoreStageResultSchema>;
+
 const UuidSchema = z.string().uuid();
 const DecimalValueSchema = z.union([z.string(), z.number()]).transform(String);
 const DateTimeSchema = z.string();
@@ -2030,6 +2059,57 @@ export async function downloadLocalBackup(
   }
 }
 
+export async function validateLocalRestore(
+  apiBaseUrl: string,
+  file: File,
+  options: FetchHealthOptions = {},
+): Promise<RestorePreview> {
+  const body = new FormData();
+  body.append("file", file);
+  const parsed = RestorePreviewSchema.safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/local-backup/restore/validate", {
+      ...options,
+      method: "POST",
+      body,
+    }),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError("Restore preview response was invalid");
+  }
+  return parsed.data;
+}
+
+export async function confirmLocalRestore(
+  apiBaseUrl: string,
+  sessionId: string,
+  confirmation: string,
+  options: FetchHealthOptions = {},
+): Promise<RestoreStageResult> {
+  const parsed = RestoreStageResultSchema.safeParse(
+    await fetchJson(apiBaseUrl, `/api/v1/local-backup/restore/sessions/${sessionId}/confirm`, {
+      ...options,
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ confirmation }),
+    }),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError("Restore staging response was invalid");
+  }
+  return parsed.data;
+}
+
+export async function cancelLocalRestore(
+  apiBaseUrl: string,
+  sessionId: string,
+  options: FetchHealthOptions = {},
+): Promise<void> {
+  await fetchJson(apiBaseUrl, `/api/v1/local-backup/restore/sessions/${sessionId}`, {
+    ...options,
+    method: "DELETE",
+  });
+}
+
 async function fetchJson(
   apiBaseUrl: string,
   path: string,
@@ -2060,7 +2140,7 @@ async function fetchJson(
       );
     }
 
-    return await response.json();
+    return response.status === 204 ? null : await response.json();
   } catch (error: unknown) {
     if (error instanceof ApiRequestError) {
       throw error;
