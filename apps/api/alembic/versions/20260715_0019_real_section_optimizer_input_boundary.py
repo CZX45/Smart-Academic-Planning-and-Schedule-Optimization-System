@@ -17,12 +17,23 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+def section_data_mode_enum() -> sa.Enum:
+    return sa.Enum(
+        "DEMO_MOCK",
+        "REVIEWED_IMPORTED",
+        name="section_data_mode",
+        native_enum=False,
+        create_constraint=True,
+        validate_strings=True,
+    )
+
+
 def upgrade() -> None:
     op.add_column(
         "schedule_optimization_runs",
         sa.Column(
             "section_data_mode",
-            sa.String(length=20),
+            section_data_mode_enum(),
             nullable=False,
             server_default="DEMO_MOCK",
         ),
