@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 from collections import Counter
 from collections.abc import Generator
@@ -28,6 +30,10 @@ from app.models.academic import (
     ImportedRecord,
     ImportedRecordReview,
     ImportedRecordReviewDecision,
+    Section,
+    SectionMeeting,
+    SectionModality,
+    SectionStatus,
     SourceType,
     StudentCourseAttempt,
     StudentCourseAttemptStatus,
@@ -111,6 +117,182 @@ def create_import(session: Session) -> UUID:
         source_reference="Student-uploaded Phase 7B test fixture",
     )
     return run.id
+
+
+def section_csv(section_code: str = "987") -> str:
+    meetings = [
+        {
+            "component": "LECTURE",
+            "days": "MONDAY,WEDNESDAY",
+            "start_time": "09:00",
+            "end_time": "10:15",
+            "location": "Main Hall",
+            "room": "101",
+            "modality": "IN_PERSON",
+            "is_async": False,
+            "is_tba": False,
+            "is_arranged": False,
+        }
+    ]
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "term_code",
+            "course_code",
+            "course_title",
+            "section_code",
+            "campus",
+            "component",
+            "credits",
+            "modality",
+            "status",
+            "meeting_days",
+            "meeting_time",
+            "location",
+            "instructor_display",
+            "meetings_json",
+            "validation_state",
+            "completeness",
+        ]
+    )
+    writer.writerow(
+        [
+            "2024FA",
+            "FIN 300",
+            "Mock Managerial Finance",
+            section_code,
+            "MAIN",
+            "LECTURE",
+            "3",
+            "IN_PERSON",
+            "OPEN",
+            "MW",
+            "9:00 AM-10:15 AM",
+            "Main Hall 101",
+            "Imported Instructor",
+            json.dumps(meetings, separators=(",", ":")),
+            "AUTO_VERIFIED",
+            "COMPLETE",
+        ]
+    )
+    return output.getvalue()
+
+
+def create_section_import(session: Session, section_code: str = "987") -> UUID:
+    run = DataImportApplicationService(session).create_import(
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        import_type=DataImportType.SECTION_SCHEDULE,
+        file_name="visible-section-schedule.csv",
+        file_mime_type="text/csv",
+        content=section_csv(section_code),
+        source_type=SourceType.BROWSER_EXTENSION,
+        source_reference="Visible section schedule fixture",
+    )
+    return run.id
+
+
+def test_section_review_apply_is_dry_run_safe_non_official_and_idempotent(
+    session: Session,
+) -> None:
+    run_id = create_section_import(session)
+    sections_before = count_rows(session, Section)
+    service = DataReviewApplicationService(session)
+    review = service.create_review_session(
+        data_import_run_id=run_id,
+        reviewer_label="Visible schedule self-review",
+    )
+    record_review = session.scalar(
+        select(ImportedRecordReview).where(
+            ImportedRecordReview.review_session_id == review.id,
+        )
+    )
+    assert record_review is not None
+    service.update_record_review(
+        review_session_id=review.id,
+        record_review_id=record_review.id,
+        decision=ImportedRecordReviewDecision.CONFIRMED,
+    )
+
+    dry_run = service.apply_review_session(review.id, dry_run=True)
+    assert dry_run.applied_records[0].action is AppliedImportAction.CREATED
+    assert dry_run.applied_records[0].reason_code == "WOULD_CREATE_IMPORTED_SECTION"
+    assert count_rows(session, Section) == sections_before
+
+    applied = service.apply_review_session(review.id)
+    assert applied.application is not None
+    section = session.scalar(
+        select(Section).where(
+            Section.course_id == seed_uuid("course:FIN-300"),
+            Section.section_code == "987",
+        )
+    )
+    assert section is not None
+    assert section.is_official is False
+    assert section.source_type is SourceType.BROWSER_EXTENSION
+    assert section.capacity is None
+    assert section.available_seats is None
+    meetings = session.scalars(
+        select(SectionMeeting).where(SectionMeeting.section_id == section.id)
+    ).all()
+    assert len(meetings) == 2
+    assert {
+        meeting.day_of_week.name for meeting in meetings if meeting.day_of_week is not None
+    } == {"MONDAY", "WEDNESDAY"}
+    assert all(meeting.is_official is False for meeting in meetings)
+
+    duplicate = service.apply_review_session(review.id)
+    assert duplicate.application is not None
+    assert count_rows(session, Section) == sections_before + 1
+    assert (
+        session.scalar(
+            select(func.count())
+            .select_from(SectionMeeting)
+            .where(
+                SectionMeeting.section_id == section.id,
+            )
+        )
+        == 2
+    )
+
+
+def test_section_apply_does_not_overwrite_official_section(session: Session) -> None:
+    official = Section(
+        id=seed_uuid("section:official-import-conflict"),
+        institution_id=seed_uuid("institution:mock-university"),
+        course_id=seed_uuid("course:FIN-300"),
+        term_id=seed_uuid("term:2024-fall"),
+        campus_id=seed_uuid("campus:mock-main"),
+        section_code="CONFLICT",
+        status=SectionStatus.OPEN,
+        modality=SectionModality.IN_PERSON,
+        is_official=True,
+        source_type=SourceType.OFFICIAL,
+        source_reference="Reviewed school catalog fixture",
+    )
+    session.add(official)
+    session.commit()
+
+    run_id = create_section_import(session, "CONFLICT")
+    service = DataReviewApplicationService(session)
+    review = service.create_review_session(
+        data_import_run_id=run_id,
+        reviewer_label="Visible schedule conflict review",
+    )
+    record_review = session.scalar(
+        select(ImportedRecordReview).where(
+            ImportedRecordReview.review_session_id == review.id,
+        )
+    )
+    assert record_review is not None
+    service.update_record_review(
+        review_session_id=review.id,
+        record_review_id=record_review.id,
+        decision=ImportedRecordReviewDecision.CONFIRMED,
+    )
+    applied = service.apply_review_session(review.id)
+    assert applied.applied_records[0].reason_code == "CONFLICT_OFFICIAL_OR_MOCK_TARGET"
+    assert session.get(Section, official.id) is not None
 
 
 def myprogress_course_row(
