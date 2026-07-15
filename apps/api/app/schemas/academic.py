@@ -395,6 +395,7 @@ SchedulePlanningModeValue = Literal[
     "FROM_LONG_TERM_PLAN",
     "CUSTOM_COURSE_SET",
 ]
+SectionDataModeValue = Literal["DEMO_MOCK", "REVIEWED_IMPORTED"]
 ScheduleRunStatusValue = Literal[
     "PENDING",
     "RUNNING",
@@ -879,6 +880,8 @@ class ScheduleOptimizationCreateRequest(BaseModel):
     term_id: UUID
     academic_plan_run_id: UUID | None = None
     planning_mode: SchedulePlanningModeValue
+    section_data_mode: SectionDataModeValue = "DEMO_MOCK"
+    source_age_max_minutes: int | None = Field(default=None, ge=0)
     candidate_course_ids: list[UUID] = Field(default_factory=list)
     minimum_credits: Decimal = Field(ge=0)
     maximum_credits: Decimal = Field(ge=0)
@@ -925,6 +928,10 @@ class ScheduleOptimizationRunResponse(BaseModel):
     term_id: UUID
     academic_plan_run_id: UUID | None = None
     planning_mode: SchedulePlanningModeValue
+    section_data_mode: SectionDataModeValue
+    source_age_max_minutes: int | None = None
+    input_snapshot_hash: str | None = None
+    source_readiness: dict[str, Any]
     status: ScheduleRunStatusValue
     engine_version: str
     minimum_credits: Decimal
@@ -968,6 +975,7 @@ class ScheduleConstraintSetResponse(BaseModel):
     diversity_mode: str
     allow_partial_options: bool
     max_combinations: int
+    source_age_max_minutes: int | None = None
     created_at: datetime
 
 

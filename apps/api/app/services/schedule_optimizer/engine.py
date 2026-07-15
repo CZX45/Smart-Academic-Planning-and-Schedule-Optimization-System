@@ -38,6 +38,7 @@ from app.models.academic import (
     ScheduleRunStatus,
     ScheduleWarning,
     Section,
+    SectionDataMode,
     SectionMeeting,
     SectionModality,
     SectionStatus,
@@ -50,6 +51,10 @@ from app.services.course_eligibility.engine import CourseEligibilityEngine
 from app.services.course_eligibility.result import EligibilityResult
 from app.services.degree_audit.engine import DegreeAuditEngine, quantize_credits
 from app.services.schedule_optimizer.exceptions import ScheduleOptimizerValidationError
+from app.services.schedule_optimizer.real_sections import (
+    evaluate_reviewed_section,
+    input_snapshot_hash,
+)
 
 ENGINE_VERSION = "phase-6b-schedule-optimizer-v1"
 ZERO = Decimal("0.0")
@@ -212,6 +217,8 @@ class ScheduleOptimizerApplicationService:
         term_id: UUID,
         academic_plan_run_id: UUID | None,
         planning_mode: SchedulePlanningMode,
+        section_data_mode: SectionDataMode = SectionDataMode.DEMO_MOCK,
+        source_age_max_minutes: int | None = None,
         candidate_course_ids: list[UUID],
         minimum_credits: Decimal,
         maximum_credits: Decimal,
@@ -264,6 +271,11 @@ class ScheduleOptimizerApplicationService:
         )
         student = self._validate_student(student_profile_id)
         term = self._validate_term(term_id, student)
+        if source_age_max_minutes is not None and source_age_max_minutes < 0:
+            raise ScheduleOptimizerValidationError(
+                "invalid_source_age",
+                "source_age_max_minutes cannot be negative.",
+            )
         self._validate_course_state_readiness(student_profile_id)
         academic_plan = self._validate_plan(
             academic_plan_run_id=academic_plan_run_id,
@@ -285,12 +297,18 @@ class ScheduleOptimizerApplicationService:
             term_id=term_id,
             academic_plan_run_id=academic_plan.id if academic_plan else None,
             planning_mode=planning_mode,
+            section_data_mode=section_data_mode,
+            source_age_max_minutes=source_age_max_minutes,
             status=ScheduleRunStatus.RUNNING,
             engine_version=ENGINE_VERSION,
             minimum_credits=quantize_credits(minimum_credits),
             maximum_credits=quantize_credits(maximum_credits),
             preferred_credits=quantize_credits(preferred_credits),
             requested_option_count=requested_option_count,
+            source_readiness_payload={
+                "status": "PENDING",
+                "section_data_mode": section_data_mode.value,
+            },
         )
         self._db.add(run)
         self._db.flush()
@@ -325,19 +343,34 @@ class ScheduleOptimizerApplicationService:
             diversity_mode=diversity_mode,
             allow_partial_options=allow_partial_options,
             max_combinations=max_combinations,
+            source_age_max_minutes=source_age_max_minutes,
         )
 
-        warnings: list[WarningDraft] = [
-            WarningDraft(
-                warning_code="MOCK_SECTION_DATA_NOT_OFFICIAL",
-                severity=AuditWarningSeverity.INFO,
-                message=(
-                    "Mock section data - not official university policy. Generated schedules "
-                    "are not registration and need advisor or school confirmation."
-                ),
-                requires_advisor_confirmation=True,
+        warnings: list[WarningDraft] = []
+        if section_data_mode is SectionDataMode.DEMO_MOCK:
+            warnings.append(
+                WarningDraft(
+                    warning_code="MOCK_SECTION_DATA_NOT_OFFICIAL",
+                    severity=AuditWarningSeverity.INFO,
+                    message=(
+                        "Mock section data - not official university policy. Generated schedules "
+                        "are not registration and need advisor or school confirmation."
+                    ),
+                    requires_advisor_confirmation=True,
+                )
             )
-        ]
+        else:
+            warnings.append(
+                WarningDraft(
+                    warning_code="REVIEWED_IMPORTED_SECTION_DATA_NOT_OFFICIAL",
+                    severity=AuditWarningSeverity.INFO,
+                    message=(
+                        "Reviewed imported Section data is non-official and advisory. Confirm "
+                        "the current schedule manually with the school before acting."
+                    ),
+                    requires_advisor_confirmation=True,
+                )
+            )
         conflicts: list[ConflictDraft] = []
         try:
             candidates = self._candidate_courses(
@@ -365,7 +398,31 @@ class ScheduleOptimizerApplicationService:
                 allow_permission_required=allow_permission_required,
                 warnings=warnings,
                 conflicts=conflicts,
+                section_data_mode=section_data_mode,
+                source_age_max_minutes=source_age_max_minutes,
             )
+            section_ids = [
+                candidate.section.id for group in section_groups.values() for candidate in group
+            ]
+            run.input_snapshot_hash = input_snapshot_hash(
+                section_data_mode=section_data_mode.value,
+                student_id=student.id,
+                institution_id=student.home_institution_id,
+                term_id=term.id,
+                course_ids=[candidate.course.id for candidate in candidates],
+                section_ids=section_ids,
+                maximum_source_age_minutes=source_age_max_minutes,
+            )
+            run.source_readiness_payload = {
+                "status": "READY_WITH_WARNINGS" if warnings else "READY",
+                "section_data_mode": section_data_mode.value,
+                "requested_course_count": len(candidates),
+                "covered_course_count": len(section_groups),
+                "uncovered_course_count": max(0, len(candidates) - len(section_groups)),
+                "reviewed_candidate_count": len(section_ids),
+                "source_age_max_minutes": source_age_max_minutes,
+                "input_snapshot_hash": run.input_snapshot_hash,
+            }
             optimizer: ScheduleOptimizer = BoundedSearchScheduleOptimizer(self)
             options, optionless_conflicts = optimizer.generate_options(
                 candidates=candidates,
@@ -462,12 +519,16 @@ class ScheduleOptimizerApplicationService:
                 term_id=term_id,
                 academic_plan_run_id=academic_plan_run_id,
                 planning_mode=planning_mode,
+                section_data_mode=section_data_mode,
+                source_age_max_minutes=source_age_max_minutes,
                 status=ScheduleRunStatus.FAILED,
                 engine_version=ENGINE_VERSION,
                 minimum_credits=quantize_credits(minimum_credits),
                 maximum_credits=quantize_credits(maximum_credits),
                 preferred_credits=quantize_credits(preferred_credits),
                 requested_option_count=requested_option_count,
+                input_snapshot_hash=run.input_snapshot_hash,
+                source_readiness_payload=run.source_readiness_payload,
                 completed_at=utc_now(),
             )
             self._db.add(failed)
@@ -701,6 +762,7 @@ class ScheduleOptimizerApplicationService:
         diversity_mode: str,
         allow_partial_options: bool,
         max_combinations: int,
+        source_age_max_minutes: int | None,
     ) -> None:
         self._db.add(
             ScheduleConstraintSet(
@@ -747,6 +809,7 @@ class ScheduleOptimizerApplicationService:
                 diversity_mode=diversity_mode,
                 allow_partial_options=allow_partial_options,
                 max_combinations=max_combinations,
+                source_age_max_minutes=source_age_max_minutes,
             )
         )
         self._db.flush()
@@ -936,6 +999,8 @@ class ScheduleOptimizerApplicationService:
         allow_permission_required: bool,
         warnings: list[WarningDraft],
         conflicts: list[ConflictDraft],
+        section_data_mode: SectionDataMode,
+        source_age_max_minutes: int | None,
     ) -> dict[UUID, list[SectionCandidate]]:
         groups: dict[UUID, list[SectionCandidate]] = {}
         for candidate in candidates:
@@ -947,6 +1012,34 @@ class ScheduleOptimizerApplicationService:
                 )
                 .order_by(Section.section_code, Section.modality, Section.id)
             ).all()
+            if section_data_mode is SectionDataMode.REVIEWED_IMPORTED:
+                reviewed_sections = []
+                for section in sections:
+                    decision = evaluate_reviewed_section(
+                        self._db,
+                        section=section,
+                        student=student,
+                        target_term_id=term.id,
+                        requested_course_id=candidate.course.id,
+                        now=utc_now(),
+                        maximum_source_age_minutes=source_age_max_minutes,
+                    )
+                    if decision.eligible:
+                        reviewed_sections.append(section)
+                    else:
+                        for reason in decision.reason_codes:
+                            warnings.append(
+                                WarningDraft(
+                                    warning_code=reason,
+                                    severity=AuditWarningSeverity.WARNING,
+                                    message=(
+                                        f"Section {section.section_code} was excluded from "
+                                        f"reviewed imported optimization: {reason}."
+                                    ),
+                                    requires_advisor_confirmation=True,
+                                )
+                            )
+                sections = reviewed_sections
             if not sections:
                 self._add_no_section_warning(candidate.course, warnings, conflicts)
                 continue

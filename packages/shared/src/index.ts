@@ -840,6 +840,7 @@ const SchedulePlanningModeSchema = z.enum([
   "FROM_LONG_TERM_PLAN",
   "CUSTOM_COURSE_SET",
 ]);
+const SectionDataModeSchema = z.enum(["DEMO_MOCK", "REVIEWED_IMPORTED"]);
 
 const ScheduleRunStatusSchema = z.enum([
   "PENDING",
@@ -876,6 +877,10 @@ export const ScheduleOptimizationRunSchema = z.object({
   term_id: UuidSchema,
   academic_plan_run_id: UuidSchema.nullable(),
   planning_mode: SchedulePlanningModeSchema,
+  section_data_mode: SectionDataModeSchema.default("DEMO_MOCK"),
+  source_age_max_minutes: z.number().nullable().default(null),
+  input_snapshot_hash: z.string().nullable().default(null),
+  source_readiness: z.record(z.string(), z.unknown()).default({}),
   status: ScheduleRunStatusSchema,
   engine_version: z.string(),
   minimum_credits: DecimalValueSchema,
@@ -933,6 +938,7 @@ export const ScheduleConstraintSetSchema = z.object({
   diversity_mode: ScheduleDiversityModeSchema,
   allow_partial_options: z.boolean(),
   max_combinations: z.number(),
+  source_age_max_minutes: z.number().nullable().default(null),
   created_at: DateTimeSchema,
 });
 
@@ -1666,6 +1672,8 @@ export type CreateScheduleOptimizationRequest = {
     | "FROM_DEGREE_AUDIT"
     | "FROM_LONG_TERM_PLAN"
     | "CUSTOM_COURSE_SET";
+  section_data_mode?: "DEMO_MOCK" | "REVIEWED_IMPORTED";
+  source_age_max_minutes?: number | null;
   candidate_course_ids?: string[];
   minimum_credits: string | number;
   maximum_credits: string | number;
