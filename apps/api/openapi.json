@@ -11736,6 +11736,17 @@
             "type": "integer",
             "title": "Max Combinations"
           },
+          "source_age_max_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Age Max Minutes"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -11897,6 +11908,27 @@
               "CUSTOM_COURSE_SET"
             ],
             "title": "Planning Mode"
+          },
+          "section_data_mode": {
+            "type": "string",
+            "enum": [
+              "DEMO_MOCK",
+              "REVIEWED_IMPORTED"
+            ],
+            "title": "Section Data Mode",
+            "default": "DEMO_MOCK"
+          },
+          "source_age_max_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Age Max Minutes"
           },
           "candidate_course_ids": {
             "items": {
@@ -12270,6 +12302,41 @@
             ],
             "title": "Planning Mode"
           },
+          "section_data_mode": {
+            "type": "string",
+            "enum": [
+              "DEMO_MOCK",
+              "REVIEWED_IMPORTED"
+            ],
+            "title": "Section Data Mode"
+          },
+          "source_age_max_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Age Max Minutes"
+          },
+          "input_snapshot_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Snapshot Hash"
+          },
+          "source_readiness": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Source Readiness"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -12387,6 +12454,8 @@
           "student_profile_id",
           "term_id",
           "planning_mode",
+          "section_data_mode",
+          "source_readiness",
           "status",
           "engine_version",
           "minimum_credits",
@@ -12441,6 +12510,41 @@
               "CUSTOM_COURSE_SET"
             ],
             "title": "Planning Mode"
+          },
+          "section_data_mode": {
+            "type": "string",
+            "enum": [
+              "DEMO_MOCK",
+              "REVIEWED_IMPORTED"
+            ],
+            "title": "Section Data Mode"
+          },
+          "source_age_max_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Age Max Minutes"
+          },
+          "input_snapshot_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Snapshot Hash"
+          },
+          "source_readiness": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Source Readiness"
           },
           "status": {
             "type": "string",
@@ -12505,6 +12609,8 @@
           "student_profile_id",
           "term_id",
           "planning_mode",
+          "section_data_mode",
+          "source_readiness",
           "status",
           "engine_version",
           "minimum_credits",

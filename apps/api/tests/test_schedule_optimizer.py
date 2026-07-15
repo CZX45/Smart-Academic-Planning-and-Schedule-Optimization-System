@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from datetime import time
+from datetime import UTC, datetime, time
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -19,8 +19,11 @@ from app.main import app
 from app.models.academic import (
     AuditWarningSeverity,
     Course,
+    DataImportType,
     DayOfWeek,
     EligibilityOverallResult,
+    ImportedRecordReview,
+    ImportedRecordReviewDecision,
     ScheduleConflict,
     ScheduleConflictType,
     ScheduleConstraintSet,
@@ -33,11 +36,21 @@ from app.models.academic import (
     ScheduleRunStatus,
     ScheduleWarning,
     Section,
+    SectionDataMode,
     SectionMeeting,
     SectionModality,
+    SourceType,
+    StudentProfile,
 )
 from app.seed_dev import seed_mock_data, seed_uuid
+from app.services.data_imports.engine import DataImportApplicationService
+from app.services.data_review.engine import DataReviewApplicationService
 from app.services.schedule_optimizer.engine import ScheduleOptimizerApplicationService
+from app.services.schedule_optimizer.real_sections import (
+    evaluate_reviewed_section,
+    input_snapshot_hash,
+)
+from tests.test_data_reviews import section_csv
 
 MISSING_ID = "00000000-0000-0000-0000-000000000000"
 
@@ -304,6 +317,165 @@ def test_schedule_engine_generates_no_friday_feasible_options_and_warnings(
     assert not friday_meetings
     assert any(warning.warning_code == "MOCK_SECTION_DATA_NOT_OFFICIAL" for warning in warnings)
     assert any("credits" in option.explanation.lower() for option in options)
+
+
+def test_reviewed_imported_boundary_requires_successful_stage_11_apply(session: Session) -> None:
+    mock_section = session.scalar(
+        select(Section).where(Section.id == seed_uuid("section:2024-fall-fin-300-web"))
+    )
+    assert mock_section is not None
+    student = session.get(StudentProfile, seed_uuid("student-profile:mock-student"))
+    assert student is not None
+
+    denied = evaluate_reviewed_section(
+        session,
+        section=mock_section,
+        student=student,
+        target_term_id=seed_uuid("term:2024-fall"),
+        requested_course_id=seed_uuid("course:FIN-300"),
+        now=datetime.now(UTC),
+    )
+    assert not denied.eligible
+    assert "SECTION_SOURCE_NOT_APPLIED" in denied.reason_codes
+
+    run = DataImportApplicationService(session).create_import(
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        import_type=DataImportType.SECTION_SCHEDULE,
+        file_name="reviewed-section.csv",
+        file_mime_type="text/csv",
+        content=section_csv("REAL-1"),
+        source_type=SourceType.BROWSER_EXTENSION,
+        source_reference="Synthetic visible-page section fixture",
+    )
+    review_service = DataReviewApplicationService(session)
+    review = review_service.create_review_session(
+        data_import_run_id=run.id,
+        reviewer_label="Synthetic reviewer",
+    )
+    record_review = session.scalar(
+        select(ImportedRecordReview).where(ImportedRecordReview.review_session_id == review.id)
+    )
+    assert record_review is not None
+    review_service.update_record_review(
+        review_session_id=review.id,
+        record_review_id=record_review.id,
+        decision=ImportedRecordReviewDecision.CONFIRMED,
+    )
+    applied = review_service.apply_review_session(review.id)
+    assert applied.application is not None
+    section = session.scalar(select(Section).where(Section.section_code == "REAL-1"))
+    assert section is not None
+    decision = evaluate_reviewed_section(
+        session,
+        section=section,
+        student=student,
+        target_term_id=seed_uuid("term:2024-fall"),
+        requested_course_id=seed_uuid("course:FIN-300"),
+        now=datetime.now(UTC),
+    )
+    assert decision.eligible
+    assert decision.provenance is not None
+
+    refreshed_run = DataImportApplicationService(session).create_import(
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        import_type=DataImportType.SECTION_SCHEDULE,
+        file_name="reviewed-section-refresh.csv",
+        file_mime_type="text/csv",
+        content=section_csv("REAL-1"),
+        source_type=SourceType.BROWSER_EXTENSION,
+        source_reference="Synthetic visible-page section refresh fixture",
+    )
+    refreshed_review = review_service.create_review_session(
+        data_import_run_id=refreshed_run.id,
+        reviewer_label="Synthetic reviewer",
+    )
+    refreshed_record_review = session.scalar(
+        select(ImportedRecordReview).where(
+            ImportedRecordReview.review_session_id == refreshed_review.id
+        )
+    )
+    assert refreshed_record_review is not None
+    review_service.update_record_review(
+        review_session_id=refreshed_review.id,
+        record_review_id=refreshed_record_review.id,
+        decision=ImportedRecordReviewDecision.CONFIRMED,
+    )
+    refreshed_applied = review_service.apply_review_session(refreshed_review.id)
+    assert refreshed_applied.application is not None
+    refreshed_decision = evaluate_reviewed_section(
+        session,
+        section=section,
+        student=student,
+        target_term_id=seed_uuid("term:2024-fall"),
+        requested_course_id=seed_uuid("course:FIN-300"),
+        now=datetime.now(UTC),
+    )
+    assert refreshed_decision.eligible
+    assert refreshed_decision.provenance is not None
+    assert input_snapshot_hash(
+        section_data_mode=SectionDataMode.REVIEWED_IMPORTED.value,
+        student_id=seed_uuid("student-profile:mock-student"),
+        institution_id=seed_uuid("institution:mock-university"),
+        term_id=seed_uuid("term:2024-fall"),
+        course_ids=[seed_uuid("course:FIN-300")],
+        section_ids=[section.id],
+        maximum_source_age_minutes=None,
+    ) == input_snapshot_hash(
+        section_data_mode=SectionDataMode.REVIEWED_IMPORTED.value,
+        student_id=seed_uuid("student-profile:mock-student"),
+        institution_id=seed_uuid("institution:mock-university"),
+        term_id=seed_uuid("term:2024-fall"),
+        course_ids=[seed_uuid("course:FIN-300")],
+        section_ids=[section.id],
+        maximum_source_age_minutes=None,
+    )
+
+
+def test_reviewed_imported_mode_never_falls_back_to_mock_sections(session: Session) -> None:
+    run = ScheduleOptimizerApplicationService(session).create_schedule(
+        student_profile_id=seed_uuid("student-profile:mock-student"),
+        term_id=seed_uuid("term:2024-fall"),
+        academic_plan_run_id=None,
+        planning_mode=SchedulePlanningMode.CUSTOM_COURSE_SET,
+        section_data_mode=SectionDataMode.REVIEWED_IMPORTED,
+        candidate_course_ids=[course_id(session, "FIN", "300")],
+        minimum_credits=Decimal("3.0"),
+        maximum_credits=Decimal("3.0"),
+        preferred_credits=Decimal("3.0"),
+        requested_option_count=1,
+        excluded_days=[],
+        unavailable_time_blocks=[],
+        earliest_start_time=None,
+        latest_end_time=None,
+        allowed_modalities=[],
+        excluded_modalities=[],
+        required_course_ids=[],
+        excluded_course_ids=[],
+        required_section_ids=[],
+        excluded_section_ids=[],
+        prefer_online=False,
+        prefer_compact_schedule=False,
+        prefer_fewer_days=False,
+        prefer_in_person=False,
+        avoid_early_start=False,
+        avoid_late_end=False,
+        allow_permission_required=False,
+    )
+    detail = session.get(ScheduleOptimizationRun, run.id)
+    assert detail is not None
+    assert detail.section_data_mode is SectionDataMode.REVIEWED_IMPORTED
+    assert detail.source_readiness_payload["covered_course_count"] == 0
+    assert detail.input_snapshot_hash is not None
+    warnings = session.scalars(
+        select(ScheduleWarning).where(ScheduleWarning.schedule_optimization_run_id == run.id)
+    ).all()
+    assert any(warning.warning_code == "SECTION_SOURCE_NOT_APPLIED" for warning in warnings)
+    selected = session.scalars(
+        select(ScheduleOptionSection)
+        .join(ScheduleOption, ScheduleOptionSection.schedule_option_id == ScheduleOption.id)
+        .where(ScheduleOption.schedule_optimization_run_id == run.id)
+    ).all()
+    assert not selected
 
 
 def test_schedule_engine_records_time_conflicts_and_prefers_online_when_requested(

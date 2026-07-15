@@ -256,6 +256,11 @@ class SchedulePlanningMode(StrEnum):
     CUSTOM_COURSE_SET = "CUSTOM_COURSE_SET"
 
 
+class SectionDataMode(StrEnum):
+    DEMO_MOCK = "DEMO_MOCK"
+    REVIEWED_IMPORTED = "REVIEWED_IMPORTED"
+
+
 class ScheduleRunStatus(StrEnum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
@@ -717,6 +722,13 @@ academic_plan_coverage_type_enum = Enum(
 schedule_planning_mode_enum = Enum(
     SchedulePlanningMode,
     name="schedule_planning_mode",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+section_data_mode_enum = Enum(
+    SectionDataMode,
+    name="section_data_mode",
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
@@ -3425,6 +3437,18 @@ class ScheduleOptimizationRun(UuidPrimaryKeyMixin, TimestampMixin, Base):
         schedule_planning_mode_enum,
         nullable=False,
     )
+    section_data_mode: Mapped[SectionDataMode] = mapped_column(
+        section_data_mode_enum,
+        nullable=False,
+        default=SectionDataMode.DEMO_MOCK,
+    )
+    source_age_max_minutes: Mapped[int | None] = mapped_column(nullable=True)
+    input_snapshot_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source_readiness_payload: Mapped[dict[str, object]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
     status: Mapped[ScheduleRunStatus] = mapped_column(
         schedule_run_status_enum,
         nullable=False,
@@ -3519,6 +3543,7 @@ class ScheduleConstraintSet(UuidPrimaryKeyMixin, Base):
     diversity_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="STANDARD")
     allow_partial_options: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     max_combinations: Mapped[int] = mapped_column(nullable=False, default=500)
+    source_age_max_minutes: Mapped[int | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

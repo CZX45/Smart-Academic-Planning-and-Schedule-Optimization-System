@@ -794,3 +794,47 @@ campus, and unambiguous Section identity.
   separate from canonical structural data. No monitoring, registration,
   portal mutation, or optimizer integration was started.
 - Next milestone: Real Section Optimizer Integration is not started.
+
+## Stage 12A — Real Section optimizer input boundary checkpoint
+
+Stage 12A is implemented on an isolated worktree from synchronized
+`origin/main`. It establishes the safe backend boundary for the next
+dependency-ordered milestone; PR 60 must merge and `main` must synchronize
+before Stage 12B begins.
+
+- Status: PR 60 open; CI is in progress.
+- Branch: `real-section-optimizer-input-boundary`.
+- Worktree: `D:\Crystal\.cache\worktrees\real-section-optimizer-input-boundary`.
+- Starting commit: `42fdd6c0f6efab0b55b0c762948564a29e83a9a8`.
+- Final head: `d0b06fd4933a0c517d229c1dff2b6c150d246ed2`.
+- PR: `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/60`.
+- CI: workflow run `29386664333` (run number `267`), in progress at checkpoint time.
+- Data modes: explicit `DEMO_MOCK` preserves existing seeded behavior;
+  `REVIEWED_IMPORTED` requires successful Stage 11 application provenance.
+- Reviewed/applied predicate: centralized audit-chain evaluation requires the
+  exact student, institution, term, and Course scope; confirmed or
+  edited-and-confirmed review; successful Section application; non-official,
+  non-MOCK source; supported Section import; valid, non-truncated structural
+  payload; and valid meeting structure.
+- Real/mock isolation: real mode filters candidates through that predicate and
+  never falls back to or mixes in mock Sections. Demo mode remains unchanged.
+- Readiness and provenance: the run persists Section mode, source-age policy,
+  deterministic input snapshot hash, and a source-readiness summary. The
+  existing Stage 11 import/application IDs remain discoverable through the
+  validated audit join.
+- Source age: exact age is computed from the applied Section extraction time;
+  missing timestamps produce `SOURCE_AGE_UNKNOWN`; an optional maximum age is
+  persisted and applied without treating it as an availability guarantee.
+- TBA/arranged policy: such rows are identified and warned; they are not
+  silently treated as conflict-free certainty.
+- Availability separation: seat, capacity, and waitlist values remain outside
+  structural candidate eligibility and ranking.
+- Validation: API pytest 199 passed; focused optimizer/boundary tests 10
+  passed; shared 56, Extension 55, and web 14 tests passed; workspace lint,
+  typecheck, build, API Ruff, format, mypy, compileall, and diff checks passed.
+  The documented SQLite full-Alembic-from-base blocker remains at revision
+  `20260623_0004`.
+- Exact next action: after PR 60 exact-head CI and review pass, merge PR 60,
+  synchronize local `main` with `origin/main`, then create the separate
+  `real-section-optimizer-integration` worktree for Stage 12B. Do not begin
+  Stage 12B before that gate.
