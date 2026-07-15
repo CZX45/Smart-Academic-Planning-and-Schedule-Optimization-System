@@ -118,7 +118,7 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 11. Stage 9 — Real MyProgress stabilization — complete; PRs #49 and #50 merged.
 12. Stage 10 reviewed Program/Catalog architecture and post-merge correctness —
     complete; PRs #52, #53, and #54 merged.
-13. Stage 11 Real Section import — next milestone; not started in this goal.
+13. Stage 11 Real Section import — in progress through PR 11A staging work.
 14. Real Section optimizer integration.
 15. UI workflow modularization.
 16. Backup/Restore.
@@ -591,16 +591,15 @@ Schedule Optimizer semantics changed, and no later milestone was started.
   portal data, credentials, cookies, tokens, or authoritative WKU/Kean policy
   coverage was added.
 
-Stage 10 is complete through PRs #52, #53, and #54. Real Section Import has not
-started, Schedule Optimizer integration has not started and remains a later
-milestone, and Stage 11 must not begin in this goal.
+Stage 10 is complete through PRs #52, #53, and #54. Stage 11A Real Section
+Import staging work is in progress; Schedule Optimizer integration has not
+started and remains a later milestone.
 
 ## Resume checkpoint
 
-- Current milestone: Stage 10 complete; Stage 11 Real Section import is next and
-  has not started.
+- Current milestone: Stage 11A Real Section import staging; Stage 10 is complete.
 - Stage 10 status: complete.
-- Stage 11 status: Real Section Import; not started.
+- Stage 11 status: Real Section Import; PR 11A in progress, PR 11B not started.
 - Schedule Optimizer integration: not started and remains a later milestone.
 - Current stage checkpoint: Stage 10A and Stage 10B use synthetic fixtures
   because no reviewed official Program/Catalog source inventory is present.
@@ -611,13 +610,14 @@ milestone, and Stage 11 must not begin in this goal.
   `fdd3765b8cb81ed3ffadba9e34da095454befcd2`.
 - Final synchronized `main`/`origin/main`:
   `fdd3765b8cb81ed3ffadba9e34da095454befcd2`.
-- Last completed action: completed the Stage 10 documentation closeout after
-  PR #54 merged, without beginning Section import or Schedule Optimizer work.
+- Last completed action: implemented and focused-tested the PR 11A parser and
+  staging contract; canonical Section application and optimizer integration
+  remain out of scope.
 - Last successful validation: hosted CI workflow run ID `29339947589` (run
   number `245`) passed; final local report states 194 API tests passed and the
   listed lint, type, build, migration, OpenAPI, and diff checks passed.
-- Exact next action: Stage 11 Real Section Import is next but has not started.
-  Do not begin it in this goal.
+- Exact next action: finish PR 11A full validation, then create and merge its
+  staging-only PR before starting the PR 11B worktree.
 
 ## Scope confirmation
 
@@ -714,3 +714,40 @@ implementation is included in the Stage 8 closeout.
   explicit non-official/source/provenance presentation.
 - Privacy: synthetic/sanitized fixtures only; no real portal HTML, screenshots,
   identifiers, credentials, cookies, tokens, sessions, or local databases.
+
+## Stage 11A — Real Section Import parser and staging checkpoint
+
+Stage 11A is in progress on an isolated worktree from synchronized Stage 10
+`origin/main`. Its scope is limited to visible-page Section extraction,
+deterministic grouping and normalization, bounded evidence, field provenance,
+validation diagnostics, and staging. Canonical `Section` and `SectionMeeting`
+rows are not created or updated by this checkpoint. Review remains mandatory;
+`AUTO_VERIFIED` describes structural parser consistency only.
+
+- Branch: `stage11a-section-import-parser`.
+- Worktree: `D:\Crystal\.cache\worktrees\stage11a-section-import-parser`.
+- Starting commit: `b90c19a4c4db47cad93f5973fa3b5f60ea07ee5c`.
+- PR: pending implementation and validation; no PR 11B work has started.
+- Parser contract: Section identity is grouped conservatively by visible term,
+  course code, and Section code. Repeated rows preserve multiple meetings;
+  recognized day/time forms are normalized while raw text remains evidence.
+- Provenance: staged normalized records retain raw evidence, source table/row
+  indices, field-level direct/derived metadata, validation state, completeness,
+  and bounded/truncation diagnostics.
+- Privacy: source references remain sanitized by the existing Extension path;
+  credentials, cookies, tokens, authentication forms, action controls, and
+  unrelated student-profile content are excluded. Fixtures are synthetic or
+  sanitized only.
+- Volatile availability: seats, capacity, and waitlist values remain nested
+  staging evidence and are not written to canonical structural Section data or
+  Section Monitoring targets.
+- Focused validation: Extension Vitest 55 passed; Extension TypeScript
+  typecheck and ESLint passed; API Ruff passed; API compileall passed; focused
+  Section/import pytest passed 2 tests.
+- Protected root artifacts remain outside this worktree and untouched:
+  `apps/web/next-env.d.ts`, `.codex-worktrees/`, and
+  `localize-web-ui-zh-cn.patch`.
+- Exact next checkpoint: finish the full PR 11A validation matrix, review the
+  complete diff, commit and push this staging-only branch, create PR 11A, and
+  merge it before creating the PR 11B worktree. Real Section Optimizer
+  Integration remains out of scope.

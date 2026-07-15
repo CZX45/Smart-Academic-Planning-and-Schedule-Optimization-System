@@ -22,6 +22,7 @@ import {
   type KeanExtractionStrategy,
   type KeanPageDefinition,
 } from "../shared/kean.js";
+import { parseSectionTables } from "./section-import.js";
 
 const SOURCE_TYPE = "BROWSER_EXTENSION" as const;
 
@@ -335,8 +336,14 @@ const SECTION_SPEC: ExtractionSpec = {
   mimeType: "text/csv",
   fields: [
     "term_code",
+    "term_label",
+    "institution",
+    "campus",
     "course_code",
+    "course_title",
     "section_code",
+    "external_reference",
+    "component",
     "modality",
     "status",
     "seats_available",
@@ -352,11 +359,24 @@ const SECTION_SPEC: ExtractionSpec = {
     "location",
     "instructor_display",
     "source_label",
+    "meetings_json",
+    "field_provenance_json",
+    "availability_evidence_json",
+    "mapping_candidates_json",
+    "raw_evidence",
+    "validation_state",
+    "completeness",
   ],
   aliases: {
     term_code: ["term", "term_code"],
+    term_label: ["term_label", "term_name", "semester_label"],
+    institution: ["institution", "institution_code", "school"],
+    campus: ["campus", "campus_code", "campus_label"],
     course_code: ["course", "course_code", "code"],
+    course_title: ["title", "course_title", "name"],
     section_code: ["section", "section_code"],
+    external_reference: ["crn", "external_reference", "external_id", "class_id"],
+    component: ["component", "component_type", "activity", "meeting_type"],
     modality: ["modality", "instruction_mode"],
     status: ["status", "section_status"],
     seats_available: [
@@ -381,6 +401,13 @@ const SECTION_SPEC: ExtractionSpec = {
     meeting_time: ["meeting_time", "time"],
     location: ["location", "building_room", "room", "building"],
     instructor_display: ["instructor", "instructor_display"],
+    meetings_json: ["meetings_json"],
+    field_provenance_json: ["field_provenance_json"],
+    availability_evidence_json: ["availability_evidence_json"],
+    mapping_candidates_json: ["mapping_candidates_json"],
+    raw_evidence: ["raw_evidence"],
+    validation_state: ["validation_state", "parser_state"],
+    completeness: ["completeness"],
   },
   requiredFields: ["term_code", "course_code", "section_code"],
 };
@@ -490,7 +517,10 @@ export function extractAcademicPageFromTables(
   const parseResult = isMyProgressCourseSpec(candidate.spec)
     ? recordsFromMyProgressTables(candidate.spec, candidateTables, warnings)
     : {
-        records: recordsFromTable(candidate.spec, candidate.table, warnings),
+        records:
+          candidate.spec.importType === "SECTION_SCHEDULE"
+            ? parseSectionTables(snapshot, candidateTables, warnings)
+            : recordsFromTable(candidate.spec, candidate.table, warnings),
         diagnostics: emptyParserDiagnostics(),
       };
   const { records } = parseResult;

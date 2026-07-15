@@ -3013,6 +3013,8 @@ def create_data_import(
             content=request.content,
             source_type=SourceType(request.source_type),
             source_reference=request.source_reference,
+            extraction_warnings=request.warnings,
+            extraction_diagnostics=request.diagnostics,
         )
     except DataImportValidationError as error:
         status_code = 404 if error.code == "not_found" else 400
