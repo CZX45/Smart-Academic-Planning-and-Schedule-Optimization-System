@@ -556,3 +556,21 @@ reviewed course definition is `UNKNOWN`, not `ELIGIBLE`; an absent active set
 is marked `MISSING` and retains the legacy path for compatibility. This keeps
 synthetic fixtures and incomplete source coverage advisory until a reviewer
 confirms authoritative source evidence.
+
+# ADR-0023: Keep LOCAL_DESKTOP schema migration separate from Alembic
+
+LOCAL_DESKTOP uses a file-backed SQLite database and now has a dedicated,
+explicit migration registry. Each local migration declares its source and
+target integer versions, and the runner builds a contiguous plan without
+inferring order from filenames. The runner records attempts in a SQLite
+journal, enables and validates foreign keys, runs `foreign_key_check` and
+`integrity_check`, and fails closed for unknown, newer, failed, or interrupted
+states. A schema version is advanced only after the planned work and
+validation complete.
+
+This foundation intentionally does not change the production schema version,
+perform Tauri startup orchestration, implement rollback replacement, or
+change PostgreSQL/Alembic behavior. Destructive migrations require a validated
+safety-backup reference for the active database. The journal stores only safe
+metadata and sanitized error text; it never stores credentials, cookies,
+tokens, MFA data, pairing secrets, or academic data contents.

@@ -2,7 +2,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import Column, DateTime, Integer, MetaData, String, Table, func, insert, select
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    func,
+    insert,
+    select,
+    text,
+)
 from sqlalchemy.engine import Engine, make_url
 
 from app.db.base import Base
@@ -33,16 +44,17 @@ def initialize_database(engine: Engine) -> None:
         return
 
     _ensure_database_directory(engine)
-    Base.metadata.create_all(engine)
     _local_metadata.create_all(engine)
 
     with engine.begin() as connection:
+        connection.execute(text("PRAGMA foreign_keys=ON"))
         existing_version = connection.scalar(
             select(local_schema_versions.c.schema_version).where(
                 local_schema_versions.c.schema_name == "LOCAL_DESKTOP"
             )
         )
         if existing_version is None:
+            Base.metadata.create_all(connection)
             connection.execute(
                 insert(local_schema_versions).values(
                     id=1,
@@ -55,3 +67,5 @@ def initialize_database(engine: Engine) -> None:
                 "Unsupported LOCAL_DESKTOP schema version: "
                 f"{existing_version}; expected {LOCAL_SCHEMA_VERSION}."
             )
+        else:
+            Base.metadata.create_all(connection)
