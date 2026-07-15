@@ -8,7 +8,8 @@ export type WorkflowId =
   | "what-if"
   | "sections"
   | "schedule-builder"
-  | "section-monitoring";
+  | "section-monitoring"
+  | "backup-restore";
 
 export type WorkflowDefinition = {
   id: WorkflowId;
@@ -40,6 +41,7 @@ export const workflowDefinitions: readonly WorkflowDefinition[] = [
     label: "课节监控",
     anchor: "section-monitoring",
   },
+  { id: "backup-restore", label: "备份与恢复", anchor: "backup-restore" },
 ];
 
 export function workflowIdFromHash(hash: string): WorkflowId {

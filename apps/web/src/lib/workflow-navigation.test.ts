@@ -18,9 +18,10 @@ describe("workflow navigation", () => {
       "sections",
       "schedule-builder",
       "section-monitoring",
+      "backup-restore",
     ]);
-    expect(workflowDefinitions.map((workflow) => workflow.label)).not.toContain(
-      "备份",
+    expect(workflowDefinitions.map((workflow) => workflow.label)).toContain(
+      "备份与恢复",
     );
   });
 

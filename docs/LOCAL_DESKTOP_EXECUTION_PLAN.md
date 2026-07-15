@@ -32,9 +32,9 @@ but LOCAL_DESKTOP is the current official product.
 ## Current verified state
 
 - Repository: `D:\Crystal`.
-- `main` and `origin/main` were synchronized at the Stage 12 closeout before
-  this milestone. PRs #62 and the preceding milestone PRs are merged; UI
-  Workflow Modularization PR A is now merged as PR #63.
+- `main` and `origin/main` are synchronized at the UI Workflow Modularization
+  closeout commit `c9be585a41cb54c303b032a7bafd6bbbb24c781f`. PRs #63, #64,
+  and #65 are merged.
 - PR 1 is merged as PR #35:
   `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
 - PR 1 commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
@@ -76,15 +76,16 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 
 - Local Desktop target: embedded database, local API process, local web UI,
   runtime discovery, process supervision, and packaged desktop shell.
-- Partial: embedded local database, runtime discovery, API process supervision,
-  and the unbundled desktop-shell proof are implemented; packaged runtime and
-  production desktop shell do not yet exist.
+- Implemented: file-backed LOCAL_DESKTOP SQLite bootstrap, runtime discovery,
+  API process supervision, Tauri desktop shell, packaged FastAPI runtime,
+  packaged static Web UI, secure Extension pairing, and localhost request
+  protection are present in the merged product path.
 - Mock-only: development seed fixtures and unreviewed sample academic data.
 - SERVER-only/current development path: PostgreSQL-backed Docker Compose and
   explicit bearer-authenticated SERVER runtime.
 - Known technical debt: migration history is PostgreSQL-specific in places;
-  local schema versioning, data directory handling, runtime discovery,
-  supervision, packaging, and extension pairing are not complete.
+  the historical SQLite Alembic incompatibility remains documented and is not
+  part of Backup/Restore.
 
 ## Architecture decisions
 
@@ -92,11 +93,11 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
    optional. `ENVIRONMENT` is independent of `PRODUCT_MODE`.
 2. LOCAL_DESKTOP requires an embedded database. PostgreSQL remains valid for
    SERVER and development integration testing.
-3. FastAPI is preserved unless runtime packaging evidence disproves its
-   suitability. The desktop shell remains subject to proof, with Tauri as the
-   preferred evaluation candidate.
-4. Extension pairing is required before final local request-security
-   completion. It is not part of the current Local Runtime Foundation.
+3. FastAPI is the supervised LOCAL_DESKTOP API runtime. The Tauri shell starts
+   it, discovers its runtime manifest, and loads the static Web export through
+   the runtime `api_base_url` bridge.
+4. Extension pairing and the localhost request boundary are complete merged
+   security contracts; Backup/Restore must preserve them.
 5. Real Section Optimization remains inside MVP. Section Monitoring remains
    after MVP.
 6. Because the existing PostgreSQL Alembic history cannot currently initialize
@@ -122,7 +123,7 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 13. Stage 11 Real Section Import — complete; PRs #56, #57, and #58 merged.
 14. Real Section Optimizer Integration — complete; PRs #60 and #61 merged.
 15. UI workflow modularization — complete; PRs #63 and #64 merged.
-16. Backup/Restore — next milestone; not started.
+16. Backup/Restore — current milestone; PR A in progress on an isolated branch.
 17. Safe migration and rollback.
 18. Diagnostics.
 19. Windows Installer/Uninstaller.
@@ -989,5 +990,38 @@ local pre-merge clone ancestry.
   capture, private data, or protected artifact changes were added. The known
   SQLite Alembic-from-base limitation at `20260623_0004` remains unchanged.
 - Final state: UI Workflow Modularization is complete; static export and
-  packaged runtime discovery remain supported; Backup/Restore is next and has
-  not started.
+  packaged runtime discovery remain supported; Backup/Restore is now the
+  current dependency-ordered milestone.
+
+## Backup/Restore — PR A checkpoint
+
+PR A is limited to the local backup archive foundation and explicit manual
+export. It does not replace the active database and does not expose a working
+restore action. PR B must begin only after PR A merges and local `main` is
+synchronized with `origin/main`.
+
+- Branch: `local-backup-archive-foundation`.
+- Worktree: `D:\Crystal\.cache\worktrees\local-backup-archive-foundation`.
+- Starting commit: `c9be585a41cb54c303b032a7bafd6bbbb24c781f`.
+- Backup format: `sapsos-backup` version 1, `.sapsos-backup` filename, ZIP
+  entries exactly `manifest.json` and `database.sqlite`.
+- Snapshot method: Python SQLite backup API from the active configured SQLite
+  database URL; source and snapshot are checked with SQLite quick check,
+  foreign-key check, and exact LOCAL_DESKTOP schema version validation.
+- Manifest: canonical JSON records backup ID, UTC creation time, product mode,
+  schema version, payload size and SHA-256, allowlist, and explicit pairing,
+  runtime, and encryption flags. Archives are unencrypted; pairing/runtime
+  state is excluded.
+- API: `GET /api/v1/local-backup/status` and explicit `POST
+  /api/v1/local-backup` download; the boundary is LOCAL_DESKTOP-only and does
+  not expose arbitrary filesystem paths.
+- Web: the static hash-routed `备份与恢复` workflow provides status, inclusion
+  and exclusion warnings, an unencrypted-data warning, duplicate-click
+  protection, and a manual binary download. Restore remains dependency-gated.
+- Validation: focused API backup tests, Web/shared tests, Ruff, mypy,
+  compileall, Web typecheck/lint/build, and generated OpenAPI checks are being
+  recorded with the PR evidence. The exact PR number, head, CI run, and merge
+  commit will be added after publication.
+- Protected artifacts: `apps/web/next-env.d.ts`, `.codex-worktrees/`, and
+  `localize-web-ui-zh-cn.patch` remain root-only and are excluded from this
+  branch.
