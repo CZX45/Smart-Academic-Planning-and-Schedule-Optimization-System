@@ -101,9 +101,10 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 5. Real Section Optimization remains inside MVP. Section Monitoring remains
    after MVP.
 6. Because the existing PostgreSQL Alembic history cannot currently initialize
-   SQLite safely, the next database PR will evaluate a separate deterministic
-   LOCAL_DESKTOP baseline/bootstrap with version tracking before considering
-   any data-preserving migration corrections. No academic semantics may change.
+   SQLite safely, LOCAL_DESKTOP uses the separate deterministic baseline,
+   version tracking, and safe migration orchestration recorded below. No
+   academic semantics change, and the PostgreSQL history remains authoritative
+   for SERVER mode.
 
 ## Dependency-ordered milestones
 
@@ -123,10 +124,11 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 13. Stage 11 Real Section Import — complete; PRs #56, #57, and #58 merged.
 14. Real Section Optimizer Integration — complete; PRs #60 and #61 merged.
 15. UI workflow modularization — complete; PRs #63 and #64 merged.
-16. Backup/Restore — current milestone; PR A merged and PR B in progress on an
-    isolated branch.
-17. Safe migration and rollback.
-18. Diagnostics.
+16. Backup/Restore — complete through PRs #66, #67, and the documentation
+    closeout.
+17. Safe migration and rollback — complete through PRs #70, #71, and this
+    documentation closeout.
+18. Diagnostics — next milestone.
 19. Windows Installer/Uninstaller.
 20. Packaged Desktop E2E.
 21. Controlled Student Beta.
@@ -599,12 +601,13 @@ Import is complete through PRs #56, #57, and #58. Stage 12 Real Section
 Optimizer Integration and its documentation closeout are complete through PRs
 #60, #61, and #62. UI Workflow Modularization is complete through PRs #63,
 #64, the Backup/Restore PR A and PR B merges, and the documentation closeout
-below. Backup/Restore is complete; Safe migration and rollback is next.
+below. Backup/Restore and Safe migration and rollback are complete; Diagnostics
+is next.
 
 ## Resume checkpoint
 
-- Current milestone: Backup/Restore is complete; Safe migration and rollback is
-  next and has not started.
+- Current milestone: Safe migration and rollback is complete; Diagnostics is
+  next.
 - Stage 10 status: complete.
 - Stage 11 status: Real Section Import complete; PRs #56, #57, and #58 merged.
 - Real Section Optimizer Integration: complete; PRs #60 and #61 merged.
@@ -612,7 +615,8 @@ below. Backup/Restore is complete; Safe migration and rollback is next.
   because no reviewed official Program/Catalog source inventory is present.
   10B consumes exact active rules only and records provenance; missing course
   definitions remain `UNKNOWN`.
-- Current PRs: PRs #52, #53, #54, #56, #57, #58, #60, #61, and #62 are merged.
+- Current PRs: PRs #52, #53, #54, #56, #57, #58, #60, #61, #62, #66, #67,
+  #68, #70, and #71 are merged.
   Stage 11A
   PR #56 merged at `068a38eae02ef51b70172da1f380f398cea9419d`; Stage 11B
   PR #57 merged at `749dd959ce7a82c982fe3df2962376cfdab6bbc0`; closeout PR #58
@@ -845,8 +849,9 @@ campus, and unambiguous Section identity.
   SectionMeeting records with provenance. Availability remains advisory and
   separate from canonical structural data. Stage 12 optimizer work was kept
   out of Stage 11 and delivered afterward through the gated PRs above.
-- Next milestone: Safe migration and rollback — Backup/Restore is complete;
-  Safe migration and rollback has not started.
+- Historical next-milestone checkpoint: Safe migration and rollback followed
+  Backup/Restore. That milestone is now complete through PRs #70 and #71 and
+  the closeout below; Diagnostics is next.
 
 ## Stage 12A — Real Section optimizer input boundary checkpoint
 
@@ -992,9 +997,9 @@ local pre-merge clone ancestry.
   registration, portal mutation, automatic monitoring, polling, credential
   capture, private data, or protected artifact changes were added. The known
   SQLite Alembic-from-base limitation at `20260623_0004` remains unchanged.
-- Final state: UI Workflow Modularization is complete; static export and
-  packaged runtime discovery remain supported; Backup/Restore is now the
-  current dependency-ordered milestone.
+- Final state: UI Workflow Modularization, Backup/Restore, and Safe migration
+  and rollback are complete; static export and packaged runtime discovery
+  remain supported; Diagnostics is the next dependency-ordered milestone.
 
 ## Backup/Restore — PR A checkpoint
 
@@ -1071,11 +1076,12 @@ rollback.
 
 ## Backup/Restore — final documentation closeout
 
-Backup/Restore is complete through PR A #66, PR B #67, and this docs-only
-closeout. The dependency gate was preserved: PR B started from merged PR A,
-and this closeout started from merged PR B at `bb0b6d55dbe368af64557c5c646286ce170772b5`.
-No Safe migration and rollback work began. The pre-existing SQLite
-Alembic-from-base limitation at `20260623_0004` remains unchanged.
+Backup/Restore is complete through PR A #66, PR B #67, and the docs-only
+closeout in PR #68. The dependency gate was preserved: PR B started from
+merged PR A, and the closeout started from merged PR B at
+`bb0b6d55dbe368af64557c5c646286ce170772b5`. Safe migration and rollback is
+recorded in the closeout below. The pre-existing SQLite Alembic-from-base
+limitation at `20260623_0004` remains unchanged.
 
 - Final synchronized `main`/`origin/main` before this documentation-only
   closeout: `bb0b6d55dbe368af64557c5c646286ce170772b5`. Closeout PR #68 merged
@@ -1083,3 +1089,124 @@ Alembic-from-base limitation at `20260623_0004` remains unchanged.
 - Scope remains local-only and advisory: no registration, portal mutation,
   credentials, cloud sync, scheduling, arbitrary filesystem access, or
   automatic monitoring was added.
+
+## Safe migration and rollback — final documentation closeout
+
+Safe migration and rollback is complete through two implementation PRs and
+this documentation-only closeout. PR #70 established the LOCAL_DESKTOP SQLite
+migration foundation; PR #71 added Tauri pre-start orchestration, readiness,
+automatic rollback, interrupted-attempt recovery, and replay prevention. The
+closeout starts from merged PR #71 at `6142016` and does not change
+implementation code.
+
+### PR #70 — safe migration and rollback foundation
+
+- PR: #70.
+- CI: run `29438130368` passed.
+- Final API validation: 216 passed; focused migration/Backup/Restore tests:
+  17 passed.
+- Final merge/main state before PR #71: `de5161d`.
+- Delivered the LOCAL_DESKTOP migration registry with explicit from/to schema
+  versions, deterministic migration planning, schema-status classification,
+  migration journal, migration runner, integrity validation, foreign-key
+  validation, and a validated safety-backup contract.
+- Production LOCAL_DESKTOP schema version remains 1. No formal production
+  version 2 migration was created.
+- PostgreSQL Alembic behavior remains unchanged. Historical revision
+  `20260623_0004` was not fixed or bypassed.
+
+### PR #71 — Tauri startup orchestration
+
+- PR: #71, `Add safe local migration startup orchestration`.
+- CI: run `29440757350` passed checks, pnpm lint/typecheck/test/build,
+  OpenAPI validation, Docker Compose, and Playwright.
+- Merge commit: `6142016`.
+- Delivered the versioned Python JSON preflight/execute contract,
+  attempt-bound safety backup, Tauri startup lock, API readiness gate,
+  pending-restore-first ordering, automatic rollback after migration or
+  post-migration API startup failure, interrupted-attempt handling, marker
+  replay prevention, and recovery-loop prevention.
+- Migration safety backups remain application-owned and do not include
+  pairing/runtime state. SERVER/PostgreSQL startup and Alembic behavior remain
+  unchanged. ADR-0024 records the orchestration decision.
+- Validation: API pytest 219 passed; Ruff, mypy, compileall, Rust fmt/test/
+  build, hosted pnpm checks, OpenAPI, Docker Compose, and Playwright passed.
+
+### Final LOCAL_DESKTOP startup and database lifecycle
+
+```text
+acquire startup/database lock
+→ process pending restore first
+→ inspect interrupted migration state
+→ migration preflight
+→ CURRENT: start API normally
+→ UPGRADE_REQUIRED:
+   create attempt
+   create and validate safety backup
+   execute ordered migration plan
+   validate integrity and foreign keys
+   start API
+   wait for readiness
+→ readiness success: complete startup
+→ migration or readiness failure:
+   stop API
+   preserve failed database evidence
+   restore verified safety backup
+   record rollback
+   stop safely
+```
+
+Restore has priority over migration; restore and migration do not run
+concurrently, and one startup permits only one database replacement or
+migration operation. Completing the migration command is not equivalent to a
+successful upgrade: the API process, runtime manifest, target database, and
+readiness endpoint must also be correct. After rollback, the same startup does
+not migrate again. An interrupted attempt is recognized on the next startup
+and must enter recovery preflight before normal startup can proceed.
+
+### Safety boundaries and remaining limitations
+
+The orchestration is LOCAL_DESKTOP-only and does not apply to SERVER/PostgreSQL.
+It does not perform downgrade migration or cross-schema restore; automatically
+repair unknown/corrupt databases; silently rebuild or delete a user database;
+delete migration safety backups; restore `pairing.json` or `runtime.json`; or
+accept a user-controlled database path. It rejects marker replay, stale safety backup reuse,
+and unbounded migration/rollback loops. It never stores
+school accounts, cookies, tokens, MFA secrets, or portal credentials, and it
+does not emit unsanitized tracebacks or student records.
+
+The full SQLite Alembic-from-base path still fails at revision
+`20260623_0004`. This is a historical PostgreSQL-specific migration limitation;
+LOCAL_DESKTOP does not depend on the complete Alembic history, PR #70 did not
+modify that revision, and PostgreSQL migration history remains unchanged.
+
+The current production local schema version remains 1. There is no real
+production version 2 migration; orchestration was validated with test-only
+migrations and temporary SQLite databases, without manufacturing a formal
+schema bump for testing.
+
+The local complete Windows packaged-desktop proof remains unexecuted. The
+isolated clone lacked `node_modules`, so local full pnpm verification was
+environment-limited; hosted CI supplied pnpm, OpenAPI, Docker Compose, and
+Playwright evidence. Package-level proof remains part of the later Packaged
+Desktop E2E milestone and must not be described as complete here.
+
+### Next milestone: Diagnostics
+
+Diagnostics is the next milestone and is only recorded here as scope. It may
+provide a local diagnostics center covering API/runtime health, database health,
+schema version, migration status, last migration/rollback result, restore
+result, runtime manifest status, extension pairing status, and recent sanitized
+startup failures. A privacy-safe log export may be included, with no student
+records or credentials in the diagnostics bundle. No Diagnostics API, UI, or
+implementation is part of this closeout.
+
+The remaining dependency-ordered route is:
+
+```text
+Diagnostics
+→ Windows Installer/Uninstaller
+→ Packaged Desktop E2E
+→ Controlled Student Beta
+→ Release Candidate
+```
