@@ -261,6 +261,7 @@ def run_migrations(
     *,
     target_version: int = LOCAL_SCHEMA_VERSION,
     safety_backup: SafetyBackupReference | None = None,
+    attempt_id: UUID | None = None,
 ) -> MigrationRunResult:
     if engine.dialect.name != "sqlite":
         raise MigrationError("sqlite_required", "Local migrations require SQLite.")
@@ -270,7 +271,7 @@ def run_migrations(
             "file_database_required", "Local migrations require a file-backed database."
         )
     database = Path(database_url).expanduser().resolve()
-    attempt_id = uuid4()
+    resolved_attempt_id = attempt_id or uuid4()
     connection = sqlite3.connect(database)
     connection.execute("PRAGMA foreign_keys=ON")
     try:
@@ -285,7 +286,7 @@ def run_migrations(
         info = inspect_schema(connection, migrations, target_version)
         if info.state == LocalSchemaState.CURRENT:
             return MigrationRunResult(
-                attempt_id,
+                resolved_attempt_id,
                 info.state,
                 info.current_version or target_version,
                 target_version,
@@ -316,7 +317,7 @@ def run_migrations(
             "migration_ids, started_at, status, safety_backup_reference) "
             "VALUES (?, ?, ?, ?, ?, ?, 'IN_PROGRESS', ?)",
             (
-                str(attempt_id),
+                str(resolved_attempt_id),
                 _database_identity(database),
                 info.current_version,
                 target_version,
@@ -341,11 +342,11 @@ def run_migrations(
                 "UPDATE local_migration_journal SET status = 'COMPLETED', "
                 "completed_at = ?, integrity_validation_result = ? "
                 "WHERE attempt_id = ?",
-                (datetime.now(UTC).isoformat(), integrity, str(attempt_id)),
+                (datetime.now(UTC).isoformat(), integrity, str(resolved_attempt_id)),
             )
             connection.commit()
             return MigrationRunResult(
-                attempt_id,
+                resolved_attempt_id,
                 LocalSchemaState.CURRENT,
                 info.current_version,
                 target_version,
@@ -363,7 +364,7 @@ def run_migrations(
                     datetime.now(UTC).isoformat(),
                     "execution",
                     _sanitize_error(error),
-                    str(attempt_id),
+                    str(resolved_attempt_id),
                 ),
             )
             connection.commit()

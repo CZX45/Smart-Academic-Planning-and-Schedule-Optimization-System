@@ -173,6 +173,28 @@ def _snapshot(source: Path, destination: Path) -> None:
         destination_connection.close()
 
 
+def create_migration_safety_backup(database: Path, attempt_id: UUID, root: Path) -> Path:
+    """Create an application-owned SQLite snapshot for one migration attempt."""
+
+    source = database.resolve()
+    controlled_root = root.resolve()
+    try:
+        source.relative_to(controlled_root)
+    except ValueError as error:
+        raise BackupError(
+            "database_path_invalid", "The local database is outside the controlled app-data root."
+        ) from error
+    safety_directory = controlled_root / "migration-safety" / str(attempt_id)
+    safety_directory.mkdir(parents=True, exist_ok=False)
+    snapshot = safety_directory / DATABASE_PAYLOAD_NAME
+    try:
+        _snapshot(source, snapshot)
+    except Exception:
+        shutil.rmtree(safety_directory, ignore_errors=True)
+        raise
+    return snapshot
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as file:

@@ -257,320 +257,4 @@ Consequences:
 - What-if plans can reference scenario snapshots without changing official declarations.
 - The frontend can render term-by-term plans without reimplementing planner logic.
 - Planner warnings preserve uncertainty for mock data, broad requirements, credit limits, horizon limits, and offering assumptions.
-- Phase 5A remains course-level and deliberately does not select sections, check weekly meeting conflicts, monitor seats, or perform registration actions.
-
-## ADR-0015: Implement Phase 6A semester scheduler as persisted bounded snapshots
-
-Status: Accepted
-
-Context: The system needs a section-level schedule optimizer that can rank concrete semester schedules, but live registration, seat monitoring, browser automation, and a full OR-Tools solver remain outside the current safety and complexity boundary.
-
-Decision: Implement Phase 6A as a synchronous backend application service that creates one `ScheduleOptimizationRun` snapshot with child constraint-set, option, selected-section, conflict, and warning rows. Reuse Course Eligibility in `REGISTRATION` mode, but keep section availability informational and never mutate sections, seats, waitlists, student records, or registration data. Support `FROM_DEGREE_AUDIT`, `FROM_LONG_TERM_PLAN`, and `CUSTOM_COURSE_SET` modes. Use a deterministic bounded search and stable tie-breakers rather than OR-Tools in this foundation phase.
-
-Consequences:
-
-- Schedule results are repeatable, auditable snapshots rather than live registration state.
-- The frontend can render ranked section options, conflicts, and warnings without reimplementing schedule logic.
-- Hard constraints and preference scoring are explainable and testable.
-- Search limits are explicit and warn rather than pretending to be exhaustive.
-- Phase 6A remains read-only and deliberately does not poll seats, join waitlists, add, drop, swap, register, scrape portals, or bypass school authentication.
-
-## ADR-0016: Extend Phase 6B scheduler with explainable scoring, diversity, and repair suggestions
-
-Status: Accepted
-
-Context: The Phase 6A scheduler can generate bounded section schedules, but students need more control over preferences, advisors need auditable score components, and infeasible runs need structured relaxation guidance. A full OR-Tools solver and live registration integrations remain outside the safety boundary.
-
-Decision: Implement Phase 6B as an extension of the persisted schedule snapshot model. Add advanced constraint inputs for preference weights, course and section priorities, no-gap, morning, afternoon, diversity mode, partial-option behavior, and search bounds. Persist score components and score explanations on each option, store deterministic diversity metadata, and create `ScheduleRepairSuggestion` rows for infeasible or partial schedules. Keep the implementation behind a `ScheduleOptimizer` protocol and use a deterministic bounded-search implementation for this phase.
-
-Consequences:
-
-- API, shared TypeScript schemas, and the web app can render scoring and repair details without duplicating optimizer logic.
-- Advanced preferences remain transparent soft inputs rather than hidden frontend ranking.
-- High-diversity mode can provide meaningfully different options while preserving deterministic ordering.
-- Repair suggestions are explanatory only and do not automate registration, add/drop, swaps, waitlists, seat monitoring, portal scraping, or authentication bypass.
-- OR-Tools, richer minimal-relaxation search, instructor preferences, commute optimization, and live official section imports remain future work.
-
-## ADR-0017: Implement Phase 7A imports as read-only staging previews
-
-Status: Accepted
-
-Context: Students may have mock or self-provided transcript, degree-audit, catalog, or section-schedule data before an official reviewed import workflow exists. Applying that data directly to transcript, catalog, requirement, section, seat, waitlist, or registration tables would blur source authority and could create high-impact academic errors.
-
-Decision: Implement Phase 7A as a separate read-only data import staging boundary. Persist `DataImportRun`, `DataImportFile`, `ImportedRecord`, `ImportMappingCandidate`, `ImportValidationWarning`, and `ImportPreviewSummary` rows. Parse bounded CSV/JSON content, normalize generic course-code fields, propose mapping candidates, and emit warnings and preview disclaimers. Keep `official_application_ready = false`, reject official-source imports, and do not mutate academic-domain or registration tables.
-
-Consequences:
-
-- Users and advisors can inspect imported mock/student-provided data without confusing it with official school policy.
-- API, shared TypeScript schemas, and the web app can render records, mapping candidates, warnings, and previews without duplicating parser logic.
-- Future reviewed import/application workflows can build on a traceable staging model.
-- Phase 7A deliberately does not implement browser extension import, real school login, SAML/MFA/CAPTCHA handling, scraping, OCR-heavy extraction, advisor approval queues, official data application, seat monitoring, waitlist handling, add/drop/swap, or automatic registration.
-
-## ADR-0018: Require explicit review before applying imported data
-
-Status: Accepted
-
-Context: Phase 7A staging data can be mock, student-provided, ambiguous, unsupported, or unmatched. Automatically applying those records would create planning state that appears more authoritative than its source. At the same time, students need a controlled way to turn reviewed unofficial transcript rows into internal planning records for estimates.
-
-Decision: Implement Phase 7B as an explicit Data Review and Confirmation workflow. Persist `DataImportReviewSession`, `ImportedRecordReview`, `DataApplicationRun`, `AppliedImportedRecord`, and `DataReviewWarning`. Require per-record decisions and apply only through `POST /data-import-reviews/{review_id}/apply`; GET endpoints remain read-only. Support dry-run with no domain writes. Limit real application to confirmed unofficial transcript course attempts that map to a known course and term, create non-official internal `StudentCourseAttempt` records with source metadata, and audit every applied or skipped record with action, status, reason code, and message.
-
-Consequences:
-
-- Imported records remain distinguishable from official school data even after review.
-- Duplicate prevention and application logs make re-apply behavior explainable.
-- Unsupported catalog, section, requirement, unknown-course, rejected, deferred, advisor-review, and unsupported-grade records are skipped rather than silently applied.
-- Phase 7B deliberately does not implement browser extension import, real school login, scraping, OCR-heavy extraction, official data ingestion, seat monitoring, waitlist handling, add/drop/swap, or automatic registration.
-
-## ADR-0019: Implement browser extension imports as user-triggered staging handoff
-
-Status: Accepted
-
-Context: Students may need to import visible academic data from pages they have already opened, but browser automation can easily cross privacy, credential, and registration safety boundaries. The existing Phase 7A/7B import workflow already provides staging, warnings, preview, review decisions, dry-run, duplicate checks, and explicit application logs.
-
-Decision: Implement Phase 8A as a read-only Manifest V3 browser extension foundation in `apps/extension`. Use minimal permissions (`activeTab`, `scripting`, and `storage`) and no broad host permissions. Extract visible transcript, degree-audit, catalog, and section-search tables only after user action, show a preview, and send data only after confirmation. Reuse `POST /api/v1/data-imports` with `source_type = BROWSER_EXTENSION`, `is_official = false`, and `official_application_ready = false`. Keep Phase 7B review required before any application.
-
-Consequences:
-
-- Extension imports reuse the existing staging and review safety model instead of creating a parallel ingestion path.
-- Source metadata distinguishes browser-extension visible-page extracts from uploads, mock fixtures, inferred data, official data, and reviewed application logs.
-- The extension does not store credentials, read password fields, bypass school authentication, scrape in the background, submit portal forms, publish production browser-store builds, poll seats, join waitlists, add, drop, swap, register, or grab seats.
-- Read-only section-change alerts may be considered later, but they must remain advisory and unable to perform registration or seat-state automation.
-
-## ADR-0020: Implement section monitoring as advisory snapshot comparison
-
-Status: Accepted
-
-Context: Students can benefit from noticing changes in section-search data they manually import, but live seat monitoring, portal polling, waitlist automation, and registration actions create accuracy, privacy, and operational risk.
-
-Decision: Implement Phase 8B section monitoring as a read-only advisory boundary. Persist student-scoped monitor targets, non-official imported snapshots, and manual-review alerts. Compare only user-triggered browser-extension snapshots, deduplicate identical snapshots by hash, and expose alerts through `/api/v1/section-monitoring`. Render advisory UI messaging and a manual registration checklist. Do not schedule background polling, refresh portals, alter seat or waitlist state, submit forms, or mutate canonical section, seat, waitlist, student, plan, schedule, or registration state.
-
-Consequences:
-
-- Students can review status, seat, waitlist, meeting-time, instructor, and location changes without mistaking them for official portal status.
-- API, shared schemas, extension extraction, and web UI have an explicit non-official monitoring contract.
-- Future notification work must remain user-controlled and advisory unless a new reviewed architecture decision changes the boundary.
-- Registration automation, waitlist handling, seat-state automation, portal scraping, credential storage, and authentication bypass remain out of scope.
-
-## ADR-0021: Harden product dashboard clarity without expanding automation scope
-
-Status: Accepted
-
-Context: After Phase 8B, the product surface spans degree audit, data import, browser-extension import, section monitoring, schedule optimization, and what-if planning. Users need clearer status, empty-state, and advisory labeling so non-official imported data and manual next steps are hard to miss.
-
-Decision: Implement Phase 9A as product hardening only. Add dashboard status cards, reusable UI helper copy, advisory labels, before/after formatting, timestamp formatting, empty states, manual checklist polish, and safety-text tests. Keep the existing APIs and workflows intact, and do not introduce new backend domains, registration automation, portal submission, polling, background scraping, credential capture, waitlist automation, or seat-state changes.
-
-Consequences:
-
-- Students and reviewers can quickly distinguish not-started, loading, empty, warning, and ready states.
-- Browser-extension imports, data import previews, reviewed imported data, section monitoring snapshots, and alerts consistently show non-official/advisory/manual-review labels.
-- UX tests now guard against misleading registration, seat guarantee, and official-availability claims.
-- Any future automation or official-source workflow still requires a separate architecture decision.
-
-## ADR-0022: Harden security and production readiness without expanding workflow authority
-
-Status: Accepted
-
-Context: After Phase 9A, the system has enough user-facing academic planning, import, review, schedule, and advisory monitoring surface that accidental misconfiguration or unsafe wording could create privacy and operational risk before any real deployment.
-
-Decision: Implement Phase 9B as hardening-only work. Add API environment validation for PostgreSQL URL, app environment, timeout, and CORS origins; validate the web public API base URL; add safe API response headers and explicit CORS request headers; add low-sensitivity structured audit logs for data-import creation and advisory section-monitoring comparisons; document privacy, retention, safe logging, and production readiness; and add safety regression tests. Do not add new product domains, official source ingestion, account/auth systems, telemetry, production deployment, registration automation, portal submission, polling, waitlist automation, seat-state changes, or credential handling.
-
-Consequences:
-
-- Production-like misconfiguration fails early with clearer errors.
-- API responses gain safe default browser-facing headers without relying on reverse-proxy-only behavior.
-- Auditability improves while raw imported academic content, HTML, credentials, tokens, and secrets stay out of logs.
-- The browser extension and section monitoring boundaries remain user-triggered, non-official, read-only, and advisory.
-- Real data onboarding, advisor workflow expansion, deletion/export controls, external telemetry, and production deployment remain future work requiring separate review.
-
-## ADR-0023: Treat Phase 10A as release-readiness QA and final product review
-
-Status: Accepted
-
-Context: After Phase 9B, the product has mock degree audit, what-if, planner, schedule optimization, data import, browser-extension import, section monitoring, dashboard, and security-hardening surfaces. Before final review or demo, the project needs an explicit QA and handoff layer that explains how to review the existing workflows without implying official data authority or school-system automation.
-
-Decision: Implement Phase 10A as release-readiness QA and final product review only. Add release QA documentation, demo scenarios, a release checklist, final safety-boundary audit, documentation consistency cleanup, and lightweight wording regression tests. Do not add backend domains, official-source ingestion, notification workers, browser-store publishing, account/auth systems, credential handling, external telemetry, production deployment, polling, portal submission, registration automation, add/drop/swap automation, waitlist automation, seat reservation, or seat grabbing.
-
-Consequences:
-
-- Reviewers get a clear path through the main end-to-end user journeys.
-- Demo language stays anchored in imported snapshots, advisory alerts, manual review required records, read-only imported data, non-official data, and official-portal verification.
-- The release checklist connects local commands, CI validation, no-secrets review, extension permissions, prohibited automation review, docs review, and demo review.
-- Safety boundaries remain explicit while future production, official-data, notification, and advisor-access work stay deferred until separately reviewed.
-
-## ADR-0024: Implement Kean Student Portal import as a whitelisted browser-extension workflow
-
-Status: Accepted
-
-Context: The project needs to start addressing the original real-user import
-goal, and the target Kean / Ellucian Student Portal prefix is now known. Real
-portal imports create privacy and safety risk if implemented as crawling,
-credential handling, background scraping, or enrollment automation. The existing
-Phase 7A/7B staging and review model already provides the right safety boundary
-for non-official imported academic data.
-
-Decision: Implement Phase 11B as a Kean-specific browser-extension workflow
-under `https://kean-ss.colleague.elluciancloud.com/Student/*`. Keep baseline
-extension permissions to `activeTab`, `scripting`, and `storage`, and request
-the optional Kean host permission only when the student starts guided import.
-Use configurable page definitions for transcript, degree audit, MyProgress,
-course catalog, section search, student planning, and schedule pages. Extract
-only visible academic-planning table data after user action, show a preview, and
-send confirmed data to `POST /api/v1/data-imports` as
-`source_type = BROWSER_EXTENSION`, `is_official = false`, and
-`official_application_ready = false`. Label Kean imports as
-`KEAN_STUDENT_PORTAL` in safe source-reference and preview metadata. Preserve
-Phase 7B review before planning use.
-
-Consequences:
-
-- Kean import support builds on the existing staging/review path instead of
-  adding official-source ingestion.
-- The extension can support current-page import and guided full import without
-  broad crawling or hidden background work.
-- Chrome host permissions are host-scoped, so the implementation documents that
-  limitation and enforces the narrower `/Student/` prefix in code.
-- Fake Kean/Ellucian-style fixtures cover allowed academic data, unsupported
-  pages, login pages, hidden fields, unrelated personal/financial columns,
-  malformed rows, and action controls.
-- The workflow still does not store credentials, read password fields, store
-  cookies or session tokens, bypass SAML/MFA/CAPTCHA, submit portal forms,
-  automate registration, add/drop/swap courses, join waitlists, reserve seats,
-  grab seats, poll portals, or publish a browser-store workflow.
-
-## ADR-0025: Verify Kean MyProgress imports by exception, not by every row
-
-Status: Accepted
-
-Context: MyProgress pages include a top summary and progress bar that are more
-authoritative for total-credit progress than summing visible requirement rows,
-because the same course can appear in multiple requirement groups. Requiring
-students to confirm every imported row defeats the purpose of reducing manual
-checking, while blindly trusting low-confidence parser output would create
-academic-planning risk.
-
-Decision: For Kean MyProgress browser-extension imports, preserve the top
-summary, progress-bar segments, field-level provenance, raw bounded snapshot
-evidence, and validation diagnostics in the staging JSON payload. Validate
-program, catalog year, GPA, total credits, segment reconciliation, remaining
-credits, completion percentage, requirement groups, course-like evidence,
-truncation state, and mock/real mixing before any downstream academic use.
-Automatically confirm high-confidence fields and staging records when values
-reconcile and no conflicts exist. Create manual-review work only for exception
-items such as missing critical fields, conflicts, low confidence, unsupported
-rows, truncation, duplicate/ambiguous applications, and failed validation.
-
-Consequences:
-
-- MyProgress preview can display `Real Imported Data - Auto Verified`,
-  `Pending Review`, `Requires Exception Review`, or `Confirmed` instead of
-  silently falling back to mock data.
-- Degree progress display may use auto-verified MyProgress summary values for
-  visible dashboard metrics, while the data remains non-official and advisory.
-- Failed MyProgress validation blocks downstream academic analysis and returns
-  structured reason codes.
-- The import remains read-only: no registration, add/drop/swap, waitlist,
-  seat-reservation, portal form submission, polling, credential handling, or
-  official-source mutation is introduced.
-
-## ADR-0026: Materialize reviewed MyProgress rows as advisory course-state snapshots
-
-Status: Accepted
-
-Context: A staging preview can explain extracted MyProgress rows but is not a
-stable source for degree audit, eligibility, or planning. Mixing those rows with
-seeded mock attempts can create plausible but false academic conclusions.
-
-Decision: Explicit application materializes a versioned, immutable,
-non-official course-state snapshot and row-level provenance. One validated
-snapshot is active per student. Effective-attempt queries exclude mock history
-when an active imported snapshot exists. Each downstream consumer receives an
-independent readiness result; planned courses do not satisfy prerequisites, and
-section scheduling stays demo-only.
-
-Consequences:
-
-- Reapplication is idempotent and invalid newer imports do not replace a valid
-  active snapshot.
-- Unmatched and exception rows remain inspectable but cannot silently become
-  reliable academic history.
-- The UI distinguishes staging, active imported state, and demo data, and shows
-  structured blocking reasons.
-- The feature remains advisory and does not expand browser or registration
-  authority.
-
-## ADR-0027: Use hashed bearer tokens and explicit student grants for production auth foundation
-
-Status: Accepted
-
-Context: The API has accumulated student-owned generated objects: degree
-audits, eligibility checks, academic plans, schedule optimizations, staging
-imports, review sessions, applications, course-state snapshots, monitoring
-targets/alerts, and what-if scenarios. The next production step needs
-authentication and object-level authorization without introducing school
-password collection or an external identity-provider dependency before the
-deployment model is finalized.
-
-Decision: Add an application-auth foundation with tenants, users, hashed bearer
-API tokens, and explicit student-profile access grants, while separating local
-and server runtime behavior with `PRODUCT_MODE`. `LOCAL_DESKTOP` is the default
-and uses an explicitly named `LocalRuntimeContext`; it does not use a public
-development bypass or query authorization tables. `SERVER` requires
-`AUTH_MODE=bearer`. A centralized FastAPI router dependency resolves
-path/query/body object identifiers back to `student_profile_id` before route
-handlers execute. Access is allowed only for explicit grants, tenant admins
-within their tenant institution scope, or system admins. Health/readiness probes
-remain outside `/api/v1`.
-
-Consequences:
-
-- The backend stores no school credentials, portal cookies, SAML tokens, MFA
-  secrets, or plaintext API tokens.
-- Student-owned object APIs are protected consistently without duplicating
-  checks across every handler.
-- Token issuance and external SSO/OIDC login remain future production work; the
-  current foundation is intentionally narrow and reviewable.
-- Browser-extension non-local staging imports require an entered bearer token,
-  and the popup does not persist that token.
-- `ENVIRONMENT` is independent from `PRODUCT_MODE`; production local-desktop
-  mode remains a valid loopback local runtime.
-- Local desktop API binding is loopback-only and Docker publishes its API port
-  on loopback by default.
-## ADR-0012: Stage 10A source-backed Program/Catalog review boundary
-
-Existing ProgramVersion, RequirementNode, CourseRule, Degree Audit, and
-Eligibility models describe academic rules, but imported or mock content must
-not silently become authoritative policy. Stage 10A therefore introduces a
-typed, source-aware staged rule-set contract with exact institution/program/
-catalog-year identity, explicit lifecycle transitions, bounded deterministic
-operators, and visible unsupported statements. Validation does not persist or
-consume the payload; Stage 10B must separately add reviewed/active persistence
-and consumption. Until reviewed source material is provided, the product must
-not claim complete institutional coverage.
-
-## ADR-0013: Stage 10B reviewed-rule consumption boundary
-
-Degree Audit and Eligibility may consume only an exact active reviewed rule
-set matched by institution code, program code, and catalog year. The selected
-rule-set ID and source provenance are persisted with each run. A missing
-reviewed course definition is `UNKNOWN`, not `ELIGIBLE`; an absent active set
-is marked `MISSING` and retains the legacy path for compatibility. This keeps
-synthetic fixtures and incomplete source coverage advisory until a reviewer
-confirms authoritative source evidence.
-
-# ADR-0023: Keep LOCAL_DESKTOP schema migration separate from Alembic
-
-LOCAL_DESKTOP uses a file-backed SQLite database and now has a dedicated,
-explicit migration registry. Each local migration declares its source and
-target integer versions, and the runner builds a contiguous plan without
-inferring order from filenames. The runner records attempts in a SQLite
-journal, enables and validates foreign keys, runs `foreign_key_check` and
-`integrity_check`, and fails closed for unknown, newer, failed, or interrupted
-states. A schema version is advanced only after the planned work and
-validation complete.
-
-This foundation intentionally does not change the production schema version,
-perform Tauri startup orchestration, implement rollback replacement, or
-change PostgreSQL/Alembic behavior. Destructive migrations require a validated
-safety-backup reference for the active database. The journal stores only safe
-metadata and sanitized error text; it never stores credentials, cookies,
-tokens, MFA data, pairing secrets, or academic data contents.
+- Phase 5A remains course-level and deliberately does not select sections, check ßŸw¶‰ËkºwµçUÙ¥•İÌ°É•Ù¥•İ•¥µÁ½ÉÑ•‘…Ñ„°Í•Ñ¥½¸µ½¹¥Ñ½É¥¹œÍ¹…ÁÍ¡½ÑÌ°…¹…±•ÉÑÌ½¹Í¥ÍÑ•¹Ñ±äÍ¡½Ü¹½¸µ½™™¥¥…°½…‘Ù¥Í½Éä½µ…¹Õ…°µÉ•Ù¥•Ü±…‰•±Ì¸4(´U`Ñ•ÍÑÌ¹½ÜÕ…É……¥¹ÍĞµ¥Í±•…‘¥¹œÉ•¥ÍÑÉ…Ñ¥½¸°Í•…ĞÕ…É…¹Ñ•”°…¹½™™¥¥…°µ…Ù…¥±…‰¥±¥Ñä±…¥µÌ¸4(´¹ä™ÕÑÕÉ”…ÕÑ½µ…Ñ¥½¸½È½™™¥¥…°µÍ½ÕÉ”İ½É­™±½ÜÍÑ¥±°É•ÅÕ¥É•Ì„Í•Á…É…Ñ”…É¡¥Ñ•ÑÕÉ”‘•¥Í¥½¸¸4(4(ŒŒH´ÀÀÈÈè!…É‘•¸Í•ÕÉ¥Ñä…¹ÁÉ½‘ÕÑ¥½¸É•…‘¥¹•ÍÌİ¥Ñ¡½ÕĞ•áÁ…¹‘¥¹œİ½É­™±½Ü…ÕÑ¡½É¥Ñä4(4)MÑ…ÑÕÌè•ÁÑ•4(4)½¹Ñ•áĞè™Ñ•ÈA¡…Í”€å°Ñ¡”ÍåÍÑ•´¡…Ì•¹½Õ ÕÍ•Èµ™…¥¹œ……‘•µ¥ŒÁ±…¹¹¥¹œ°¥µÁ½ÉĞ°É•Ù¥•Ü°Í¡•‘Õ±”°…¹…‘Ù¥Í½Éäµ½¹¥Ñ½É¥¹œÍÕÉ™…”Ñ¡…Ğ…¥‘•¹Ñ…°µ¥Í½¹™¥ÕÉ…Ñ¥½¸½ÈÕ¹Í…™”İ½É‘¥¹œ½Õ±É•…Ñ”ÁÉ¥Ù…ä…¹½Á•É…Ñ¥½¹…°É¥Í¬‰•™½É”…¹äÉ•…°‘•Á±½åµ•¹Ğ¸4(4)•¥Í¥½¸è%µÁ±•µ•¹ĞA¡…Í”€å…Ì¡…É‘•¹¥¹œµ½¹±äİ½É¬¸‘A$•¹Ù¥É½¹µ•¹ĞÙ…±¥‘…Ñ¥½¸™½ÈA½ÍÑÉ•ME0UI0°…ÁÀ•¹Ù¥É½¹µ•¹Ğ°Ñ¥µ•½ÕĞ°…¹=IL½É¥¥¹ÌìÙ…±¥‘…Ñ”Ñ¡”İ•ˆÁÕ‰±¥ŒA$‰…Í”UI0ì…‘Í…™”A$É•ÍÁ½¹Í”¡•…‘•ÉÌ…¹•áÁ±¥¥Ğ=ILÉ•ÅÕ•ÍĞ¡•…‘•ÉÌì…‘±½ÜµÍ•¹Í¥Ñ¥Ù¥ÑäÍÑÉÕÑÕÉ•…Õ‘¥Ğ±½Ì™½È‘…Ñ„µ¥µÁ½ÉĞÉ•…Ñ¥½¸…¹…‘Ù¥Í½ÉäÍ•Ñ¥½¸µµ½¹¥Ñ½É¥¹œ½µÁ…É¥Í½¹Ìì‘½Õµ•¹ĞÁÉ¥Ù…ä°É•Ñ•¹Ñ¥½¸°Í…™”±½¥¹œ°…¹ÁÉ½‘ÕÑ¥½¸É•…‘¥¹•ÍÌì…¹…‘Í…™•ÑäÉ•É•ÍÍ¥½¸Ñ•ÍÑÌ¸¼¹½Ğ…‘¹•ÜÁÉ½‘ÕĞ‘½µ…¥¹Ì°½™™¥¥…°Í½ÕÉ”¥¹•ÍÑ¥½¸°…½Õ¹Ğ½…ÕÑ ÍåÍÑ•µÌ°Ñ•±•µ•ÑÉä°ÁÉ½‘ÕÑ¥½¸‘•Á±½åµ•¹Ğ°É•¥ÍÑÉ…Ñ¥½¸…ÕÑ½µ…Ñ¥½¸°Á½ÉÑ…°ÍÕ‰µ¥ÍÍ¥½¸°Á½±±¥¹œ°İ…¥Ñ±¥ÍĞ…ÕÑ½µ…Ñ¥½¸°Í•…ĞµÍÑ…Ñ”¡…¹•Ì°½ÈÉ•‘•¹Ñ¥…°¡…¹‘±¥¹œ¸4(4)½¹Í•ÅÕ•¹•Ìè4(4(´AÉ½‘ÕÑ¥½¸µ±¥­”µ¥Í½¹™¥ÕÉ…Ñ¥½¸™…¥±Ì•…É±äİ¥Ñ ±•…É•È•ÉÉ½ÉÌ¸4(´A$É•ÍÁ½¹Í•Ì…¥¸Í…™”‘•™…Õ±Ğ‰É½İÍ•Èµ™…¥¹œ¡•…‘•ÉÌİ¥Ñ¡½ÕĞÉ•±å¥¹œ½¸É•Ù•ÉÍ”µÁÉ½áäµ½¹±ä‰•¡…Ù¥½È¸4(´Õ‘¥Ñ…‰¥±¥Ñä¥µÁÉ½Ù•Ìİ¡¥±”É…Ü¥µÁ½ÉÑ•……‘•µ¥Œ½¹Ñ•¹Ğ°!Q50°É•‘•¹Ñ¥…±Ì°Ñ½­•¹Ì°…¹Í•É•ÑÌÍÑ…ä½ÕĞ½˜±½Ì¸4(´Q¡”‰É½İÍ•È•áÑ•¹Í¥½¸…¹Í•Ñ¥½¸µ½¹¥Ñ½É¥¹œ‰½Õ¹‘…É¥•ÌÉ•µ…¥¸ÕÍ•ÈµÑÉ¥•É•°¹½¸µ½™™¥¥…°°É•…µ½¹±ä°…¹…‘Ù¥Í½Éä¸4(´I•…°‘…Ñ„½¹‰½…É‘¥¹œ°…‘Ù¥Í½Èİ½É­™±½Ü•áÁ…¹Í¥½¸°‘•±•Ñ¥½¸½•áÁ½ÉĞ½¹ÑÉ½±Ì°•áÑ•É¹…°Ñ•±•µ•ÑÉä°…¹ÁÉ½‘ÕÑ¥½¸‘•Á±½åµ•¹ĞÉ•µ…¥¸™ÕÑÕÉ”İ½É¬É•ÅÕ¥É¥¹œÍ•Á…É…Ñ”É•Ù¥•Ü¸4(4(ŒŒH´ÀÀÈÌèQÉ•…ĞA¡…Í”€ÄÁ…ÌÉ•±•…Í”µÉ•…‘¥¹•ÍÌE…¹™¥¹…°ÁÉ½‘ÕĞÉ•Ù¥•Ü4(4)MÑ…ÑÕÌè•ÁÑ•4(4)½¹Ñ•áĞè™Ñ•ÈA¡…Í”€å°Ñ¡”ÁÉ½‘ÕĞ¡…Ìµ½¬‘•É•”…Õ‘¥Ğ°İ¡…Ğµ¥˜°Á±…¹¹•È°Í¡•‘Õ±”½ÁÑ¥µ¥é…Ñ¥½¸°‘…Ñ„¥µÁ½ÉĞ°‰É½İÍ•Èµ•áÑ•¹Í¥½¸¥µÁ½ÉĞ°Í•Ñ¥½¸µ½¹¥Ñ½É¥¹œ°‘…Í¡‰½…É°…¹Í•ÕÉ¥Ñäµ¡…É‘•¹¥¹œÍÕÉ™…•Ì¸	•™½É”™¥¹…°É•Ù¥•Ü½È‘•µ¼°Ñ¡”ÁÉ½©•Ğ¹••‘Ì…¸•áÁ±¥¥ĞE…¹¡…¹‘½™˜±…å•ÈÑ¡…Ğ•áÁ±…¥¹Ì¡½ÜÑ¼É•Ù¥•ÜÑ¡”•á¥ÍÑ¥¹œİ½É­™±½İÌİ¥Ñ¡½ÕĞ¥µÁ±å¥¹œ½™™¥¥…°‘…Ñ„…ÕÑ¡½É¥Ñä½ÈÍ¡½½°µÍåÍÑ•´…ÕÑ½µ…Ñ¥½¸¸4(4)•¥Í¥½¸è%µÁ±•µ•¹ĞA¡…Í”€ÄÁ…ÌÉ•±•…Í”µÉ•…‘¥¹•ÍÌE…¹™¥¹…°ÁÉ½‘ÕĞÉ•Ù¥•Ü½¹±ä¸‘É•±•…Í”E‘½Õµ•¹Ñ…Ñ¥½¸°‘•µ¼Í•¹…É¥½Ì°„É•±•…Í”¡•­±¥ÍĞ°™¥¹…°Í…™•Ñäµ‰½Õ¹‘…Éä…Õ‘¥Ğ°‘½Õµ•¹Ñ…Ñ¥½¸½¹Í¥ÍÑ•¹ä±•…¹ÕÀ°…¹±¥¡Ñİ•¥¡Ğİ½É‘¥¹œÉ•É•ÍÍ¥½¸Ñ•ÍÑÌ¸¼¹½Ğ…‘‰…­•¹‘½µ…¥¹Ì°½™™¥¥…°µÍ½ÕÉ”¥¹•ÍÑ¥½¸°¹½Ñ¥™¥…Ñ¥½¸İ½É­•ÉÌ°‰É½İÍ•ÈµÍÑ½É”ÁÕ‰±¥Í¡¥¹œ°…½Õ¹Ğ½…ÕÑ ÍåÍÑ•µÌ°É•‘•¹Ñ¥…°¡…¹‘±¥¹œ°•áÑ•É¹…°Ñ•±•µ•ÑÉä°ÁÉ½‘ÕÑ¥½¸‘•Á±½åµ•¹Ğ°Á½±±¥¹œ°Á½ÉÑ…°ÍÕ‰µ¥ÍÍ¥½¸°É•¥ÍÑÉ…Ñ¥½¸…ÕÑ½µ…Ñ¥½¸°…‘½‘É½À½Íİ…À…ÕÑ½µ…Ñ¥½¸°İ…¥Ñ±¥ÍĞ…ÕÑ½µ…Ñ¥½¸°Í•…ĞÉ•Í•ÉÙ…Ñ¥½¸°½ÈÍ•…ĞÉ…‰‰¥¹œ¸4(4)½¹Í•ÅÕ•¹•Ìè4(4(´I•Ù¥•İ•ÉÌ•Ğ„±•…ÈÁ…Ñ Ñ¡É½Õ Ñ¡”µ…¥¸•¹µÑ¼µ•¹ÕÍ•È©½ÕÉ¹•åÌ¸4(´•µ¼±…¹Õ…”ÍÑ…åÌ…¹¡½É•¥¸¥µÁ½ÉÑ•Í¹…ÁÍ¡½ÑÌ°…‘Ù¥Í½Éä…±•ÉÑÌ°µ…¹Õ…°É•Ù¥•ÜÉ•ÅÕ¥É•É•½É‘Ì°É•…µ½¹±ä¥µÁ½ÉÑ•‘…Ñ„°¹½¸µ½™™¥¥…°‘…Ñ„°…¹½™™¥¥…°µÁ½ÉÑ…°Ù•É¥™¥…Ñ¥½¸¸4(´Q¡”É•±•…Í”¡•­±¥ÍĞ½¹¹•ÑÌ±½…°½µµ…¹‘Ì°$Ù…±¥‘…Ñ¥½¸°¹¼µÍ•É•ÑÌÉ•Ù¥•Ü°•áÑ•¹Í¥½¸Á•Éµ¥ÍÍ¥½¹Ì°ÁÉ½¡¥‰¥Ñ•…ÕÑ½µ…Ñ¥½¸É•Ù¥•Ü°‘½ÌÉ•Ù¥•Ü°…¹‘•µ¼É•Ù¥•Ü¸4(´M…™•Ñä‰½Õ¹‘…É¥•ÌÉ•µ…¥¸•áÁ±¥¥Ğİ¡¥±”™ÕÑÕÉ”ÁÉ½‘ÕÑ¥½¸°½™™¥¥…°µ‘…Ñ„°¹½Ñ¥™¥…Ñ¥½¸°…¹…‘Ù¥Í½Èµ…•ÍÌİ½É¬ÍÑ…ä‘•™•ÉÉ•Õ¹Ñ¥°Í•Á…É…Ñ•±äÉ•Ù¥•İ•¸4(4(ŒŒH´ÀÀÈĞè%µÁ±•µ•¹Ğ-•…¸MÑÕ‘•¹ĞA½ÉÑ…°¥µÁ½ÉĞ…Ì„İ¡¥Ñ•±¥ÍÑ•‰É½İÍ•Èµ•áÑ•¹Í¥½¸İ½É­™±½Ü4(4)MÑ…ÑÕÌè•ÁÑ•4(4)½¹Ñ•áĞèQ¡”ÁÉ½©•Ğ¹••‘ÌÑ¼ÍÑ…ÉĞ…‘‘É•ÍÍ¥¹œÑ¡”½É¥¥¹…°É•…°µÕÍ•È¥µÁ½ÉĞ4)½…°°…¹Ñ¡”Ñ…É•Ğ-•…¸€¼±±Õ¥…¸MÑÕ‘•¹ĞA½ÉÑ…°ÁÉ•™¥à¥Ì¹½Ü­¹½İ¸¸I•…°4)Á½ÉÑ…°¥µÁ½ÉÑÌÉ•…Ñ”ÁÉ¥Ù…ä…¹Í…™•ÑäÉ¥Í¬¥˜¥µÁ±•µ•¹Ñ•…ÌÉ…İ±¥¹œ°4)É•‘•¹Ñ¥…°¡…¹‘±¥¹œ°‰…­É½Õ¹ÍÉ…Á¥¹œ°½È•¹É½±±µ•¹Ğ…ÕÑ½µ…Ñ¥½¸¸Q¡”•á¥ÍÑ¥¹œ4)A¡…Í”€İ¼İÍÑ…¥¹œ…¹É•Ù¥•Üµ½‘•°…±É•…‘äÁÉ½Ù¥‘•ÌÑ¡”É¥¡ĞÍ…™•Ñä‰½Õ¹‘…Éä4)™½È¹½¸µ½™™¥¥…°¥µÁ½ÉÑ•……‘•µ¥Œ‘…Ñ„¸4(4)•¥Í¥½¸è%µÁ±•µ•¹ĞA¡…Í”€ÄÅ…Ì„-•…¸µÍÁ•¥™¥Œ‰É½İÍ•Èµ•áÑ•¹Í¥½¸İ½É­™±½Ü4)Õ¹‘•È¡ÑÑÁÌè¼½­•…¸µÍÌ¹½±±•…Õ”¹•±±Õ¥…¹±½Õ¹½´½MÑÕ‘•¹Ğ¼©€¸-••À‰…Í•±¥¹”4)•áÑ•¹Í¥½¸Á•Éµ¥ÍÍ¥½¹ÌÑ¼…Ñ¥Ù•Q…‰€°ÍÉ¥ÁÑ¥¹€°…¹ÍÑ½É…•€°…¹É•ÅÕ•ÍĞ4)Ñ¡”½ÁÑ¥½¹…°-•…¸¡½ÍĞÁ•Éµ¥ÍÍ¥½¸½¹±äİ¡•¸Ñ¡”ÍÑÕ‘•¹ĞÍÑ…ÉÑÌÕ¥‘•¥µÁ½ÉĞ¸4)UÍ”½¹™¥ÕÉ…‰±”Á…”‘•™¥¹¥Ñ¥½¹Ì™½ÈÑÉ…¹ÍÉ¥ÁĞ°‘•É•”…Õ‘¥Ğ°5åAÉ½É•ÍÌ°4)½ÕÉÍ”…Ñ…±½œ°Í•Ñ¥½¸Í•…É °ÍÑÕ‘•¹ĞÁ±…¹¹¥¹œ°…¹Í¡•‘Õ±”Á…•Ì¸áÑÉ…Ğ4)½¹±äÙ¥Í¥‰±”……‘•µ¥ŒµÁ±…¹¹¥¹œÑ…‰±”‘…Ñ„…™Ñ•ÈÕÍ•È…Ñ¥½¸°Í¡½Ü„ÁÉ•Ù¥•Ü°…¹4)Í•¹½¹™¥Éµ•‘…Ñ„Ñ¼A=MP€½…Á¤½ØÄ½‘…Ñ„µ¥µÁ½ÉÑÍ€…Ì4)Í½ÕÉ•}ÑåÁ”€ô	I=]MI}aQ9M%=9€°¥Í}½™™¥¥…°€ô™…±Í•€°…¹4)½™™¥¥…±}…ÁÁ±¥…Ñ¥½¹}É•…‘ä€ô™…±Í•€¸1…‰•°-•…¸¥µÁ½ÉÑÌ…Ì4)-9}MQU9Q}A=IQ1€¥¸Í…™”Í½ÕÉ”µÉ•™•É•¹”…¹ÁÉ•Ù¥•Üµ•Ñ…‘…Ñ„¸AÉ•Í•ÉÙ”4)A¡…Í”€İÉ•Ù¥•Ü‰•™½É”Á±…¹¹¥¹œÕÍ”¸4(4)½¹Í•ÅÕ•¹•Ìè4(4(´-•…¸¥µÁ½ÉĞÍÕÁÁ½ÉĞ‰Õ¥±‘Ì½¸Ñ¡”•á¥ÍÑ¥¹œÍÑ…¥¹œ½É•Ù¥•ÜÁ…Ñ ¥¹ÍÑ•…½˜4(€…‘‘¥¹œ½™™¥¥…°µÍ½ÕÉ”¥¹•ÍÑ¥½¸¸4(´Q¡”•áÑ•¹Í¥½¸…¸ÍÕÁÁ½ÉĞÕÉÉ•¹ĞµÁ…”¥µÁ½ÉĞ…¹Õ¥‘•™Õ±°¥µÁ½ÉĞİ¥Ñ¡½ÕĞ4(€‰É½…É…İ±¥¹œ½È¡¥‘‘•¸‰…­É½Õ¹İ½É¬¸4(´¡É½µ”¡½ÍĞÁ•Éµ¥ÍÍ¥½¹Ì…É”¡½ÍĞµÍ½Á•°Í¼Ñ¡”¥µÁ±•µ•¹Ñ…Ñ¥½¸‘½Õµ•¹ÑÌÑ¡…Ğ4(€±¥µ¥Ñ…Ñ¥½¸…¹•¹™½É•ÌÑ¡”¹…ÉÉ½İ•È€½MÑÕ‘•¹Ğ½€ÁÉ•™¥à¥¸½‘”¸4(´…­”-•…¸½±±Õ¥…¸µÍÑå±”™¥áÑÕÉ•Ì½Ù•È…±±½İ•……‘•µ¥Œ‘…Ñ„°Õ¹ÍÕÁÁ½ÉÑ•4(€Á…•Ì°±½¥¸Á…•Ì°¡¥‘‘•¸™¥•±‘Ì°Õ¹É•±…Ñ•Á•ÉÍ½¹…°½™¥¹…¹¥…°½±Õµ¹Ì°4(€µ…±™½Éµ•É½İÌ°…¹…Ñ¥½¸½¹ÑÉ½±Ì¸4(´Q¡”İ½É­™±½ÜÍÑ¥±°‘½•Ì¹½ĞÍÑ½É”É•‘•¹Ñ¥…±Ì°É•…Á…ÍÍİ½É™¥•±‘Ì°ÍÑ½É”4(€½½­¥•Ì½ÈÍ•ÍÍ¥½¸Ñ½­•¹Ì°‰åÁ…ÍÌM50½5½AQ!°ÍÕ‰µ¥ĞÁ½ÉÑ…°™½ÉµÌ°4(€…ÕÑ½µ…Ñ”É•¥ÍÑÉ…Ñ¥½¸°…‘½‘É½À½Íİ…À½ÕÉÍ•Ì°©½¥¸İ…¥Ñ±¥ÍÑÌ°É•Í•ÉÙ”Í•…ÑÌ°4(€É…ˆÍ•…ÑÌ°Á½±°Á½ÉÑ…±Ì°½ÈÁÕ‰±¥Í „‰É½İÍ•ÈµÍÑ½É”İ½É­™±½Ü¸4(4(ŒŒH´ÀÀÈÔèY•É¥™ä-•…¸5åAÉ½É•ÍÌ¥µÁ½ÉÑÌ‰ä•á•ÁÑ¥½¸°¹½Ğ‰ä•Ù•ÉäÉ½Ü4(4)MÑ…ÑÕÌè•ÁÑ•4(4)½¹Ñ•áĞè5åAÉ½É•ÍÌÁ…•Ì¥¹±Õ‘”„Ñ½ÀÍÕµµ…Éä…¹ÁÉ½É•ÍÌ‰…ÈÑ¡…Ğ…É”µ½É”4)…ÕÑ¡½É¥Ñ…Ñ¥Ù”™½ÈÑ½Ñ…°µÉ•‘¥ĞÁÉ½É•ÍÌÑ¡…¸ÍÕµµ¥¹œÙ¥Í¥‰±”É•ÅÕ¥É•µ•¹ĞÉ½İÌ°4)‰•…ÕÍ”Ñ¡”Í…µ”½ÕÉÍ”…¸…ÁÁ•…È¥¸µÕ±Ñ¥Á±”É•ÅÕ¥É•µ•¹ĞÉ½ÕÁÌ¸I•ÅÕ¥É¥¹œ4)ÍÑÕ‘•¹ÑÌÑ¼½¹™¥É´•Ù•Éä¥µÁ½ÉÑ•É½Ü‘•™•…ÑÌÑ¡”ÁÕÉÁ½Í”½˜É•‘Õ¥¹œµ…¹Õ…°4)¡•­¥¹œ°İ¡¥±”‰±¥¹‘±äÑÉÕÍÑ¥¹œ±½Üµ½¹™¥‘•¹”Á…ÉÍ•È½ÕÑÁÕĞİ½Õ±É•…Ñ”4)……‘•µ¥ŒµÁ±…¹¹¥¹œÉ¥Í¬¸4(4)•¥Í¥½¸è½È-•…¸5åAÉ½É•ÍÌ‰É½İÍ•Èµ•áÑ•¹Í¥½¸¥µÁ½ÉÑÌ°ÁÉ•Í•ÉÙ”Ñ¡”Ñ½À4)ÍÕµµ…Éä°ÁÉ½É•ÍÌµ‰…ÈÍ•µ•¹ÑÌ°™¥•±µ±•Ù•°ÁÉ½Ù•¹…¹”°É…Ü‰½Õ¹‘•Í¹…ÁÍ¡½Ğ4)•Ù¥‘•¹”°…¹Ù…±¥‘…Ñ¥½¸‘¥…¹½ÍÑ¥Ì¥¸Ñ¡”ÍÑ…¥¹œ)M=8Á…å±½…¸Y…±¥‘…Ñ”4)ÁÉ½É…´°…Ñ…±½œå•…È°A°Ñ½Ñ…°É•‘¥ÑÌ°Í•µ•¹ĞÉ•½¹¥±¥…Ñ¥½¸°É•µ…¥¹¥¹œ4)É•‘¥ÑÌ°½µÁ±•Ñ¥½¸Á•É•¹Ñ…”°É•ÅÕ¥É•µ•¹ĞÉ½ÕÁÌ°½ÕÉÍ”µ±¥­”•Ù¥‘•¹”°4)ÑÉÕ¹…Ñ¥½¸ÍÑ…Ñ”°…¹µ½¬½É•…°µ¥á¥¹œ‰•™½É”…¹ä‘½İ¹ÍÑÉ•…´……‘•µ¥ŒÕÍ”¸4)ÕÑ½µ…Ñ¥…±±ä½¹™¥É´¡¥ µ½¹™¥‘•¹”™¥•±‘Ì…¹ÍÑ…¥¹œÉ•½É‘Ìİ¡•¸Ù…±Õ•Ì4)É•½¹¥±”…¹¹¼½¹™±¥ÑÌ•á¥ÍĞ¸É•…Ñ”µ…¹Õ…°µÉ•Ù¥•Üİ½É¬½¹±ä™½È•á•ÁÑ¥½¸4)¥Ñ•µÌÍÕ …Ìµ¥ÍÍ¥¹œÉ¥Ñ¥…°™¥•±‘Ì°½¹™±¥ÑÌ°±½Ü½¹™¥‘•¹”°Õ¹ÍÕÁÁ½ÉÑ•4)É½İÌ°ÑÉÕ¹…Ñ¥½¸°‘ÕÁ±¥…Ñ”½…µ‰¥Õ½ÕÌ…ÁÁ±¥…Ñ¥½¹Ì°…¹™…¥±•Ù…±¥‘…Ñ¥½¸¸4(4)½¹Í•ÅÕ•¹•Ìè4(4(´5åAÉ½É•ÍÌÁÉ•Ù¥•Ü…¸‘¥ÍÁ±…äI•…°%µÁ½ÉÑ•…Ñ„€´ÕÑ¼Y•É¥™¥•‘€°4(€A•¹‘¥¹œI•Ù¥•İ€°I•ÅÕ¥É•Ìá•ÁÑ¥½¸I•Ù¥•İ€°½È½¹™¥Éµ•‘€¥¹ÍÑ•…½˜4(€Í¥±•¹Ñ±ä™…±±¥¹œ‰…¬Ñ¼µ½¬‘…Ñ„¸4(´•É•”ÁÉ½É•ÍÌ‘¥ÍÁ±…äµ…äÕÍ”…ÕÑ¼µÙ•É¥™¥•5åAÉ½É•ÍÌÍÕµµ…ÉäÙ…±Õ•Ì™½È4(€Ù¥Í¥‰±”‘…Í¡‰½…Éµ•ÑÉ¥Ì°İ¡¥±”Ñ¡”‘…Ñ„É•µ…¥¹Ì¹½¸µ½™™¥¥…°…¹…‘Ù¥Í½Éä¸4(´…¥±•5åAÉ½É•ÍÌÙ…±¥‘…Ñ¥½¸‰±½­Ì‘½İ¹ÍÑÉ•…´……‘•µ¥Œ…¹…±åÍ¥Ì…¹É•ÑÕÉ¹Ì4(€ÍÑÉÕÑÕÉ•É•…Í½¸½‘•Ì¸4(´Q¡”¥µÁ½ÉĞÉ•µ…¥¹ÌÉ•…µ½¹±äè¹¼É•¥ÍÑÉ…Ñ¥½¸°…‘½‘É½À½Íİ…À°İ…¥Ñ±¥ÍĞ°4(€Í•…ĞµÉ•Í•ÉÙ…Ñ¥½¸°Á½ÉÑ…°™½É´ÍÕ‰µ¥ÍÍ¥½¸°Á½±±¥¹œ°É•‘•¹Ñ¥…°¡…¹‘±¥¹œ°½È4(€½™™¥¥…°µÍ½ÕÉ”µÕÑ…Ñ¥½¸¥Ì¥¹ÑÉ½‘Õ•¸4(4(ŒŒH´ÀÀÈØè5…Ñ•É¥…±¥é”É•Ù¥•İ•5åAÉ½É•ÍÌÉ½İÌ…Ì…‘Ù¥Í½Éä½ÕÉÍ”µÍÑ…Ñ”Í¹…ÁÍ¡½ÑÌ4(4)MÑ…ÑÕÌè•ÁÑ•4(4)½¹Ñ•áĞèÍÑ…¥¹œÁÉ•Ù¥•Ü…¸•áÁ±…¥¸•áÑÉ…Ñ•5åAÉ½É•ÍÌÉ½İÌ‰ÕĞ¥Ì¹½Ğ„4)ÍÑ…‰±”Í½ÕÉ”™½È‘•É•”…Õ‘¥Ğ°•±¥¥‰¥±¥Ñä°½ÈÁ±…¹¹¥¹œ¸5¥á¥¹œÑ¡½Í”É½İÌİ¥Ñ 4)Í••‘•µ½¬…ÑÑ•µÁÑÌ…¸É•…Ñ”Á±…ÕÍ¥‰±”‰ÕĞ™…±Í”……‘•µ¥Œ½¹±ÕÍ¥½¹Ì¸4(4)•¥Í¥½¸èáÁ±¥¥Ğ…ÁÁ±¥…Ñ¥½¸µ…Ñ•É¥…±¥é•Ì„Ù•ÉÍ¥½¹•°¥µµÕÑ…‰±”°4)¹½¸µ½™™¥¥…°½ÕÉÍ”µÍÑ…Ñ”Í¹…ÁÍ¡½Ğ…¹É½Üµ±•Ù•°ÁÉ½Ù•¹…¹”¸=¹”Ù…±¥‘…Ñ•4)Í¹…ÁÍ¡½Ğ¥Ì…Ñ¥Ù”Á•ÈÍÑÕ‘•¹Ğ¸™™•Ñ¥Ù”µ…ÑÑ•µÁĞÅÕ•É¥•Ì•á±Õ‘”µ½¬¡¥ÍÑ½Éä4)İ¡•¸…¸…Ñ¥Ù”¥µÁ½ÉÑ•Í¹…ÁÍ¡½Ğ•á¥ÍÑÌ¸… ‘½İ¹ÍÑÉ•…´½¹ÍÕµ•ÈÉ••¥Ù•Ì…¸4)¥¹‘•Á•¹‘•¹ĞÉ•…‘¥¹•ÍÌÉ•ÍÕ±ĞìÁ±…¹¹•½ÕÉÍ•Ì‘¼¹½ĞÍ…Ñ¥Í™äÁÉ•É•ÅÕ¥Í¥Ñ•Ì°…¹4)Í•Ñ¥½¸Í¡•‘Õ±¥¹œÍÑ…åÌ‘•µ¼µ½¹±ä¸4(4)½¹Í•ÅÕ•¹•Ìè4(4(´I•…ÁÁ±¥…Ñ¥½¸¥Ì¥‘•µÁ½Ñ•¹Ğ…¹¥¹Ù…±¥¹•İ•È¥µÁ½ÉÑÌ‘¼¹½ĞÉ•Á±…”„Ù…±¥4(€…Ñ¥Ù”Í¹…ÁÍ¡½Ğ¸4(´U¹µ…Ñ¡•…¹•á•ÁÑ¥½¸É½İÌÉ•µ…¥¸¥¹ÍÁ•Ñ…‰±”‰ÕĞ…¹¹½ĞÍ¥±•¹Ñ±ä‰•½µ”4(€É•±¥…‰±”……‘•µ¥Œ¡¥ÍÑ½Éä¸4(´Q¡”U$‘¥ÍÑ¥¹Õ¥Í¡•ÌÍÑ…¥¹œ°…Ñ¥Ù”¥µÁ½ÉÑ•ÍÑ…Ñ”°…¹‘•µ¼‘…Ñ„°…¹Í¡½İÌ4(€ÍÑÉÕÑÕÉ•‰±½­¥¹œÉ•…Í½¹Ì¸4(´Q¡”™•…ÑÕÉ”É•µ…¥¹Ì…‘Ù¥Í½Éä…¹‘½•Ì¹½Ğ•áÁ…¹‰É½İÍ•È½ÈÉ•¥ÍÑÉ…Ñ¥½¸4(€…ÕÑ¡½É¥Ñä¸4(4(ŒŒH´ÀÀÈÜèUÍ”¡…Í¡•‰•…É•ÈÑ½­•¹Ì…¹•áÁ±¥¥ĞÍÑÕ‘•¹ĞÉ…¹ÑÌ™½ÈÁÉ½‘ÕÑ¥½¸…ÕÑ ™½Õ¹‘…Ñ¥½¸4(4)MÑ…ÑÕÌè•ÁÑ•4(4)½¹Ñ•áĞèQ¡”A$¡…Ì…ÕµÕ±…Ñ•ÍÑÕ‘•¹Ğµ½İ¹••¹•É…Ñ•½‰©•ÑÌè‘•É•”4)…Õ‘¥ÑÌ°•±¥¥‰¥±¥Ñä¡•­Ì°……‘•µ¥ŒÁ±…¹Ì°Í¡•‘Õ±”½ÁÑ¥µ¥é…Ñ¥½¹Ì°ÍÑ…¥¹œ4)¥µÁ½ÉÑÌ°É•Ù¥•ÜÍ•ÍÍ¥½¹Ì°…ÁÁ±¥…Ñ¥½¹Ì°½ÕÉÍ”µÍÑ…Ñ”Í¹…ÁÍ¡½ÑÌ°µ½¹¥Ñ½É¥¹œ4)Ñ…É•ÑÌ½…±•ÉÑÌ°…¹İ¡…Ğµ¥˜Í•¹…É¥½Ì¸Q¡”¹•áĞÁÉ½‘ÕÑ¥½¸ÍÑ•À¹••‘Ì4)…ÕÑ¡•¹Ñ¥…Ñ¥½¸…¹½‰©•Ğµ±•Ù•°…ÕÑ¡½É¥é…Ñ¥½¸İ¥Ñ¡½ÕĞ¥¹ÑÉ½‘Õ¥¹œÍ¡½½°4)Á…ÍÍİ½É½±±•Ñ¥½¸½È…¸•áÑ•É¹…°¥‘•¹Ñ¥ÑäµÁÉ½Ù¥‘•È‘•Á•¹‘•¹ä‰•™½É”Ñ¡”4)‘•Á±½åµ•¹Ğµ½‘•°¥Ì™¥¹…±¥é•¸4(4)•¥Í¥½¸è‘…¸…ÁÁ±¥…Ñ¥½¸µ…ÕÑ ™½Õ¹‘…Ñ¥½¸İ¥Ñ Ñ•¹…¹ÑÌ°ÕÍ•ÉÌ°¡…Í¡•‰•…É•È4)A$Ñ½­•¹Ì°…¹•áÁ±¥¥ĞÍÑÕ‘•¹ĞµÁÉ½™¥±”…•ÍÌÉ…¹ÑÌ°İ¡¥±”Í•Á…É…Ñ¥¹œ±½…°4)…¹Í•ÉÙ•ÈÉÕ¹Ñ¥µ”‰•¡…Ù¥½Èİ¥Ñ AI=UQ}5=€¸1=1}M-Q=A€¥ÌÑ¡”‘•™…Õ±Ğ4)…¹ÕÍ•Ì…¸•áÁ±¥¥Ñ±ä¹…µ•1½…±IÕ¹Ñ¥µ•½¹Ñ•áÑ€ì¥Ğ‘½•Ì¹½ĞÕÍ”„ÁÕ‰±¥Œ4)‘•Ù•±½Áµ•¹Ğ‰åÁ…ÍÌ½ÈÅÕ•Éä…ÕÑ¡½É¥é…Ñ¥½¸Ñ…‰±•Ì¸MIYI€É•ÅÕ¥É•Ì4)UQ!}5=õ‰•…É•É€¸•¹ÑÉ…±¥é•…ÍÑA$É½ÕÑ•È‘•Á•¹‘•¹äÉ•Í½±Ù•Ì4)Á…Ñ ½ÅÕ•Éä½‰½‘ä½‰©•Ğ¥‘•¹Ñ¥™¥•ÉÌ‰…¬Ñ¼ÍÑÕ‘•¹Ñ}ÁÉ½™¥±•}¥‘€‰•™½É”É½ÕÑ”4)¡…¹‘±•ÉÌ•á•ÕÑ”¸•ÍÌ¥Ì…±±½İ•½¹±ä™½È•áÁ±¥¥ĞÉ…¹ÑÌ°Ñ•¹…¹Ğ…‘µ¥¹Ì4)İ¥Ñ¡¥¸Ñ¡•¥ÈÑ•¹…¹Ğ¥¹ÍÑ¥ÑÕÑ¥½¸Í½Á”°½ÈÍåÍÑ•´…‘µ¥¹Ì¸!•…±Ñ ½É•…‘¥¹•ÍÌÁÉ½‰•Ì4)É•µ…¥¸½ÕÑÍ¥‘”€½…Á¤½ØÅ€¸4(4)½¹Í•ÅÕ•¹•Ìè4(4(´Q¡”‰…­•¹ÍÑ½É•Ì¹¼Í¡½½°É•‘•¹Ñ¥…±Ì°Á½ÉÑ…°½½­¥•Ì°M50Ñ½­•¹Ì°54(€Í•É•ÑÌ°½ÈÁ±…¥¹Ñ•áĞA$Ñ½­•¹Ì¸4(´MÑÕ‘•¹Ğµ½İ¹•½‰©•ĞA%Ì…É”ÁÉ½Ñ•Ñ•½¹Í¥ÍÑ•¹Ñ±äİ¥Ñ¡½ÕĞ‘ÕÁ±¥…Ñ¥¹œ4(€¡•­Ì…É½ÍÌ•Ù•Éä¡…¹‘±•È¸4(´Q½­•¸¥ÍÍÕ…¹”…¹•áÑ•É¹…°MM<½=%±½¥¸É•µ…¥¸™ÕÑÕÉ”ÁÉ½‘ÕÑ¥½¸İ½É¬ìÑ¡”4(€ÕÉÉ•¹Ğ™½Õ¹‘…Ñ¥½¸¥Ì¥¹Ñ•¹Ñ¥½¹…±±ä¹…ÉÉ½Ü…¹É•Ù¥•İ…‰±”¸4(´	É½İÍ•Èµ•áÑ•¹Í¥½¸¹½¸µ±½…°ÍÑ…¥¹œ¥µÁ½ÉÑÌÉ•ÅÕ¥É”…¸•¹Ñ•É•‰•…É•ÈÑ½­•¸°4(€…¹Ñ¡”Á½ÁÕÀ‘½•Ì¹½ĞÁ•ÉÍ¥ÍĞÑ¡…ĞÑ½­•¸¸4(´9Y%I=959Q€¥Ì¥¹‘•Á•¹‘•¹Ğ™É½´AI=UQ}5=€ìÁÉ½‘ÕÑ¥½¸±½…°µ‘•Í­Ñ½À4(€µ½‘”É•µ…¥¹Ì„Ù…±¥±½½Á‰…¬±½…°ÉÕ¹Ñ¥µ”¸4(´1½…°‘•Í­Ñ½ÀA$‰¥¹‘¥¹œ¥Ì±½½Á‰…¬µ½¹±ä…¹½­•ÈÁÕ‰±¥Í¡•Ì¥ÑÌA$Á½ÉĞ4(€½¸±½½Á‰…¬‰ä‘•™…Õ±Ğ¸4(ŒŒH´ÀÀÄÈèMÑ…”€ÄÁÍ½ÕÉ”µ‰…­•AÉ½É…´½…Ñ…±½œÉ•Ù¥•Ü‰½Õ¹‘…Éä4(4)á¥ÍÑ¥¹œAÉ½É…µY•ÉÍ¥½¸°I•ÅÕ¥É•µ•¹Ñ9½‘”°½ÕÉÍ•IÕ±”°•É•”Õ‘¥Ğ°…¹4)±¥¥‰¥±¥Ñäµ½‘•±Ì‘•ÍÉ¥‰”……‘•µ¥ŒÉÕ±•Ì°‰ÕĞ¥µÁ½ÉÑ•½Èµ½¬½¹Ñ•¹ĞµÕÍĞ4)¹½ĞÍ¥±•¹Ñ±ä‰•½µ”…ÕÑ¡½É¥Ñ…Ñ¥Ù”Á½±¥ä¸MÑ…”€ÄÁÑ¡•É•™½É”¥¹ÑÉ½‘Õ•Ì„4)ÑåÁ•°Í½ÕÉ”µ…İ…É”ÍÑ…•ÉÕ±”µÍ•Ğ½¹ÑÉ…Ğİ¥Ñ •á…Ğ¥¹ÍÑ¥ÑÕÑ¥½¸½ÁÉ½É…´¼4)…Ñ…±½œµå•…È¥‘•¹Ñ¥Ñä°•áÁ±¥¥Ğ±¥™•å±”ÑÉ…¹Í¥Ñ¥½¹Ì°‰½Õ¹‘•‘•Ñ•Éµ¥¹¥ÍÑ¥Œ4)½Á•É…Ñ½ÉÌ°…¹Ù¥Í¥‰±”Õ¹ÍÕÁÁ½ÉÑ•ÍÑ…Ñ•µ•¹ÑÌ¸Y…±¥‘…Ñ¥½¸‘½•Ì¹½ĞÁ•ÉÍ¥ÍĞ½È4)½¹ÍÕµ”Ñ¡”Á…å±½…ìMÑ…”€ÄÁµÕÍĞÍ•Á…É…Ñ•±ä…‘É•Ù¥•İ•½…Ñ¥Ù”Á•ÉÍ¥ÍÑ•¹”4)…¹½¹ÍÕµÁÑ¥½¸¸U¹Ñ¥°É•Ù¥•İ•Í½ÕÉ”µ…Ñ•É¥…°¥ÌÁÉ½Ù¥‘•°Ñ¡”ÁÉ½‘ÕĞµÕÍĞ4)¹½Ğ±…¥´½µÁ±•Ñ”¥¹ÍÑ¥ÑÕÑ¥½¹…°½Ù•É…”¸4(4(ŒŒH´ÀÀÄÌèMÑ…”€ÄÁÉ•Ù¥•İ•µÉÕ±”½¹ÍÕµÁÑ¥½¸‰½Õ¹‘…Éä4(4)•É•”Õ‘¥Ğ…¹±¥¥‰¥±¥Ñäµ…ä½¹ÍÕµ”½¹±ä…¸•á…Ğ…Ñ¥Ù”É•Ù¥•İ•ÉÕ±”4)Í•Ğµ…Ñ¡•‰ä¥¹ÍÑ¥ÑÕÑ¥½¸½‘”°ÁÉ½É…´½‘”°…¹…Ñ…±½œå•…È¸Q¡”Í•±•Ñ•4)ÉÕ±”µÍ•Ğ%…¹Í½ÕÉ”ÁÉ½Ù•¹…¹”…É”Á•ÉÍ¥ÍÑ•İ¥Ñ •… ÉÕ¸¸µ¥ÍÍ¥¹œ4)É•Ù¥•İ•½ÕÉÍ”‘•™¥¹¥Ñ¥½¸¥ÌU9-9=]9€°¹½Ğ1%%	1€ì…¸…‰Í•¹Ğ…Ñ¥Ù”Í•Ğ4)¥Ìµ…É­•5%MM%9€…¹É•Ñ…¥¹ÌÑ¡”±•…äÁ…Ñ ™½È½µÁ…Ñ¥‰¥±¥Ñä¸Q¡¥Ì­••ÁÌ4)Íå¹Ñ¡•Ñ¥Œ™¥áÑÕÉ•Ì…¹¥¹½µÁ±•Ñ”Í½ÕÉ”½Ù•É…”…‘Ù¥Í½ÉäÕ¹Ñ¥°„É•Ù¥•İ•È4)½¹™¥ÉµÌ…ÕÑ¡½É¥Ñ…Ñ¥Ù”Í½ÕÉ”•Ù¥‘•¹”¸4(4(ŒH´ÀÀÈÌè-••À1=1}M-Q=@Í¡•µ„µ¥É…Ñ¥½¸Í•Á…É…Ñ”™É½´±•µ‰¥Œ4(4)1=1}M-Q=@ÕÍ•Ì„™¥±”µ‰…­•ME1¥Ñ”‘…Ñ…‰…Í”…¹¹½Ü¡…Ì„‘•‘¥…Ñ•°4)•áÁ±¥¥Ğµ¥É…Ñ¥½¸É•¥ÍÑÉä¸… ±½…°µ¥É…Ñ¥½¸‘•±…É•Ì¥ÑÌÍ½ÕÉ”…¹4)Ñ…É•Ğ¥¹Ñ••ÈÙ•ÉÍ¥½¹Ì°…¹Ñ¡”ÉÕ¹¹•È‰Õ¥±‘Ì„½¹Ñ¥Õ½ÕÌÁ±…¸İ¥Ñ¡½ÕĞ4)¥¹™•ÉÉ¥¹œ½É‘•È™É½´™¥±•¹…µ•Ì¸Q¡”ÉÕ¹¹•ÈÉ•½É‘Ì…ÑÑ•µÁÑÌ¥¸„ME1¥Ñ”4)©½ÕÉ¹…°°•¹…‰±•Ì…¹Ù…±¥‘…Ñ•Ì™½É•¥¸­•åÌ°ÉÕ¹Ì™½É•¥¹}­•å}¡•­€…¹4)¥¹Ñ•É¥Ñå}¡•­€°…¹™…¥±Ì±½Í•™½ÈÕ¹­¹½İ¸°¹•İ•È°™…¥±•°½È¥¹Ñ•ÉÉÕÁÑ•4)ÍÑ…Ñ•Ì¸Í¡•µ„Ù•ÉÍ¥½¸¥Ì…‘Ù…¹•½¹±ä…™Ñ•ÈÑ¡”Á±…¹¹•İ½É¬…¹4)Ù…±¥‘…Ñ¥½¸½µÁ±•Ñ”¸4(4)Q¡¥Ì™½Õ¹‘…Ñ¥½¸¥¹Ñ•¹Ñ¥½¹…±±ä‘½•Ì¹½Ğ¡…¹”Ñ¡”ÁÉ½‘ÕÑ¥½¸Í¡•µ„Ù•ÉÍ¥½¸°4)Á•É™½É´Q…ÕÉ¤ÍÑ…ÉÑÕÀ½É¡•ÍÑÉ…Ñ¥½¸°¥µÁ±•µ•¹ĞÉ½±±‰…¬É•Á±…•µ•¹Ğ°½È4)¡…¹”A½ÍÑÉ•ME0½±•µ‰¥Œ‰•¡…Ù¥½È¸•ÍÑÉÕÑ¥Ù”µ¥É…Ñ¥½¹ÌÉ•ÅÕ¥É”„Ù…±¥‘…Ñ•4)Í…™•Ñäµ‰…­ÕÀÉ•™•É•¹”™½ÈÑ¡”…Ñ¥Ù”‘…Ñ…‰…Í”¸Q¡”©½ÕÉ¹…°ÍÑ½É•Ì½¹±äÍ…™”4)µ•Ñ…‘…Ñ„…¹Í…¹¥Ñ¥é••ÉÉ½ÈÑ•áĞì¥Ğ¹•Ù•ÈÍÑ½É•ÌÉ•‘•¹Ñ¥…±Ì°½½­¥•Ì°4)Ñ½­•¹Ì°5‘…Ñ„°Á…¥É¥¹œÍ•É•ÑÌ°½È……‘•µ¥Œ‘…Ñ„½¹Ñ•¹ÑÌ¸((ŒH´ÀÀÈĞè=É¡•ÍÑÉ…Ñ”1=1}M-Q=@µ¥É…Ñ¥½¹Ì‰•™½É”ÍÑ…ÉÑÕÀ()MÑ…ÑÕÌè•ÁÑ•()1=1}M-Q=@Í¡•µ„ÕÁÉ…‘•Ì…É”½É¡•ÍÑÉ…Ñ•‰äÑ¡”Q…ÕÉ¤Í¡•±°‰•™½É”Ñ¡”)…ÍÑA$¡¥±¥ÌÍÑ…ÉÑ•¸Q¡”Í¡•±°…±±Ì„Ù•ÉÍ¥½¹•°)M=8µ½¹±äAåÑ¡½¸)ÁÉ•™±¥¡Ğ½•á•ÕÑ”½¹ÑÉ…ĞìAåÑ¡½¸É•µ…¥¹ÌÑ¡”½İ¹•È½˜Ñ¡”µ¥É…Ñ¥½¸É•¥ÍÑÉä°)Á±…¸…±Õ±…Ñ¥½¸°©½ÕÉ¹…°Í•µ…¹Ñ¥Ì°ME1¥Ñ”¥¹Ñ•É¥Ñä¡•­Ì°…¹Í…™•Ñä)Í¹…ÁÍ¡½ĞÉ•…Ñ¥½¸¸Q¡”Í¡•±°½İ¹ÌÍÑ…ÉÑÕÀ½É‘•É¥¹œ°Ñ¡”Í¥¹±”µ¥¹ÍÑ…¹”±½¬°)…ÑÑ•µÁĞµ…É­•È°A$½ÉÕ¹Ñ¥µ”µµ…¹¥™•ÍĞ½É•…‘¥¹•ÍÌ…Ñ”°…¹É½±±‰…¬É•Á±…•µ•¹Ğ¸()A•¹‘¥¹œÉ•ÍÑ½É”¥ÌÁÉ½•ÍÍ•‰•™½É”µ¥É…Ñ¥½¸…¹¹•Ù•È½¹ÕÉÉ•¹Ñ±äİ¥Ñ ¥Ğ¸)UII9Q€‘…Ñ…‰…Í•Ì‘¼¹½ĞÉ•…Ñ”„µ¥É…Ñ¥½¸Í…™•ÑäÍ¹…ÁÍ¡½Ğ¸¸ÕÁÉ…‘”µÕÍĞ)¡…Ù”„Ù…±¥‘…Ñ•Í¹…ÁÍ¡½Ğ‰½Õ¹Ñ¼¥ÑÌ…ÑÑ•µÁĞ‰•™½É”•á•ÕÑ¥½¸¸5¥É…Ñ¥½¸)ÍÕ•ÍÌ¥Ì¹½ĞÍÑ…ÉÑÕÀÍÕ•ÍÌÕ¹Ñ¥°Ñ¡”¹½Éµ…°A$É•…¡•ÌÉ•…‘¥¹•ÍÌ…¹¥ÑÌ)µ…¹¥™•ÍĞ¥‘•¹Ñ¥™¥•ÌÑ¡”•áÁ•Ñ•¡¥±¸¹ä±…Ñ•È™…¥±ÕÉ”ÍÑ½ÁÌÑ¡”¡¥±°)ÁÉ•Í•ÉÙ•Ì™…¥±•µ‘…Ñ…‰…Í”•Ù¥‘•¹”°É•ÍÑ½É•ÌÑ¡”…ÑÑ•µÁĞµ‰½Õ¹Í¹…ÁÍ¡½Ğ°…¹)±•…Ù•Ì„¹½¸µÉ•Á±…å…‰±”É½±±‰…¬µ…É­•È¸%¹Ñ•ÉÉÕÁÑ•½Èµ…±™½Éµ•µ…É­•ÉÌ™…¥°)±½Í•ìÑ¡”Í¡•±°¹•Ù•ÈÉ•ÑÉ¥•Ìµ¥É…Ñ¥½¸¥¸Ñ¡”Í…µ”ÍÑ…ÉÑÕÀ¸()Q¡”½¹ÑÉ…Ğ…•ÁÑÌ¹¼‘…Ñ…‰…Í”Á…Ñ …ÉÕµ•¹Ğ¸Q¡”…Ñ¥Ù”‘…Ñ…‰…Í”¥Ì‘•É¥Ù•)™É½´ÑÉÕÍÑ•1=1}M-Q=@ÉÕ¹Ñ¥µ”½¹™¥ÕÉ…Ñ¥½¸°…¹…±°ÍÕ‰ÁÉ½•ÍÌ½ÕÑÁÕĞ¥Ì)µ…¡¥¹”µÉ•…‘…‰±”)M=8½¸ÍÑ‘½ÕĞİ¥Ñ Í…¹¥Ñ¥é•‘¥…¹½ÍÑ¥Ì½¹±ä¸(
