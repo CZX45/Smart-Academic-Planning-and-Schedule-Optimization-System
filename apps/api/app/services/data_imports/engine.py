@@ -494,8 +494,7 @@ class DataImportApplicationService:
                 is_selected=True,
                 reason_code="EXACT_SECTION_TERM",
                 explanation=(
-                    "Visible Section term "
-                    f"{term_code} exactly matches an existing academic term."
+                    f"Visible Section term {term_code} exactly matches an existing academic term."
                 ),
             )
         )

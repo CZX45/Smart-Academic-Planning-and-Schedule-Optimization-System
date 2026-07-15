@@ -379,9 +379,9 @@ def _normalize_section_row(row: dict[str, Any]) -> dict[str, Any]:
     normalized["section_code"] = (
         _first_value(normalized, "section_code", "section", "class_section") or ""
     )
-    normalized["external_reference"] = _first_value(
-        normalized, "external_reference", "crn", "external_id", "class_id"
-    ) or ""
+    normalized["external_reference"] = (
+        _first_value(normalized, "external_reference", "crn", "external_id", "class_id") or ""
+    )
     for json_field in (
         "meetings_json",
         "field_provenance_json",
