@@ -3,6 +3,117 @@
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+*:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 3px;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-shell-header {
+  align-items: center;
+  background: #ffffff;
+  border-bottom: 1px solid #d7dde7;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  padding: 18px max(20px, calc((100vw - 1180px) / 2));
+}
+
+.app-shell-title,
+.app-shell-subtitle {
+  margin: 0;
+}
+
+.app-shell-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.app-shell-subtitle,
+.app-shell-context-label {
+  color: #4b5563;
+  font-size: 0.84rem;
+}
+
+.app-shell-context {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.workflow-status {
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 5px 10px;
+}
+
+.workflow-status.ok {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.workflow-status.warn {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.workflow-nav {
+  background: #ffffff;
+  border-bottom: 1px solid #d7dde7;
+  overflow-x: auto;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.workflow-nav ul {
+  display: flex;
+  gap: 4px;
+  list-style: none;
+  margin: 0 auto;
+  max-width: 1180px;
+  min-width: max-content;
+  padding: 8px 20px;
+}
+
+.workflow-link {
+  border-radius: 6px;
+  color: #374151;
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 9px 11px;
+  text-decoration: none;
+}
+
+.workflow-link:hover,
+.workflow-link.active {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.app-shell-content main {
+  padding-top: 28px;
+}
+
+[id] {
+  scroll-margin-top: 76px;
+}
+
 body {
   margin: 0;
   background: #f6f8fb;
@@ -809,6 +920,16 @@ h2 {
 }
 
 @media (max-width: 640px) {
+  .app-shell-header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 16px 14px;
+  }
+
+  .app-shell-context {
+    justify-content: flex-start;
+  }
+
   main {
     padding: 22px 14px;
   }
