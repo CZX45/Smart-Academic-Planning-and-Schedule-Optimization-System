@@ -16,6 +16,16 @@ export const ReadinessResponseSchema = z.object({
 
 export type ReadinessResponse = z.infer<typeof ReadinessResponseSchema>;
 
+export const BackupStatusSchema = z.object({
+  available: z.boolean(),
+  product_mode: z.string(),
+  schema_name: z.literal("LOCAL_DESKTOP"),
+  schema_version: z.number().int().positive(),
+  message: z.string(),
+});
+
+export type BackupStatus = z.infer<typeof BackupStatusSchema>;
+
 const UuidSchema = z.string().uuid();
 const DecimalValueSchema = z.union([z.string(), z.number()]).transform(String);
 const DateTimeSchema = z.string();
@@ -1959,6 +1969,65 @@ export async function fetchReadiness(
   }
 
   return parsed.data;
+}
+
+export async function fetchLocalBackupStatus(
+  apiBaseUrl: string,
+  options: FetchHealthOptions = {},
+): Promise<BackupStatus> {
+  const parsed = BackupStatusSchema.safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/local-backup/status", options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Backup status response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function downloadLocalBackup(
+  apiBaseUrl: string,
+  options: FetchHealthOptions = {},
+): Promise<{ blob: Blob; filename: string | null }> {
+  const { fetchFn, timeoutMs } = options;
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    timeoutMs ?? DEFAULT_TIMEOUT_MS,
+  );
+  try {
+    const response = await (fetchFn ?? fetch)(
+      buildApiUrl(apiBaseUrl, "/api/v1/local-backup"),
+      { method: "POST", cache: "no-store", signal: controller.signal },
+    );
+    if (!response.ok) {
+      throw new ApiRequestError(
+        `Local backup request failed with status ${response.status}`,
+      );
+    }
+    return {
+      blob: await response.blob(),
+      filename:
+        response.headers
+          .get("content-disposition")
+          ?.match(/filename="?([^";]+)"?/)?.[1] ?? null,
+    };
+  } catch (error: unknown) {
+    if (error instanceof ApiRequestError) {
+      throw error;
+    }
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new ApiRequestError(
+        `Local backup timed out after ${timeoutMs ?? DEFAULT_TIMEOUT_MS} ms`,
+      );
+    }
+    throw new ApiRequestError(
+      error instanceof Error ? error.message : "Local backup request failed",
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function fetchJson(

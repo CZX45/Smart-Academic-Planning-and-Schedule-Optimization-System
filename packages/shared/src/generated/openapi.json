@@ -5073,6 +5073,50 @@
         }
       }
     },
+    "/api/v1/local-backup/status": {
+      "get": {
+        "tags": [
+          "local-backup"
+        ],
+        "summary": "Get Backup Status",
+        "operationId": "get_backup_status_api_v1_local_backup_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/local-backup": {
+      "post": {
+        "tags": [
+          "local-backup"
+        ],
+        "summary": "Create Backup",
+        "operationId": "create_backup_api_v1_local_backup_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/vnd.sapsos.backup+zip": {}
+            }
+          },
+          "503": {
+            "description": "Backup unavailable"
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -6390,6 +6434,39 @@
           "explanation"
         ],
         "title": "AuditCourseApplicationResponse"
+      },
+      "BackupStatus": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "product_mode": {
+            "type": "string",
+            "title": "Product Mode"
+          },
+          "schema_name": {
+            "type": "string",
+            "title": "Schema Name"
+          },
+          "schema_version": {
+            "type": "integer",
+            "title": "Schema Version"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "available",
+          "product_mode",
+          "schema_name",
+          "schema_version",
+          "message"
+        ],
+        "title": "BackupStatus"
       },
       "CampusResponse": {
         "properties": {

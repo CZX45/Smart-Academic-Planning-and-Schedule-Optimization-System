@@ -29,6 +29,8 @@ import {
   fetchStudentDataImportReviews,
   fetchDegreeAuditRequirements,
   fetchHealth,
+  fetchLocalBackupStatus,
+  downloadLocalBackup,
   fetchLatestDegreeAudit,
   fetchStudentDataImports,
   fetchStudentScheduleOptimizations,
@@ -54,6 +56,7 @@ import {
   type DataReviewWarning,
   type DegreeAuditRun,
   type HealthResponse,
+  type BackupStatus,
   type ImportedRecord,
   type ImportedRecordReview,
   type ImportMappingCandidate,
@@ -1465,6 +1468,8 @@ export default function Home() {
 
         <LocalPairingPanel apiBaseUrl={apiBaseUrl} />
 
+        <BackupPanel apiBaseUrl={apiBaseUrl} />
+
         <h1>学业进度</h1>
         <p className="subtle">
           高风险学业建议需要 advisor / registrar / 学校确认。
@@ -1594,6 +1599,116 @@ export default function Home() {
         </section>
       </main>
     </WorkflowShell>
+  );
+}
+
+function BackupPanel({ apiBaseUrl }: { apiBaseUrl: string | undefined }) {
+  const [status, setStatus] = useState<
+    | { state: "loading" }
+    | { state: "ready"; payload: BackupStatus }
+    | { state: "failed"; message: string }
+  >(
+    apiBaseUrl
+      ? { state: "loading" }
+      : { state: "failed", message: "API 基础地址未配置。" },
+  );
+  const [creating, setCreating] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!apiBaseUrl) {
+      return () => {
+        cancelled = true;
+      };
+    }
+    void fetchLocalBackupStatus(apiBaseUrl, { timeoutMs: 5_000 })
+      .then((payload) => {
+        if (!cancelled) setStatus({ state: "ready", payload });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setStatus({
+            state: "failed",
+            message: error instanceof Error ? error.message : "备份状态不可用。",
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBaseUrl]);
+
+  async function createBackup(): Promise<void> {
+    if (
+      !apiBaseUrl ||
+      creating ||
+      status.state !== "ready" ||
+      !status.payload.available
+    ) {
+      return;
+    }
+    setCreating(true);
+    setResult(null);
+    try {
+      const downloaded = await downloadLocalBackup(apiBaseUrl, {
+        timeoutMs: 60_000,
+      });
+      const url = URL.createObjectURL(downloaded.blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = downloaded.filename ?? "SAPSOS-backup.sapsos-backup";
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      setResult(`已创建并下载 ${link.download}。`);
+    } catch (error: unknown) {
+      setResult(
+        error instanceof Error ? error.message : "创建备份失败。请稍后重试。",
+      );
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <section
+      id="backup-restore"
+      className="diagnostics-panel"
+      aria-label="备份与恢复"
+    >
+      <h2>备份与恢复</h2>
+      <p>备份仅在 LOCAL_DESKTOP 中手动创建，包含完整本地 SQLite 学业数据。</p>
+      <ul className="disclaimer-list">
+        <li>备份文件包含个人学业数据；备份文件未加密，请存放在可信位置。</li>
+        <li>
+          不会包含浏览器扩展配对凭据、runtime.json、日志、缓存或其他运行时文件。
+        </li>
+        <li>
+          备份不会上传，也不会修改学校门户。恢复功能将在依赖门控的后续 PR 中提供。
+        </li>
+      </ul>
+      {status.state === "loading" ? (
+        <p role="status">正在检查本地备份状态…</p>
+      ) : null}
+      {status.state === "failed" ? (
+        <p role="alert">备份不可用：{status.message}</p>
+      ) : null}
+      {status.state === "ready" ? (
+        <>
+          <p role="status">
+            {status.payload.message} · Schema {status.payload.schema_version}
+          </p>
+          <button
+            type="button"
+            onClick={() => void createBackup()}
+            disabled={creating || !status.payload.available}
+          >
+            {creating ? "正在创建备份…" : "创建备份"}
+          </button>
+        </>
+      ) : null}
+      {result ? <p role="status">{result}</p> : null}
+    </section>
   );
 }
 
