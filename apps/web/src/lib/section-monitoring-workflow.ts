@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ApiResponseSchemaError,
   fetchSectionMonitorAlerts,
@@ -10,7 +10,11 @@ import { createWorkflowRequestGuard } from "./workflow-module-guards";
 
 export type SectionMonitoringWorkflowState =
   | { status: "loading" }
-  | { status: "ready"; targets: SectionMonitorTarget[]; alerts: SectionMonitorAlert[] }
+  | {
+      status: "ready";
+      targets: SectionMonitorTarget[];
+      alerts: SectionMonitorAlert[];
+    }
   | { status: "offline"; message: string }
   | { status: "failed" | "schema-error"; message: string };
 
@@ -23,12 +27,15 @@ export function useSectionMonitoringWorkflow(
       ? { status: "loading" }
       : { status: "offline", message: "NEXT_PUBLIC_API_BASE_URL 未配置。" },
   );
+  const guardRef = useRef(createWorkflowRequestGuard());
 
   useEffect(() => {
-    const guard = createWorkflowRequestGuard();
+    const guard = guardRef.current;
     const requestId = guard.begin();
     if (!apiBaseUrl) {
-      return;
+      return () => {
+        guard.begin();
+      };
     }
     void Promise.all([
       fetchSectionMonitorTargets(apiBaseUrl, studentId, { timeoutMs: 5_000 }),
@@ -42,10 +49,15 @@ export function useSectionMonitoringWorkflow(
       .catch((error: unknown) => {
         if (!guard.isCurrent(requestId)) return;
         setState({
-          status: error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
-          message: error instanceof Error ? error.message : "无法加载监控状态。",
+          status:
+            error instanceof ApiResponseSchemaError ? "schema-error" : "failed",
+          message:
+            error instanceof Error ? error.message : "无法加载监控状态。",
         });
       });
+    return () => {
+      guard.begin();
+    };
   }, [apiBaseUrl, studentId]);
 
   return state;
