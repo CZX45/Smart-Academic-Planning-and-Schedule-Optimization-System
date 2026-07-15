@@ -32,8 +32,8 @@ but LOCAL_DESKTOP is the current official product.
 ## Current verified state
 
 - Repository: `D:\Crystal`.
-- `main` and `origin/main` are synchronized after the Stage 5 closeout
-  documentation reconciliations. PRs #41 and #42 are merged.
+- `main` and `origin/main` are synchronized after the Stage 12 closeout.
+  PRs #62 and the preceding milestone PRs are merged.
 - PR 1 is merged as PR #35:
   `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
 - PR 1 commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
@@ -593,8 +593,8 @@ Schedule Optimizer semantics changed, and no later milestone was started.
 
 Stage 10 is complete through PRs #52, #53, and #54. Stage 11 Real Section
 Import is complete through PRs #56, #57, and #58. Stage 12 Real Section
-Optimizer Integration is complete through PRs #60 and #61; UI workflow
-modularization is the next milestone and has not started.
+Optimizer Integration and its documentation closeout are complete through PRs
+#60, #61, and #62. UI workflow modularization is now in progress.
 
 ## Resume checkpoint
 
@@ -606,21 +606,36 @@ modularization is the next milestone and has not started.
   because no reviewed official Program/Catalog source inventory is present.
   10B consumes exact active rules only and records provenance; missing course
   definitions remain `UNKNOWN`.
-- Current PRs: PRs #52, #53, #54, #56, #57, and #58 are merged. Stage 11A
+- Current PRs: PRs #52, #53, #54, #56, #57, #58, #60, #61, and #62 are merged.
+  Stage 11A
   PR #56 merged at `068a38eae02ef51b70172da1f380f398cea9419d`; Stage 11B
   PR #57 merged at `749dd959ce7a82c982fe3df2962376cfdab6bbc0`; closeout PR #58
   final head is `c2c9b3915e2c1c557f24e79f43e7c87675e342d9` and merged at
   `6040c36e9766e62d2e5566cd23a4b89723319847`.
-- Final synchronized `main`/`origin/main`:
-  `6040c36e9766e62d2e5566cd23a4b89723319847`.
+- Final synchronized `main`/`origin/main` before UI modularization:
+  `c4cbffa843d16134efb37b6b17aed7c53ebf5dfb`.
 - Last completed action: completed the Stage 11A extraction/staging and Stage
   11B Review/Apply deliveries. Imported Sections and SectionMeetings remain
   non-official; Import → Review → Apply remains mandatory; volatile availability
   remains advisory. No monitoring, registration, portal mutation, or optimizer
   integration began.
 - Last successful validation: hosted CI workflow run ID `29382651009` (run
-  number `261`) passed checks, Docker Compose, and E2E for the Stage 11 closeout.
-- Exact next action: begin UI workflow modularization as the next milestone.
+  number `261`) passed checks, Docker Compose, and E2E for the Stage 11 closeout;
+  Stage 12 closeout is synchronized at the commit above.
+- UI Workflow Modularization PR A: branch `ui-workflow-shell-modularization`,
+  isolated clone/worktree path
+  `D:\Crystal\.cache\worktrees\ui-workflow-shell-modularization`, starting
+  commit `c4cbffa843d16134efb37b6b17aed7c53ebf5dfb`. The original Web page is
+  6,028 lines with 31 hook calls, 6 effects, 86 headings, 24 buttons, and
+  approximately 230 local declaration/handler lines. Its measured coupling
+  spans runtime/API discovery, student/source context, import Review/Apply,
+  audit, eligibility, planning, sections, optimization, monitoring, and
+  pairing. PR A establishes static-export-safe hash navigation, an application
+  shell, workflow anchors, and shared shell status/context without moving
+  feature mutation state. PR and CI identifiers will be recorded once the
+  branch is published.
+- Exact next action: validate and publish UI Workflow Modularization PR A,
+  then merge it before starting PR B.
 
 ## Scope confirmation
 

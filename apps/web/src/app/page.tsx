@@ -96,6 +96,10 @@ import {
   localizeStatusBadge,
   localizeStatusLabel,
 } from "../lib/zh-cn";
+import {
+  useActiveWorkflow,
+  WorkflowShell,
+} from "../components/workflow-shell";
 
 type HealthState =
   | { status: "loading" }
@@ -1113,6 +1117,7 @@ const courseStateReadinessLabels: Record<string, string> = {
 };
 
 export default function Home() {
+  const activeWorkflow = useActiveWorkflow();
   const apiBaseUrl = useSyncExternalStore(
     subscribeToStableBrowserValue,
     getConfiguredBrowserApiBaseUrl,
@@ -1514,8 +1519,19 @@ export default function Home() {
       : demoModeEnabled && !myProgressPreview;
 
   return (
-    <main>
-      <section className="progress-shell">
+    <WorkflowShell
+      activeWorkflow={activeWorkflow}
+      apiStatus={
+        health.status === "loading"
+          ? "API 检查中"
+          : health.status === "online"
+            ? "API 已连接"
+            : "API 不可用"
+      }
+      sourceLabel={currentImportMode}
+    >
+      <main>
+        <section id="overview" className="progress-shell">
         <div className="topbar">
           <p className={`badge ${health.status === "online" ? "ok" : "warn"}`}>
             {health.status === "loading"
@@ -1680,8 +1696,9 @@ export default function Home() {
         />
 
         <SectionMonitoringPanel state={sectionMonitoringState} />
-      </section>
-    </main>
+        </section>
+      </main>
+    </WorkflowShell>
   );
 }
 
@@ -2878,7 +2895,11 @@ function CourseEligibilityChecker({
   }
 
   return (
-    <section className="eligibility-panel" aria-label="课程资格检查">
+    <section
+      id="eligibility"
+      className="eligibility-panel"
+      aria-label="课程资格检查"
+    >
       <div className="section-heading">
         <div>
           <h2>课程资格</h2>
@@ -3319,7 +3340,11 @@ function AcademicPlanner({
   }
 
   return (
-    <section className="planner-panel" aria-label="长期学业规划">
+    <section
+      id="academic-plan"
+      className="planner-panel"
+      aria-label="长期学业规划"
+    >
       <div className="section-heading">
         <div>
           <h2>长期学业规划</h2>
@@ -3864,9 +3889,10 @@ function SemesterScheduleBuilder({
       id="schedule-optimization"
       aria-label="学期课表生成器"
     >
+      <span id="sections" className="workflow-anchor" aria-hidden="true" />
       <div className="section-heading">
         <div>
-          <h2>学期课表生成器</h2>
+          <h2 id="schedule-builder">学期课表生成器</h2>
           <p className="subtle">
             真实导入模式：仅使用已 Review/Apply 的课节；来源年龄上限为 24 小时。
           </p>
@@ -5518,7 +5544,11 @@ function DataReviewPanel({
   }
 
   return (
-    <section className="data-review-panel" aria-label="数据审核与确认">
+    <section
+      id="data-review"
+      className="data-review-panel"
+      aria-label="数据审核与确认"
+    >
       <div className="section-heading">
         <div>
           <h2>数据审核与确认</h2>
