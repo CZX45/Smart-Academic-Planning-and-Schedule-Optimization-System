@@ -598,12 +598,13 @@ Stage 10 is complete through PRs #52, #53, and #54. Stage 11 Real Section
 Import is complete through PRs #56, #57, and #58. Stage 12 Real Section
 Optimizer Integration and its documentation closeout are complete through PRs
 #60, #61, and #62. UI Workflow Modularization is complete through PRs #63,
-#64, and the documentation closeout below. Backup/Restore is next and has not
-started.
+#64, the Backup/Restore PR A and PR B merges, and the documentation closeout
+below. Backup/Restore is complete; Safe migration and rollback is next.
 
 ## Resume checkpoint
 
-- Current milestone: UI workflow modularization; Stage 12 is complete.
+- Current milestone: Backup/Restore is complete; Safe migration and rollback is
+  next and has not started.
 - Stage 10 status: complete.
 - Stage 11 status: Real Section Import complete; PRs #56, #57, and #58 merged.
 - Real Section Optimizer Integration: complete; PRs #60 and #61 merged.
@@ -669,8 +670,9 @@ started.
   Audit, Eligibility, Planner, What-If, reviewed real Sections, optimizer
   provenance, and real/mock isolation remain intact. No registration, portal
   mutation, automatic monitoring, polling, or private data was added.
-- Final synchronized remote `main`: `bacbe70efc40dd619fbea3c6b25db3201deadfc4`.
-  Backup/Restore is the next milestone and has not started.
+- Final synchronized remote `main` before Backup/Restore:
+  `bacbe70efc40dd619fbea3c6b25db3201deadfc4`. Backup/Restore was then
+  completed through PRs #66 and #67 and the documentation closeout below.
 
 ## Scope confirmation
 
@@ -678,7 +680,7 @@ Stage 8A pairing and Stage 8B localhost request protection are complete and
 merged. Stage 9A parser stabilization and Stage 9B validation/Review/Apply
 safeguards are complete. Stage 11 Real Section Import is also complete through
 PRs #56, #57, and #58. Program/Catalog ingestion, Real Section Optimizer
-Integration, Backup/Restore, production migration,
+Integration, production migration,
 diagnostics center, installer/uninstaller, beta, or release-candidate work.
 
 ## Stage 8A — secure local Extension pairing (merged)
@@ -843,8 +845,8 @@ campus, and unambiguous Section identity.
   SectionMeeting records with provenance. Availability remains advisory and
   separate from canonical structural data. Stage 12 optimizer work was kept
   out of Stage 11 and delivered afterward through the gated PRs above.
-- Next milestone: Backup/Restore — UI Workflow Modularization is complete;
-  Backup/Restore has not started.
+- Next milestone: Safe migration and rollback — Backup/Restore is complete;
+  Safe migration and rollback has not started.
 
 ## Stage 12A — Real Section optimizer input boundary checkpoint
 
@@ -925,10 +927,10 @@ reviewed-imported mode in the schedule builder UI.
   tests 11 passed; lint, typecheck, OpenAPI check, Ruff, mypy, and
   `git diff --check` passed; hosted Docker Compose and hosted Playwright E2E
   passed.
-- Final milestone state: Stage 11 Real Section Import, Stage 12 Real Section
-  Optimizer Integration, and Stage 13 UI Workflow Modularization are complete;
-  PRs #60, #61, #63, and #64 are merged. Final synchronized `main` is
-  recorded in the Stage 13 checkpoint below; Backup/Restore is next.
+- Final milestone state at this historical checkpoint: Stage 11 Real Section
+  Import, Stage 12 Real Section Optimizer Integration, and Stage 13 UI Workflow
+  Modularization are complete; PRs #60, #61, #63, and #64 are merged. The
+  subsequent Backup/Restore milestone is recorded below.
 - Protected root artifacts remain untouched: `apps/web/next-env.d.ts`,
   `.codex-worktrees/`, and `localize-web-ui-zh-cn.patch`.
 - Known limitation: the full SQLite Alembic-from-base path remains blocked by
@@ -1058,4 +1060,26 @@ rollback.
   restart-required state, and safe warnings. File selection alone has no side
   effect.
 - Validation: local focused restore tests and Tauri unit tests pass; exact PR,
-  CI, review, and merge evidence will be appended after publication.
+  CI, review, and merge evidence passed. PR #67 final head is
+  `08e9bef5b69bd3e04b98cbfc1649dddbd9e1251a`; exact-head CI is workflow run
+  `29428702027` / run `311`; merge commit is
+  `bb0b6d55dbe368af64557c5c646286ce170772b5`. Review threads for invalid
+  marker quarantine and DELETE preflight are resolved.
+- Protected artifacts: `apps/web/next-env.d.ts`, `.codex-worktrees/`, and
+  `localize-web-ui-zh-cn.patch` remain root-only and are excluded from this
+  branch.
+
+## Backup/Restore — final documentation closeout
+
+Backup/Restore is complete through PR A #66, PR B #67, and this docs-only
+closeout. The dependency gate was preserved: PR B started from merged PR A,
+and this closeout started from merged PR B at `bb0b6d55dbe368af64557c5c646286ce170772b5`.
+No Safe migration and rollback work began. The pre-existing SQLite
+Alembic-from-base limitation at `20260623_0004` remains unchanged.
+
+- Final synchronized `main`/`origin/main`: `bb0b6d55dbe368af64557c5c646286ce170772b5`
+  before this documentation-only closeout; the final closeout merge is recorded
+  after publication.
+- Scope remains local-only and advisory: no registration, portal mutation,
+  credentials, cloud sync, scheduling, arbitrary filesystem access, or
+  automatic monitoring was added.
