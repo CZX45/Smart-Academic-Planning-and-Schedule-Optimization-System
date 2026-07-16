@@ -43,6 +43,7 @@ import {
   createScheduleOptimization,
   fetchSectionMonitorAlerts,
   fetchHealth,
+  downloadLocalDiagnosticsBundle,
   updateSectionMonitorAlert,
   updateSectionMonitorTarget,
   updateImportedRecordReview,
@@ -121,13 +122,44 @@ describe("DiagnosticsSnapshotSchema", () => {
       capabilities: {
         read_only_snapshot: true,
         local_desktop_only: true,
-        bundle_export: false,
+        bundle_export: true,
         automatic_repair: false,
         telemetry: false,
         remote_upload: false,
       },
     };
     expect(() => DiagnosticsSnapshotSchema.parse({ ...minimal, extra: true })).toThrow();
+  });
+});
+
+describe("local diagnostics export client", () => {
+  it("uses the local export endpoint and reads its safe filename", async () => {
+    const seen: { url: string; method: string | undefined } = {
+      url: "",
+      method: undefined,
+    };
+    const fetchFn = async (input: RequestInfo | URL, init?: RequestInit) => {
+      seen.url = String(input);
+      seen.method = init?.method;
+      return new Response(new Uint8Array([80, 75, 3, 4]), {
+        headers: {
+          "content-disposition": 'attachment; filename="sapsos-diagnostics.zip"',
+          "content-type": "application/zip",
+        },
+      });
+    };
+
+    const result = await downloadLocalDiagnosticsBundle("http://api.test", {
+      fetchFn,
+    });
+    expect(seen).toEqual({
+      url: "http://api.test/api/v1/local-diagnostics/export",
+      method: "POST",
+    });
+    expect(result.filename).toBe("sapsos-diagnostics.zip");
+    expect(await result.blob.arrayBuffer()).toEqual(
+      new Uint8Array([80, 75, 3, 4]).buffer,
+    );
   });
 });
 

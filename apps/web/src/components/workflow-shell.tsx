@@ -77,7 +77,9 @@ export function WorkflowShell({
           <WorkflowStatus
             label={`连接状态：${apiStatus.replace(/^API\s*/, "")}`}
           />
-          <span className="app-shell-context-label">当前学生：演示学生</span>
+          {activeWorkflow !== "diagnostics" ? (
+            <span className="app-shell-context-label">当前学生：演示学生</span>
+          ) : null}
           <span className="app-shell-context-label">数据：{sourceLabel}</span>
         </div>
       </header>

@@ -107,6 +107,7 @@ import {
 import { useCourseStateWorkflow } from "../lib/course-state-workflow";
 import { useSectionMonitoringWorkflow } from "../lib/section-monitoring-workflow";
 import { usePairingWorkflow } from "../lib/pairing-workflow";
+import { DiagnosticsWorkflow } from "../components/diagnostics-workflow";
 
 type HealthState =
   | { status: "loading" }
@@ -1433,6 +1434,10 @@ export default function Home() {
       sourceLabel={currentImportMode}
     >
       <main>
+        <DiagnosticsWorkflow
+          apiBaseUrl={apiBaseUrl}
+          active={activeWorkflow === "diagnostics"}
+        />
         <section id="overview" className="progress-shell">
         <div className="topbar">
           <p className={`badge ${health.status === "online" ? "ok" : "warn"}`}>
