@@ -30,9 +30,9 @@ for package in ("app", "psycopg", "uvicorn", "fastapi", "starlette"):
 
 def is_excluded_resource(path: str) -> bool:
     normalized = path.replace("\\", "/").lower()
-    return any(
+    return normalized.endswith(".pyc") or any(
         f"/{segment}/" in normalized or normalized.endswith(f"/{segment}")
-        for segment in ("tests", "testing", "fixtures")
+        for segment in ("tests", "testing", "fixtures", "__pycache__")
     )
 
 
