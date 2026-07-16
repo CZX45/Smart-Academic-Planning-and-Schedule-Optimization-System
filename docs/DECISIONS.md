@@ -623,3 +623,33 @@ legacy free text is fail-closed redacted. The snapshot contract deliberately
 does not include telemetry, remote upload, diagnostics ZIP export, or a full
 Diagnostics UI; those concerns require separate decisions and milestones.
 
+# ADR-0028: Keep Diagnostics UI and export privacy-safe and user-initiated
+
+Status: Accepted
+
+The Diagnostics UI is a read-only, hash-routed workflow in the modular Web UI.
+It reads the typed sanitized snapshot, exposes explicit refresh, and renders
+`HEALTHY`, `DEGRADED`, `ACTION_REQUIRED`, `BLOCKED`, and `UNKNOWN` states with
+user-readable explanations. It does not poll in the background, repair issues,
+restart the API, reset pairing, run migrations, restore backups, or mutate
+official school records.
+
+Diagnostics export is available only in `LOCAL_DESKTOP` mode and only after an
+explicit user action. The ZIP contains exactly `manifest.json`,
+`diagnostics.json`, `startup-events.json`, and `README.txt`. The manifest
+records the bundle format, generation time, application version/mode,
+diagnostics contract version, allowlisted file list, per-file SHA-256 values,
+privacy statement, exclusions, and redaction-policy version. The snapshot and
+startup events are sanitized and bounded; the README states local generation,
+no automatic upload, user review before sharing, non-official-record status,
+and deletion guidance.
+
+The bundle excludes student records, GPA, grades, course history, plans,
+Sections, portal contents, raw import evidence, databases, backup archives,
+raw logs, credentials, MFA data, cookies, SAML data, tokens, pairing secrets,
+localhost proofs, absolute paths, Windows usernames, raw tracebacks, stderr,
+stdout, SQL, and command lines. There is no telemetry, cloud logging, remote
+upload, automatic GitHub issue submission, or automatic support submission.
+`SERVER` mode does not expose local diagnostics export, and the existing
+Host/Origin/localhost-proof boundary remains enforced.
+

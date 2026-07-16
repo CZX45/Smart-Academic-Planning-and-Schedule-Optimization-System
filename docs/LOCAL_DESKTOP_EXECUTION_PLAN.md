@@ -1199,8 +1199,8 @@ Desktop E2E milestone and must not be described as complete here.
 Diagnostics is complete through PR #73 (backend foundation), PR #74 (UI and
 privacy-safe export), and this documentation-only closeout. The implementation
 is LOCAL_DESKTOP-only, user-initiated, read-only, advisory, and isolated from
-SERVER mode. ADR-0025 records the decision to keep diagnostics local and
-privacy-safe.
+SERVER mode. ADR-0025 records the backend snapshot boundary; ADR-0028 records
+the separate UI and export decision.
 
 ### PR #73 — Diagnostics backend foundation
 
