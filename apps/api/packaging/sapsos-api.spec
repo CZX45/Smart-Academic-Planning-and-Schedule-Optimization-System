@@ -27,6 +27,17 @@ for package in (
 for package in ("app", "psycopg", "uvicorn", "fastapi", "starlette"):
     hiddenimports.extend(collect_submodules(package))
 
+
+def is_excluded_resource(path: str) -> bool:
+    normalized = path.replace("\\", "/").lower()
+    return any(
+        f"/{segment}/" in normalized or normalized.endswith(f"/{segment}")
+        for segment in ("tests", "testing", "fixtures")
+    )
+
+
+datas = [entry for entry in datas if not is_excluded_resource(str(entry[0]))]
+
 a = Analysis(
     [str(ROOT / "app" / "run.py")],
     pathex=[str(ROOT)],
