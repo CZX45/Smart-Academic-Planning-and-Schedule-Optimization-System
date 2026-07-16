@@ -153,10 +153,7 @@ def test_packaging_staging_validator_records_files_and_rejects_forbidden_files()
 
 def test_safe_build_cleanup_allows_child_output_and_rejects_dangerous_targets() -> None:
     helper = ROOT / "scripts/windows/Invoke-SafeBuildCleanup.ps1"
-    cache_root = ROOT / ".cache"
-    cache_root.mkdir(exist_ok=True)
-
-    with tempfile.TemporaryDirectory(dir=cache_root) as temporary:
+    with tempfile.TemporaryDirectory() as temporary:
         build_root = Path(temporary) / "dist"
         child = build_root / "stale-output"
         child.mkdir(parents=True)
