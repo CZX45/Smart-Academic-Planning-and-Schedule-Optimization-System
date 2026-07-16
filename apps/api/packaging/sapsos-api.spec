@@ -36,7 +36,11 @@ def is_excluded_resource(path: str) -> bool:
     )
 
 
-datas = [entry for entry in datas if not is_excluded_resource(str(entry[0]))]
+datas = [
+    entry
+    for entry in datas
+    if not any(is_excluded_resource(str(value)) for value in entry[:2])
+]
 
 a = Analysis(
     [str(ROOT / "app" / "run.py")],
@@ -50,6 +54,11 @@ a = Analysis(
     excludes=["pytest", "tests"],
     noarchive=False,
 )
+a.datas = [
+    entry
+    for entry in a.datas
+    if not any(is_excluded_resource(str(value)) for value in entry[:2])
+]
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
