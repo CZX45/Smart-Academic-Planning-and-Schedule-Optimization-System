@@ -15,6 +15,8 @@ for package in (
     "pydantic_core",
     "pydantic_settings",
     "sqlalchemy",
+    "psycopg",
+    "psycopg_binary",
     "starlette",
     "uvicorn",
 ):
