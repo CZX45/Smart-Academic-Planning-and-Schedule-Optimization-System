@@ -27,7 +27,9 @@ function Get-CheckedRoot([string]$PathValue, [string]$Label) {
 }
 
 function Get-RelativePath([string]$Root, [string]$PathValue) {
-    return [IO.Path]::GetRelativePath($Root, $PathValue).Replace('\', '/')
+    $rootUri = [Uri]::new((Resolve-Path $Root).Path.TrimEnd('\', '/') + '\')
+    $pathUri = [Uri]::new((Resolve-Path $PathValue).Path)
+    return [Uri]::UnescapeDataString($rootUri.MakeRelativeUri($pathUri).ToString()).Replace('\', '/')
 }
 
 $api = Get-CheckedRoot $ApiRoot "Packaged API root"
