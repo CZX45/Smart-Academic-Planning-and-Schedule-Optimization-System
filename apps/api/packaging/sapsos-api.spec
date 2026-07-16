@@ -1,6 +1,7 @@
 from pathlib import Path
 import sysconfig
 
+from PyInstaller.building.datastruct import Tree
 from PyInstaller.utils.hooks import collect_all, collect_submodules, copy_metadata
 
 
@@ -44,9 +45,7 @@ else:
     psycopg_binary_libs = Path(sysconfig.get_paths()["purelib"]) / "psycopg_binary.libs"
 if psycopg_binary_libs.is_dir():
     binaries.extend(
-        (str(path), "psycopg_binary.libs")
-        for path in psycopg_binary_libs.iterdir()
-        if path.is_file()
+        Tree(str(psycopg_binary_libs), prefix="psycopg_binary.libs", typecode="BINARY")
     )
 
 
