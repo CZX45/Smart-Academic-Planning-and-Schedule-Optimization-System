@@ -653,3 +653,48 @@ upload, automatic GitHub issue submission, or automatic support submission.
 `SERVER` mode does not expose local diagnostics export, and the existing
 Host/Origin/localhost-proof boundary remains enforced.
 
+# ADR-0029: Use one per-user NSIS foundation for Windows packaging
+
+Status: Accepted
+
+The Windows installer foundation uses the Tauri 2 NSIS bundler as its single
+installer technology. WiX/MSI is not implemented in parallel: NSIS is already
+supported by the Tauri shell and is sufficient for the first per-user package.
+The configured `currentUser` mode installs without administrator elevation and
+uses the user-scoped install directory `%LOCALAPPDATA%\Programs\SAPSOS Local
+Desktop`. No system directories, school portals, browser credentials, or
+official records are modified.
+
+`desktop-shell/desktop-identity.json` is the authoritative identity source.
+The product name, executable/package identity, bundle identifier, Windows
+application identifier, publisher placeholder, semantic version, installer
+artifact name, install directory, and `%LOCALAPPDATA%\SAPSOS` data root are
+validated against Tauri, Cargo, and API configuration before packaging. The
+identity is not derived from a user, school, machine path, or random identifier.
+
+The existing `cargo run` development shell is explicitly not an installed
+Windows product: it uses the development Web/API path and is never emitted by
+the installer workflow or registered as an installed application. It therefore
+shares the logical product identity only for exercising the same LOCAL_DESKTOP
+data lifecycle; the installer identity and upgrade contract apply exclusively
+to the release NSIS artifact. This is an intentional, documented exception to
+the debug/release identity rule, not a second installer identity.
+
+The package graph is Tauri executable → packaged FastAPI one-folder runtime →
+static Next.js export → required resources and notices. The release shell
+resolves the embedded API executable from `runtime/sapsos-api`; an explicit
+`SAPSOS_API_EXECUTABLE` override remains available for controlled validation.
+The package emits a versioned NSIS executable and `packaging-manifest.json`
+with component paths, commit, signing status, size, and SHA-256. The paired
+artifact validator checks those fields before the CI artifact is uploaded.
+
+Install and upgrade preserve `%LOCALAPPDATA%\SAPSOS`, including the database,
+pairing state, backups, migration evidence, and local Diagnostics state.
+Uninstall removes application binaries but preserves that user data by default;
+future destructive data removal requires an explicit, separately reviewed
+choice. Code signing, auto-update, release publishing, cloud distribution,
+telemetry, crash upload, and installer-level E2E are outside this foundation.
+The current artifact is intentionally unsigned, and WebView2 bootstrapper
+download behavior remains a clean-machine/network limitation until packaged
+desktop E2E is completed.
+

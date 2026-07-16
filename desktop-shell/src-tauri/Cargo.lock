@@ -2427,7 +2427,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sapsos-desktop-shell-proof"
+name = "sapsos-local-desktop"
 version = "0.1.0"
 dependencies = [
  "serde",

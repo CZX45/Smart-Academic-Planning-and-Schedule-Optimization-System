@@ -356,7 +356,7 @@ fn prepare_migration(
 }
 
 impl DesktopProcesses {
-    fn start(&self) -> Result<RuntimeManifest, String> {
+    fn start(&self, packaged_resource_dir: Option<&Path>) -> Result<RuntimeManifest, String> {
         let mut guard = self.0.lock().map_err(|_| "process lock poisoned")?;
         if guard
             .api
@@ -379,17 +379,21 @@ impl DesktopProcesses {
             .ok_or_else(|| "Could not locate repository root".to_string())?
             .to_path_buf();
         let api_directory = repo_root.join("apps").join("api");
-        let local_app_data = proof_local_app_data();
+        let local_app_data = local_app_data_root();
         let app_data = local_app_data.join("SAPSOS");
         fs::create_dir_all(&app_data)
-            .map_err(|error| format!("Could not create proof app-data directory: {error}"))?;
+            .map_err(|error| format!("Could not create app-data directory: {error}"))?;
         let _startup_lock = StartupLock::acquire(&app_data)?;
-        let database_path = app_data.join("tauri-proof.db");
+        let database_path = app_data.join("sapsos.db");
         let database_url = format!(
             "sqlite+pysqlite:///{}",
             database_path.to_string_lossy().replace('\\', "/")
         );
-        let packaged_api = std::env::var_os("SAPSOS_API_EXECUTABLE").map(PathBuf::from);
+        let packaged_api = std::env::var_os("SAPSOS_API_EXECUTABLE")
+            .map(PathBuf::from)
+            .or_else(|| {
+                packaged_resource_dir.map(|root| root.join("runtime/sapsos-api/sapsos-api.exe"))
+            });
         let (api_executable, api_arguments, api_working_directory) = if let Some(path) =
             packaged_api
         {
@@ -404,12 +408,14 @@ impl DesktopProcesses {
                 .ok_or_else(|| "Packaged FastAPI artifact has no parent directory".to_string())?
                 .to_path_buf();
             (path, Vec::new(), working_directory)
-        } else {
+        } else if cfg!(debug_assertions) {
             (
                 PathBuf::from(std::env::var("PYTHON").unwrap_or_else(|_| "python".to_string())),
                 vec!["-m".to_string(), "app.run".to_string()],
                 api_directory.clone(),
             )
+        } else {
+            return Err("Packaged FastAPI artifact was not configured. Build the Windows package with scripts/windows/Build-Windows-Installer.ps1.".to_string());
         };
         let restore = apply_pending_restore(&app_data, &database_path)?;
         let migration = match prepare_migration(
@@ -740,15 +746,15 @@ fn rollback_restore(application: &RestoreApplication, database_path: &Path) -> R
     )
 }
 
-fn proof_local_app_data() -> PathBuf {
+fn local_app_data_root() -> PathBuf {
     let requested = std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::temp_dir().join("SAPSOS-tauri-proof"));
+        .unwrap_or_else(|| std::env::temp_dir().join("SAPSOS-local-desktop"));
     if fs::create_dir_all(requested.join("SAPSOS")).is_ok() {
         return requested;
     }
-    let fallback = std::env::temp_dir().join("SAPSOS-tauri-proof");
-    fs::create_dir_all(fallback.join("SAPSOS")).expect("could not create proof temp data");
+    let fallback = std::env::temp_dir().join("SAPSOS-local-desktop");
+    fs::create_dir_all(fallback.join("SAPSOS")).expect("could not create local desktop temp data");
     fallback
 }
 
@@ -942,20 +948,37 @@ fn main() {
     tauri::Builder::default()
         .manage(DesktopProcesses::default())
         .setup(|app| {
+            let packaged_resource_dir: Option<PathBuf> = {
+                #[cfg(not(debug_assertions))]
+                {
+                    Some(app.path().resource_dir().map_err(std::io::Error::other)?)
+                }
+                #[cfg(debug_assertions)]
+                {
+                    None
+                }
+            };
             let api_manifest = app
                 .state::<DesktopProcesses>()
-                .start()
+                .start(packaged_resource_dir.as_deref())
                 .map_err(std::io::Error::other)?;
 
             #[cfg(not(debug_assertions))]
             {
-                let resource_dir = app
-                    .path()
-                    .resource_dir()
-                    .map_err(std::io::Error::other)?;
+                let resource_dir = packaged_resource_dir
+                    .as_deref()
+                    .expect("release resource directory is initialized");
                 if !resource_dir.join("index.html").is_file() {
                     return Err(Box::new(std::io::Error::other(format!(
                         "Packaged Web UI artifact is missing index.html under {}. Build it with scripts/windows/Build-Web-UI.ps1.",
+                        resource_dir.display()
+                    ))));
+                }
+                if !resource_dir.join("runtime/sapsos-api/sapsos-api.exe").is_file()
+                    && std::env::var_os("SAPSOS_API_EXECUTABLE").is_none()
+                {
+                    return Err(Box::new(std::io::Error::other(format!(
+                        "Packaged FastAPI artifact is missing under {}. Build it with scripts/windows/Build-FastAPI-Runtime.ps1.",
                         resource_dir.display()
                     ))));
                 }
