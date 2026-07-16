@@ -32,6 +32,16 @@ function Get-RelativePath([string]$Root, [string]$PathValue) {
     return [Uri]::UnescapeDataString($rootUri.MakeRelativeUri($pathUri).ToString()).Replace('\', '/')
 }
 
+function Get-Sha256([string]$PathValue) {
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $sha256.ComputeHash([IO.File]::ReadAllBytes($PathValue))
+        return ([BitConverter]::ToString($bytes) -replace '-', '').ToLowerInvariant()
+    } finally {
+        $sha256.Dispose()
+    }
+}
+
 $api = Get-CheckedRoot $ApiRoot "Packaged API root"
 $web = Get-CheckedRoot $WebRoot "Static Web root"
 $forbiddenPath = '(?i)(^|[\\/])(?:\.env(?:\.|$)|.*\.(?:db|sqlite|sapsos-backup)$|pairing\.json$|runtime\.json$|pending-restore\.json$|.*diagnostics.*\.(?:zip|json)$|.*backup.*\.(?:zip|sapsos-backup)$|migration-safety(?:[\\/]|$)|tests?(?:[\\/]|$)|fixtures(?:[\\/]|$)|node_modules(?:[\\/]|$)|credentials?(?:[\\/]|$)|tokens?(?:[\\/]|$))'
@@ -56,7 +66,7 @@ foreach ($component in @(@{ Name = "fastapi_runtime"; Root = $api }, @{ Name = "
             [ordered]@{
                 path = $normalized
                 bytes = $file.Length
-                sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+                sha256 = Get-Sha256 $file.FullName
             }
         }
     )
