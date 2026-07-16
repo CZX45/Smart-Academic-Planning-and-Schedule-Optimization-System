@@ -17,8 +17,8 @@ Assert-Equal "bundle identifier" $identity.bundle_identifier $tauri.identifier
 Assert-Equal "Windows application identifier" $identity.bundle_identifier $identity.windows_application_id
 Assert-Equal "version" $identity.version $tauri.version
 Assert-Equal "publisher" $identity.publisher $tauri.bundle.publisher
-Assert-Equal "Cargo package name" "sapsos-local-desktop" (([regex]::Match($cargo, '(?m)^name\s*=\s*"([^"]+)"$')).Groups[1].Value)
-Assert-Equal "Cargo version" $identity.version (([regex]::Match($cargo, '(?m)^version\s*=\s*"([^"]+)"$')).Groups[1].Value)
+Assert-Equal "Cargo package name" "sapsos-local-desktop" (([regex]::Match($cargo, '(?m)^name\s*=\s*"([^"]+)"\r?$')).Groups[1].Value)
+Assert-Equal "Cargo version" $identity.version (([regex]::Match($cargo, '(?m)^version\s*=\s*"([^"]+)"\r?$')).Groups[1].Value)
 Assert-Equal "executable name" "sapsos-local-desktop.exe" $identity.executable_name
 if ($identity.installer_artifact_name -ne "SAPSOS-Local-Desktop-{version}-x64-setup.exe") {
     throw "Installer artifact naming convention drifted."
