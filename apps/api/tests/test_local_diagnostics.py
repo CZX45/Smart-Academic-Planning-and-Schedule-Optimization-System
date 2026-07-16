@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import sqlite3
+import zipfile
 from collections.abc import Generator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -53,6 +55,7 @@ def test_snapshot_contract_is_typed_and_deterministic(
     assert snapshot.generated_at == generated
     assert snapshot.application_mode == "LOCAL_DESKTOP"
     assert snapshot.overall_status in set(OverallStatus)
+    assert snapshot.capabilities.bundle_export is True
     assert set(payload) == {
         "contract_version",
         "generated_at",
@@ -191,6 +194,53 @@ def test_server_mode_does_not_expose_local_diagnostics(
     monkeypatch.setattr(settings, "product_mode", "SERVER")
     with TestClient(app) as client:
         response = client.get("/api/v1/local-diagnostics")
+    assert response.status_code == 404
+    assert "sapsos.db" not in response.text
+
+
+def test_local_diagnostics_export_is_fixed_allowlist_and_privacy_safe(
+    local_engine: tuple[Engine, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    engine, _ = local_engine
+    import app.api.local_diagnostics as local_diagnostics_api
+    import app.main as main_module
+
+    monkeypatch.setattr(local_diagnostics_api, "engine", engine)
+    monkeypatch.setattr(main_module, "engine", engine)
+    with TestClient(app) as client:
+        response = client.post("/api/v1/local-diagnostics/export")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(response.content)) as bundle:
+        assert bundle.namelist() == [
+            "manifest.json",
+            "diagnostics.json",
+            "startup-events.json",
+            "README.txt",
+        ]
+        content = b"".join(bundle.read(name) for name in bundle.namelist())
+        manifest = json.loads(bundle.read("manifest.json"))
+        assert manifest["file_list"] == bundle.namelist()
+        assert b"sapsos.db" not in content
+        assert b"C:\\Users\\" not in content
+        assert b"Authorization" not in content
+        assert all(".." not in name for name in bundle.namelist())
+        for name in bundle.namelist()[1:]:
+            assert manifest["sha256"][name] == hashlib.sha256(bundle.read(name)).hexdigest()
+
+
+def test_server_mode_does_not_expose_local_diagnostics_export(
+    local_engine: tuple[Engine, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    engine, _ = local_engine
+    import app.api.local_diagnostics as local_diagnostics_api
+    import app.main as main_module
+
+    monkeypatch.setattr(local_diagnostics_api, "engine", engine)
+    monkeypatch.setattr(main_module, "engine", engine)
+    monkeypatch.setattr(settings, "product_mode", "SERVER")
+    with TestClient(app) as client:
+        response = client.post("/api/v1/local-diagnostics/export")
     assert response.status_code == 404
     assert "sapsos.db" not in response.text
 

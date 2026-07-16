@@ -19,6 +19,7 @@ describe("workflow navigation", () => {
       "schedule-builder",
       "section-monitoring",
       "backup-restore",
+      "diagnostics",
     ]);
     expect(workflowDefinitions.map((workflow) => workflow.label)).toContain(
       "备份与恢复",
@@ -30,5 +31,6 @@ describe("workflow navigation", () => {
     expect(workflowIdFromHash("degree-audit")).toBe("degree-audit");
     expect(workflowIdFromHash("#unknown-workflow")).toBe("overview");
     expect(workflowHref(workflowDefinitions[0])).toBe("#overview");
+    expect(workflowIdFromHash("#diagnostics")).toBe("diagnostics");
   });
 });

@@ -2186,6 +2186,56 @@ export async function fetchLocalDiagnostics(
   return parsed.data;
 }
 
+export async function downloadLocalDiagnosticsBundle(
+  apiBaseUrl: string,
+  options: FetchHealthOptions = {},
+): Promise<{ blob: Blob; filename: string | null }> {
+  const { fetchFn, timeoutMs, apiBearerToken } = options;
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    timeoutMs ?? DEFAULT_TIMEOUT_MS,
+  );
+  const headers = new Headers();
+  if (apiBearerToken && apiBearerToken.trim().length > 0) {
+    headers.set("authorization", `Bearer ${apiBearerToken.trim()}`);
+  }
+  try {
+    const response = await (fetchFn ?? fetch)(
+      buildApiUrl(apiBaseUrl, "/api/v1/local-diagnostics/export"),
+      { method: "POST", cache: "no-store", headers, signal: controller.signal },
+    );
+    if (!response.ok) {
+      throw new ApiRequestError(
+        `Local diagnostics export failed with status ${response.status}`,
+      );
+    }
+    return {
+      blob: await response.blob(),
+      filename:
+        response.headers
+          .get("content-disposition")
+          ?.match(/filename="?([^";]+)"?/)?.[1] ?? null,
+    };
+  } catch (error: unknown) {
+    if (error instanceof ApiRequestError) {
+      throw error;
+    }
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new ApiRequestError(
+        `Local diagnostics export timed out after ${timeoutMs ?? DEFAULT_TIMEOUT_MS} ms`,
+      );
+    }
+    throw new ApiRequestError(
+      error instanceof Error
+        ? error.message
+        : "Local diagnostics export failed",
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function fetchLocalBackupStatus(
   apiBaseUrl: string,
   options: FetchHealthOptions = {},

@@ -248,5 +248,5 @@ def collect_snapshot(
         pairing_status=pairing,
         recent_startup_status=startup,
         warnings=warnings,
-        capabilities=DiagnosticsCapabilities(),
+        capabilities=DiagnosticsCapabilities(bundle_export=True),
     )

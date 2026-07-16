@@ -5289,6 +5289,20 @@
         }
       }
     },
+    "/api/v1/local-diagnostics/export": {
+      "post": {
+        "tags": [
+          "local-diagnostics"
+        ],
+        "summary": "Export Local Diagnostics",
+        "operationId": "export_local_diagnostics_api_v1_local_diagnostics_export_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
