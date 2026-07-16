@@ -22,6 +22,7 @@ import {
   ImportPreviewSummarySchema,
   ImportValidationWarningSchema,
   HealthResponseSchema,
+  DiagnosticsSnapshotSchema,
   ReadinessResponseSchema,
   AcademicScenarioSchema,
   ScenarioComparisonSnapshotSchema,
@@ -65,6 +66,68 @@ describe("HealthResponseSchema", () => {
       service: "api",
       database_configured: true,
     });
+  });
+});
+
+describe("DiagnosticsSnapshotSchema", () => {
+  it("rejects unknown top-level fields", () => {
+    const minimal = {
+      contract_version: 1,
+      generated_at: "2026-07-16T00:00:00Z",
+      application_mode: "LOCAL_DESKTOP",
+      application_version: "0.1.0",
+      platform_summary: {
+        operating_system: "Windows",
+        architecture: "AMD64",
+        python_major_minor: "3.14",
+      },
+      overall_status: "UNKNOWN",
+      runtime_health: {
+        status: "UNKNOWN",
+        reason_code: "runtime_manifest_unavailable",
+        summary: "runtime:inspect:runtime_manifest_unavailable",
+        current_mode: "LOCAL_DESKTOP",
+        manifest_present: false,
+        manifest_contract_supported: null,
+        manifest_parseable: false,
+        pid_valid: null,
+        api_base_url_loopback: null,
+        port_valid: null,
+        stale: null,
+        process_consistent: null,
+        conflict_detected: false,
+      },
+      api_health: {
+        status: "HEALTHY",
+        reason_code: null,
+        summary: "api:inspect:api_ready",
+        process_status: "RUNNING",
+        readiness_status: "READY",
+        health_status: "HEALTHY",
+        api_contract_version: "0.1.0",
+        application_mode: "LOCAL_DESKTOP",
+        loopback_bound: true,
+        expected_database: "SQLITE",
+        schema_match: true,
+        recent_child_process_exit: null,
+      },
+      database_health: {} as never,
+      schema_status: {} as never,
+      migration_status: {} as never,
+      restore_status: {} as never,
+      pairing_status: {} as never,
+      recent_startup_status: {} as never,
+      warnings: [],
+      capabilities: {
+        read_only_snapshot: true,
+        local_desktop_only: true,
+        bundle_export: false,
+        automatic_repair: false,
+        telemetry: false,
+        remote_upload: false,
+      },
+    };
+    expect(() => DiagnosticsSnapshotSchema.parse({ ...minimal, extra: true })).toThrow();
   });
 });
 

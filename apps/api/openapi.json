@@ -5268,6 +5268,27 @@
         }
       }
     },
+    "/api/v1/local-diagnostics": {
+      "get": {
+        "tags": [
+          "local-diagnostics"
+        ],
+        "summary": "Get Local Diagnostics",
+        "operationId": "get_local_diagnostics_api_v1_local_diagnostics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosticsSnapshot"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -6317,6 +6338,118 @@
           "updated_at"
         ],
         "title": "AcademicScenarioResponse"
+      },
+      "ApiHealth": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/DiagnosticStatus"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "process_status": {
+            "type": "string",
+            "enum": [
+              "RUNNING",
+              "NOT_RUNNING",
+              "UNKNOWN"
+            ],
+            "title": "Process Status"
+          },
+          "readiness_status": {
+            "type": "string",
+            "enum": [
+              "READY",
+              "NOT_READY",
+              "UNKNOWN"
+            ],
+            "title": "Readiness Status"
+          },
+          "health_status": {
+            "type": "string",
+            "enum": [
+              "HEALTHY",
+              "UNHEALTHY",
+              "UNKNOWN"
+            ],
+            "title": "Health Status"
+          },
+          "api_contract_version": {
+            "type": "string",
+            "title": "Api Contract Version"
+          },
+          "application_mode": {
+            "type": "string",
+            "enum": [
+              "LOCAL_DESKTOP",
+              "SERVER"
+            ],
+            "title": "Application Mode"
+          },
+          "loopback_bound": {
+            "type": "boolean",
+            "title": "Loopback Bound"
+          },
+          "expected_database": {
+            "type": "string",
+            "enum": [
+              "SQLITE",
+              "POSTGRESQL",
+              "UNKNOWN"
+            ],
+            "title": "Expected Database"
+          },
+          "schema_match": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schema Match"
+          },
+          "recent_child_process_exit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recent Child Process Exit"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "summary",
+          "process_status",
+          "readiness_status",
+          "health_status",
+          "api_contract_version",
+          "application_mode",
+          "loopback_bound",
+          "expected_database",
+          "schema_match",
+          "recent_child_process_exit"
+        ],
+        "title": "ApiHealth"
       },
       "AppliedImportedRecordResponse": {
         "properties": {
@@ -8834,6 +8967,147 @@
         ],
         "title": "DataReviewWarningResponse"
       },
+      "DatabaseHealth": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/DiagnosticStatus"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "present": {
+            "type": "boolean",
+            "title": "Present"
+          },
+          "readable": {
+            "type": "boolean",
+            "title": "Readable"
+          },
+          "sqlite_header_valid": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sqlite Header Valid"
+          },
+          "foreign_keys_status": {
+            "$ref": "#/components/schemas/DiagnosticStatus"
+          },
+          "integrity_check_status": {
+            "$ref": "#/components/schemas/DiagnosticStatus"
+          },
+          "foreign_key_check_status": {
+            "$ref": "#/components/schemas/DiagnosticStatus"
+          },
+          "schema_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schema Version"
+          },
+          "supported_schema_version": {
+            "type": "integer",
+            "title": "Supported Schema Version"
+          },
+          "schema_version_supported": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schema Version Supported"
+          },
+          "journal_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Journal Mode"
+          },
+          "sidecar_wal_present": {
+            "type": "boolean",
+            "title": "Sidecar Wal Present"
+          },
+          "sidecar_shm_present": {
+            "type": "boolean",
+            "title": "Sidecar Shm Present"
+          },
+          "sidecar_journal_present": {
+            "type": "boolean",
+            "title": "Sidecar Journal Present"
+          },
+          "operation_state": {
+            "type": "string",
+            "enum": [
+              "NONE_DETECTED",
+              "SIDECAR_PRESENT",
+              "UNKNOWN"
+            ],
+            "title": "Operation State"
+          },
+          "size_bucket": {
+            "type": "string",
+            "enum": [
+              "<1 MB",
+              "1-10 MB",
+              "10-100 MB",
+              ">100 MB",
+              "UNKNOWN"
+            ],
+            "title": "Size Bucket"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "summary",
+          "present",
+          "readable",
+          "sqlite_header_valid",
+          "foreign_keys_status",
+          "integrity_check_status",
+          "foreign_key_check_status",
+          "schema_version",
+          "supported_schema_version",
+          "schema_version_supported",
+          "journal_mode",
+          "sidecar_wal_present",
+          "sidecar_shm_present",
+          "sidecar_journal_present",
+          "operation_state",
+          "size_bucket"
+        ],
+        "title": "DatabaseHealth"
+      },
       "DegreeAuditCreateRequest": {
         "properties": {
           "student_profile_id": {
@@ -9098,6 +9372,144 @@
           "created_at"
         ],
         "title": "DegreeAuditWarningResponse"
+      },
+      "DiagnosticStatus": {
+        "type": "string",
+        "enum": [
+          "HEALTHY",
+          "DEGRADED",
+          "ACTION_REQUIRED",
+          "BLOCKED",
+          "UNKNOWN",
+          "NOT_RUN",
+          "TIMED_OUT",
+          "ERROR"
+        ],
+        "title": "DiagnosticStatus"
+      },
+      "DiagnosticsCapabilities": {
+        "properties": {
+          "read_only_snapshot": {
+            "type": "boolean",
+            "title": "Read Only Snapshot",
+            "default": true
+          },
+          "local_desktop_only": {
+            "type": "boolean",
+            "title": "Local Desktop Only",
+            "default": true
+          },
+          "bundle_export": {
+            "type": "boolean",
+            "title": "Bundle Export",
+            "default": false
+          },
+          "automatic_repair": {
+            "type": "boolean",
+            "title": "Automatic Repair",
+            "default": false
+          },
+          "telemetry": {
+            "type": "boolean",
+            "title": "Telemetry",
+            "default": false
+          },
+          "remote_upload": {
+            "type": "boolean",
+            "title": "Remote Upload",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DiagnosticsCapabilities"
+      },
+      "DiagnosticsSnapshot": {
+        "properties": {
+          "contract_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Contract Version",
+            "default": 1
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "application_mode": {
+            "type": "string",
+            "enum": [
+              "LOCAL_DESKTOP",
+              "SERVER"
+            ],
+            "title": "Application Mode"
+          },
+          "application_version": {
+            "type": "string",
+            "title": "Application Version"
+          },
+          "platform_summary": {
+            "$ref": "#/components/schemas/PlatformSummary"
+          },
+          "overall_status": {
+            "$ref": "#/components/schemas/OverallStatus"
+          },
+          "runtime_health": {
+            "$ref": "#/components/schemas/RuntimeHealth"
+          },
+          "api_health": {
+            "$ref": "#/components/schemas/ApiHealth"
+          },
+          "database_health": {
+            "$ref": "#/components/schemas/DatabaseHealth"
+          },
+          "schema_status": {
+            "$ref": "#/components/schemas/MigrationHealth"
+          },
+          "migration_status": {
+            "$ref": "#/components/schemas/MigrationHealth"
+          },
+          "restore_status": {
+            "$ref": "#/components/schemas/RestoreHealth"
+          },
+          "pairing_status": {
+            "$ref": "#/components/schemas/PairingHealth"
+          },
+          "recent_startup_status": {
+            "$ref": "#/components/schemas/StartupHealth"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 32,
+            "title": "Warnings"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/DiagnosticsCapabilities"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "generated_at",
+          "application_mode",
+          "application_version",
+          "platform_summary",
+          "overall_status",
+          "runtime_health",
+          "api_health",
+          "database_health",
+          "schema_status",
+          "migration_status",
+          "restore_status",
+          "pairing_status",
+          "recent_startup_status",
+          "capabilities"
+        ],
+        "title": "DiagnosticsSnapshot"
       },
       "EligibilityReasonResponse": {
         "properties": {
@@ -9864,6 +10276,163 @@
         ],
         "title": "InstitutionResponse"
       },
+      "MigrationHealth": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/DiagnosticStatus"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "current_schema_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Schema Version"
+          },
+          "supported_schema_version": {
+            "type": "integer",
+            "title": "Supported Schema Version"
+          },
+          "schema_status": {
+            "type": "string",
+            "title": "Schema Status"
+          },
+          "migration_required": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Migration Required"
+          },
+          "migration_in_progress": {
+            "type": "boolean",
+            "title": "Migration In Progress"
+          },
+          "last_attempt_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt Status"
+          },
+          "last_successful_migration": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Successful Migration"
+          },
+          "last_rollback_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Rollback Status"
+          },
+          "interrupted_attempt_detected": {
+            "type": "boolean",
+            "title": "Interrupted Attempt Detected"
+          },
+          "safety_backup_reference_exists": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safety Backup Reference Exists"
+          },
+          "blocking_reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocking Reason Code"
+          },
+          "recovery_action_category": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "REVIEW",
+              "RECOVERY_PREFLIGHT",
+              "ADVISOR_CONFIRMATION",
+              "UNKNOWN"
+            ],
+            "title": "Recovery Action Category"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "summary",
+          "current_schema_version",
+          "supported_schema_version",
+          "schema_status",
+          "migration_required",
+          "migration_in_progress",
+          "last_attempt_status",
+          "last_successful_migration",
+          "last_rollback_status",
+          "interrupted_attempt_detected",
+          "safety_backup_reference_exists",
+          "blocking_reason_code",
+          "recovery_action_category"
+        ],
+        "title": "MigrationHealth"
+      },
+      "OverallStatus": {
+        "type": "string",
+        "enum": [
+          "HEALTHY",
+          "DEGRADED",
+          "ACTION_REQUIRED",
+          "BLOCKED",
+          "UNKNOWN"
+        ],
+        "title": "OverallStatus"
+      },
       "PairingCompleteRequest": {
         "properties": {
           "code": {
@@ -9911,6 +10480,93 @@
           "extension_id"
         ],
         "title": "PairingCompleteResponse"
+      },
+      "PairingHealth": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "NOT_PAIRED",
+              "PAIRED",
+              "EXPIRED",
+              "INVALID",
+              "REPAIR_REQUIRED",
+              "UNKNOWN"
+            ],
+            "title": "Status"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "capability_available": {
+            "type": "boolean",
+            "title": "Capability Available"
+          },
+          "paired": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paired"
+          },
+          "record_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Version"
+          },
+          "record_parseable": {
+            "type": "boolean",
+            "title": "Record Parseable"
+          },
+          "localhost_proof_contract_available": {
+            "type": "boolean",
+            "title": "Localhost Proof Contract Available"
+          },
+          "replay_protection_enabled": {
+            "type": "boolean",
+            "title": "Replay Protection Enabled"
+          },
+          "repair_required": {
+            "type": "boolean",
+            "title": "Repair Required"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "summary",
+          "capability_available",
+          "paired",
+          "record_version",
+          "record_parseable",
+          "localhost_proof_contract_available",
+          "replay_protection_enabled",
+          "repair_required"
+        ],
+        "title": "PairingHealth"
       },
       "PairingSessionResponse": {
         "properties": {
@@ -9968,6 +10624,30 @@
           "protocol_version"
         ],
         "title": "PairingStatusResponse"
+      },
+      "PlatformSummary": {
+        "properties": {
+          "operating_system": {
+            "type": "string",
+            "title": "Operating System"
+          },
+          "architecture": {
+            "type": "string",
+            "title": "Architecture"
+          },
+          "python_major_minor": {
+            "type": "string",
+            "title": "Python Major Minor"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "operating_system",
+          "architecture",
+          "python_major_minor"
+        ],
+        "title": "PlatformSummary"
       },
       "ProgramVersionDetailResponse": {
         "properties": {
@@ -10690,6 +11370,102 @@
         ],
         "title": "RestoreConfirmation"
       },
+      "RestoreHealth": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/DiagnosticStatus"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "backup_capability_available": {
+            "type": "boolean",
+            "title": "Backup Capability Available"
+          },
+          "last_manual_backup_result": {
+            "type": "string",
+            "title": "Last Manual Backup Result"
+          },
+          "pending_restore_detected": {
+            "type": "boolean",
+            "title": "Pending Restore Detected"
+          },
+          "restore_validation_state": {
+            "type": "string",
+            "title": "Restore Validation State"
+          },
+          "restore_staged": {
+            "type": "boolean",
+            "title": "Restore Staged"
+          },
+          "restore_confirmation_state": {
+            "type": "string",
+            "title": "Restore Confirmation State"
+          },
+          "last_restore_result": {
+            "type": "string",
+            "title": "Last Restore Result"
+          },
+          "last_restore_rollback_result": {
+            "type": "string",
+            "title": "Last Restore Rollback Result"
+          },
+          "restore_replay_blocked": {
+            "type": "boolean",
+            "title": "Restore Replay Blocked"
+          },
+          "unresolved_restore_state": {
+            "type": "boolean",
+            "title": "Unresolved Restore State"
+          },
+          "backup_archive_format_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup Archive Format Version"
+          },
+          "same_schema_only": {
+            "type": "boolean",
+            "title": "Same Schema Only"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "summary",
+          "backup_capability_available",
+          "last_manual_backup_result",
+          "pending_restore_detected",
+          "restore_validation_state",
+          "restore_staged",
+          "restore_confirmation_state",
+          "last_restore_result",
+          "last_restore_rollback_result",
+          "restore_replay_blocked",
+          "unresolved_restore_state",
+          "backup_archive_format_version",
+          "same_schema_only"
+        ],
+        "title": "RestoreHealth"
+      },
       "RestorePreview": {
         "properties": {
           "session_id": {
@@ -11326,6 +12102,138 @@
           "warnings"
         ],
         "title": "RuleValidationResponse"
+      },
+      "RuntimeHealth": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/DiagnosticStatus"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "current_mode": {
+            "type": "string",
+            "enum": [
+              "LOCAL_DESKTOP",
+              "SERVER"
+            ],
+            "title": "Current Mode"
+          },
+          "manifest_present": {
+            "type": "boolean",
+            "title": "Manifest Present"
+          },
+          "manifest_contract_supported": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Contract Supported"
+          },
+          "manifest_parseable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Parseable"
+          },
+          "pid_valid": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pid Valid"
+          },
+          "api_base_url_loopback": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base Url Loopback"
+          },
+          "port_valid": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port Valid"
+          },
+          "stale": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale"
+          },
+          "process_consistent": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process Consistent"
+          },
+          "conflict_detected": {
+            "type": "boolean",
+            "title": "Conflict Detected"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "summary",
+          "current_mode",
+          "manifest_present",
+          "manifest_contract_supported",
+          "manifest_parseable",
+          "pid_valid",
+          "api_base_url_loopback",
+          "port_valid",
+          "stale",
+          "process_consistent",
+          "conflict_detected"
+        ],
+        "title": "RuntimeHealth"
       },
       "RuntimeManifest": {
         "properties": {
@@ -14780,6 +15688,104 @@
           "is_official"
         ],
         "title": "SourceMetadataResponse"
+      },
+      "StartupEvent": {
+        "properties": {
+          "event_code": {
+            "type": "string",
+            "title": "Event Code"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "INFO",
+              "WARNING",
+              "ERROR"
+            ],
+            "title": "Severity"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Occurred At"
+          },
+          "component": {
+            "type": "string",
+            "title": "Component"
+          },
+          "sanitized_summary": {
+            "type": "string",
+            "title": "Sanitized Summary"
+          },
+          "resolved": {
+            "type": "boolean",
+            "title": "Resolved"
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "event_code",
+          "severity",
+          "occurred_at",
+          "component",
+          "sanitized_summary",
+          "resolved"
+        ],
+        "title": "StartupEvent"
+      },
+      "StartupHealth": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/DiagnosticStatus"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "source_available": {
+            "type": "boolean",
+            "title": "Source Available"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/StartupEvent"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Events"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "summary",
+          "source_available"
+        ],
+        "title": "StartupHealth"
       },
       "StudentAcademicProgramResponse": {
         "properties": {
