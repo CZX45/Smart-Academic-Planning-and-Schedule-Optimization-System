@@ -29,6 +29,23 @@ for package in (
 for package in ("app", "psycopg", "uvicorn", "fastapi", "starlette"):
     hiddenimports.extend(collect_submodules(package))
 
+psycopg_binary_init = next(
+    (
+        Path(source)
+        for source, target in datas
+        if target == "psycopg_binary" and Path(source).name == "__init__.py"
+    ),
+    None,
+)
+if psycopg_binary_init is not None:
+    psycopg_binary_libs = psycopg_binary_init.parent.parent / "psycopg_binary.libs"
+    if psycopg_binary_libs.is_dir():
+        datas.extend(
+            (str(path), "psycopg_binary.libs")
+            for path in psycopg_binary_libs.iterdir()
+            if path.is_file()
+        )
+
 
 def is_excluded_resource(path: str) -> bool:
     normalized = path.replace("\\", "/").lower()
