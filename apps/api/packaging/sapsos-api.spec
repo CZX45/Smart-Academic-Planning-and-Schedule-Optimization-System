@@ -45,7 +45,10 @@ else:
     psycopg_binary_libs = Path(sysconfig.get_paths()["purelib"]) / "psycopg_binary.libs"
 if psycopg_binary_libs.is_dir():
     binaries.extend(
-        Tree(str(psycopg_binary_libs), prefix="psycopg_binary.libs", typecode="BINARY")
+        (source, destination)
+        for destination, source, _ in Tree(
+            str(psycopg_binary_libs), prefix="psycopg_binary.libs", typecode="BINARY"
+        )
     )
 
 
