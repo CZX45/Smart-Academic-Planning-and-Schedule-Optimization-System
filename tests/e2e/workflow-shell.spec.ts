@@ -7,9 +7,12 @@ test("workflow shell exposes implemented workflows and keyboard hash navigation"
 
   const navigation = page.getByRole("navigation", { name: "主要工作流" });
   await expect(navigation).toBeVisible();
-  await expect(navigation.getByRole("link")).toHaveCount(11);
+  await expect(navigation.getByRole("link")).toHaveCount(12);
   await expect(
     navigation.getByRole("link", { name: "备份与恢复" }),
+  ).toBeVisible();
+  await expect(
+    navigation.getByRole("link", { name: "Diagnostics" }),
   ).toBeVisible();
 
   const degreeAuditLink = navigation.getByRole("link", { name: "学业审核" });
