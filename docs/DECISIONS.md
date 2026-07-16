@@ -687,6 +687,9 @@ resolves the embedded API executable from `runtime/sapsos-api`; an explicit
 The package emits a versioned NSIS executable and `packaging-manifest.json`
 with component paths, commit, signing status, size, and SHA-256. The paired
 artifact validator checks those fields before the CI artifact is uploaded.
+The release entry point uses a validated cleanup helper for stale generated
+outputs and rejects user/AppData paths, repository roots, drive roots, parent
+directories, and symlink/reparse-point traversal.
 
 Install and upgrade preserve `%LOCALAPPDATA%\SAPSOS`, including the database,
 pairing state, backups, migration evidence, and local Diagnostics state.
@@ -697,4 +700,9 @@ telemetry, crash upload, and installer-level E2E are outside this foundation.
 The current artifact is intentionally unsigned, and WebView2 bootstrapper
 download behavior remains a clean-machine/network limitation until packaged
 desktop E2E is completed.
+
+`desktop-shell/data-retention-contract.json` classifies persistent user data,
+recoverable operational state, ephemeral runtime state, and generated exports.
+The installer does not run SQLite or Alembic migrations; existing Tauri
+pre-start orchestration remains the migration and rollback owner.
 

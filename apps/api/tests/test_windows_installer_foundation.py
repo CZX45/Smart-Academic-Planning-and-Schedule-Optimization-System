@@ -1,4 +1,7 @@
 import json
+import subprocess
+import tempfile
+import shutil
 from pathlib import Path
 
 
@@ -37,6 +40,20 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     assert "ExpectedCommit" in validator
     assert "required_runtime_resources" in script
     assert "licenses_notices" in script
+    assert "data-retention-contract.json" in script
+    assert "Validate-Packaging-Staging.ps1" in script
+    assert "Validate-FastAPI-Runtime.ps1" in script
+    build_order = [
+        '"@sapsos/shared", "build"',
+        '"pnpm", "openapi:check"',
+        '"Build-Web-UI.ps1"',
+        '"Build-FastAPI-Runtime.ps1"',
+        '"Validate-Packaging-Staging.ps1"',
+        'cargo tauri build --bundles nsis --ci',
+        '"Validate-Windows-Installer-Artifact.ps1"',
+    ]
+    positions = [script.index(marker) for marker in build_order]
+    assert positions == sorted(positions)
 
 
 def test_stable_app_data_policy_is_explicit() -> None:
@@ -57,3 +74,106 @@ def test_upgrade_and_uninstall_boundary_preserves_user_data() -> None:
     assert "preserves that user data" in decisions
     assert "Upgrade preserves that data" in plan
     assert "uninstall" in decisions.lower()
+
+
+def test_data_retention_contract_has_all_required_categories() -> None:
+    contract = json.loads((ROOT / "desktop-shell/data-retention-contract.json").read_text())
+    assert contract["data_root"] == "%LOCALAPPDATA%\\SAPSOS"
+    assert contract["install_root"] == "%LOCALAPPDATA%\\Programs\\SAPSOS Local Desktop"
+    assert set(contract["categories"]) == {
+        "PERSISTENT_USER_DATA",
+        "RECOVERABLE_OPERATIONAL_STATE",
+        "EPHEMERAL_RUNTIME_STATE",
+        "GENERATED_EXPORTS",
+    }
+    assert "SQLite" in " ".join(contract["rules"])
+
+
+def test_packaging_staging_validator_records_files_and_rejects_forbidden_files() -> None:
+    validator = ROOT / "scripts/windows/Validate-Packaging-Staging.ps1"
+    with tempfile.TemporaryDirectory(dir=ROOT / "dist") as temporary:
+        temporary_root = Path(temporary)
+        api_root = temporary_root / "api"
+        web_root = temporary_root / "web"
+        api_root.mkdir()
+        web_root.mkdir()
+        (api_root / "sapsos-api.exe").write_bytes(b"api")
+        (api_root / "app.py").write_text("print('ok')", encoding="utf-8")
+        (web_root / "index.html").write_text("<html></html>", encoding="utf-8")
+        manifest = temporary_root / "staging-manifest.json"
+        valid = subprocess.run(
+            [
+                "pwsh", "-NoProfile", "-File", str(validator),
+                "-ApiRoot", str(api_root), "-WebRoot", str(web_root),
+                "-ManifestPath", str(manifest),
+            ],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+        )
+        assert valid.returncode == 0, valid.stderr
+        staging = json.loads(manifest.read_text(encoding="utf-8"))
+        assert any(
+            record["path"].endswith("sapsos-api.exe")
+            for record in staging["components"]["fastapi_runtime"]
+        )
+
+        (web_root / ".env").write_text("SECRET=blocked", encoding="utf-8")
+        invalid = subprocess.run(
+            [
+                "pwsh", "-NoProfile", "-File", str(validator),
+                "-ApiRoot", str(api_root), "-WebRoot", str(web_root),
+                "-ManifestPath", str(manifest),
+            ],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+        )
+        assert invalid.returncode != 0
+        shutil.rmtree(temporary_root, ignore_errors=True)
+
+
+def test_safe_build_cleanup_allows_child_output_and_rejects_dangerous_targets() -> None:
+    helper = ROOT / "scripts/windows/Invoke-SafeBuildCleanup.ps1"
+
+    with tempfile.TemporaryDirectory(dir=ROOT / ".cache") as temporary:
+        build_root = Path(temporary) / "dist"
+        child = build_root / "stale-output"
+        child.mkdir(parents=True)
+        (child / "old.txt").write_text("stale", encoding="utf-8")
+        valid = subprocess.run(
+            [
+                "pwsh",
+                "-NoProfile",
+                "-File",
+                str(helper),
+                "-TargetPath",
+                str(child),
+                "-AllowedBuildRoot",
+                str(build_root),
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        assert valid.returncode == 0, valid.stderr
+        assert not child.exists()
+
+        build_root.mkdir(parents=True, exist_ok=True)
+        invalid = subprocess.run(
+            [
+                "pwsh",
+                "-NoProfile",
+                "-File",
+                str(helper),
+                "-TargetPath",
+                str(build_root),
+                "-AllowedBuildRoot",
+                str(build_root),
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        assert invalid.returncode != 0
+        assert build_root.exists()

@@ -41,6 +41,12 @@ $appId = (([regex]::Match($apiConfig, '(?m)^APP_ID\s*=\s*"([^"]+)"\r?$')).Groups
 $dataDir = (([regex]::Match($apiConfig, '(?m)^APP_DATA_DIR_NAME\s*=\s*"([^"]+)"\r?$')).Groups[1].Value)
 Assert-Equal "API app id" $identity.bundle_identifier $appId
 Assert-Equal "API data directory" $identity.app_data_directory $dataDir
+$retention = Get-Content (Join-Path $repoRoot "desktop-shell\data-retention-contract.json") -Raw | ConvertFrom-Json
+Assert-Equal "retention data root" "%LOCALAPPDATA%\SAPSOS" $retention.data_root
+Assert-Equal "retention install root" "%LOCALAPPDATA%\Programs\SAPSOS Local Desktop" $retention.install_root
+foreach ($category in @("PERSISTENT_USER_DATA", "RECOVERABLE_OPERATIONAL_STATE", "EPHEMERAL_RUNTIME_STATE", "GENERATED_EXPORTS")) {
+    if (-not $retention.categories.$category) { throw "Retention category is missing: $category" }
+}
 
 if ($tauri.bundle.targets -join "," -ne "nsis") { throw "Windows packaging must use exactly one target: nsis." }
 if ($tauri.bundle.windows.nsis.installMode -ne "currentUser") { throw "Windows installer must remain per-user/currentUser." }

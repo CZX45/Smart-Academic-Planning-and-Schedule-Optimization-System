@@ -22,7 +22,10 @@ if (-not $SkipInstall) {
 }
 
 if (Test-Path -LiteralPath $outputPath) {
-    Remove-Item -LiteralPath $outputPath -Recurse -Force
+    & (Join-Path $PSScriptRoot "Invoke-SafeBuildCleanup.ps1") -TargetPath $outputPath -AllowedBuildRoot (Join-Path $repoRoot "dist")
+}
+if (Test-Path -LiteralPath $buildPath) {
+    & (Join-Path $PSScriptRoot "Invoke-SafeBuildCleanup.ps1") -TargetPath $buildPath -AllowedBuildRoot (Join-Path $repoRoot ".cache\pyinstaller")
 }
 New-Item -ItemType Directory -Force -Path $outputPath, $buildPath | Out-Null
 
@@ -42,4 +45,5 @@ $artifact = Join-Path $outputPath "sapsos-api\sapsos-api.exe"
 if (-not (Test-Path -LiteralPath $artifact)) {
     throw "Packaged FastAPI artifact was not produced at '$artifact'."
 }
+& (Join-Path $PSScriptRoot "Validate-FastAPI-Runtime.ps1") -RuntimeRoot (Join-Path $OutputRoot "sapsos-api")
 Write-Output $artifact

@@ -1,8 +1,5 @@
 [CmdletBinding()]
 param(
-    [switch]$SkipApiBuild,
-    [switch]$SkipWebBuild,
-    [switch]$SkipTauriBuild,
     [string]$OutputRoot = "dist\windows-installer"
 )
 
@@ -10,39 +7,79 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $identityPath = Join-Path $repoRoot "desktop-shell\desktop-identity.json"
 $identity = Get-Content $identityPath -Raw | ConvertFrom-Json
+$cleanup = Join-Path $PSScriptRoot "Invoke-SafeBuildCleanup.ps1"
+
+function Invoke-Checked([string]$FilePath, [string[]]$Arguments, [string]$FailureMessage) {
+    & $FilePath @Arguments
+    if ($LASTEXITCODE -ne 0) { throw $FailureMessage }
+}
+
 & (Join-Path $PSScriptRoot "Validate-Desktop-Identity.ps1")
-
-if (-not $SkipApiBuild) {
-    & (Join-Path $PSScriptRoot "Build-FastAPI-Runtime.ps1")
-    if ($LASTEXITCODE -ne 0) { throw "FastAPI runtime packaging failed." }
+if (-not (Get-Command corepack -ErrorAction SilentlyContinue)) {
+    throw "Corepack is required for the shared/OpenAPI/Web release pipeline."
 }
-if (-not $SkipWebBuild) {
-    & (Join-Path $PSScriptRoot "Build-Web-UI.ps1")
-    if ($LASTEXITCODE -ne 0) { throw "Web UI packaging failed." }
+if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
+    throw "Cargo is required for the Tauri Windows release pipeline."
 }
 
-$apiExecutable = Join-Path $repoRoot "dist\local-desktop-api\sapsos-api\sapsos-api.exe"
-$webIndex = Join-Path $repoRoot "dist\local-desktop-web\index.html"
-if (-not (Test-Path -LiteralPath $apiExecutable)) { throw "FastAPI runtime is missing: $apiExecutable" }
-if (-not (Test-Path -LiteralPath $webIndex)) { throw "Static Web export is missing: $webIndex" }
-
-if (-not $SkipTauriBuild) {
-    if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) { throw "Cargo is required for the Tauri NSIS build." }
-    Push-Location (Join-Path $repoRoot "desktop-shell\src-tauri")
-    try {
-        & cargo tauri build --bundles nsis --ci
-        if ($LASTEXITCODE -ne 0) { throw "Tauri NSIS packaging failed." }
-    } finally { Pop-Location }
+$distRoot = Join-Path $repoRoot "dist"
+$outputPath = [IO.Path]::GetFullPath((Join-Path $repoRoot $OutputRoot))
+if (Test-Path -LiteralPath $outputPath) {
+    & $cleanup -TargetPath $outputPath -AllowedBuildRoot $distRoot
 }
-
-$bundleRoot = Join-Path $repoRoot "desktop-shell\src-tauri\target\release\bundle\nsis"
-$installer = Get-ChildItem -LiteralPath $bundleRoot -Filter "*.exe" -File -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $installer) { throw "No NSIS installer was produced under $bundleRoot." }
-$outputPath = Join-Path $repoRoot $OutputRoot
 New-Item -ItemType Directory -Force -Path $outputPath | Out-Null
+
+# Keep this one entry point deterministic: no stage may consume a stale output
+# from an earlier Web/API/Tauri build.
+Invoke-Checked "corepack" @("pnpm", "--filter", "@sapsos/shared", "build") "Shared package build failed."
+Invoke-Checked "corepack" @("pnpm", "openapi:check") "OpenAPI/generated-client validation failed."
+Invoke-Checked "corepack" @("pnpm", "--filter", "@sapsos/shared", "build") "Shared package rebuild after OpenAPI validation failed."
+
+& (Join-Path $PSScriptRoot "Build-Web-UI.ps1")
+if ($LASTEXITCODE -ne 0) { throw "Static Web export failed." }
+& (Join-Path $PSScriptRoot "Build-FastAPI-Runtime.ps1")
+if ($LASTEXITCODE -ne 0) { throw "FastAPI runtime packaging failed." }
+& (Join-Path $PSScriptRoot "Validate-FastAPI-Runtime.ps1")
+
+$apiRoot = Join-Path $repoRoot "dist\local-desktop-api\sapsos-api"
+$webRoot = Join-Path $repoRoot "dist\local-desktop-web"
+if (-not (Test-Path -LiteralPath (Join-Path $webRoot "index.html") -PathType Leaf)) {
+    throw "Static Web export is missing index.html."
+}
+$stagingManifest = Join-Path $outputPath "staging-manifest.json"
+& (Join-Path $PSScriptRoot "Validate-Packaging-Staging.ps1") `
+    -ApiRoot $apiRoot `
+    -WebRoot $webRoot `
+    -ManifestPath $stagingManifest
+
+$tauriRoot = Join-Path $repoRoot "desktop-shell\src-tauri"
+$targetRoot = Join-Path $tauriRoot "target"
+$bundleRoot = Join-Path $targetRoot "release\bundle\nsis"
+if (Test-Path -LiteralPath $bundleRoot) {
+    & $cleanup -TargetPath $bundleRoot -AllowedBuildRoot $targetRoot
+}
+New-Item -ItemType Directory -Force -Path $bundleRoot | Out-Null
+& cargo tauri --version
+if ($LASTEXITCODE -ne 0) { throw "The pinned Tauri CLI is unavailable. Install the CI-pinned tauri-cli version." }
+Push-Location $tauriRoot
+try {
+    & cargo tauri build --bundles nsis --ci
+    if ($LASTEXITCODE -ne 0) { throw "Tauri NSIS release build failed." }
+} finally { Pop-Location }
+
+$releaseExecutable = Join-Path $targetRoot "release\sapsos-local-desktop.exe"
+if (-not (Test-Path -LiteralPath $releaseExecutable -PathType Leaf)) {
+    throw "Tauri release executable is missing: $releaseExecutable"
+}
+if ((Get-Item -LiteralPath $releaseExecutable).Length -le 0) {
+    throw "Tauri release executable is empty: $releaseExecutable"
+}
+$installers = @(Get-ChildItem -LiteralPath $bundleRoot -Filter "*-setup.exe" -File -ErrorAction SilentlyContinue)
+if ($installers.Count -ne 1) { throw "Expected exactly one fresh NSIS setup artifact; found $($installers.Count)." }
+
 $artifactName = $identity.installer_artifact_name.Replace("{version}", $identity.version)
 $artifactPath = Join-Path $outputPath $artifactName
-Copy-Item -LiteralPath $installer.FullName -Destination $artifactPath -Force
+Copy-Item -LiteralPath $installers[0].FullName -Destination $artifactPath -Force
 $hash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $commit = (& git -C $repoRoot rev-parse HEAD).Trim()
 $manifest = [ordered]@{
@@ -51,6 +88,8 @@ $manifest = [ordered]@{
     commit = $commit
     product_mode = "LOCAL_DESKTOP"
     signed = $false
+    staging_manifest = "staging-manifest.json"
+    contracts = @("desktop-shell/desktop-identity.json", "desktop-shell/data-retention-contract.json")
     components = [ordered]@{
         tauri_executable = "sapsos-local-desktop.exe"
         fastapi_runtime = "dist/local-desktop-api/sapsos-api"

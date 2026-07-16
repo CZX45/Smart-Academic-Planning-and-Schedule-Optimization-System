@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "data_root": "%LOCALAPPDATA%\\SAPSOS",
+  "install_root": "%LOCALAPPDATA%\\Programs\\SAPSOS Local Desktop",
+  "categories": {
+    "PERSISTENT_USER_DATA": {
+      "paths": ["sapsos.db", "pairing.json", "manual backup archives"],
+      "upgrade": "preserve",
+      "uninstall": "preserve"
+    },
+    "RECOVERABLE_OPERATIONAL_STATE": {
+      "paths": ["migration-safety/", "migration-attempt.json", "restore-safety/", "restore-staging/", "pending-restore.json"],
+      "upgrade": "preserve",
+      "uninstall": "preserve"
+    },
+    "EPHEMERAL_RUNTIME_STATE": {
+      "paths": ["runtime.json", "startup.lock", "restore-status.json"],
+      "upgrade": "regenerate when needed",
+      "uninstall": "no destructive cleanup"
+    },
+    "GENERATED_EXPORTS": {
+      "paths": ["user-selected Documents/Downloads exports", "user-selected Diagnostics bundles"],
+      "upgrade": "leave untouched",
+      "uninstall": "leave untouched"
+    }
+  },
+  "rules": [
+    "The installer never runs SQLite migration SQL or Alembic migrations.",
+    "Existing Tauri pre-start orchestration owns LOCAL_DESKTOP schema migration and rollback.",
+    "User data deletion is a future explicit high-risk operation, not an uninstall default."
+  ]
+}

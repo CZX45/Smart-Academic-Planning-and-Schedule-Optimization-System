@@ -40,6 +40,12 @@ Then build the NSIS package:
 pnpm desktop:installer:windows
 ```
 
+This single entry point validates shared/OpenAPI output, rebuilds the static
+Web and packaged API outputs, validates staging exclusions and hashes, builds
+the Tauri release/NSIS bundle, and validates the final installer manifest. It
+cleans only validated child directories under build-output roots; it never
+uses `git clean` or touches the LOCAL_DESKTOP data root.
+
 The installer is emitted under `dist\windows-installer` with
 `packaging-manifest.json`; `pnpm desktop:installer:validate` verifies the
 manifested installer size, SHA-256, identity, mode, and commit. It installs

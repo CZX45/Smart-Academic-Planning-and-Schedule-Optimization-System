@@ -8,12 +8,19 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\")).Path
 $webRoot = Join-Path $repoRoot "apps\web"
 $nextOutput = Join-Path $webRoot "out"
 $outputPath = Join-Path $repoRoot $OutputRoot
+$cleanup = Join-Path $PSScriptRoot "Invoke-SafeBuildCleanup.ps1"
 
 if (-not (Get-Command corepack -ErrorAction SilentlyContinue)) {
     throw "The developer build tool 'corepack' was not found. Install Node.js/Corepack for builds; the packaged runtime does not require Node.js."
 }
 
 $start = Get-Date
+if (Test-Path -LiteralPath $nextOutput) {
+    & $cleanup -TargetPath $nextOutput -AllowedBuildRoot $webRoot
+}
+if (Test-Path -LiteralPath $outputPath) {
+    & $cleanup -TargetPath $outputPath -AllowedBuildRoot (Join-Path $repoRoot "dist")
+}
 Push-Location $repoRoot
 try {
     $env:NEXT_TELEMETRY_DISABLED = "1"
@@ -29,9 +36,6 @@ if (-not (Test-Path -LiteralPath (Join-Path $nextOutput "index.html"))) {
     throw "The static Web UI build did not produce '$nextOutput\index.html'."
 }
 
-if (Test-Path -LiteralPath $outputPath) {
-    Remove-Item -LiteralPath $outputPath -Recurse -Force
-}
 New-Item -ItemType Directory -Force -Path $outputPath | Out-Null
 Copy-Item -Path (Join-Path $nextOutput "*") -Destination $outputPath -Recurse -Force
 

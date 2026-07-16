@@ -16,6 +16,10 @@ if (-not (Test-Path -LiteralPath $manifestFile -PathType Leaf)) {
 }
 
 $manifest = Get-Content -LiteralPath $manifestFile -Raw | ConvertFrom-Json
+$manifestText = Get-Content -LiteralPath $manifestFile -Raw
+if ($manifestText -match '(?i)[A-Z]:[\\/]|next-env\.d\.ts|localize-web-ui-zh-cn\.patch|\.codex-worktrees') {
+    throw "Packaging manifest contains an absolute or protected path."
+}
 if ($manifest.schema_version -ne 1) { throw "Unsupported packaging manifest schema." }
 if ($manifest.product.install_scope -ne "per-user") { throw "Artifact is not marked per-user." }
 if ($manifest.product.bundle_identifier -ne "com.sapsos.smart-academic-planner") {
@@ -38,6 +42,13 @@ if ($manifest.components.static_web -ne "dist/local-desktop-web") {
 if ($manifest.components.required_runtime_resources -notcontains "index.html") {
     throw "index.html is missing from the packaging contract."
 }
+if (-not $manifest.staging_manifest) { throw "Staging manifest is missing from the packaging manifest." }
+foreach ($contract in @($manifest.contracts)) {
+    if ([IO.Path]::IsPathRooted($contract)) { throw "Packaging contract path must be relative: $contract" }
+    if (-not (Test-Path -LiteralPath (Join-Path $repoRoot $contract) -PathType Leaf)) {
+        throw "Packaging contract is missing: $contract"
+    }
+}
 if ($ExpectedCommit -and $manifest.commit -ne $ExpectedCommit) {
     throw "Artifact commit mismatch: expected '$ExpectedCommit', found '$($manifest.commit)'."
 }
@@ -47,12 +58,46 @@ if (-not (Test-Path -LiteralPath $artifactPath -PathType Leaf)) {
     throw "Installer artifact referenced by the manifest is missing: $artifactPath"
 }
 $artifact = Get-Item -LiteralPath $artifactPath
+if ($artifact.Name -ne $manifest.product.installer_artifact_name.Replace("{version}", $manifest.product.version)) {
+    throw "Installer file name does not match the stable artifact convention."
+}
+if ($artifact.Length -le 0) { throw "Installer artifact is empty." }
 $hash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($artifact.Length -ne [int64]$manifest.installer.bytes) {
     throw "Installer byte count does not match the manifest."
 }
 if ($hash -ne $manifest.installer.sha256.ToLowerInvariant()) {
     throw "Installer SHA-256 does not match the manifest."
+}
+
+$stagingPath = Join-Path (Split-Path -Parent $manifestFile) $manifest.staging_manifest
+if (-not (Test-Path -LiteralPath $stagingPath -PathType Leaf)) {
+    throw "Staging manifest referenced by the package manifest is missing: $stagingPath"
+}
+$staging = Get-Content -LiteralPath $stagingPath -Raw | ConvertFrom-Json
+$stagingText = Get-Content -LiteralPath $stagingPath -Raw
+if ($stagingText -match '(?i)[A-Z]:[\\/]|next-env\.d\.ts|localize-web-ui-zh-cn\.patch|\.codex-worktrees') {
+    throw "Staging manifest contains an absolute or protected path."
+}
+if ($staging.schema_version -ne 1 -or $staging.product_mode -ne "LOCAL_DESKTOP") {
+    throw "Staging manifest schema or product mode is invalid."
+}
+foreach ($component in @("fastapi_runtime", "static_web")) {
+    $records = @($staging.components.$component)
+    if ($records.Count -eq 0) { throw "Staging manifest component is empty: $component" }
+    foreach ($record in $records) {
+        if ([IO.Path]::IsPathRooted($record.path) -or $record.path -match '(?i)(^|[\\/])(?:\.env|.*\.(?:db|sqlite|sapsos-backup)$|pairing\.json$|runtime\.json$|credentials?|tokens?|tests?|fixtures?)') {
+            throw "Forbidden or absolute staged path: $($record.path)"
+        }
+        $sourcePath = Join-Path $repoRoot $record.path
+        if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+            throw "Staged file is missing from the committed build output: $($record.path)"
+        }
+        $source = Get-Item -LiteralPath $sourcePath
+        if ($source.Length -ne [int64]$record.bytes) { throw "Staged file size mismatch: $($record.path)" }
+        $sourceHash = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($sourceHash -ne $record.sha256.ToLowerInvariant()) { throw "Staged file hash mismatch: $($record.path)" }
+    }
 }
 
 Write-Output "Validated installer artifact: $($artifact.Name)"
