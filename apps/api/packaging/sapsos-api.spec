@@ -78,14 +78,22 @@ a = Analysis(
     excludes=["pytest", "tests"],
     noarchive=False,
 )
-a.binaries = list({entry[0]: entry for entry in a.binaries}.values())
+def normalized_destination(entry: tuple[str, ...]) -> str:
+    return str(entry[0]).replace("\\", "/").lower()
+
+
+a.binaries = list(
+    {normalized_destination(entry): entry for entry in a.binaries}.values()
+)
 a.datas = [
     entry
     for entry in a.datas
     if not any(is_excluded_resource(str(value)) for value in entry[:2])
 ]
-binary_destinations = {entry[0] for entry in a.binaries}
-a.datas = [entry for entry in a.datas if entry[0] not in binary_destinations]
+binary_destinations = {normalized_destination(entry) for entry in a.binaries}
+a.datas = [
+    entry for entry in a.datas if normalized_destination(entry) not in binary_destinations
+]
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
