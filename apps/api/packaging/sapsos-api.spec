@@ -1,4 +1,5 @@
 from pathlib import Path
+import sysconfig
 
 from PyInstaller.utils.hooks import collect_all, collect_submodules, copy_metadata
 
@@ -39,12 +40,14 @@ psycopg_binary_init = next(
 )
 if psycopg_binary_init is not None:
     psycopg_binary_libs = psycopg_binary_init.parent.parent / "psycopg_binary.libs"
-    if psycopg_binary_libs.is_dir():
-        datas.extend(
-            (str(path), "psycopg_binary.libs")
-            for path in psycopg_binary_libs.iterdir()
-            if path.is_file()
-        )
+else:
+    psycopg_binary_libs = Path(sysconfig.get_paths()["purelib"]) / "psycopg_binary.libs"
+if psycopg_binary_libs.is_dir():
+    binaries.extend(
+        (str(path), "psycopg_binary.libs")
+        for path in psycopg_binary_libs.iterdir()
+        if path.is_file()
+    )
 
 
 def is_excluded_resource(path: str) -> bool:
