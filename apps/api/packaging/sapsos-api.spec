@@ -78,6 +78,7 @@ a = Analysis(
     excludes=["pytest", "tests"],
     noarchive=False,
 )
+a.binaries = list({entry[0]: entry for entry in a.binaries}.values())
 a.datas = [
     entry
     for entry in a.datas
