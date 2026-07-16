@@ -1,7 +1,6 @@
 from pathlib import Path
 import sysconfig
 
-from PyInstaller.building.datastruct import Tree
 from PyInstaller.utils.hooks import collect_all, collect_submodules, copy_metadata
 
 
@@ -44,11 +43,10 @@ if psycopg_binary_init is not None:
 else:
     psycopg_binary_libs = Path(sysconfig.get_paths()["purelib"]) / "psycopg_binary.libs"
 if psycopg_binary_libs.is_dir():
-    binaries.extend(
-        (source, destination)
-        for destination, source, _ in Tree(
-            str(psycopg_binary_libs), prefix="psycopg_binary.libs", typecode="BINARY"
-        )
+    datas.extend(
+        (str(path), "psycopg_binary.libs")
+        for path in psycopg_binary_libs.iterdir()
+        if path.is_file()
     )
 
 
@@ -82,9 +80,11 @@ def normalized_destination(entry: tuple[str, ...]) -> str:
     return str(entry[0]).replace("\\", "/").lower()
 
 
-a.binaries = list(
-    {normalized_destination(entry): entry for entry in a.binaries}.values()
-)
+a.binaries = [
+    entry
+    for entry in a.binaries
+    if "psycopg_binary.libs" not in normalized_destination(entry)
+]
 a.datas = [
     entry
     for entry in a.datas
