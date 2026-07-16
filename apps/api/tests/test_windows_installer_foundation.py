@@ -1,9 +1,8 @@
 import json
+import shutil
 import subprocess
 import tempfile
-import shutil
 from pathlib import Path
-
 
 ROOT = Path(__file__).parents[3]
 
