@@ -84,6 +84,8 @@ a.datas = [
     for entry in a.datas
     if not any(is_excluded_resource(str(value)) for value in entry[:2])
 ]
+binary_destinations = {entry[0] for entry in a.binaries}
+a.datas = [entry for entry in a.datas if entry[0] not in binary_destinations]
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
