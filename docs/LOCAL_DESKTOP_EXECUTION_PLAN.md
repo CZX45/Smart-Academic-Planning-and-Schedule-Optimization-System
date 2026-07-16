@@ -32,9 +32,9 @@ but LOCAL_DESKTOP is the current official product.
 ## Current verified state
 
 - Repository: `D:\Crystal`.
-- `main` and `origin/main` are synchronized at the UI Workflow Modularization
-  closeout commit `c9be585a41cb54c303b032a7bafd6bbbb24c781f`. PRs #63, #64,
-  and #65 are merged.
+- `main` and `origin/main` are synchronized at the Diagnostics UI and safe
+  export merge commit `e23c44c50a5f9cf5eee6fa0a5744953cd7fdd98c`. PRs #73 and
+  #74 are merged; this document records the Diagnostics closeout.
 - PR 1 is merged as PR #35:
   `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
 - PR 1 commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
@@ -128,8 +128,9 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
     closeout.
 17. Safe migration and rollback — complete through PRs #70, #71, and this
     documentation closeout.
-18. Diagnostics — next milestone.
-19. Windows Installer/Uninstaller.
+18. Diagnostics — complete through PRs #73, #74, and this documentation
+    closeout.
+19. Windows Installer/Uninstaller — next milestone; not started.
 20. Packaged Desktop E2E.
 21. Controlled Student Beta.
 22. Release Candidate.
@@ -601,13 +602,13 @@ Import is complete through PRs #56, #57, and #58. Stage 12 Real Section
 Optimizer Integration and its documentation closeout are complete through PRs
 #60, #61, and #62. UI Workflow Modularization is complete through PRs #63,
 #64, the Backup/Restore PR A and PR B merges, and the documentation closeout
-below. Backup/Restore and Safe migration and rollback are complete; Diagnostics
-is next.
+below. Backup/Restore, Safe migration and rollback, and Diagnostics are
+complete; Windows Installer/Uninstaller is next.
 
 ## Resume checkpoint
 
-- Current milestone: Safe migration and rollback is complete; Diagnostics is
-  next.
+- Current milestone: Diagnostics is complete; Windows Installer/Uninstaller
+  is next and not started.
 - Stage 10 status: complete.
 - Stage 11 status: Real Section Import complete; PRs #56, #57, and #58 merged.
 - Real Section Optimizer Integration: complete; PRs #60 and #61 merged.
@@ -850,8 +851,9 @@ campus, and unambiguous Section identity.
   separate from canonical structural data. Stage 12 optimizer work was kept
   out of Stage 11 and delivered afterward through the gated PRs above.
 - Historical next-milestone checkpoint: Safe migration and rollback followed
-  Backup/Restore. That milestone is now complete through PRs #70 and #71 and
-  the closeout below; Diagnostics is next.
+  Backup/Restore and is complete through PRs #70 and #71 and its closeout;
+  Diagnostics followed and is now complete through PRs #73 and #74 and the
+  closeout below.
 
 ## Stage 12A — Real Section optimizer input boundary checkpoint
 
@@ -997,9 +999,10 @@ local pre-merge clone ancestry.
   registration, portal mutation, automatic monitoring, polling, credential
   capture, private data, or protected artifact changes were added. The known
   SQLite Alembic-from-base limitation at `20260623_0004` remains unchanged.
-- Final state: UI Workflow Modularization, Backup/Restore, and Safe migration
-  and rollback are complete; static export and packaged runtime discovery
-  remain supported; Diagnostics is the next dependency-ordered milestone.
+- Final state: UI Workflow Modularization, Backup/Restore, Safe migration and
+  rollback, and Diagnostics are complete; static export and packaged runtime
+  discovery remain supported; Windows Installer/Uninstaller is the next
+  dependency-ordered milestone.
 
 ## Backup/Restore — PR A checkpoint
 
@@ -1191,21 +1194,103 @@ environment-limited; hosted CI supplied pnpm, OpenAPI, Docker Compose, and
 Playwright evidence. Package-level proof remains part of the later Packaged
 Desktop E2E milestone and must not be described as complete here.
 
-### Next milestone: Diagnostics
+## Diagnostics — final documentation closeout
 
-Diagnostics is the next milestone and is only recorded here as scope. It may
-provide a local diagnostics center covering API/runtime health, database health,
-schema version, migration status, last migration/rollback result, restore
-result, runtime manifest status, extension pairing status, and recent sanitized
-startup failures. A privacy-safe log export may be included, with no student
-records or credentials in the diagnostics bundle. No Diagnostics API, UI, or
-implementation is part of this closeout.
+Diagnostics is complete through PR #73 (backend foundation), PR #74 (UI and
+privacy-safe export), and this documentation-only closeout. The implementation
+is LOCAL_DESKTOP-only, user-initiated, read-only, advisory, and isolated from
+SERVER mode. ADR-0025 records the backend snapshot boundary; ADR-0028 records
+the separate UI and export decision.
+
+### PR #73 — Diagnostics backend foundation
+
+- Merge commit: `51d0100b`.
+- Delivered a LOCAL_DESKTOP-only diagnostics API, typed/versioned diagnostics
+  contract, shared TypeScript contract, and isolated runtime, API, database,
+  schema/migration, Backup/Restore, Extension pairing, and startup-status
+  collectors.
+- Centralized privacy sanitization preserves structured reason codes and
+  allowlisted metadata while removing sensitive or machine-identifying data.
+- LOCAL_DESKTOP/SERVER isolation and the existing Host/Origin/proof/replay
+  protections remain preserved.
+- Validation: API 231 passed; Shared 58 passed; Ruff, mypy, TypeScript, build,
+  and OpenAPI passed; Rust check/test/build passed; CI checks, Docker Compose,
+  and E2E passed.
+
+### PR #74 — Diagnostics UI and safe export
+
+- Merge commit: `e23c44c50a5f9cf5eee6fa0a5744953cd7fdd98c`.
+- Delivered the Diagnostics workflow in the modular Web UI, hash navigation,
+  static-export/Tauri runtime-bridge compatibility, readable status states
+  (`HEALTHY`, `DEGRADED`, `ACTION_REQUIRED`, `BLOCKED`, `UNKNOWN`), explicit
+  refresh, stale-response protection, and no background polling or automatic
+  repair.
+- Delivered a user-initiated, LOCAL_DESKTOP-only privacy-safe export with the
+  fixed archive allowlist: `manifest.json`, `diagnostics.json`,
+  `startup-events.json`, and `README.txt`.
+- `manifest.json` records the bundle format version, `generated_at`, application
+  version/mode, diagnostics contract version, file list, per-file SHA-256,
+  privacy statement, exclusions, and redaction-policy version.
+- `diagnostics.json` is the typed sanitized snapshot. `startup-events.json`
+  contains bounded sanitized startup events. `README.txt` states local
+  generation, no automatic upload, user review before sharing, that the bundle
+  is not an official school record, and deletion guidance.
+- The bundle excludes databases, backup archives, raw logs, pairing secrets,
+  runtime proofs, credentials, student records, portal contents, and raw import
+  evidence. Host/Origin/proof/replay protections remain preserved, and SERVER
+  mode does not expose local diagnostics export.
+- Validation: API, Web, OpenAPI, Docker Compose, and E2E passed in CI.
+
+### Diagnostics safety boundary and user flow
+
+Diagnostics is local-only, user-initiated, and has no telemetry, remote upload,
+cloud logging, automatic GitHub issue submission, or automatic support
+submission. It contains no student records, GPA, grades, course history, plans,
+Section data, portal contents, raw import evidence, credentials, MFA, cookies,
+SAML data, tokens, pairing secrets, localhost proofs, absolute paths, Windows
+usernames, raw tracebacks, stderr, stdout, SQL, or command lines. The ZIP is
+not a backup and cannot perform repair, migration, restore, pairing reset, or
+API restart.
+
+```text
+user opens Diagnostics
+→ reads a lightweight diagnostics snapshot
+→ sees overall and component states
+→ may explicitly refresh
+→ may explicitly export a privacy-safe bundle
+→ API packages only the fixed allowlisted files
+→ archive entries and SHA-256 values are checked
+→ user saves locally and reviews before sharing
+→ nothing is automatically uploaded or shared
+```
+
+### Diagnostics limitations
+
+- `cargo fmt --check` still reports a pre-existing blank-line issue in an
+  unmodified Rust file. PR #74 did not modify that file; implementation CI
+  otherwise passed. This closeout does not fix the issue and does not claim
+  that the repository is fully rustfmt-clean.
+- Full installed Windows packaged-desktop E2E has not been completed. Tauri,
+  API, and Web components have CI and build coverage; installer-level proof
+  belongs to Packaged Desktop E2E.
+- Diagnostics is advisory, is not a backup, does not export database rows, and
+  does not repair problems. Users must still use official school systems for
+  official records.
+
+### Next milestone: Windows Installer/Uninstaller
+
+The next milestone is Windows Installer/Uninstaller and is not started. Its
+future scope is limited to an official Windows installer packaging the Tauri
+shell, FastAPI runtime, and static Web assets; stable AppData paths;
+install/upgrade/uninstall flows; explicit preservation or removal of user data;
+preservation of backups unless explicitly confirmed; signing strategy;
+upgrade compatibility; uninstall safety; and installer validation. No
+installer design or implementation is part of this closeout.
 
 The remaining dependency-ordered route is:
 
 ```text
-Diagnostics
-→ Windows Installer/Uninstaller
+Windows Installer/Uninstaller
 → Packaged Desktop E2E
 → Controlled Student Beta
 → Release Candidate
