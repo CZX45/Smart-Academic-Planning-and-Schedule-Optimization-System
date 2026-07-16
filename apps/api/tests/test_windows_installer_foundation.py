@@ -19,9 +19,10 @@ def test_windows_identity_and_tauri_bundle_are_single_target_per_user() -> None:
     assert identity["installer_artifact_name"] == "SAPSOS-Local-Desktop-{version}-x64-setup.exe"
     assert config["bundle"]["targets"] == ["nsis"]
     assert config["bundle"]["windows"]["nsis"]["installMode"] == "currentUser"
-    assert config["bundle"]["resources"][
-        "../../dist/local-desktop-api/sapsos-api/**/*"
-    ] == "runtime/sapsos-api/"
+    assert (
+        config["bundle"]["resources"]["../../dist/local-desktop-api/sapsos-api/**/*"]
+        == "runtime/sapsos-api/"
+    )
 
 
 def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None:
@@ -48,7 +49,7 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
         '"Build-Web-UI.ps1"',
         '"Build-FastAPI-Runtime.ps1"',
         '"Validate-Packaging-Staging.ps1"',
-        'cargo tauri build --bundles nsis --ci',
+        "cargo tauri build --bundles nsis --ci",
         '"Validate-Windows-Installer-Artifact.ps1"',
     ]
     positions = [script.index(marker) for marker in build_order]
@@ -102,11 +103,22 @@ def test_packaging_staging_validator_records_files_and_rejects_forbidden_files()
         manifest = temporary_root / "staging-manifest.json"
         valid = subprocess.run(
             [
-                "pwsh", "-NoProfile", "-File", str(validator),
-                "-ApiRoot", str(api_root), "-WebRoot", str(web_root),
-                "-ManifestPath", str(manifest),
+                "pwsh",
+                "-NoProfile",
+                "-File",
+                str(validator),
+                "-ApiRoot",
+                str(api_root),
+                "-WebRoot",
+                str(web_root),
+                "-ManifestPath",
+                str(manifest),
             ],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
         )
         assert valid.returncode == 0, valid.stderr
         staging = json.loads(manifest.read_text(encoding="utf-8"))
@@ -118,11 +130,22 @@ def test_packaging_staging_validator_records_files_and_rejects_forbidden_files()
         (web_root / ".env").write_text("SECRET=blocked", encoding="utf-8")
         invalid = subprocess.run(
             [
-                "pwsh", "-NoProfile", "-File", str(validator),
-                "-ApiRoot", str(api_root), "-WebRoot", str(web_root),
-                "-ManifestPath", str(manifest),
+                "pwsh",
+                "-NoProfile",
+                "-File",
+                str(validator),
+                "-ApiRoot",
+                str(api_root),
+                "-WebRoot",
+                str(web_root),
+                "-ManifestPath",
+                str(manifest),
             ],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
         )
         assert invalid.returncode != 0
         shutil.rmtree(temporary_root, ignore_errors=True)
