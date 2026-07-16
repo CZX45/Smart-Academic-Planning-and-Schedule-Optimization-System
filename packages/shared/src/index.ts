@@ -55,6 +55,177 @@ export const RestoreStageResultSchema = z.object({
 
 export type RestoreStageResult = z.infer<typeof RestoreStageResultSchema>;
 
+export const DiagnosticStatusSchema = z.enum([
+  "HEALTHY",
+  "DEGRADED",
+  "ACTION_REQUIRED",
+  "BLOCKED",
+  "UNKNOWN",
+  "NOT_RUN",
+  "TIMED_OUT",
+  "ERROR",
+]);
+
+export type DiagnosticStatus = z.infer<typeof DiagnosticStatusSchema>;
+
+export const OverallDiagnosticStatusSchema = z.enum([
+  "HEALTHY",
+  "DEGRADED",
+  "ACTION_REQUIRED",
+  "BLOCKED",
+  "UNKNOWN",
+]);
+
+const DiagnosticBaseSchema = z.object({
+  status: DiagnosticStatusSchema,
+  reason_code: z.string().nullable(),
+  summary: z.string(),
+});
+
+export const RuntimeHealthSchema = DiagnosticBaseSchema.extend({
+  current_mode: z.enum(["LOCAL_DESKTOP", "SERVER"]),
+  manifest_present: z.boolean(),
+  manifest_contract_supported: z.boolean().nullable(),
+  manifest_parseable: z.boolean().nullable(),
+  pid_valid: z.boolean().nullable(),
+  api_base_url_loopback: z.boolean().nullable(),
+  port_valid: z.boolean().nullable(),
+  stale: z.boolean().nullable(),
+  process_consistent: z.boolean().nullable(),
+  conflict_detected: z.boolean(),
+});
+
+export const ApiHealthSchema = DiagnosticBaseSchema.extend({
+  process_status: z.enum(["RUNNING", "NOT_RUNNING", "UNKNOWN"]),
+  readiness_status: z.enum(["READY", "NOT_READY", "UNKNOWN"]),
+  health_status: z.enum(["HEALTHY", "UNHEALTHY", "UNKNOWN"]),
+  api_contract_version: z.string(),
+  application_mode: z.enum(["LOCAL_DESKTOP", "SERVER"]),
+  loopback_bound: z.boolean(),
+  expected_database: z.enum(["SQLITE", "POSTGRESQL", "UNKNOWN"]),
+  schema_match: z.boolean().nullable(),
+  recent_child_process_exit: z.string().nullable(),
+});
+
+export const DatabaseHealthSchema = DiagnosticBaseSchema.extend({
+  present: z.boolean(),
+  readable: z.boolean(),
+  sqlite_header_valid: z.boolean().nullable(),
+  foreign_keys_status: DiagnosticStatusSchema,
+  integrity_check_status: DiagnosticStatusSchema,
+  foreign_key_check_status: DiagnosticStatusSchema,
+  schema_version: z.number().int().nullable(),
+  supported_schema_version: z.number().int(),
+  schema_version_supported: z.boolean().nullable(),
+  journal_mode: z.string().nullable(),
+  sidecar_wal_present: z.boolean(),
+  sidecar_shm_present: z.boolean(),
+  sidecar_journal_present: z.boolean(),
+  operation_state: z.enum(["NONE_DETECTED", "SIDECAR_PRESENT", "UNKNOWN"]),
+  size_bucket: z.enum(["<1 MB", "1-10 MB", "10-100 MB", ">100 MB", "UNKNOWN"]),
+});
+
+export const MigrationHealthSchema = DiagnosticBaseSchema.extend({
+  current_schema_version: z.number().int().nullable(),
+  supported_schema_version: z.number().int(),
+  schema_status: z.string(),
+  migration_required: z.boolean().nullable(),
+  migration_in_progress: z.boolean(),
+  last_attempt_status: z.string().nullable(),
+  last_successful_migration: z.string().nullable(),
+  last_rollback_status: z.string().nullable(),
+  interrupted_attempt_detected: z.boolean(),
+  safety_backup_reference_exists: z.boolean().nullable(),
+  blocking_reason_code: z.string().nullable(),
+  recovery_action_category: z.enum([
+    "NONE",
+    "REVIEW",
+    "RECOVERY_PREFLIGHT",
+    "ADVISOR_CONFIRMATION",
+    "UNKNOWN",
+  ]),
+});
+
+export const RestoreHealthSchema = DiagnosticBaseSchema.extend({
+  backup_capability_available: z.boolean(),
+  last_manual_backup_result: z.string(),
+  pending_restore_detected: z.boolean(),
+  restore_validation_state: z.string(),
+  restore_staged: z.boolean(),
+  restore_confirmation_state: z.string(),
+  last_restore_result: z.string(),
+  last_restore_rollback_result: z.string(),
+  restore_replay_blocked: z.boolean(),
+  unresolved_restore_state: z.boolean(),
+  backup_archive_format_version: z.number().int().nullable(),
+  same_schema_only: z.boolean(),
+});
+
+export const PairingHealthSchema = DiagnosticBaseSchema.extend({
+  status: z.enum([
+    "NOT_PAIRED",
+    "PAIRED",
+    "EXPIRED",
+    "INVALID",
+    "REPAIR_REQUIRED",
+    "UNKNOWN",
+  ]),
+  capability_available: z.boolean(),
+  paired: z.boolean().nullable(),
+  record_version: z.number().int().nullable(),
+  record_parseable: z.boolean(),
+  localhost_proof_contract_available: z.boolean(),
+  replay_protection_enabled: z.boolean(),
+  repair_required: z.boolean(),
+});
+
+export const StartupEventSchema = z.object({
+  event_code: z.string(),
+  severity: z.enum(["INFO", "WARNING", "ERROR"]),
+  occurred_at: z.string(),
+  component: z.string(),
+  sanitized_summary: z.string(),
+  resolved: z.boolean(),
+  attempt_id: z.string().nullable(),
+});
+
+export const StartupHealthSchema = DiagnosticBaseSchema.extend({
+  source_available: z.boolean(),
+  events: z.array(StartupEventSchema),
+});
+
+export const DiagnosticsSnapshotSchema = z.object({
+  contract_version: z.number().int().positive(),
+  generated_at: z.string(),
+  application_mode: z.enum(["LOCAL_DESKTOP", "SERVER"]),
+  application_version: z.string(),
+  platform_summary: z.object({
+    operating_system: z.string(),
+    architecture: z.string(),
+    python_major_minor: z.string(),
+  }),
+  overall_status: OverallDiagnosticStatusSchema,
+  runtime_health: RuntimeHealthSchema,
+  api_health: ApiHealthSchema,
+  database_health: DatabaseHealthSchema,
+  schema_status: MigrationHealthSchema,
+  migration_status: MigrationHealthSchema,
+  restore_status: RestoreHealthSchema,
+  pairing_status: PairingHealthSchema,
+  recent_startup_status: StartupHealthSchema,
+  warnings: z.array(z.string()),
+  capabilities: z.object({
+    read_only_snapshot: z.boolean(),
+    local_desktop_only: z.boolean(),
+    bundle_export: z.boolean(),
+    automatic_repair: z.boolean(),
+    telemetry: z.boolean(),
+    remote_upload: z.boolean(),
+  }),
+}).strict();
+
+export type DiagnosticsSnapshot = z.infer<typeof DiagnosticsSnapshotSchema>;
+
 const UuidSchema = z.string().uuid();
 const DecimalValueSchema = z.union([z.string(), z.number()]).transform(String);
 const DateTimeSchema = z.string();
@@ -1997,6 +2168,21 @@ export async function fetchReadiness(
     );
   }
 
+  return parsed.data;
+}
+
+export async function fetchLocalDiagnostics(
+  apiBaseUrl: string,
+  options: FetchHealthOptions = {},
+): Promise<DiagnosticsSnapshot> {
+  const parsed = DiagnosticsSnapshotSchema.safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/local-diagnostics", options),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Local diagnostics response did not match the expected schema",
+    );
+  }
   return parsed.data;
 }
 

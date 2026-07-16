@@ -599,3 +599,27 @@ The contract accepts no database path argument. The active database is derived
 from trusted LOCAL_DESKTOP runtime configuration, and all subprocess output is
 machine-readable JSON on stdout with sanitized diagnostics only.
 
+# ADR-0025: Keep LOCAL_DESKTOP diagnostics read-only and local
+
+Status: Accepted
+
+The first Diagnostics phase provides a versioned, typed read-only snapshot at
+`GET /api/v1/local-diagnostics`. The coordinator aggregates isolated collectors
+for runtime manifest, API/readiness, SQLite database, local migration journal,
+restore state, extension pairing, and bounded startup-event summaries. A
+collector failure produces an explicit unknown/error component state rather
+than turning the whole snapshot into an unstructured server error.
+
+Diagnostics is available only in `LOCAL_DESKTOP` mode, keeps the existing
+Host/Origin/localhost-proof boundary, and never starts or restarts processes,
+creates backups, executes migration or restore operations, changes markers or
+journals, or accepts caller-controlled paths. `SERVER` does not expose local
+SQLite, runtime-manifest, or pairing state.
+
+The response contains no student records, academic rows, credentials, cookies,
+tokens, pairing secrets, request proofs, absolute paths, raw SQL, or raw
+tracebacks. Structured reason codes and allowlisted metadata are preferred;
+legacy free text is fail-closed redacted. The snapshot contract deliberately
+does not include telemetry, remote upload, diagnostics ZIP export, or a full
+Diagnostics UI; those concerns require separate decisions and milestones.
+

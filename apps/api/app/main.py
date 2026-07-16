@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.local_backup import router as local_backup_router
+from app.api.local_diagnostics import router as local_diagnostics_router
 from app.api.local_pairing import router as local_pairing_router
 from app.api.local_restore import router as local_restore_router
 from app.api.v1.academic import router as academic_router
@@ -54,6 +55,7 @@ app.include_router(academic_router)
 app.include_router(local_pairing_router)
 app.include_router(local_backup_router)
 app.include_router(local_restore_router)
+app.include_router(local_diagnostics_router)
 
 
 @app.middleware("http")
