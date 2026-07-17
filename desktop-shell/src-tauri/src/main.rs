@@ -461,7 +461,7 @@ impl DesktopProcesses {
         };
         let api_child = Command::new(&api_executable)
             .args(api_arguments)
-            .current_dir(api_working_directory)
+            .current_dir(&api_working_directory)
             .env(
                 "PATH",
                 runtime_path(&api_working_directory).unwrap_or_default(),
