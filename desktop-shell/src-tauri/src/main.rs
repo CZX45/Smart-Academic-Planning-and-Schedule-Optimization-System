@@ -1011,12 +1011,6 @@ fn main() {
                 let resource_dir = packaged_resource_dir
                     .as_deref()
                     .expect("release resource directory is initialized");
-                if !resource_dir.join("index.html").is_file() {
-                    return Err(Box::new(std::io::Error::other(format!(
-                        "Packaged Web UI artifact is missing index.html under {}. Build it with scripts/windows/Build-Web-UI.ps1.",
-                        resource_dir.display()
-                    ))));
-                }
                 if !resource_dir.join("runtime/sapsos-api/sapsos-api.exe").is_file()
                     && std::env::var_os("SAPSOS_API_EXECUTABLE").is_none()
                 {

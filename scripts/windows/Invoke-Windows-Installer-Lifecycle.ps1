@@ -56,8 +56,8 @@ function Assert-InstalledFiles([string]$ExpectedVersion) {
     $installedVersion = (Get-Item $executable).VersionInfo.ProductVersion
     Assert-True ($installedVersion -like "$ExpectedVersion*") "Installed executable version '$installedVersion' does not match expected '$ExpectedVersion'."
     Assert-True (Test-Path (Join-Path $installRoot "runtime\sapsos-api\sapsos-api.exe") -PathType Leaf) "Packaged API sidecar is missing."
-    $webAsset = Get-ChildItem $installRoot -Recurse -File -Filter "index.html" -ErrorAction SilentlyContinue | Select-Object -First 1
-    Assert-True ($null -ne $webAsset) "Static Web asset is missing."
+    # Tauri embeds frontendDist into the release executable; the staging and
+    # installer build validators prove the static Web asset before installation.
     Assert-True ((Get-ChildItem $installRoot -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '(?i)(^|-)sapsos\.db$|pairing\.json$|\.sapsos-backup$' }).Count -eq 0) "User data leaked into the install directory."
     $identity = Get-Content (Join-Path $installRoot "desktop-identity.json") -Raw -ErrorAction SilentlyContinue
     if ($identity) { Assert-True ($identity -notmatch '(?i)[A-Z]:\\Users\\') "Absolute user path leaked into install identity." }
