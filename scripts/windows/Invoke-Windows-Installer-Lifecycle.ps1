@@ -117,12 +117,20 @@ try {
     Write-Phase "two_version_upgrade" "completed"
 
     Write-Phase "launch_installed_app" "starting"
-    $appProcess = Start-Process -FilePath (Join-Path $installRoot "sapsos-local-desktop.exe") -PassThru
+    $appStdout = Join-Path $root "installed-app.stdout.log"
+    $appStderr = Join-Path $root "installed-app.stderr.log"
+    $appProcess = Start-Process -FilePath (Join-Path $installRoot "sapsos-local-desktop.exe") -PassThru -RedirectStandardOutput $appStdout -RedirectStandardError $appStderr
     Write-Host "phase=launch_installed_app process_pid=$($appProcess.Id) timeout_seconds=30"
     Start-Sleep -Seconds 5
     $appProcess.Refresh()
     if ($appProcess.HasExited) {
         Write-Host "phase=launch_installed_app process_exit_code=$($appProcess.ExitCode)"
+        foreach ($logPath in @($appStdout, $appStderr)) {
+            if (Test-Path -LiteralPath $logPath) {
+                $log = Get-Content -LiteralPath $logPath -Raw -ErrorAction SilentlyContinue
+                if ($log) { Write-Host "phase=launch_installed_app log=$log" }
+            }
+        }
     }
     Assert-True ($null -ne (Get-Process -Id $appProcess.Id -ErrorAction SilentlyContinue)) "Installed application did not remain running for coordination smoke."
     Write-Phase "launch_installed_app" "completed"
