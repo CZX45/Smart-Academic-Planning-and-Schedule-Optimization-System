@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Literal
 from uuid import UUID
@@ -16,6 +15,7 @@ from app.services.local_data_removal import (
     RemovalCategory,
     RemovalState,
     create_deletion_plan,
+    get_persisted_plan_state,
     is_validated_external_backup,
     resolve_app_data_root,
     serialize_plan,
@@ -79,13 +79,7 @@ def _raise(error: LocalDataRemovalError) -> HTTPException:
 
 
 def _plan_state() -> RemovalState:
-    if not PLAN_PATH.is_file():
-        return RemovalState.NOT_STARTED
-    try:
-        payload = json.loads(PLAN_PATH.read_text(encoding="utf-8"))
-        return RemovalState(str(payload.get("execution_state", RemovalState.FAILED)))
-    except (OSError, json.JSONDecodeError, ValueError):
-        return RemovalState.FAILED
+    return get_persisted_plan_state(PLAN_PATH)
 
 
 @router.get("/status", response_model=LocalDataRemovalStatus)

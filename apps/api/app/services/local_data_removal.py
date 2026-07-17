@@ -386,6 +386,39 @@ def _atomic_write(path: Path, payload: bytes) -> None:
     os.replace(temporary, path)
 
 
+def get_persisted_plan_state(plan_path: Path, *, now: datetime | None = None) -> RemovalState:
+    """Read the persisted state and atomically expire an authenticated stale READY plan."""
+
+    plan_file = _absolute(plan_path)
+    if not plan_file.is_file():
+        return RemovalState.NOT_STARTED
+    try:
+        payload = json.loads(plan_file.read_text(encoding="utf-8"))
+        plan = _parse_plan(payload)
+    except (OSError, json.JSONDecodeError, LocalDataRemovalError):
+        return RemovalState.FAILED
+    if plan.integrity_hash != _integrity_hash(payload):
+        return RemovalState.TAMPER_REJECTED
+    if plan.execution_state != RemovalState.READY:
+        return plan.execution_state
+    try:
+        expires_at = datetime.fromisoformat(plan.expires_at)
+    except ValueError:
+        return RemovalState.FAILED
+    if expires_at.tzinfo is None or expires_at.utcoffset() is None:
+        return RemovalState.FAILED
+    if (now or datetime.now(UTC)) < expires_at:
+        return RemovalState.READY
+    expired = dict(payload)
+    expired["execution_state"] = RemovalState.EXPIRED.value
+    expired["integrity_hash"] = _integrity_hash(expired)
+    try:
+        _atomic_write(plan_file, serialize_plan(_parse_plan(expired)))
+    except OSError:
+        return RemovalState.FAILED
+    return RemovalState.EXPIRED
+
+
 def _consumed_nonces() -> set[str]:
     try:
         payload = json.loads(FIXED_NONCE_LEDGER.read_text(encoding="utf-8"))
@@ -455,11 +488,11 @@ def execute_deletion_plan(
             _delete_entry(validate_app_data_root(root, test_mode=test_mode), relative)
             deleted.append(entry)
     except (OSError, LocalDataRemovalError) as error:
+        state = RemovalState.PARTIALLY_COMPLETED if deleted else RemovalState.FAILED
         failed = dict(payload)
-        failed["execution_state"] = RemovalState.FAILED.value
+        failed["execution_state"] = state.value
         failed["integrity_hash"] = _integrity_hash(failed)
         _atomic_write(_absolute(plan_path), serialize_plan(_parse_plan(failed)))
-        state = RemovalState.PARTIALLY_COMPLETED if deleted else RemovalState.FAILED
         if isinstance(error, LocalDataRemovalError):
             raise LocalDataRemovalError(state.value, error.message) from error
         raise LocalDataRemovalError(
