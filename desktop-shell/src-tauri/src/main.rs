@@ -132,6 +132,14 @@ fn write_migration_marker(path: &Path, marker: &MigrationMarker) -> Result<(), S
         .map_err(|error| format!("Could not publish migration marker: {error}"))
 }
 
+fn runtime_path(working_directory: &Path) -> Option<std::ffi::OsString> {
+    let mut paths = vec![working_directory.to_path_buf()];
+    if let Some(existing) = std::env::var_os("PATH") {
+        paths.extend(std::env::split_paths(&existing));
+    }
+    std::env::join_paths(paths).ok()
+}
+
 fn contained_app_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
     let candidate = root.join(relative).components().collect::<PathBuf>();
     if Path::new(relative).is_absolute()
@@ -169,6 +177,7 @@ fn run_migration_command(
         .args(arguments)
         .arg(command)
         .current_dir(working_directory)
+        .env("PATH", runtime_path(working_directory).unwrap_or_default())
         .env("LOCALAPPDATA", app_data.parent().unwrap_or(app_data))
         .env("DATABASE_URL", database_url)
         .env("PRODUCT_MODE", "LOCAL_DESKTOP")
@@ -453,6 +462,10 @@ impl DesktopProcesses {
         let api_child = Command::new(&api_executable)
             .args(api_arguments)
             .current_dir(api_working_directory)
+            .env(
+                "PATH",
+                runtime_path(&api_working_directory).unwrap_or_default(),
+            )
             .env("LOCALAPPDATA", &local_app_data)
             .env("DATABASE_URL", database_url)
             .env("PRODUCT_MODE", "LOCAL_DESKTOP")
