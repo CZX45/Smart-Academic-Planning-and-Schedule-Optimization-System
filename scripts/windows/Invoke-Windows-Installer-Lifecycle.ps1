@@ -120,6 +120,10 @@ try {
     $appProcess = Start-Process -FilePath (Join-Path $installRoot "sapsos-local-desktop.exe") -PassThru
     Write-Host "phase=launch_installed_app process_pid=$($appProcess.Id) timeout_seconds=30"
     Start-Sleep -Seconds 5
+    $appProcess.Refresh()
+    if ($appProcess.HasExited) {
+        Write-Host "phase=launch_installed_app process_exit_code=$($appProcess.ExitCode)"
+    }
     Assert-True ($null -ne (Get-Process -Id $appProcess.Id -ErrorAction SilentlyContinue)) "Installed application did not remain running for coordination smoke."
     Write-Phase "launch_installed_app" "completed"
 
