@@ -38,9 +38,7 @@ jobs:
       - run: cargo install tauri-cli --version 2.11.4 --locked
       - run: python -m pytest apps/api/tests/test_local_data_removal.py -q
       - run: corepack pnpm openapi:check
-      - name: Run bounded installer lifecycle
-        timeout-minutes: 20
-        run: >-
+      - run: >-
           pwsh -NoProfile -File scripts/windows/Build-Windows-Installer.ps1
           -OutputRoot dist/windows-installer-previous
           -TestVersionOverride 0.1.0
@@ -50,7 +48,9 @@ jobs:
           -OutputRoot dist/windows-installer-next
           -TestVersionOverride 0.1.1
           -AllowTestVersionOverride
-      - run: >-
+      - name: Run bounded installer lifecycle
+        timeout-minutes: 20
+        run: >-
           pwsh -NoProfile -File scripts/windows/Invoke-Windows-Installer-Lifecycle.ps1
           -InstallerPath dist/windows-installer-previous/SAPSOS-Local-Desktop-0.1.0-x64-setup.exe
           -UpgradeInstallerPath dist/windows-installer-next/SAPSOS-Local-Desktop-0.1.1-x64-setup.exe
