@@ -177,8 +177,24 @@ fn run_migration_command(
         .env("API_HOST", "127.0.0.1")
         .output()
         .map_err(|error| format!("Could not start migration command: {error}"))?;
-    let parsed: MigrationContract = serde_json::from_slice(&output.stdout)
-        .map_err(|_| "Migration command returned malformed JSON.".to_string())?;
+    let parsed: MigrationContract = serde_json::from_slice(&output.stdout).map_err(|_| {
+        fn diagnostic(bytes: &[u8]) -> String {
+            String::from_utf8_lossy(bytes)
+                .chars()
+                .take(512)
+                .collect::<String>()
+                .replace('\r', "\\r")
+                .replace('\n', "\\n")
+        }
+
+        format!(
+            "Migration command returned malformed JSON (stdout_len={}, stderr_len={}, stdout_prefix={:?}, stderr_prefix={:?}).",
+            output.stdout.len(),
+            output.stderr.len(),
+            diagnostic(&output.stdout),
+            diagnostic(&output.stderr),
+        )
+    })?;
     if parsed.contract_version != 1 || parsed.command != command {
         return Err("Migration command contract is incompatible.".to_string());
     }
