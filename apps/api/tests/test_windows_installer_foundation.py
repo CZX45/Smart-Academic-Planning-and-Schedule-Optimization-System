@@ -131,6 +131,7 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
     assert "two-version" in lifecycle
     assert "Invoke-ProcessWithTimeout" in lifecycle
     assert "Start-Process -FilePath $PathValue -ArgumentList $Arguments -PassThru" in lifecycle
+    assert 'Invoke-ProcessWithTimeout $PathValue @("/S", "/D=$installRoot")' in lifecycle
     assert "Start-Process -FilePath $PathValue -ArgumentList $Arguments -Wait" not in lifecycle
     assert "WaitForExit(30000)" in lifecycle
     assert "VersionInfo.ProductVersion" in lifecycle

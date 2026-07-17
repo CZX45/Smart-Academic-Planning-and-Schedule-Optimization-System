@@ -47,7 +47,8 @@ function Invoke-ProcessWithTimeout([string]$PathValue, [string[]]$Arguments, [in
     return $process
 }
 function Invoke-Installer([string]$PathValue, [string]$PhaseName) {
-    Invoke-ProcessWithTimeout $PathValue @("/S") $processTimeoutSeconds $PhaseName | Out-Null
+    Write-Host "phase=$PhaseName install_root=Programs/SAPSOS Local Desktop"
+    Invoke-ProcessWithTimeout $PathValue @("/S", "/D=$installRoot") $processTimeoutSeconds $PhaseName | Out-Null
 }
 function Assert-InstalledFiles([string]$ExpectedVersion) {
     $executable = Join-Path $installRoot "sapsos-local-desktop.exe"
