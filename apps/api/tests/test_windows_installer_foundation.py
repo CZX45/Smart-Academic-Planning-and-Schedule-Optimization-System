@@ -152,6 +152,10 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
     assert "timeout-minutes: 90" in workflow
     assert "timeout-minutes: 20" in workflow
     assert "IfSilent" in hook
+    assert "ExecToLog" in hook
+    assert "ExecToStack" not in hook
+    assert "preinstall coordination failed" in hook
+    assert "preuninstall coordination failed" in hook
     assert "SetErrorLevel 1" in hook
     assert "MessageBox" in hook
     assert "MainWindowHandle" in coordinator
