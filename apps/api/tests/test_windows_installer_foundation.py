@@ -89,7 +89,7 @@ def test_upgrade_and_uninstall_boundary_preserves_user_data() -> None:
     plan = (ROOT / "docs/LOCAL_DESKTOP_EXECUTION_PLAN.md").read_text(encoding="utf-8")
 
     assert identity["install_directory"] != identity["data_directory"]
-    assert config["bundle"]["windows"]["nsis"].get("installerHooks") is None
+    assert config["bundle"]["windows"]["nsis"]["installerHooks"] == "windows/installer-hooks.nsh"
     assert "preserves that user data" in decisions
     assert "Upgrade preserves that data" in plan
     assert "uninstall" in decisions.lower()
@@ -106,6 +106,44 @@ def test_data_retention_contract_has_all_required_categories() -> None:
         "GENERATED_EXPORTS",
     }
     assert "SQLite" in " ".join(contract["rules"])
+
+
+def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_override() -> None:
+    config = json.loads((ROOT / "desktop-shell/src-tauri/tauri.conf.json").read_text())
+    hook = (ROOT / "desktop-shell/src-tauri/windows/installer-hooks.nsh").read_text()
+    coordinator = (
+        ROOT / "desktop-shell/src-tauri/windows/InstallerProcessCoordination.ps1"
+    ).read_text()
+    build = (ROOT / "scripts/windows/Build-Windows-Installer.ps1").read_text()
+    lifecycle = (ROOT / "scripts/windows/Invoke-Windows-Installer-Lifecycle.ps1").read_text()
+    workflow = (ROOT / ".github/workflows/windows-installer-lifecycle.yml").read_text()
+
+    assert config["bundle"]["windows"]["nsis"]["installerHooks"] == "windows/installer-hooks.nsh"
+    assert "NSIS_HOOK_PREINSTALL" in hook
+    assert "NSIS_HOOK_PREUNINSTALL" in hook
+    assert "ExecutablePath" in coordinator
+    assert "ParentProcessId" in coordinator
+    assert "Get-ExactProcess" in coordinator
+    assert "taskkill" not in coordinator.lower()
+    assert "AllowTestVersionOverride" in build
+    assert '$env:CI -ne "true"' in build
+    assert "semantic version" in build
+    assert "two-version" in lifecycle
+    assert "SAPSOS-installer-lifecycle" in lifecycle
+    assert "windows-installer-lifecycle.yml" in workflow
+
+
+def test_local_data_removal_is_local_desktop_only_and_openapi_typed() -> None:
+    openapi = json.loads((ROOT / "apps/api/openapi.json").read_text(encoding="utf-8"))
+    paths = openapi["paths"]
+    assert "/api/v1/local-data-removal/status" in paths
+    assert "/api/v1/local-data-removal/prepare" in paths
+    assert "/api/v1/local-data-removal/cancel" in paths
+    assert "PrepareLocalDataRemovalRequest" in json.dumps(openapi)
+    service = (ROOT / "apps/api/app/services/local_data_removal.py").read_text(encoding="utf-8")
+    assert "DELETE SAPSOS LOCAL DATA" in service
+    assert "reparse_point" in service
+    assert "replay_rejected" in service
 
 
 def test_packaging_staging_validator_records_files_and_rejects_forbidden_files() -> None:

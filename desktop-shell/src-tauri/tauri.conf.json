@@ -33,7 +33,8 @@
         "installMode": "currentUser",
         "languages": ["English"],
         "startMenuFolder": "SAPSOS Local Desktop",
-        "displayLanguageSelector": false
+        "displayLanguageSelector": false,
+        "installerHooks": "windows/installer-hooks.nsh"
       }
     }
   }

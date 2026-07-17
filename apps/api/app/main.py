@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.local_backup import router as local_backup_router
+from app.api.local_data_removal import router as local_data_removal_router
 from app.api.local_diagnostics import router as local_diagnostics_router
 from app.api.local_pairing import router as local_pairing_router
 from app.api.local_restore import router as local_restore_router
@@ -41,6 +42,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.desktop_origin_list,
     allow_credentials=False,
+    expose_headers=["Content-Disposition", "X-SAPSOS-External-Backup-Receipt"],
     allow_methods=["DELETE", "GET", "PATCH", "POST"],
     allow_headers=[
         "authorization",
@@ -56,6 +58,8 @@ app.include_router(local_pairing_router)
 app.include_router(local_backup_router)
 app.include_router(local_restore_router)
 app.include_router(local_diagnostics_router)
+if settings.product_mode == "LOCAL_DESKTOP":
+    app.include_router(local_data_removal_router)
 
 
 @app.middleware("http")

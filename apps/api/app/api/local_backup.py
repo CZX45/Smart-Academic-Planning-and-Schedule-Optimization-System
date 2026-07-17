@@ -13,6 +13,7 @@ from app.services.local_backup import (
     cleanup_backup_archive,
     create_backup_archive,
 )
+from app.services.local_data_removal import register_validated_external_backup
 
 router = APIRouter(prefix="/api/v1/local-backup", tags=["local-backup"])
 
@@ -39,9 +40,11 @@ def create_backup() -> FileResponse:
             detail={"code": error.code, "message": error.message},
         ) from error
     filename = f"SAPSOS-backup-{manifest.created_at.strftime('%Y%m%d-%H%M%S')}.sapsos-backup"
+    receipt = register_validated_external_backup(manifest.backup_id)
     return FileResponse(
         archive_path,
         media_type=BACKUP_MEDIA_TYPE,
         filename=filename,
+        headers={"X-SAPSOS-External-Backup-Receipt": receipt},
         background=BackgroundTask(cleanup_backup_archive, archive_path),
     )

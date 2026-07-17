@@ -102,6 +102,7 @@ struct Processes {
     api: Option<Child>,
     web: Option<Child>,
     manifest: Option<PathBuf>,
+    cleanup_executable: Option<PathBuf>,
 }
 
 #[derive(Default)]
@@ -433,7 +434,7 @@ impl DesktopProcesses {
                 return Err(error);
             }
         };
-        let api_child = Command::new(api_executable)
+        let api_child = Command::new(&api_executable)
             .args(api_arguments)
             .current_dir(api_working_directory)
             .env("LOCALAPPDATA", &local_app_data)
@@ -450,8 +451,14 @@ impl DesktopProcesses {
             .map_err(|error| format!("Could not start FastAPI child: {error}"))?;
         let api_pid = api_child.id();
         let manifest_path = app_data.join("runtime.json");
+        let cleanup_executable = if packaged_resource_dir.is_some() {
+            Some(api_executable.clone())
+        } else {
+            None
+        };
         guard.api = Some(api_child);
         guard.manifest = Some(manifest_path.clone());
+        guard.cleanup_executable = cleanup_executable;
         drop(guard);
 
         let api_manifest = match wait_for_api(&self.0, &manifest_path, api_pid) {
@@ -514,7 +521,7 @@ impl DesktopProcesses {
     }
 
     fn stop(&self) {
-        if let Ok(mut guard) = self.0.lock() {
+        let cleanup_executable = if let Ok(mut guard) = self.0.lock() {
             if let Some(mut child) = guard.web.take() {
                 let _ = child.kill();
                 let _ = child.wait();
@@ -526,7 +533,43 @@ impl DesktopProcesses {
             if let Some(manifest) = guard.manifest.take() {
                 let _ = fs::remove_file(manifest);
             }
+            guard.cleanup_executable.take()
+        } else {
+            None
+        };
+        let Some(executable) = cleanup_executable else {
+            return;
+        };
+        let plan = std::env::temp_dir()
+            .join("SAPSOS-local-data-removal")
+            .join("pending-plan.json");
+        if !plan.is_file() || !executable.is_file() {
+            return;
         }
+        let Some(helper_parent) = executable.parent() else {
+            return;
+        };
+        let mut helper = match Command::new(&executable)
+            .arg("local-data-remove")
+            .current_dir(helper_parent)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            Ok(process) => process,
+            Err(_) => return,
+        };
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while Instant::now() < deadline {
+            match helper.try_wait() {
+                Ok(Some(_)) => return,
+                Ok(None) => thread::sleep(Duration::from_millis(100)),
+                Err(_) => return,
+            }
+        }
+        let _ = helper.kill();
+        let _ = helper.wait();
     }
 }
 
@@ -1011,4 +1054,3 @@ fn main() {
             }
         });
 }
-

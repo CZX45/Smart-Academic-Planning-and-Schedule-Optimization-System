@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
-    [string]$OutputRoot = "dist\windows-installer"
+    [string]$OutputRoot = "dist\windows-installer",
+    [string]$TestVersionOverride = "",
+    [switch]$AllowTestVersionOverride
 )
 
 $ErrorActionPreference = "Stop"
@@ -8,6 +10,17 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $identityPath = Join-Path $repoRoot "desktop-shell\desktop-identity.json"
 $identity = Get-Content $identityPath -Raw | ConvertFrom-Json
 $cleanup = Join-Path $PSScriptRoot "Invoke-SafeBuildCleanup.ps1"
+$effectiveVersion = $identity.version
+if ($TestVersionOverride) {
+    if (-not $AllowTestVersionOverride -or $env:CI -ne "true") {
+        throw "Version overrides are restricted to an explicit Windows CI test invocation."
+    }
+    if ($TestVersionOverride -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
+        throw "Test version override must be a valid semantic version."
+    }
+    $effectiveVersion = $TestVersionOverride
+    $identity.version = $effectiveVersion
+}
 
 function Invoke-Checked([string]$FilePath, [string[]]$Arguments, [string]$FailureMessage) {
     & $FilePath @Arguments
@@ -94,7 +107,15 @@ New-Item -ItemType Directory -Force -Path $bundleRoot | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "The pinned Tauri CLI is unavailable. Install the CI-pinned tauri-cli version." }
 Push-Location $tauriRoot
 try {
-    & cargo tauri build --bundles nsis --ci
+    if (-not $TestVersionOverride) {
+        & cargo tauri build --bundles nsis --ci
+    } else {
+        $tauriBuildArguments = @("tauri", "build", "--bundles", "nsis", "--ci")
+        $versionConfig = Join-Path $outputPath "ci-version-override.json"
+        '{"version":"' + $effectiveVersion + '"}' | Set-Content -LiteralPath $versionConfig -Encoding UTF8
+        $tauriBuildArguments += @("--config", $versionConfig)
+        & cargo @tauriBuildArguments
+    }
     if ($LASTEXITCODE -ne 0) { throw "Tauri NSIS release build failed." }
 } finally { Pop-Location }
 

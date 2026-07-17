@@ -1305,3 +1305,23 @@ Windows Installer/Uninstaller
 → Controlled Student Beta
 → Release Candidate
 ```
+
+### Windows Installer/Uninstaller lifecycle safety — in progress
+
+The second installer phase is bounded to safe lifecycle behavior on top of the
+merged NSIS foundation. It covers clean install, same-version repair,
+same-identity two-version upgrade, exact installed-process coordination,
+default uninstall with local-data retention, reinstall retention, and an
+explicit LOCAL_DESKTOP-only complete local-data removal workflow. Complete
+removal requires an external validated backup, inactive local operations,
+exact typed confirmation, fixed allowlisted paths, canonicalization and
+reparse-point protection, an expiring tamper-evident one-time plan, bounded
+partial-failure behavior, and trusted post-shutdown execution.
+
+The lifecycle workflow is isolated to a temporary `LOCALAPPDATA` and must run
+real NSIS install/repair/upgrade/uninstall/reinstall operations. It may upload
+only the unsigned next-version installer artifact. The installer milestone is
+not complete until the lifecycle workflow, focused deletion safety checks,
+normal CI, and review gates all pass. Installer documentation closeout,
+Packaged Desktop E2E, Beta, RC, signing, release publishing, automatic update,
+and MSIX remain explicitly not started.
