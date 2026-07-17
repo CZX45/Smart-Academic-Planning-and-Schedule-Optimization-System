@@ -36,6 +36,9 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     assert "desktop:installer:windows" in workflow
     assert "desktop:installer:validate" in workflow
     assert "dist/windows-installer" in workflow
+    assert workflow.index("pnpm desktop:installer:windows") < workflow.index(
+        "cargo test --manifest-path desktop-shell/src-tauri/Cargo.toml"
+    )
     assert "cargo install tauri-cli --version 2.11.4 --locked" in workflow
     assert "release" not in workflow.lower()
     assert "auto-update" not in script.lower()

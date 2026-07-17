@@ -37,8 +37,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: python -m pip install -e "apps/api[dev]"
       - run: cargo install tauri-cli --version 2.11.4 --locked
-      - run: cargo test --manifest-path desktop-shell/src-tauri/Cargo.toml
       - run: pnpm desktop:installer:windows
+      - run: cargo test --manifest-path desktop-shell/src-tauri/Cargo.toml
       - run: pnpm desktop:installer:validate
       - uses: actions/upload-artifact@v4
         with:
