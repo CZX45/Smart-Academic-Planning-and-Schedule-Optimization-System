@@ -113,6 +113,7 @@ $artifactPath = Join-Path $outputPath $artifactName
 Copy-Item -LiteralPath $installers[0].FullName -Destination $artifactPath -Force
 $hash = Get-Sha256 $artifactPath
 $commit = (& git -C $repoRoot rev-parse HEAD).Trim()
+$stageApiUri = [Uri]::new((Resolve-Path $stageApiRoot).Path.TrimEnd('\', '/') + '\')
 $manifest = [ordered]@{
     schema_version = 1
     product = $identity
@@ -127,7 +128,9 @@ $manifest = [ordered]@{
         static_web = "dist/installer-stage/web"
         required_runtime_resources = @("index.html", "runtime/sapsos-api")
         licenses_notices = @($licenseFiles | ForEach-Object {
-            $relative = [IO.Path]::GetRelativePath($stageApiRoot, $_.FullName).Replace('\', '/')
+            $relative = [Uri]::UnescapeDataString(
+                $stageApiUri.MakeRelativeUri([Uri]::new($_.FullName)).ToString()
+            ).Replace('\', '/')
             "api/$relative"
         })
     }
