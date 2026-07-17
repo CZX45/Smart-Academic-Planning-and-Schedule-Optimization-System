@@ -1277,15 +1277,25 @@ user opens Diagnostics
   does not repair problems. Users must still use official school systems for
   official records.
 
-### Next milestone: Windows Installer/Uninstaller
+### Windows Installer/Uninstaller — packaging foundation in progress
 
-The next milestone is Windows Installer/Uninstaller and is not started. Its
-future scope is limited to an official Windows installer packaging the Tauri
-shell, FastAPI runtime, and static Web assets; stable AppData paths;
-install/upgrade/uninstall flows; explicit preservation or removal of user data;
-preservation of backups unless explicitly confirmed; signing strategy;
-upgrade compatibility; uninstall safety; and installer validation. No
-installer design or implementation is part of this closeout.
+The first foundation phase is implemented but the full milestone is not
+complete. It selects one Tauri NSIS target with per-user `currentUser` install
+mode, establishes stable product identity and version consistency checks, maps
+the one-folder FastAPI runtime into Tauri resources, and produces a versioned
+installer plus machine-readable manifest. `%LOCALAPPDATA%\SAPSOS` remains the
+stable user-data root for the database, pairing state, backups, migration
+evidence, and local Diagnostics state. Upgrade preserves that data; uninstall
+removes application binaries while preserving user data by default.
+
+The emitted `packaging-manifest.json` is checked by the paired artifact
+validator for identity, LOCAL_DESKTOP mode, commit, byte count, and SHA-256
+before CI uploads the Windows installer artifact.
+
+The foundation does not include packaged-desktop E2E, signing, auto-update,
+distribution, telemetry, crash upload, Beta, RC, or release publishing. The
+NSIS bootstrapper may require WebView2 download access on a clean machine; a
+signed artifact is not claimed until signing is separately configured.
 
 The remaining dependency-ordered route is:
 

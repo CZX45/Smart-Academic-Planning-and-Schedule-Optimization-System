@@ -26,6 +26,9 @@
     "app:smoke": "node scripts/smoke-test-local.mjs",
     "api:package:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Build-FastAPI-Runtime.ps1",
     "web:package:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Build-Web-UI.ps1",
+    "desktop:identity:check": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Validate-Desktop-Identity.ps1",
+    "desktop:installer:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Build-Windows-Installer.ps1",
+    "desktop:installer:validate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Validate-Windows-Installer-Artifact.ps1",
     "extension:package": "pnpm --filter @sapsos/extension build && node scripts/package-extension.mjs",
     "package:local": "pnpm extension:package && pnpm app:smoke"
   },
