@@ -5,7 +5,7 @@
   "identifier": "com.sapsos.smart-academic-planner",
   "build": {
     "devUrl": "http://127.0.0.1:3000",
-    "frontendDist": "../../dist/local-desktop-web"
+    "frontendDist": "../../dist/installer-stage/web"
   },
   "app": {
     "windows": [],
@@ -22,7 +22,7 @@
     "category": "Education",
     "icon": ["icons/icon.ico"],
     "resources": {
-      "../../dist/local-desktop-api/sapsos-api/**/*": "runtime/sapsos-api/"
+      "../../dist/installer-stage/api/**/*": "runtime/sapsos-api/"
     },
     "windows": {
       "webviewInstallMode": {

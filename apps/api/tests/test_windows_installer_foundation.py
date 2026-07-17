@@ -20,10 +20,8 @@ def test_windows_identity_and_tauri_bundle_are_single_target_per_user() -> None:
     assert identity["installer_artifact_name"] == "SAPSOS-Local-Desktop-{version}-x64-setup.exe"
     assert config["bundle"]["targets"] == ["nsis"]
     assert config["bundle"]["windows"]["nsis"]["installMode"] == "currentUser"
-    assert (
-        config["bundle"]["resources"]["../../dist/local-desktop-api/sapsos-api/**/*"]
-        == "runtime/sapsos-api/"
-    )
+    assert config["bundle"]["resources"]["../../dist/installer-stage/api/**/*"] == "runtime/sapsos-api/"
+    assert config["build"]["frontendDist"] == "../../dist/installer-stage/web"
 
 
 def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None:
@@ -33,6 +31,8 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
 
     assert "actions/upload-artifact@v4" in workflow
     assert "desktop:installer:windows" in workflow
+    assert "desktop:installer:validate" in workflow
+    assert "dist/windows-installer" in workflow
     assert "cargo install tauri-cli --version 2.11.4 --locked" in workflow
     assert "release" not in workflow.lower()
     assert "auto-update" not in script.lower()
@@ -44,6 +44,8 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     assert "data-retention-contract.json" in script
     assert "Validate-Packaging-Staging.ps1" in script
     assert "Validate-FastAPI-Runtime.ps1" in script
+    assert "installer-stage" in script
+    assert "$cleanup -TargetPath $stageRoot" in script
     build_order = [
         '"@sapsos/shared", "build"',
         '"pnpm", "openapi:check"',
@@ -55,6 +57,15 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     ]
     positions = [script.index(marker) for marker in build_order]
     assert positions == sorted(positions)
+
+
+def test_short_staging_contract_preserves_deep_metadata_and_licenses() -> None:
+    script = (ROOT / "scripts/windows/Build-Windows-Installer.ps1").read_text()
+    validator = (ROOT / "scripts/windows/Validate-Windows-Installer-Artifact.ps1").read_text()
+    assert 'Join-Path $stageRoot "api"' in script
+    assert 'Join-Path $stageRoot "web"' in script
+    assert "licenses_notices" in script
+    assert "licenses_notices" in validator
 
 
 def test_stable_app_data_policy_is_explicit() -> None:
@@ -100,6 +111,17 @@ def test_packaging_staging_validator_records_files_and_rejects_forbidden_files()
         web_root.mkdir()
         (api_root / "sapsos-api.exe").write_bytes(b"api")
         (api_root / "app.py").write_text("print('ok')", encoding="utf-8")
+        license_path = (
+            api_root
+            / "_internal"
+            / "setuptools"
+            / "_vendor"
+            / "importlib_metadata-8.7.1.dist-info"
+            / "licenses"
+            / "LICENSE"
+        )
+        license_path.parent.mkdir(parents=True)
+        license_path.write_text("license", encoding="utf-8")
         (web_root / "index.html").write_text("<html></html>", encoding="utf-8")
         manifest = temporary_root / "staging-manifest.json"
         valid = subprocess.run(
@@ -125,6 +147,10 @@ def test_packaging_staging_validator_records_files_and_rejects_forbidden_files()
         staging = json.loads(manifest.read_text(encoding="utf-8"))
         assert any(
             record["path"].endswith("sapsos-api.exe")
+            for record in staging["components"]["fastapi_runtime"]
+        )
+        assert any(
+            record["path"].endswith("importlib_metadata-8.7.1.dist-info/licenses/LICENSE")
             for record in staging["components"]["fastapi_runtime"]
         )
 

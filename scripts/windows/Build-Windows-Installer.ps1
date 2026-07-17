@@ -46,10 +46,31 @@ $webRoot = Join-Path $repoRoot "dist\local-desktop-web"
 if (-not (Test-Path -LiteralPath (Join-Path $webRoot "index.html") -PathType Leaf)) {
     throw "Static Web export is missing index.html."
 }
+$stageRoot = Join-Path $repoRoot "dist\installer-stage"
+$stageApiRoot = Join-Path $stageRoot "api"
+$stageWebRoot = Join-Path $stageRoot "web"
+if (Test-Path -LiteralPath $stageRoot) {
+    & $cleanup -TargetPath $stageRoot -AllowedBuildRoot $distRoot
+}
+New-Item -ItemType Directory -Force -Path $stageApiRoot, $stageWebRoot | Out-Null
+Get-ChildItem -LiteralPath $apiRoot -Force | Copy-Item -Destination $stageApiRoot -Recurse -Force
+Get-ChildItem -LiteralPath $webRoot -Force | Copy-Item -Destination $stageWebRoot -Recurse -Force
+if (-not (Test-Path -LiteralPath (Join-Path $stageApiRoot "sapsos-api.exe") -PathType Leaf)) {
+    throw "Short API staging is missing the packaged executable."
+}
+if (-not (Test-Path -LiteralPath (Join-Path $stageWebRoot "index.html") -PathType Leaf)) {
+    throw "Short Web staging is missing index.html."
+}
+$licenseFiles = @(Get-ChildItem -LiteralPath $stageApiRoot -Recurse -Force -File | Where-Object {
+    $_.FullName -match '(?i)(^|[\\/])(license|licenses|notice|notices)([\\/]|$)|(?i)\\.dist-info[\\/]'
+})
+if ($licenseFiles.Count -eq 0) {
+    throw "Packaged API staging contains no license or notice files."
+}
 $stagingManifest = Join-Path $outputPath "staging-manifest.json"
 & (Join-Path $PSScriptRoot "Validate-Packaging-Staging.ps1") `
-    -ApiRoot $apiRoot `
-    -WebRoot $webRoot `
+    -ApiRoot $stageApiRoot `
+    -WebRoot $stageWebRoot `
     -ManifestPath $stagingManifest
 
 $tauriRoot = Join-Path $repoRoot "desktop-shell\src-tauri"
@@ -92,10 +113,13 @@ $manifest = [ordered]@{
     contracts = @("desktop-shell/desktop-identity.json", "desktop-shell/data-retention-contract.json")
     components = [ordered]@{
         tauri_executable = "sapsos-local-desktop.exe"
-        fastapi_runtime = "dist/local-desktop-api/sapsos-api"
-        static_web = "dist/local-desktop-web"
+        fastapi_runtime = "dist/installer-stage/api"
+        static_web = "dist/installer-stage/web"
         required_runtime_resources = @("index.html", "runtime/sapsos-api")
-        licenses_notices = @()
+        licenses_notices = @($licenseFiles | ForEach-Object {
+            $relative = [IO.Path]::GetRelativePath($stageApiRoot, $_.FullName).Replace('\', '/')
+            "api/$relative"
+        })
     }
     installer = [ordered]@{ path = $artifactName; bytes = (Get-Item $artifactPath).Length; sha256 = $hash }
     notes = @("NSIS per-user installer", "Code signing is not configured", "Installer-level E2E is a later milestone")
