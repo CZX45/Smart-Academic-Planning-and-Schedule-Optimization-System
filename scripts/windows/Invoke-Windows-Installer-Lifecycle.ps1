@@ -50,6 +50,13 @@ function Invoke-Installer([string]$PathValue, [string]$PhaseName) {
     Write-Host "phase=$PhaseName install_root=Programs/SAPSOS Local Desktop"
     Invoke-ProcessWithTimeout $PathValue @("/S", "/D=$installRoot") $processTimeoutSeconds $PhaseName | Out-Null
 }
+function Wait-PathAbsent([string]$PathValue, [int]$TimeoutSeconds, [string]$PhaseName) {
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ((Test-Path -LiteralPath $PathValue) -and [DateTime]::UtcNow -lt $deadline) {
+        Start-Sleep -Milliseconds 500
+    }
+    Assert-True (-not (Test-Path -LiteralPath $PathValue)) "$PhaseName did not remove installer-owned files within $TimeoutSeconds seconds."
+}
 function Assert-InstalledFiles([string]$ExpectedVersion) {
     $executable = Join-Path $installRoot "sapsos-local-desktop.exe"
     Assert-True (Test-Path $executable -PathType Leaf) "Installed executable is missing."
@@ -126,7 +133,7 @@ try {
     Assert-True ($null -ne $uninstaller) "Uninstaller registration/executable is missing."
     Write-Phase "default_uninstall" "starting" "timeout_seconds=$processTimeoutSeconds"
     Invoke-ProcessWithTimeout $uninstaller.FullName @("/S") $processTimeoutSeconds "default_uninstall" | Out-Null
-    Assert-True (-not (Test-Path $installRoot)) "Default uninstall did not remove installer-owned files."
+    Wait-PathAbsent $installRoot 30 "Default uninstall"
     Write-Phase "default_uninstall" "completed"
     Assert-Retention $external; Write-Phase "retention_validation" "completed"
 
