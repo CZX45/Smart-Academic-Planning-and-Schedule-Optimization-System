@@ -129,6 +129,31 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
     assert '$env:CI -ne "true"' in build
     assert "semantic version" in build
     assert "two-version" in lifecycle
+    assert "Invoke-ProcessWithTimeout" in lifecycle
+    assert "Start-Process -FilePath $PathValue -ArgumentList $Arguments -PassThru" in lifecycle
+    assert "Start-Process -FilePath $PathValue -ArgumentList $Arguments -Wait" not in lifecycle
+    assert "WaitForExit(30000)" in lifecycle
+    for marker in (
+        'Write-Phase "clean_install" "starting"',
+        'Write-Phase "clean_install" "completed"',
+        'Write-Phase "write_sentinels" "completed"',
+        'Write-Phase "same_version_repair" "starting"',
+        'Write-Phase "two_version_upgrade" "starting"',
+        'Write-Phase "launch_installed_app" "starting"',
+        'Write-Phase "process_coordination" "starting"',
+        'Write-Phase "default_uninstall" "starting"',
+        'Write-Phase "retention_validation" "completed"',
+        'Write-Phase "reinstall" "starting"',
+        'Write-Phase "cleanup" "starting"',
+    ):
+        assert marker in lifecycle
+    assert "timeout-minutes: 90" in workflow
+    assert "timeout-minutes: 20" in workflow
+    assert "IfSilent" in hook
+    assert "SetErrorLevel 1" in hook
+    assert "MessageBox" in hook
+    assert "MainWindowHandle" in coordinator
+    assert "CI test mode: terminating exact-path" in coordinator
     assert "SAPSOS-installer-lifecycle" in lifecycle
     assert "windows-installer-lifecycle.yml" in workflow
 

@@ -20,6 +20,7 @@ permissions:
 jobs:
   lifecycle:
     runs-on: windows-latest
+    timeout-minutes: 90
     env:
       CI: "true"
       SAPSOS_LIFECYCLE_TEST_MODE: "true"
@@ -37,7 +38,9 @@ jobs:
       - run: cargo install tauri-cli --version 2.11.4 --locked
       - run: python -m pytest apps/api/tests/test_local_data_removal.py -q
       - run: corepack pnpm openapi:check
-      - run: >-
+      - name: Run bounded installer lifecycle
+        timeout-minutes: 20
+        run: >-
           pwsh -NoProfile -File scripts/windows/Build-Windows-Installer.ps1
           -OutputRoot dist/windows-installer-previous
           -TestVersionOverride 0.1.0

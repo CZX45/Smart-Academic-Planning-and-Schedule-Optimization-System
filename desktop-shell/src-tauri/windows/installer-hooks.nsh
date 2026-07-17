@@ -3,7 +3,11 @@
   nsExec::ExecToStack 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\InstallerProcessCoordination.ps1" -InstallRoot "$INSTDIR" -TestMode'
   Pop $0
   ${If} $0 != 0
-    MessageBox MB_ICONSTOP|MB_OK "SAPSOS is running. Close the application before installing or repairing it."
+    IfSilent sapsos_preinstall_silent_failure sapsos_preinstall_interactive_failure
+    sapsos_preinstall_interactive_failure:
+      MessageBox MB_ICONSTOP|MB_OK "SAPSOS is running. Close the application before installing or repairing it."
+    sapsos_preinstall_silent_failure:
+    SetErrorLevel 1
     Abort
   ${EndIf}
 !macroend
@@ -13,7 +17,11 @@
   nsExec::ExecToStack 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\InstallerProcessCoordination.ps1" -InstallRoot "$INSTDIR" -TestMode'
   Pop $0
   ${If} $0 != 0
-    MessageBox MB_ICONSTOP|MB_OK "SAPSOS is running. Close the application before uninstalling it."
+    IfSilent sapsos_preuninstall_silent_failure sapsos_preuninstall_interactive_failure
+    sapsos_preuninstall_interactive_failure:
+      MessageBox MB_ICONSTOP|MB_OK "SAPSOS is running. Close the application before uninstalling it."
+    sapsos_preuninstall_silent_failure:
+    SetErrorLevel 1
     Abort
   ${EndIf}
 !macroend

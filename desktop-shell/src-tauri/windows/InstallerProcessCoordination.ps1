@@ -41,19 +41,24 @@ if ($appProcesses.Count -eq 0) {
 foreach ($app in $appProcesses) {
     $apiProcesses = @(Get-ExactProcess $apiPath | Where-Object { [int]$_.ParentProcessId -eq [int]$app.ProcessId })
     $process = Get-Process -Id ([int]$app.ProcessId) -ErrorAction SilentlyContinue
-    if ($process -and $process.MainWindowHandle -ne 0) {
-        [void]$process.CloseMainWindow()
-    }
+    if ($process -and $process.MainWindowHandle -ne 0) { [void]$process.CloseMainWindow() }
     if (-not (Wait-ForExit ([int]$app.ProcessId) $TimeoutSeconds)) {
-        throw "SAPSOS is still running. Close the application before continuing."
+        if ($ciTestMode -and $process) {
+            Write-Output "CI test mode: terminating exact-path desktop PID $($app.ProcessId)."
+            Stop-Process -Id ([int]$app.ProcessId) -Force -ErrorAction Stop
+            if (-not (Wait-ForExit ([int]$app.ProcessId) 3)) { throw "The exact SAPSOS desktop process did not exit safely." }
+        } else {
+            throw "SAPSOS is still running. Close the application before continuing."
+        }
     }
     foreach ($api in $apiProcesses) {
         if (-not (Wait-ForExit ([int]$api.ProcessId) 2)) {
             $apiProcess = Get-Process -Id ([int]$api.ProcessId) -ErrorAction SilentlyContinue
-            if ($apiProcess) { $apiProcess.Kill() }
-            if (-not (Wait-ForExit ([int]$api.ProcessId) 3)) {
-                throw "The SAPSOS local runtime did not exit safely."
-            }
+            if ($ciTestMode -and $apiProcess) {
+                Write-Output "CI test mode: terminating exact-path API child PID $($api.ProcessId)."
+                $apiProcess.Kill()
+                if (-not (Wait-ForExit ([int]$api.ProcessId) 3)) { throw "The SAPSOS local runtime did not exit safely." }
+            } else { throw "The SAPSOS local runtime did not exit safely." }
         }
     }
 }
