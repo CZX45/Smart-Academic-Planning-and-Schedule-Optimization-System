@@ -50,7 +50,10 @@ function Invoke-Installer([string]$PathValue, [string]$PhaseName) {
     Invoke-ProcessWithTimeout $PathValue @("/S") $processTimeoutSeconds $PhaseName | Out-Null
 }
 function Assert-InstalledFiles([string]$ExpectedVersion) {
-    Assert-True (Test-Path (Join-Path $installRoot "sapsos-local-desktop.exe") -PathType Leaf) "Installed executable is missing."
+    $executable = Join-Path $installRoot "sapsos-local-desktop.exe"
+    Assert-True (Test-Path $executable -PathType Leaf) "Installed executable is missing."
+    $installedVersion = (Get-Item $executable).VersionInfo.ProductVersion
+    Assert-True ($installedVersion -like "$ExpectedVersion*") "Installed executable version '$installedVersion' does not match expected '$ExpectedVersion'."
     Assert-True (Test-Path (Join-Path $installRoot "runtime\sapsos-api\sapsos-api.exe") -PathType Leaf) "Packaged API sidecar is missing."
     Assert-True (Test-Path (Join-Path $installRoot "index.html") -PathType Leaf) "Static Web asset is missing."
     Assert-True ((Get-ChildItem $installRoot -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '(?i)(^|-)sapsos\.db$|pairing\.json$|\.sapsos-backup$' }).Count -eq 0) "User data leaked into the install directory."
