@@ -18,10 +18,27 @@ $apiPath = [IO.Path]::GetFullPath((Join-Path $resolvedRoot "runtime\sapsos-api\s
 
 function Get-ExactProcess([string]$PathValue) {
     $normalized = [IO.Path]::GetFullPath($PathValue)
-    @(Get-CimInstance Win32_Process | Where-Object {
-        $_.ExecutablePath -and
-        ([IO.Path]::GetFullPath($_.ExecutablePath) -eq $normalized)
-    })
+    try {
+        return @(Get-CimInstance Win32_Process -ErrorAction Stop | Where-Object {
+            $_.ExecutablePath -and
+            ([IO.Path]::GetFullPath($_.ExecutablePath) -eq $normalized)
+        })
+    } catch {
+        Write-Output "CIM process enumeration was unavailable; using exact-path process fallback."
+        $matches = @()
+        foreach ($candidate in @(Get-Process -ErrorAction SilentlyContinue)) {
+            try {
+                if ($candidate.Path -and [IO.Path]::GetFullPath($candidate.Path) -eq $normalized) {
+                    $matches += [pscustomobject]@{
+                        ProcessId = $candidate.Id
+                        ExecutablePath = $candidate.Path
+                        ParentProcessId = $null
+                    }
+                }
+            } catch { continue }
+        }
+        return $matches
+    }
 }
 
 function Wait-ForExit([int]$ProcessId, [int]$Seconds) {
