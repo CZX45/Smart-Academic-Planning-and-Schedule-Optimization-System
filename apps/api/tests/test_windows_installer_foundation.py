@@ -72,6 +72,7 @@ def test_short_staging_contract_preserves_deep_metadata_and_licenses() -> None:
     assert 'Join-Path $stageRoot "web"' in script
     assert "licenses_notices" in script
     assert "licenses_notices" in validator
+    assert "tests?(?:" in validator
 
 
 def test_stable_app_data_policy_is_explicit() -> None:

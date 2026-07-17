@@ -103,7 +103,7 @@ foreach ($component in @("fastapi_runtime", "static_web")) {
     $records = @($staging.components.$component)
     if ($records.Count -eq 0) { throw "Staging manifest component is empty: $component" }
     foreach ($record in $records) {
-        if ([IO.Path]::IsPathRooted($record.path) -or $record.path -match '(?i)(^|[\\/])(?:\.env|.*\.(?:db|sqlite|sapsos-backup)$|pairing\.json$|runtime\.json$|credentials?|tokens?|tests?|fixtures?)') {
+        if ([IO.Path]::IsPathRooted($record.path) -or $record.path -match '(?i)(^|[\\/])(?:\.env(?:[\\/]|$)|.*\.(?:db|sqlite|sapsos-backup)$|pairing\.json$|runtime\.json$|credentials?(?:[\\/]|$)|tokens?(?:[\\/]|$)|tests?(?:[\\/]|$)|fixtures?(?:[\\/]|$))') {
             throw "Forbidden or absolute staged path: $($record.path)"
         }
         $sourcePath = Join-Path $repoRoot $record.path
