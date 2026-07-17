@@ -43,7 +43,7 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     assert "release" not in workflow.lower()
     assert "auto-update" not in script.lower()
     assert "signed = $false" in script
-    assert "Get-FileHash" in validator
+    assert "Get-Sha256" in validator
     assert "ExpectedCommit" in validator
     assert "required_runtime_resources" in script
     assert "licenses_notices" in script

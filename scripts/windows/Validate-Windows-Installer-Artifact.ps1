@@ -6,6 +6,16 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+
+function Get-Sha256([string]$PathValue) {
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $sha256.ComputeHash([IO.File]::ReadAllBytes($PathValue))
+        return ([BitConverter]::ToString($bytes) -replace '-', '').ToLowerInvariant()
+    } finally {
+        $sha256.Dispose()
+    }
+}
 $manifestFile = if ([IO.Path]::IsPathRooted($ManifestPath)) {
     $ManifestPath
 } else {
@@ -69,7 +79,7 @@ if ($artifact.Name -ne $manifest.product.installer_artifact_name.Replace("{versi
     throw "Installer file name does not match the stable artifact convention."
 }
 if ($artifact.Length -le 0) { throw "Installer artifact is empty." }
-$hash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$hash = Get-Sha256 $artifactPath
 if ($artifact.Length -ne [int64]$manifest.installer.bytes) {
     throw "Installer byte count does not match the manifest."
 }
@@ -102,7 +112,7 @@ foreach ($component in @("fastapi_runtime", "static_web")) {
         }
         $source = Get-Item -LiteralPath $sourcePath
         if ($source.Length -ne [int64]$record.bytes) { throw "Staged file size mismatch: $($record.path)" }
-        $sourceHash = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $sourceHash = Get-Sha256 $sourcePath
         if ($sourceHash -ne $record.sha256.ToLowerInvariant()) { throw "Staged file hash mismatch: $($record.path)" }
     }
 }

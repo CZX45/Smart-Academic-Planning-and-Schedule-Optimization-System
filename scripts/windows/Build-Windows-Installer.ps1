@@ -46,6 +46,16 @@ $webRoot = Join-Path $repoRoot "dist\local-desktop-web"
 if (-not (Test-Path -LiteralPath (Join-Path $webRoot "index.html") -PathType Leaf)) {
     throw "Static Web export is missing index.html."
 }
+
+function Get-Sha256([string]$PathValue) {
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $sha256.ComputeHash([IO.File]::ReadAllBytes($PathValue))
+        return ([BitConverter]::ToString($bytes) -replace '-', '').ToLowerInvariant()
+    } finally {
+        $sha256.Dispose()
+    }
+}
 $stageRoot = Join-Path $repoRoot "dist\installer-stage"
 $stageApiRoot = Join-Path $stageRoot "api"
 $stageWebRoot = Join-Path $stageRoot "web"
@@ -101,7 +111,7 @@ if ($installers.Count -ne 1) { throw "Expected exactly one fresh NSIS setup arti
 $artifactName = $identity.installer_artifact_name.Replace("{version}", $identity.version)
 $artifactPath = Join-Path $outputPath $artifactName
 Copy-Item -LiteralPath $installers[0].FullName -Destination $artifactPath -Force
-$hash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$hash = Get-Sha256 $artifactPath
 $commit = (& git -C $repoRoot rev-parse HEAD).Trim()
 $manifest = [ordered]@{
     schema_version = 1
