@@ -593,7 +593,8 @@ try {
             $treeIds = @()
             if ($appProcess) { $treeIds += [int]$appProcess.Id }
             if ($apiPid) { $treeIds += [int]$apiPid }
-            $diagnostic.process_tree = Get-VerifiedProcessTree $treeIds $apiExecutable $appExecutable
+            $tree = @(Get-VerifiedProcessTree $treeIds $apiExecutable $appExecutable)
+            if ($tree.Count -gt 0) { $diagnostic.process_tree = $tree }
         }
     }
     if ($previousLocalAppData) { $env:LOCALAPPDATA = $previousLocalAppData }
