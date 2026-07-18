@@ -1323,6 +1323,7 @@ Default uninstall removes installer-owned application files/resources only. It
 retains the SQLite database, persistent local data, backup and migration safety
 state, pairing state, preferences, and external backups/diagnostics exports so
 future reinstall can reuse the stable AppData identity.
+Upgrade preserves that data.
 
 Full local-data removal is a separate, explicit `LOCAL_DESKTOP`-only high-risk
 operation. It requires a fixed allowlist, exact typed confirmation, an external
