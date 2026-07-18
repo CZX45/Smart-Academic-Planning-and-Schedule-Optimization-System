@@ -11,6 +11,7 @@ def test_pyinstaller_contract_is_one_folder_and_local_desktop_only() -> None:
     assert "COLLECT(" in spec
     assert 'contents_directory="."' in spec
     assert "_pydantic_core*.pyd" in spec
+    assert 'pydantic_core._pydantic_core' in spec
     assert 'ROOT / "app" / "run.py"' in spec
     assert '"tests"' in spec
 

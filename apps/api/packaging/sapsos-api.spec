@@ -41,6 +41,7 @@ else:
     pydantic_core_dir = Path(sysconfig.get_paths()["purelib"]) / "pydantic_core"
 for pydantic_core_binary in pydantic_core_dir.glob("_pydantic_core*.pyd"):
     binaries.append((str(pydantic_core_binary), "pydantic_core"))
+hiddenimports.append("pydantic_core._pydantic_core")
 
 for package in ("app", "psycopg", "uvicorn", "fastapi", "starlette"):
     hiddenimports.extend(collect_submodules(package))
