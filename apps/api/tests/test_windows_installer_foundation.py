@@ -136,6 +136,8 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
     assert "WaitForExit(30000)" in lifecycle
     assert "VersionInfo.ProductVersion" in lifecycle
     assert "does not match expected" in lifecycle
+    assert '"_pydantic_core*.pyd"' in lifecycle
+    assert "Packaged pydantic-core native extension is missing" in lifecycle
     for marker in (
         'Write-Phase "clean_install" "starting"',
         'Write-Phase "clean_install" "completed"',

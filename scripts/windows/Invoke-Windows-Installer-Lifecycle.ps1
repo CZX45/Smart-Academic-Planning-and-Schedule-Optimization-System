@@ -62,7 +62,11 @@ function Assert-InstalledFiles([string]$ExpectedVersion) {
     Assert-True (Test-Path $executable -PathType Leaf) "Installed executable is missing."
     $installedVersion = (Get-Item $executable).VersionInfo.ProductVersion
     Assert-True ($installedVersion -like "$ExpectedVersion*") "Installed executable version '$installedVersion' does not match expected '$ExpectedVersion'."
-    Assert-True (Test-Path (Join-Path $installRoot "runtime\sapsos-api\sapsos-api.exe") -PathType Leaf) "Packaged API sidecar is missing."
+    $runtimeRoot = Join-Path $installRoot "runtime\sapsos-api"
+    Assert-True (Test-Path (Join-Path $runtimeRoot "sapsos-api.exe") -PathType Leaf) "Packaged API sidecar is missing."
+    $pydanticCoreBinary = Get-ChildItem -LiteralPath $runtimeRoot -Recurse -Filter "_pydantic_core*.pyd" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    Assert-True ($null -ne $pydanticCoreBinary) "Packaged pydantic-core native extension is missing."
+    Write-Host "installed_pydantic_core=$($pydanticCoreBinary.FullName)"
     # Tauri embeds frontendDist into the release executable; the staging and
     # installer build validators prove the static Web asset before installation.
     Assert-True ((Get-ChildItem $installRoot -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '(?i)(^|-)sapsos\.db$|pairing\.json$|\.sapsos-backup$' }).Count -eq 0) "User data leaked into the install directory."
