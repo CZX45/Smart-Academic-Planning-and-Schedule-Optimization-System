@@ -75,7 +75,10 @@ function Assert-InstalledFiles([string]$ExpectedVersion) {
 }
 function Write-Sentinels {
     New-Item -ItemType Directory -Force -Path $dataRoot, (Join-Path $dataRoot "migration-safety"), (Join-Path $dataRoot "restore-staging") | Out-Null
-    "database" | Set-Content (Join-Path $dataRoot "sapsos.db")
+    $databasePath = Join-Path $dataRoot "sapsos.db"
+    $databaseInitializer = "import sys; from pathlib import Path; from sqlalchemy import create_engine; from app.db.bootstrap import initialize_database; initialize_database(create_engine('sqlite+pysqlite:///' + Path(sys.argv[1]).as_posix()))"
+    & (Get-Command python -ErrorAction Stop).Source -c $databaseInitializer $databasePath
+    if ($LASTEXITCODE -ne 0) { throw "Could not initialize the lifecycle SQLite database." }
     "backup" | Set-Content (Join-Path $dataRoot "manual-backup.sapsos-backup")
     "pairing" | Set-Content (Join-Path $dataRoot "pairing.json")
     "preference" | Set-Content (Join-Path $dataRoot "preferences.json")
