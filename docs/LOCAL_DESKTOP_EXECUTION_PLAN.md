@@ -32,9 +32,10 @@ but LOCAL_DESKTOP is the current official product.
 ## Current verified state
 
 - Repository: `D:\Crystal`.
-- `main` and `origin/main` are synchronized at the Diagnostics UI and safe
-  export merge commit `e23c44c50a5f9cf5eee6fa0a5744953cd7fdd98c`. PRs #73 and
-  #74 are merged; this document records the Diagnostics closeout.
+- `main` and `origin/main` are synchronized at the Windows Installer/Uninstaller
+  lifecycle merge commit `579708913d07ba55998723f366358530011a83b2`. PRs #76
+  and #77 are merged; this document records the installer documentation
+  closeout.
 - PR 1 is merged as PR #35:
   `https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/35`.
 - PR 1 commit: `acde64e20f0404aa0c80d96bdf09ab76e957a071`.
@@ -130,10 +131,13 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
     documentation closeout.
 18. Diagnostics — complete through PRs #73, #74, and this documentation
     closeout.
-19. Windows Installer/Uninstaller — next milestone; not started.
-20. Packaged Desktop E2E.
-21. Controlled Student Beta.
-22. Release Candidate.
+19. Windows Installer Foundation — complete through PR #76.
+20. Windows Installer Lifecycle Safety — complete through PR #77.
+21. Installer Documentation Closeout — complete through this documentation-only
+    PR.
+22. Packaged Desktop E2E — next milestone; not started.
+23. Controlled Student Beta — not started.
+24. Release Candidate — not started.
 
 The Local Runtime Foundation includes stages 1–8: local database, runtime
 discovery and supervision, desktop-shell proof, FastAPI runtime packaging, Web
@@ -602,13 +606,15 @@ Import is complete through PRs #56, #57, and #58. Stage 12 Real Section
 Optimizer Integration and its documentation closeout are complete through PRs
 #60, #61, and #62. UI Workflow Modularization is complete through PRs #63,
 #64, the Backup/Restore PR A and PR B merges, and the documentation closeout
-below. Backup/Restore, Safe migration and rollback, and Diagnostics are
-complete; Windows Installer/Uninstaller is next.
+below. Backup/Restore, Safe migration and rollback, Diagnostics, Windows
+Installer Foundation, and Windows Installer Lifecycle Safety are complete.
+Installer Documentation Closeout is complete through this documentation-only
+PR; Packaged Desktop E2E is next.
 
 ## Resume checkpoint
 
-- Current milestone: Diagnostics is complete; Windows Installer/Uninstaller
-  is next and not started.
+- Current milestone: Installer Documentation Closeout is complete; Packaged
+  Desktop E2E is next and not started.
 - Stage 10 status: complete.
 - Stage 11 status: Real Section Import complete; PRs #56, #57, and #58 merged.
 - Real Section Optimizer Integration: complete; PRs #60 and #61 merged.
@@ -1000,9 +1006,10 @@ local pre-merge clone ancestry.
   capture, private data, or protected artifact changes were added. The known
   SQLite Alembic-from-base limitation at `20260623_0004` remains unchanged.
 - Final state: UI Workflow Modularization, Backup/Restore, Safe migration and
-  rollback, and Diagnostics are complete; static export and packaged runtime
-  discovery remain supported; Windows Installer/Uninstaller is the next
-  dependency-ordered milestone.
+  rollback, Diagnostics, Windows Installer Foundation, and Windows Installer
+  Lifecycle Safety are complete; this documentation closeout records the
+  installer milestone and Packaged Desktop E2E is the next dependency-ordered
+  milestone.
 
 ## Backup/Restore — PR A checkpoint
 
@@ -1277,51 +1284,71 @@ user opens Diagnostics
   does not repair problems. Users must still use official school systems for
   official records.
 
-### Windows Installer/Uninstaller — packaging foundation in progress
+### Windows Installer Foundation — completed
 
-The first foundation phase is implemented but the full milestone is not
-complete. It selects one Tauri NSIS target with per-user `currentUser` install
-mode, establishes stable product identity and version consistency checks, maps
-the one-folder FastAPI runtime into Tauri resources, and produces a versioned
-installer plus machine-readable manifest. `%LOCALAPPDATA%\SAPSOS` remains the
-stable user-data root for the database, pairing state, backups, migration
-evidence, and local Diagnostics state. Upgrade preserves that data; uninstall
-removes application binaries while preserving user data by default.
+PR #76 (`7228a0154821683e3b82500ff0894ec36547037a`) delivered the Windows
+Tauri/NSIS per-user installer foundation. It establishes stable product,
+application, bundle, and `%LOCALAPPDATA%\SAPSOS` identities; packages the
+FastAPI sidecar and static Next.js export; includes required resources,
+licenses, and notices; and validates a short controlled staging tree,
+packaging manifest, stale staging cleanup, forbidden files, path lengths, and
+installer artifact identity/hash before unsigned artifact upload.
 
-The emitted `packaging-manifest.json` is checked by the paired artifact
-validator for identity, LOCAL_DESKTOP mode, commit, byte count, and SHA-256
-before CI uploads the Windows installer artifact.
+The short staging tree is required because Tauri/NSIS cannot reliably reference
+the deeply nested PyInstaller dist tree. The root cause was deep
+packaging/resource paths, not missing license metadata. The one-folder runtime
+and native Python package structure are preserved through staging and Tauri
+resource mapping.
 
-The foundation does not include packaged-desktop E2E, signing, auto-update,
-distribution, telemetry, crash upload, Beta, RC, or release publishing. The
-NSIS bootstrapper may require WebView2 download access on a clean machine; a
-signed artifact is not claimed until signing is separately configured.
+### Windows Installer Lifecycle Safety — completed
 
-The remaining dependency-ordered route is:
+PR #77 (`579708913d07ba55998723f366358530011a83b2`; final head
+`b6669b177bb7442aa2ef3cbecf16125ce55f3464`) completed the lifecycle boundary.
+The final Windows lifecycle validation covered clean install, same-version
+repair, two-version same-identity upgrade with installed-version assertions,
+running-process coordination, default uninstall retention, reinstall, packaged
+runtime startup, and artifact upload. Installer updates application
+binaries/resources; the new Tauri process owns pre-start migration orchestration,
+including migration safety backup, execution, readiness, and migration rollback
+semantics. `INSTALLER_ROLLBACK` is distinct from
+`DATABASE_MIGRATION_ROLLBACK`.
+
+Process coordination uses exact executable paths, PIDs, and parent-process
+relationships with bounded waits. It avoids broad process-name termination and
+fails closed when the installed process boundary cannot be proven. Silent NSIS
+execution does not show unattended MessageBoxes; CI test termination behavior
+is bounded separately from production behavior.
+
+Default uninstall removes installer-owned application files/resources only. It
+retains the SQLite database, persistent local data, backup and migration safety
+state, pairing state, preferences, and external backups/diagnostics exports so
+future reinstall can reuse the stable AppData identity.
+
+Full local-data removal is a separate, explicit `LOCAL_DESKTOP`-only high-risk
+operation. It requires a fixed allowlist, exact typed confirmation, an external
+backup, a versioned deletion plan, expiry, integrity hash, tamper/replay
+rejection, reparse/junction protection, and bounded partial-failure semantics.
+`PARTIALLY_COMPLETED` is persisted, stale `READY` plans become `EXPIRED`,
+external files are preserved, and arbitrary filesystem paths are prohibited.
+The flow is not remote wipe and is not exposed in `SERVER` mode.
+
+### Installer Documentation Closeout — completed
+
+This documentation-only PR closes the installer milestone after the merged
+foundation and lifecycle implementations, their Regular CI, Windows Installer
+Foundation CI, and Windows Installer Lifecycle CI evidence, and the resolved
+review findings. The current route remains:
 
 ```text
-Windows Installer/Uninstaller
+Installer Documentation Closeout
 → Packaged Desktop E2E
 → Controlled Student Beta
 → Release Candidate
 ```
 
-### Windows Installer/Uninstaller lifecycle safety — in progress
-
-The second installer phase is bounded to safe lifecycle behavior on top of the
-merged NSIS foundation. It covers clean install, same-version repair,
-same-identity two-version upgrade, exact installed-process coordination,
-default uninstall with local-data retention, reinstall retention, and an
-explicit LOCAL_DESKTOP-only complete local-data removal workflow. Complete
-removal requires an external validated backup, inactive local operations,
-exact typed confirmation, fixed allowlisted paths, canonicalization and
-reparse-point protection, an expiring tamper-evident one-time plan, bounded
-partial-failure behavior, and trusted post-shutdown execution.
-
-The lifecycle workflow is isolated to a temporary `LOCALAPPDATA` and must run
-real NSIS install/repair/upgrade/uninstall/reinstall operations. It may upload
-only the unsigned next-version installer artifact. The installer milestone is
-not complete until the lifecycle workflow, focused deletion safety checks,
-normal CI, and review gates all pass. Installer documentation closeout,
-Packaged Desktop E2E, Beta, RC, signing, release publishing, automatic update,
-and MSIX remain explicitly not started.
+The installer artifact remains unsigned development output. Code signing,
+GitHub/public release distribution, Store/MSIX packaging, automatic updates,
+and production publishing are not implemented. Packaged Desktop E2E is also
+not complete: it still needs real desktop startup, Tauri-to-packaged-API
+supervision/readiness, static UI rendering, key workflows, restart/persistence,
+extension/local integration where applicable, and failure/recovery behavior.
