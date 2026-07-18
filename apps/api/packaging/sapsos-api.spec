@@ -27,6 +27,21 @@ for package in (
     hiddenimports.extend(package_hiddenimports)
     datas.extend(copy_metadata(package, recursive=True))
 
+pydantic_core_init = next(
+    (
+        Path(source)
+        for source, target in datas
+        if target == "pydantic_core" and Path(source).name == "__init__.py"
+    ),
+    None,
+)
+if pydantic_core_init is not None:
+    pydantic_core_dir = pydantic_core_init.parent
+else:
+    pydantic_core_dir = Path(sysconfig.get_paths()["purelib"]) / "pydantic_core"
+for pydantic_core_binary in pydantic_core_dir.glob("_pydantic_core*.pyd"):
+    binaries.append((str(pydantic_core_binary), "pydantic_core"))
+
 for package in ("app", "psycopg", "uvicorn", "fastapi", "starlette"):
     hiddenimports.extend(collect_submodules(package))
 
