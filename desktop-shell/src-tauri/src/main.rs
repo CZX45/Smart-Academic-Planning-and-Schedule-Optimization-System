@@ -190,7 +190,7 @@ fn run_migration_command(
         fn diagnostic(bytes: &[u8]) -> String {
             String::from_utf8_lossy(bytes)
                 .chars()
-                .take(512)
+                .take(4096)
                 .collect::<String>()
                 .replace('\r', "\\r")
                 .replace('\n', "\\n")
