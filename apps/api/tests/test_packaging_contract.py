@@ -9,6 +9,9 @@ def test_pyinstaller_contract_is_one_folder_and_local_desktop_only() -> None:
     assert "console=True" in spec
     assert "onefile" not in spec.lower()
     assert "COLLECT(" in spec
+    assert 'contents_directory="."' in spec
+    assert "_pydantic_core*.pyd" in spec
+    assert "pydantic_core._pydantic_core" in spec
     assert 'ROOT / "app" / "run.py"' in spec
     assert '"tests"' in spec
 
@@ -42,7 +45,7 @@ def test_web_ui_packaging_uses_static_export_and_runtime_bridge() -> None:
     assert "dist\\local-desktop-web" in build_script
     assert "api_base_url" in build_script
     assert '"frontendDist": "../../dist/installer-stage/web"' in tauri_config
-    assert "../../dist/installer-stage/api/**/*" in tauri_config
+    assert '"../../dist/installer-stage/api/": "runtime/sapsos-api/"' in tauri_config
     assert "../../dist/local-desktop-api" not in tauri_config
     assert "../../dist/local-desktop-web" not in tauri_config
     assert "WebviewUrl::App" in shell_source

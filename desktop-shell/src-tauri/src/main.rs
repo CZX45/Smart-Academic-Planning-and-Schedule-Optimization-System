@@ -102,6 +102,7 @@ struct Processes {
     api: Option<Child>,
     web: Option<Child>,
     manifest: Option<PathBuf>,
+    cleanup_executable: Option<PathBuf>,
 }
 
 #[derive(Default)]
@@ -129,6 +130,14 @@ fn write_migration_marker(path: &Path, marker: &MigrationMarker) -> Result<(), S
         .map_err(|error| format!("Could not write migration marker: {error}"))?;
     fs::rename(&temporary, path)
         .map_err(|error| format!("Could not publish migration marker: {error}"))
+}
+
+fn runtime_path(working_directory: &Path) -> Option<std::ffi::OsString> {
+    let mut paths = vec![working_directory.to_path_buf()];
+    if let Some(existing) = std::env::var_os("PATH") {
+        paths.extend(std::env::split_paths(&existing));
+    }
+    std::env::join_paths(paths).ok()
 }
 
 fn contained_app_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
@@ -168,6 +177,7 @@ fn run_migration_command(
         .args(arguments)
         .arg(command)
         .current_dir(working_directory)
+        .env("PATH", runtime_path(working_directory).unwrap_or_default())
         .env("LOCALAPPDATA", app_data.parent().unwrap_or(app_data))
         .env("DATABASE_URL", database_url)
         .env("PRODUCT_MODE", "LOCAL_DESKTOP")
@@ -176,8 +186,24 @@ fn run_migration_command(
         .env("API_HOST", "127.0.0.1")
         .output()
         .map_err(|error| format!("Could not start migration command: {error}"))?;
-    let parsed: MigrationContract = serde_json::from_slice(&output.stdout)
-        .map_err(|_| "Migration command returned malformed JSON.".to_string())?;
+    let parsed: MigrationContract = serde_json::from_slice(&output.stdout).map_err(|_| {
+        fn diagnostic(bytes: &[u8]) -> String {
+            String::from_utf8_lossy(bytes)
+                .chars()
+                .take(4096)
+                .collect::<String>()
+                .replace('\r', "\\r")
+                .replace('\n', "\\n")
+        }
+
+        format!(
+            "Migration command returned malformed JSON (stdout_len={}, stderr_len={}, stdout_prefix={:?}, stderr_prefix={:?}).",
+            output.stdout.len(),
+            output.stderr.len(),
+            diagnostic(&output.stdout),
+            diagnostic(&output.stderr),
+        )
+    })?;
     if parsed.contract_version != 1 || parsed.command != command {
         return Err("Migration command contract is incompatible.".to_string());
     }
@@ -433,9 +459,13 @@ impl DesktopProcesses {
                 return Err(error);
             }
         };
-        let api_child = Command::new(api_executable)
+        let api_child = Command::new(&api_executable)
             .args(api_arguments)
-            .current_dir(api_working_directory)
+            .current_dir(&api_working_directory)
+            .env(
+                "PATH",
+                runtime_path(&api_working_directory).unwrap_or_default(),
+            )
             .env("LOCALAPPDATA", &local_app_data)
             .env("DATABASE_URL", database_url)
             .env("PRODUCT_MODE", "LOCAL_DESKTOP")
@@ -450,8 +480,14 @@ impl DesktopProcesses {
             .map_err(|error| format!("Could not start FastAPI child: {error}"))?;
         let api_pid = api_child.id();
         let manifest_path = app_data.join("runtime.json");
+        let cleanup_executable = if packaged_resource_dir.is_some() {
+            Some(api_executable.clone())
+        } else {
+            None
+        };
         guard.api = Some(api_child);
         guard.manifest = Some(manifest_path.clone());
+        guard.cleanup_executable = cleanup_executable;
         drop(guard);
 
         let api_manifest = match wait_for_api(&self.0, &manifest_path, api_pid) {
@@ -514,7 +550,7 @@ impl DesktopProcesses {
     }
 
     fn stop(&self) {
-        if let Ok(mut guard) = self.0.lock() {
+        let cleanup_executable = if let Ok(mut guard) = self.0.lock() {
             if let Some(mut child) = guard.web.take() {
                 let _ = child.kill();
                 let _ = child.wait();
@@ -526,7 +562,43 @@ impl DesktopProcesses {
             if let Some(manifest) = guard.manifest.take() {
                 let _ = fs::remove_file(manifest);
             }
+            guard.cleanup_executable.take()
+        } else {
+            None
+        };
+        let Some(executable) = cleanup_executable else {
+            return;
+        };
+        let plan = std::env::temp_dir()
+            .join("SAPSOS-local-data-removal")
+            .join("pending-plan.json");
+        if !plan.is_file() || !executable.is_file() {
+            return;
         }
+        let Some(helper_parent) = executable.parent() else {
+            return;
+        };
+        let mut helper = match Command::new(&executable)
+            .arg("local-data-remove")
+            .current_dir(helper_parent)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            Ok(process) => process,
+            Err(_) => return,
+        };
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while Instant::now() < deadline {
+            match helper.try_wait() {
+                Ok(Some(_)) => return,
+                Ok(None) => thread::sleep(Duration::from_millis(100)),
+                Err(_) => return,
+            }
+        }
+        let _ = helper.kill();
+        let _ = helper.wait();
     }
 }
 
@@ -968,12 +1040,6 @@ fn main() {
                 let resource_dir = packaged_resource_dir
                     .as_deref()
                     .expect("release resource directory is initialized");
-                if !resource_dir.join("index.html").is_file() {
-                    return Err(Box::new(std::io::Error::other(format!(
-                        "Packaged Web UI artifact is missing index.html under {}. Build it with scripts/windows/Build-Web-UI.ps1.",
-                        resource_dir.display()
-                    ))));
-                }
                 if !resource_dir.join("runtime/sapsos-api/sapsos-api.exe").is_file()
                     && std::env::var_os("SAPSOS_API_EXECUTABLE").is_none()
                 {
@@ -1011,4 +1077,3 @@ fn main() {
             }
         });
 }
-

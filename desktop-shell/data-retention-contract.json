@@ -27,6 +27,8 @@
   "rules": [
     "The installer never runs SQLite migration SQL or Alembic migrations.",
     "Existing Tauri pre-start orchestration owns LOCAL_DESKTOP schema migration and rollback.",
-    "User data deletion is a future explicit high-risk operation, not an uninstall default."
+    "Default uninstall never deletes the data root; complete removal is an explicit LOCAL_DESKTOP-only operation.",
+    "Complete removal uses the integrity-protected, one-time, expiring deletion plan and fixed allowlist in apps/api/app/services/local_data_removal.py.",
+    "External backups, diagnostics archives, Documents, Downloads, Desktop, browser profiles, and school-portal data are outside the deletion root and preserved."
   ]
 }

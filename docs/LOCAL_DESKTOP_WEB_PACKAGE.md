@@ -45,8 +45,9 @@ dist/local-desktop-web/
 
 It contains `index.html`, the `_next/static` JavaScript/CSS assets, and a
 `build-manifest.txt` with the source commit, strategy, file count, byte count,
-and runtime bridge contract. Tauri release builds use this directory through
-`desktop-shell/src-tauri/tauri.conf.json`.
+and runtime bridge contract. Tauri release builds embed these frontend assets
+into the application binary through `desktop-shell/src-tauri/tauri.conf.json`;
+they are not expected to appear as loose files in the install directory.
 
 ## Runtime behavior
 
@@ -57,8 +58,9 @@ and runtime bridge contract. Tauri release builds use this directory through
   manifest and creates a fresh query bridge.
 - Navigation and reload retain the query bridge because it is part of the
   document URL.
-- Missing `index.html` produces an actionable Tauri startup error naming the
-  Web packaging command.
+- Missing `index.html` fails the staging/build validation before the installer
+  is produced; Tauri release startup does not look for a loose install-folder
+  copy because `frontendDist` is embedded.
 - Missing or unavailable API data remains an actionable offline/advisory UI
   state; it does not silently use mock data as official data.
 
@@ -81,7 +83,7 @@ outside Stage 7.
 
 - If the build reports missing `corepack`, install the declared developer
   tooling; this is a build-time requirement only.
-- If Tauri reports a missing `index.html`, run
+- If Web staging reports a missing `index.html`, run
   `corepack pnpm web:package:windows` from the repository root.
 - If the UI shows API offline, confirm the packaged API executable reached
   `/ready` and inspect its runtime manifest/log before retrying.

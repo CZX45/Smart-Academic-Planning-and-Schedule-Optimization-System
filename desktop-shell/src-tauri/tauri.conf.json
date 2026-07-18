@@ -22,7 +22,7 @@
     "category": "Education",
     "icon": ["icons/icon.ico"],
     "resources": {
-      "../../dist/installer-stage/api/**/*": "runtime/sapsos-api/"
+      "../../dist/installer-stage/api/": "runtime/sapsos-api/"
     },
     "windows": {
       "webviewInstallMode": {
@@ -33,7 +33,8 @@
         "installMode": "currentUser",
         "languages": ["English"],
         "startMenuFolder": "SAPSOS Local Desktop",
-        "displayLanguageSelector": false
+        "displayLanguageSelector": false,
+        "installerHooks": "windows/installer-hooks.nsh"
       }
     }
   }

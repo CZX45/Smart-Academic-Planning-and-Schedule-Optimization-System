@@ -14,6 +14,23 @@ from app.runtime.discovery import (
 )
 
 if __name__ == "__main__":
+    if len(sys.argv) == 2 and sys.argv[1] == "local-data-remove":
+        from app.services.local_data_removal import (
+            FIXED_PLAN_PATH,
+            execute_deletion_plan,
+            resolve_app_data_root,
+        )
+
+        try:
+            execute_deletion_plan(
+                FIXED_PLAN_PATH,
+                root=resolve_app_data_root(),
+                application_version="0.1.0",
+            )
+        except Exception as error:
+            print(f"Local data removal failed safely: {type(error).__name__}", file=sys.stderr)
+            raise SystemExit(2) from error
+        raise SystemExit(0)
     if len(sys.argv) == 2 and sys.argv[1] in {"preflight", "execute"}:
         from app.runtime.migration_contract import main as migration_main
 

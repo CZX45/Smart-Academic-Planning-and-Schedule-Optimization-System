@@ -26,6 +26,44 @@ export const BackupStatusSchema = z.object({
 
 export type BackupStatus = z.infer<typeof BackupStatusSchema>;
 
+export const LocalDataRemovalStateSchema = z.enum([
+  "NOT_STARTED",
+  "PREFLIGHT_FAILED",
+  "BACKUP_REQUIRED",
+  "BACKUP_FAILED",
+  "CONFIRMATION_REQUIRED",
+  "CONFIRMATION_CANCELLED",
+  "READY",
+  "IN_PROGRESS",
+  "PARTIALLY_COMPLETED",
+  "COMPLETED",
+  "FAILED",
+  "EXPIRED",
+  "TAMPER_REJECTED",
+  "REPLAY_REJECTED",
+]);
+export type LocalDataRemovalState = z.infer<typeof LocalDataRemovalStateSchema>;
+
+export const LocalDataRemovalStatusSchema = z.object({
+  state: LocalDataRemovalStateSchema,
+  application_identity: z.literal("com.sapsos.smart-academic-planner"),
+  default_uninstall_preserves_data: z.literal(true),
+  confirmation_text: z.literal("DELETE SAPSOS LOCAL DATA"),
+  categories: z.array(z.string()),
+  external_files_preserved: z.array(z.string()),
+  message: z.string(),
+});
+export type LocalDataRemovalStatus = z.infer<typeof LocalDataRemovalStatusSchema>;
+
+export const PrepareLocalDataRemovalResponseSchema = z.object({
+  state: z.literal("READY"),
+  plan_id: z.string().uuid(),
+  application_identity: z.literal("com.sapsos.smart-academic-planner"),
+  categories: z.array(z.string()),
+  message: z.string(),
+});
+export type PrepareLocalDataRemovalResponse = z.infer<typeof PrepareLocalDataRemovalResponseSchema>;
+
 export const RestorePreviewSchema = z.object({
   session_id: z.string().uuid(),
   backup_id: z.string().uuid(),
@@ -2254,7 +2292,7 @@ export async function fetchLocalBackupStatus(
 export async function downloadLocalBackup(
   apiBaseUrl: string,
   options: FetchHealthOptions = {},
-): Promise<{ blob: Blob; filename: string | null }> {
+): Promise<{ blob: Blob; filename: string | null; backupReceipt: string | null }> {
   const { fetchFn, timeoutMs } = options;
   const controller = new AbortController();
   const timeout = setTimeout(
@@ -2277,6 +2315,7 @@ export async function downloadLocalBackup(
         response.headers
           .get("content-disposition")
           ?.match(/filename="?([^";]+)"?/)?.[1] ?? null,
+      backupReceipt: response.headers.get("x-sapsos-external-backup-receipt"),
     };
   } catch (error: unknown) {
     if (error instanceof ApiRequestError) {
@@ -2293,6 +2332,49 @@ export async function downloadLocalBackup(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export async function fetchLocalDataRemovalStatus(
+  apiBaseUrl: string,
+  options: FetchHealthOptions = {},
+): Promise<LocalDataRemovalStatus> {
+  const parsed = LocalDataRemovalStatusSchema.safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/local-data-removal/status", options),
+  );
+  if (!parsed.success) throw new ApiResponseSchemaError("Local data removal status was invalid");
+  return parsed.data;
+}
+
+export async function prepareLocalDataRemoval(
+  apiBaseUrl: string,
+  confirmation: string,
+  backupReceipt: string,
+  options: FetchHealthOptions = {},
+): Promise<PrepareLocalDataRemovalResponse> {
+  const parsed = PrepareLocalDataRemovalResponseSchema.safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/local-data-removal/prepare", {
+      ...options,
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ confirmation, backup_receipt: backupReceipt }),
+    }),
+  );
+  if (!parsed.success) throw new ApiResponseSchemaError("Local data removal plan was invalid");
+  return parsed.data;
+}
+
+export async function cancelLocalDataRemoval(
+  apiBaseUrl: string,
+  options: FetchHealthOptions = {},
+): Promise<LocalDataRemovalStatus> {
+  const parsed = LocalDataRemovalStatusSchema.safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/local-data-removal/cancel", {
+      ...options,
+      method: "POST",
+    }),
+  );
+  if (!parsed.success) throw new ApiResponseSchemaError("Local data removal cancellation response was invalid");
+  return parsed.data;
 }
 
 export async function validateLocalRestore(

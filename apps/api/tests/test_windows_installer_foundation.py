@@ -20,10 +20,7 @@ def test_windows_identity_and_tauri_bundle_are_single_target_per_user() -> None:
     assert identity["installer_artifact_name"] == "SAPSOS-Local-Desktop-{version}-x64-setup.exe"
     assert config["bundle"]["targets"] == ["nsis"]
     assert config["bundle"]["windows"]["nsis"]["installMode"] == "currentUser"
-    assert (
-        config["bundle"]["resources"]["../../dist/installer-stage/api/**/*"]
-        == "runtime/sapsos-api/"
-    )
+    assert config["bundle"]["resources"]["../../dist/installer-stage/api/"] == "runtime/sapsos-api/"
     assert config["build"]["frontendDist"] == "../../dist/installer-stage/web"
 
 
@@ -89,7 +86,7 @@ def test_upgrade_and_uninstall_boundary_preserves_user_data() -> None:
     plan = (ROOT / "docs/LOCAL_DESKTOP_EXECUTION_PLAN.md").read_text(encoding="utf-8")
 
     assert identity["install_directory"] != identity["data_directory"]
-    assert config["bundle"]["windows"]["nsis"].get("installerHooks") is None
+    assert config["bundle"]["windows"]["nsis"]["installerHooks"] == "windows/installer-hooks.nsh"
     assert "preserves that user data" in decisions
     assert "Upgrade preserves that data" in plan
     assert "uninstall" in decisions.lower()
@@ -106,6 +103,82 @@ def test_data_retention_contract_has_all_required_categories() -> None:
         "GENERATED_EXPORTS",
     }
     assert "SQLite" in " ".join(contract["rules"])
+
+
+def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_override() -> None:
+    config = json.loads((ROOT / "desktop-shell/src-tauri/tauri.conf.json").read_text())
+    hook = (ROOT / "desktop-shell/src-tauri/windows/installer-hooks.nsh").read_text()
+    coordinator = (
+        ROOT / "desktop-shell/src-tauri/windows/InstallerProcessCoordination.ps1"
+    ).read_text()
+    build = (ROOT / "scripts/windows/Build-Windows-Installer.ps1").read_text()
+    lifecycle = (ROOT / "scripts/windows/Invoke-Windows-Installer-Lifecycle.ps1").read_text()
+    workflow = (ROOT / ".github/workflows/windows-installer-lifecycle.yml").read_text()
+
+    assert config["bundle"]["windows"]["nsis"]["installerHooks"] == "windows/installer-hooks.nsh"
+    assert "NSIS_HOOK_PREINSTALL" in hook
+    assert "NSIS_HOOK_PREUNINSTALL" in hook
+    assert "ExecutablePath" in coordinator
+    assert "ParentProcessId" in coordinator
+    assert "Get-ExactProcess" in coordinator
+    assert "taskkill" not in coordinator.lower()
+    assert "AllowTestVersionOverride" in build
+    assert '$env:CI -ne "true"' in build
+    assert "semantic version" in build
+    assert "two-version" in lifecycle
+    assert "Invoke-ProcessWithTimeout" in lifecycle
+    assert "Start-Process -FilePath $PathValue -ArgumentList $Arguments -PassThru" in lifecycle
+    assert 'Invoke-ProcessWithTimeout $PathValue @("/S", "/D=$installRoot")' in lifecycle
+    assert "Start-Process -FilePath $PathValue -ArgumentList $Arguments -Wait" not in lifecycle
+    assert "WaitForExit(30000)" in lifecycle
+    assert "VersionInfo.ProductVersion" in lifecycle
+    assert "does not match expected" in lifecycle
+    assert '"_pydantic_core*.pyd"' in lifecycle
+    assert "Packaged pydantic-core native extension is missing" in lifecycle
+    assert "initialize_database" in lifecycle
+    assert "sqlite+pysqlite:///" in lifecycle
+    for marker in (
+        'Write-Phase "clean_install" "starting"',
+        'Write-Phase "clean_install" "completed"',
+        'Write-Phase "write_sentinels" "completed"',
+        'Write-Phase "same_version_repair" "starting"',
+        'Write-Phase "two_version_upgrade" "starting"',
+        'Write-Phase "launch_installed_app" "starting"',
+        'Write-Phase "process_coordination" "starting"',
+        'Write-Phase "default_uninstall" "starting"',
+        'Write-Phase "retention_validation" "completed"',
+        'Write-Phase "reinstall" "starting"',
+        'Write-Phase "cleanup" "starting"',
+    ):
+        assert marker in lifecycle
+    assert "timeout-minutes: 90" in workflow
+    assert "timeout-minutes: 20" in workflow
+    assert "IfSilent" in hook
+    assert "ExecToLog" in hook
+    assert "ExecToStack" not in hook
+    assert "preinstall coordination failed" in hook
+    assert "preuninstall coordination failed" in hook
+    assert "SetErrorLevel 1" in hook
+    assert "MessageBox" in hook
+    assert "MainWindowHandle" in coordinator
+    assert "CI test mode: terminating exact-path" in coordinator
+    assert "CIM process enumeration was unavailable" in coordinator
+    assert "Get-Process -ErrorAction SilentlyContinue" in coordinator
+    assert "SAPSOS-installer-lifecycle" in lifecycle
+    assert "windows-installer-lifecycle.yml" in workflow
+
+
+def test_local_data_removal_is_local_desktop_only_and_openapi_typed() -> None:
+    openapi = json.loads((ROOT / "apps/api/openapi.json").read_text(encoding="utf-8"))
+    paths = openapi["paths"]
+    assert "/api/v1/local-data-removal/status" in paths
+    assert "/api/v1/local-data-removal/prepare" in paths
+    assert "/api/v1/local-data-removal/cancel" in paths
+    assert "PrepareLocalDataRemovalRequest" in json.dumps(openapi)
+    service = (ROOT / "apps/api/app/services/local_data_removal.py").read_text(encoding="utf-8")
+    assert "DELETE SAPSOS LOCAL DATA" in service
+    assert "reparse_point" in service
+    assert "replay_rejected" in service
 
 
 def test_packaging_staging_validator_records_files_and_rejects_forbidden_files() -> None:

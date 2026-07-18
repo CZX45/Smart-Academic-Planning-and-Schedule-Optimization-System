@@ -31,6 +31,8 @@ import {
   fetchHealth,
   fetchLocalBackupStatus,
   downloadLocalBackup,
+  prepareLocalDataRemoval,
+  cancelLocalDataRemoval,
   validateLocalRestore,
   confirmLocalRestore,
   cancelLocalRestore,
@@ -1627,6 +1629,9 @@ function BackupPanel({ apiBaseUrl }: { apiBaseUrl: string | undefined }) {
   const [restorePreview, setRestorePreview] = useState<RestorePreview | null>(null);
   const [restoreBusy, setRestoreBusy] = useState(false);
   const [restoreConfirmation, setRestoreConfirmation] = useState("");
+  const [backupReceipt, setBackupReceipt] = useState<string | null>(null);
+  const [removalConfirmation, setRemovalConfirmation] = useState("");
+  const [removalBusy, setRemovalBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -1667,6 +1672,7 @@ function BackupPanel({ apiBaseUrl }: { apiBaseUrl: string | undefined }) {
       const downloaded = await downloadLocalBackup(apiBaseUrl, {
         timeoutMs: 60_000,
       });
+      setBackupReceipt(downloaded.backupReceipt);
       const url = URL.createObjectURL(downloaded.blob);
       const link = document.createElement("a");
       link.href = url;
@@ -1725,6 +1731,39 @@ function BackupPanel({ apiBaseUrl }: { apiBaseUrl: string | undefined }) {
     }
   }
 
+  async function prepareRemovalPlan(): Promise<void> {
+    if (!apiBaseUrl || !backupReceipt || removalBusy) return;
+    setRemovalBusy(true);
+    setResult(null);
+    try {
+      const prepared = await prepareLocalDataRemoval(
+        apiBaseUrl,
+        removalConfirmation,
+        backupReceipt,
+        { timeoutMs: 10_000 },
+      );
+      setResult(`${prepared.message} 关闭应用后才会执行。`);
+    } catch (error: unknown) {
+      setResult(error instanceof Error ? error.message : "无法准备本地数据删除。");
+    } finally {
+      setRemovalBusy(false);
+    }
+  }
+
+  async function cancelRemovalPlan(): Promise<void> {
+    if (!apiBaseUrl || removalBusy) return;
+    setRemovalBusy(true);
+    try {
+      await cancelLocalDataRemoval(apiBaseUrl, { timeoutMs: 10_000 });
+      setRemovalConfirmation("");
+      setResult("已取消本地数据删除计划。");
+    } catch (error: unknown) {
+      setResult(error instanceof Error ? error.message : "无法取消本地数据删除计划。" );
+    } finally {
+      setRemovalBusy(false);
+    }
+  }
+
   return (
     <section
       id="backup-restore"
@@ -1763,6 +1802,37 @@ function BackupPanel({ apiBaseUrl }: { apiBaseUrl: string | undefined }) {
         </>
       ) : null}
       {result ? <p role="status">{result}</p> : null}
+      <hr />
+      <h3>完整删除本地应用数据</h3>
+      <p>
+        默认卸载只删除应用文件并保留本地数据；下面是独立的不可撤销操作。
+        它不会删除外部备份、诊断 ZIP 或 Documents、Downloads、Desktop 文件。
+      </p>
+      <ul className="disclaimer-list">
+        <li>必须先创建并验证一个保存在应用数据目录之外的备份。</li>
+        <li>将删除数据库、配对状态、偏好设置、恢复/迁移状态和应用缓存。</li>
+        <li>不会删除学校门户数据、浏览器 profile 或任意外部路径。</li>
+      </ul>
+      <label htmlFor="local-data-removal-confirmation">输入 DELETE SAPSOS LOCAL DATA</label>
+      <input
+        id="local-data-removal-confirmation"
+        value={removalConfirmation}
+        onChange={(event) => setRemovalConfirmation(event.target.value)}
+        autoComplete="off"
+        spellCheck={false}
+      />
+      <div className="diagnostics-actions">
+        <button
+          type="button"
+          onClick={() => void prepareRemovalPlan()}
+          disabled={removalBusy || !backupReceipt || removalConfirmation !== "DELETE SAPSOS LOCAL DATA"}
+        >
+          {removalBusy ? "正在准备…" : "准备完整删除"}
+        </button>
+        <button type="button" onClick={() => void cancelRemovalPlan()} disabled={removalBusy}>
+          取消删除计划
+        </button>
+      </div>
       <hr />
       <h3>恢复（需要重启）</h3>
       <p>选择文件不会上传；点击“验证恢复文件”后才会进行严格验证。</p>

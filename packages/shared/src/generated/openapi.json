@@ -5303,6 +5303,89 @@
         }
       }
     },
+    "/api/v1/local-data-removal/status": {
+      "get": {
+        "tags": [
+          "local-data-removal"
+        ],
+        "summary": "Get Local Data Removal Status",
+        "operationId": "get_local_data_removal_status_api_v1_local_data_removal_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalDataRemovalStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/local-data-removal/prepare": {
+      "post": {
+        "tags": [
+          "local-data-removal"
+        ],
+        "summary": "Prepare Local Data Removal",
+        "operationId": "prepare_local_data_removal_api_v1_local_data_removal_prepare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareLocalDataRemovalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrepareLocalDataRemovalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/local-data-removal/cancel": {
+      "post": {
+        "tags": [
+          "local-data-removal"
+        ],
+        "summary": "Cancel Local Data Removal",
+        "operationId": "cancel_local_data_removal_api_v1_local_data_removal_cancel_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalDataRemovalStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -10290,6 +10373,56 @@
         ],
         "title": "InstitutionResponse"
       },
+      "LocalDataRemovalStatus": {
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/RemovalState"
+          },
+          "application_identity": {
+            "type": "string",
+            "const": "com.sapsos.smart-academic-planner",
+            "title": "Application Identity",
+            "default": "com.sapsos.smart-academic-planner"
+          },
+          "default_uninstall_preserves_data": {
+            "type": "boolean",
+            "title": "Default Uninstall Preserves Data",
+            "default": true
+          },
+          "confirmation_text": {
+            "type": "string",
+            "title": "Confirmation Text",
+            "default": "DELETE SAPSOS LOCAL DATA"
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "external_files_preserved": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "External Files Preserved"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "state",
+          "categories",
+          "external_files_preserved",
+          "message"
+        ],
+        "title": "LocalDataRemovalStatus"
+      },
       "MigrationHealth": {
         "properties": {
           "status": {
@@ -10663,6 +10796,67 @@
         ],
         "title": "PlatformSummary"
       },
+      "PrepareLocalDataRemovalRequest": {
+        "properties": {
+          "confirmation": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Confirmation"
+          },
+          "backup_receipt": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Backup Receipt"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "confirmation",
+          "backup_receipt"
+        ],
+        "title": "PrepareLocalDataRemovalRequest"
+      },
+      "PrepareLocalDataRemovalResponse": {
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/RemovalState"
+          },
+          "plan_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Plan Id"
+          },
+          "application_identity": {
+            "type": "string",
+            "const": "com.sapsos.smart-academic-planner",
+            "title": "Application Identity",
+            "default": "com.sapsos.smart-academic-planner"
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "state",
+          "plan_id",
+          "categories",
+          "message"
+        ],
+        "title": "PrepareLocalDataRemovalResponse"
+      },
       "ProgramVersionDetailResponse": {
         "properties": {
           "id": {
@@ -10865,6 +11059,26 @@
           "section_status"
         ],
         "title": "RegistrationAvailabilityResponse"
+      },
+      "RemovalState": {
+        "type": "string",
+        "enum": [
+          "NOT_STARTED",
+          "PREFLIGHT_FAILED",
+          "BACKUP_REQUIRED",
+          "BACKUP_FAILED",
+          "CONFIRMATION_REQUIRED",
+          "CONFIRMATION_CANCELLED",
+          "READY",
+          "IN_PROGRESS",
+          "PARTIALLY_COMPLETED",
+          "COMPLETED",
+          "FAILED",
+          "EXPIRED",
+          "TAMPER_REJECTED",
+          "REPLAY_REJECTED"
+        ],
+        "title": "RemovalState"
       },
       "RequirementCourseOptionResponse": {
         "properties": {
