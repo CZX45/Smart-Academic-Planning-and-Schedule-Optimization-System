@@ -655,7 +655,8 @@ Host/Origin/localhost-proof boundary remains enforced.
 
 # ADR-0029: Use one per-user NSIS foundation for Windows packaging
 
-Status: Accepted
+Status: Accepted — implementation complete through PR #76; documentation
+closeout recorded in ADR-0031.
 
 The Windows installer foundation uses the Tauri 2 NSIS bundler as its single
 installer technology. WiX/MSI is not implemented in parallel: NSIS is already
@@ -708,7 +709,8 @@ pre-start orchestration remains the migration and rollback owner.
 
 # ADR-0030: Make Windows installer lifecycle and local-data deletion fail closed
 
-Status: Accepted
+Status: Accepted — implementation complete through PR #77; documentation
+closeout recorded in ADR-0031.
 
 NSIS remains the only Windows installer and continues to use per-user
 `currentUser` installation with the existing product identity, bundle
@@ -763,4 +765,62 @@ Known limitations remain: the artifact is unsigned; WebView2 bootstrapper
 network access may be required on a clean machine; and installer binary
 replacement itself is not claimed to be fully transactional. Repair/reinstall
 is the documented recovery path, while user data remains protected.
+
+# ADR-0031: Close the Windows Installer/Uninstaller milestone
+
+Status: Accepted — documentation closeout complete through this
+documentation-only change.
+
+## Decision
+
+The Windows desktop package is a Tauri 2 NSIS installer using the Windows
+per-user `currentUser` model. Product/application/bundle identity and the
+`%LOCALAPPDATA%\SAPSOS` AppData root are stable. The package contains the
+packaged FastAPI sidecar, static Web export, required resources, licenses, and
+notices. A short controlled staging tree is mandatory because Tauri/NSIS cannot
+reliably consume the deeply nested PyInstaller dist tree; native Python package
+structure, including `pydantic_core` extensions, must remain package-relative.
+
+The installer updates application binaries and resources. Tauri pre-start
+orchestration remains responsible for LOCAL_DESKTOP migration safety backup,
+migration execution/readiness, and database migration rollback. Installer
+rollback and database-migration rollback are separate boundaries.
+
+Default uninstall removes installer-owned files/resources and does not delete
+the database or local user data. Full removal is a separate LOCAL_DESKTOP-only
+workflow requiring external backup, exact typed confirmation, a fixed allowlist,
+expiry, integrity/tamper/replay protection, and reparse/junction protection.
+Partial failure is persisted, stale READY plans become EXPIRED, external files
+are preserved, and arbitrary filesystem paths are rejected. SERVER mode does
+not expose this workflow. Process safety uses exact path/PID/parent validation,
+bounded waits, and no broad process-name kill; unverifiable cases fail closed.
+
+## Validation evidence
+
+PR #76 merged at `7228a0154821683e3b82500ff0894ec36547037a` and PR #77 merged
+at `579708913d07ba55998723f366358530011a83b2`; PR #77 final head was
+`b6669b177bb7442aa2ef3cbecf16125ce55f3464`. Regular CI, Windows Installer
+Foundation CI, and Windows Installer Lifecycle CI passed. The final lifecycle
+evidence includes real NSIS clean install, same-version repair, two-version
+upgrade with version assertion, uninstall retention, reinstall, process
+coordination, packaged-runtime startup, and artifact upload. The installer
+artifact is unsigned; no run number is inferred here.
+
+## Lessons learned and remaining limits
+
+The durable packaged-runtime rules are to preserve the PyInstaller one-folder
+native dependency layout, avoid flattening Python package/native-extension
+directories during Tauri resource mapping, retain `pydantic_core/_pydantic_core*.pyd`
+under its package-relative directory, and keep runtime-directory/DLL lookup
+environment aligned with the installed layout. Lifecycle fixtures must be real,
+valid LOCAL_DESKTOP SQLite fixtures.
+
+The installer remains an unsigned development artifact and may trigger
+SmartScreen. Code signing, automatic updates, GitHub/public release
+distribution, Store/MSIX packaging, and production publishing are not done.
+Packaged Desktop E2E is the next milestone and is not implied by installer
+lifecycle CI; it still requires real desktop startup, API supervision/readiness,
+static UI rendering, key workflows, restart/persistence, applicable
+extension/local integration, and failure/recovery validation. Beta and RC remain
+not started.
 
