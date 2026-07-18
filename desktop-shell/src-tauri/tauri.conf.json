@@ -22,7 +22,7 @@
     "category": "Education",
     "icon": ["icons/icon.ico"],
     "resources": {
-      "../../dist/installer-stage/api/**/*": "runtime/sapsos-api/"
+      "../../dist/installer-stage/api/": "runtime/sapsos-api/"
     },
     "windows": {
       "webviewInstallMode": {
