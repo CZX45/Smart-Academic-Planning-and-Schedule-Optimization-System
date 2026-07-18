@@ -120,6 +120,8 @@ function New-ReadinessDiagnostic([string]$Mode) {
         mode = $Mode
         process_started = $false
         process_pid = $null
+        tauri_pid = $null
+        child_observed = $false
         process_exit_observed = $false
         process_exit_within_30s = $null
         manifest_observed = $false
@@ -244,6 +246,10 @@ function Observe-Readiness($Diagnostic, [int]$ExpectedPid, [System.Diagnostics.P
         $listener = Get-ListenerSnapshot ([int]$manifest.port)
         $Diagnostic.listener_observed = [bool]$listener.observed
         $Diagnostic.listener_pid = $listener.owning_pid
+        $treeIds = @([int]$ExpectedPid, [int]$manifest.pid)
+        if ($listener.owning_pid) { $treeIds += [int]$listener.owning_pid }
+        if ($TauriProcess) { $treeIds += [int]$TauriProcess.Id }
+        $Diagnostic.process_tree = @(Get-VerifiedProcessTree $treeIds $apiExecutable $appExecutable)
         $now = [DateTime]::UtcNow
         $lastHttp = if ($script:readinessHttpAt.ContainsKey($Diagnostic.mode)) { $script:readinessHttpAt[$Diagnostic.mode] } else { [DateTime]::MinValue }
         if (([int]$manifest.port -gt 0) -and (($now - $lastHttp).TotalMilliseconds -ge 750)) {
@@ -283,7 +289,7 @@ function Wait-ForReadinessDiagnostic($Diagnostic, [int]$ExpectedPid, [int]$Timeo
             $Diagnostic.process_exit_within_30s = $Diagnostic.elapsed_ms -le 30000
             return $false
         }
-        if ($manifest -and $manifest.status -eq "ready" -and $Diagnostic.ready_status -eq 200) { return $true }
+        if ($manifest -and $manifest.status -eq "ready" -and $Diagnostic.pid_match -eq $true -and $Diagnostic.ready_status -eq 200) { return $true }
         Start-Sleep -Milliseconds 250
     }
     Observe-Readiness $Diagnostic $ExpectedPid $TauriProcess $ManagedProcess | Out-Null
@@ -318,6 +324,7 @@ function Invoke-DirectPackagedApiDiagnostic {
             -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
         $diagnostic.process_started = $true
         $diagnostic.process_pid = [int]$process.Id
+        $diagnostic.child_observed = $true
         $script:directApiPid = [int]$process.Id
         $success = Wait-ForReadinessDiagnostic $diagnostic ([int]$process.Id) 30 $null $process
         return $diagnostic
@@ -461,6 +468,7 @@ try {
     $appProcess = Start-Process -FilePath $appExecutable -WorkingDirectory $installRoot -PassThru `
         -RedirectStandardOutput (Join-Path $root "tauri.stdout.log") `
         -RedirectStandardError (Join-Path $root "tauri.stderr.log")
+    $supervisedDiagnostic.tauri_pid = [int]$appProcess.Id
     $childDeadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
     $childFound = $false
     while ([DateTime]::UtcNow -lt $childDeadline) {
@@ -475,6 +483,7 @@ try {
         if ($child) {
             $script:apiPid = [int]$child.ProcessId
             $supervisedDiagnostic.process_pid = [int]$apiPid
+            $supervisedDiagnostic.child_observed = $true
             $supervisedDiagnostic.child_still_alive = $true
             $childFound = $true
             break
