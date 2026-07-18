@@ -100,6 +100,7 @@ exe = EXE(
     a.scripts,
     [],
     name="sapsos-api",
+    contents_directory=".",
     exclude_binaries=True,
     debug=False,
     bootloader_ignore_signals=False,
