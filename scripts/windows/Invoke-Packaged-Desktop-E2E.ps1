@@ -212,12 +212,11 @@ try {
     Assert-True ((Get-ChildItem $installRoot -Recurse -Filter "_pydantic_core*.pyd" -File).Count -gt 0) "pydantic_core native extension is missing."
     Write-Phase "install" "completed" @{ install_root = "<isolated-install-root>" }
 
-    Add-UiAutomationAssemblies
-    Write-Phase "first_launch" "starting"
     Write-Phase "test_fixture_setup" "starting"
     Initialize-TestDatabase
     Write-Phase "test_fixture_setup" "completed" @{ database = "SAPSOS/sapsos.db" }
-    $script:currentPhase = "first_launch"
+    Add-UiAutomationAssemblies
+    Write-Phase "first_launch" "starting"
     $appProcess = Start-Process -FilePath $appExecutable -WorkingDirectory $installRoot -PassThru `
         -RedirectStandardOutput (Join-Path $root "tauri.stdout.log") `
         -RedirectStandardError (Join-Path $root "tauri.stderr.log")
