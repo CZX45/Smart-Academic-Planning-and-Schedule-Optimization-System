@@ -886,16 +886,18 @@ fn wait_for_web(processes: &Mutex<Processes>, web_pid: u32) -> Result<(), String
     ))
 }
 
+fn readiness_probe_request(port: u16, path: &str) -> Vec<u8> {
+    format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n")
+        .into_bytes()
+}
+
 fn http_probe(port: u16, path: &str) -> bool {
     let address = SocketAddr::from(([127, 0, 0, 1], port));
     let Ok(mut stream) = TcpStream::connect_timeout(&address, Duration::from_millis(500)) else {
         return false;
     };
     if stream
-        .write_all(
-            format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
-                .as_bytes(),
-        )
+        .write_all(&readiness_probe_request(port, path))
         .is_err()
     {
         return false;
@@ -920,6 +922,14 @@ mod tests {
         let root = std::env::temp_dir().join(format!("sapsos-restore-{name}-{suffix}"));
         fs::create_dir_all(&root).expect("create test root");
         root
+    }
+
+    #[test]
+    fn readiness_probe_includes_dynamic_port_in_host() {
+        let request = String::from_utf8(readiness_probe_request(49152, "/ready"))
+            .expect("probe request is valid UTF-8");
+        assert!(request.contains("GET /ready HTTP/1.1"));
+        assert!(request.contains("Host: 127.0.0.1:49152"));
     }
 
     fn marker(root: &Path, staged: &Path, request_id: &str) {

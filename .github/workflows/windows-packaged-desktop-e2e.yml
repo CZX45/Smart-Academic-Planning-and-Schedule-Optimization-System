@@ -1,0 +1,90 @@
+name: Windows packaged desktop E2E
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/windows-packaged-desktop-e2e.yml"
+      - "scripts/windows/**"
+      - "desktop-shell/**"
+      - "apps/api/**"
+      - "apps/web/**"
+      - "packages/shared/**"
+      - "docs/LOCAL_DESKTOP_EXECUTION_PLAN.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  packaged-desktop-e2e:
+    name: Windows packaged desktop E2E
+    runs-on: windows-2025
+    timeout-minutes: 90
+    env:
+      CI: true
+      PRODUCT_MODE: LOCAL_DESKTOP
+      AUTH_MODE: local
+      ENVIRONMENT: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt
+
+      - name: Install frozen dependencies
+        run: |
+          corepack enable
+          corepack pnpm install --frozen-lockfile
+          python -m pip install -e "apps/api[dev]"
+          cargo install tauri-cli --version 2.11.4 --locked
+
+      - name: Build one current installer
+        timeout-minutes: 35
+        run: pnpm desktop:installer:windows
+
+      - name: Validate installer and installed runtime
+        run: >-
+          pwsh -NoProfile -File scripts/windows/Validate-Windows-Installer-Artifact.ps1
+          -ManifestPath dist/windows-installer/packaging-manifest.json
+
+      - name: Run installed packaged desktop E2E
+        timeout-minutes: 25
+        run: >-
+          pwsh -NoProfile -File scripts/windows/Invoke-Packaged-Desktop-E2E.ps1
+          -InstallerPath dist/windows-installer/SAPSOS-Local-Desktop-0.1.0-x64-setup.exe
+          -TestRoot "$env:RUNNER_TEMP\sapsos-packaged-desktop-e2e"
+
+      - name: Upload sanitized packaged desktop E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaged-desktop-e2e-evidence
+          path: |
+            ${{ runner.temp }}/sapsos-packaged-desktop-e2e/evidence
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Verify exact packaged processes are gone
+        if: always()
+        shell: pwsh
+        run: |
+          $processes = Get-CimInstance Win32_Process | Where-Object {
+            $_.ExecutablePath -and $_.ExecutablePath -match '(?i)SAPSOS Local Desktop|runtime[\\/]sapsos-api[\\/]sapsos-api\.exe$'
+          }
+          if ($processes) {
+            $processes | Select-Object ProcessId, ParentProcessId | Format-Table -AutoSize
+            throw "A packaged E2E process remained after cleanup."
+          }
