@@ -200,6 +200,8 @@ function New-ReadinessDiagnostic([string]$Mode) {
         executable_match = $null
         ancestry_verified = $null
         creation_time_match = $null
+        trusted_runtime_pid = $null
+        trusted_runtime_creation_time = $null
         port = $null
         listener_observed = $false
         listener_pid = $null
@@ -314,12 +316,27 @@ function Observe-Readiness($Diagnostic, [int]$ExpectedPid, [System.Diagnostics.P
     if ($manifest) {
         $Diagnostic.manifest_status = [string]$manifest.status
         $Diagnostic.manifest_pid = [int]$manifest.pid
-        $identity = Test-TrustedProcessIdentity $ExpectedPid ([int]$manifest.pid) $apiExecutable
-        $Diagnostic.process_identity = $identity.mode
-        $Diagnostic.executable_match = $identity.executable_match
-        $Diagnostic.ancestry_verified = $identity.ancestry_verified
-        $Diagnostic.creation_time_match = $identity.creation_time_match
-        $Diagnostic.pid_match = $identity.accepted
+        if ($null -ne $Diagnostic.trusted_runtime_pid -and [int]$manifest.pid -eq [int]$Diagnostic.trusted_runtime_pid) {
+            $runtime = Get-ProcessIdentity ([int]$manifest.pid)
+            $Diagnostic.executable_match = $null -ne $runtime -and $runtime.executable_path -ieq ([IO.Path]::GetFullPath($apiExecutable))
+            $Diagnostic.creation_time_match = $null -ne $runtime -and $runtime.creation_time -eq $Diagnostic.trusted_runtime_creation_time
+            $Diagnostic.pid_match = $Diagnostic.executable_match -and $Diagnostic.creation_time_match
+        } elseif ($null -eq $Diagnostic.trusted_runtime_pid) {
+            $identity = Test-TrustedProcessIdentity $ExpectedPid ([int]$manifest.pid) $apiExecutable
+            $Diagnostic.process_identity = $identity.mode
+            $Diagnostic.executable_match = $identity.executable_match
+            $Diagnostic.ancestry_verified = $identity.ancestry_verified
+            $Diagnostic.creation_time_match = $identity.creation_time_match
+            $Diagnostic.pid_match = $identity.accepted
+            if ($identity.accepted) {
+                $Diagnostic.trusted_runtime_pid = [int]$manifest.pid
+                $trustedRuntime = Get-ProcessIdentity ([int]$manifest.pid)
+                $Diagnostic.trusted_runtime_creation_time = if ($trustedRuntime) { $trustedRuntime.creation_time } else { $null }
+                if ($null -eq $Diagnostic.trusted_runtime_creation_time) { $Diagnostic.pid_match = $false }
+            }
+        } else {
+            $Diagnostic.pid_match = $false
+        }
         $Diagnostic.port = [int]$manifest.port
         $listener = Get-ListenerSnapshot ([int]$manifest.port)
         $Diagnostic.listener_observed = [bool]$listener.observed
