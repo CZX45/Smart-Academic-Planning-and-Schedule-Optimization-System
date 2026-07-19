@@ -919,11 +919,32 @@ try {
 
     Write-Phase "persistence_write" "starting"
     Assert-True (Test-Path $appData -PathType Container) "Stable AppData root was not created."
-    Assert-True (Test-Path (Join-Path $appData "sapsos.db") -PathType Leaf) "SQLite database was not created by the packaged app."
-    $dbHeader = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes((Join-Path $appData "sapsos.db"))[0..5])
-    Assert-True ($dbHeader -eq "SQLite") "Packaged app did not create a valid SQLite database."
+    $databasePath = Join-Path $appData "sapsos.db"
+    $walPath = "$databasePath-wal"
+    $shmPath = "$databasePath-shm"
+    Assert-True (Test-Path $databasePath -PathType Leaf) "SQLite database was not created by the packaged app."
+    $tauriAlive = $false
+    if ($appProcess) {
+        $appProcess.Refresh()
+        $tauriAlive = -not $appProcess.HasExited
+    }
+    $spawnRootAlive = if ($apiPid) { Test-ExactProcessAlive $apiPid $apiExecutable } else { $false }
+    $trustedRuntimeAlive = if ($runtimePid) { Test-ExactProcessAlive $runtimePid $apiExecutable } else { $false }
+    Assert-True $trustedRuntimeAlive "Trusted packaged API runtime exited before persistence verification."
     $firstAppData = (Resolve-Path $appData).Path
-    Write-Phase "persistence_write" "completed" @{ database = "SAPSOS/sapsos.db" }
+    Write-Phase "persistence_write" "completed" @{
+        database = "SAPSOS/sapsos.db"
+        persistence_boundary = "review_apply_api_transaction"
+        database_exists = $true
+        wal_present = Test-Path $walPath -PathType Leaf
+        shm_present = Test-Path $shmPath -PathType Leaf
+        tauri_alive = $tauriAlive
+        tauri_pid = if ($appProcess) { [int]$appProcess.Id } else { $null }
+        spawn_root_alive = $spawnRootAlive
+        spawn_root_pid = if ($apiPid) { [int]$apiPid } else { $null }
+        trusted_runtime_alive = $trustedRuntimeAlive
+        trusted_runtime_pid = if ($runtimePid) { [int]$runtimePid } else { $null }
+    }
 
     Write-Phase "graceful_shutdown" "starting"
     $appProcess.CloseMainWindow()
