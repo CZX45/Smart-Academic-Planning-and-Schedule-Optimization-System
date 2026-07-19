@@ -27,6 +27,7 @@ $script:readinessHttpAt = @{}
 $currentPhase = "initialization"
 $appProcess = $null
 $apiPid = $null
+$runtimePid = $null
 
 if ([IO.Path]::GetPathRoot($root) -eq $root) { throw "E2E test root cannot be a drive root." }
 if (Test-Path -LiteralPath $root) { throw "E2E test root must not already exist: $root" }
@@ -73,6 +74,17 @@ function Save-Evidence {
         }
     } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $summaryPath -Encoding UTF8
     $script:readinessDiagnostics | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $evidenceRoot "readiness-diagnostic.json") -Encoding UTF8
+    $supervised = $script:readinessDiagnostics["tauri_supervised"]
+    [ordered]@{
+        spawn_root_observed = $null -ne $supervised -and $supervised.child_observed
+        manifest_runtime_observed = $null -ne $supervised -and $supervised.manifest_observed
+        identity_mode = if ($supervised) { $supervised.process_identity } else { $null }
+        executable_match = if ($supervised) { $supervised.executable_match } else { $null }
+        ancestry_verified = if ($supervised) { $supervised.ancestry_verified } else { $null }
+        listener_owner_match = if ($supervised) { $supervised.listener_pid -eq $supervised.manifest_pid } else { $null }
+        shutdown_root_gone = if ($supervised) { -not $supervised.child_still_alive } else { $null }
+        shutdown_runtime_gone = if ($supervised) { $supervised.runtime_gone } else { $null }
+    } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $evidenceRoot "process-identity-summary.json") -Encoding UTF8
 }
 
 function Assert-True([bool]$Condition, [string]$Message) { if (-not $Condition) { throw $Message } }
@@ -110,6 +122,62 @@ function Get-ChildProcess([int]$ParentPid, [string]$ExpectedPath) {
     }
 }
 
+function Get-ProcessIdentity([int]$ProcessId) {
+    try {
+        $process = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop
+        if ($null -eq $process -or -not $process.ExecutablePath) { return $null }
+        return [ordered]@{
+            pid = [int]$process.ProcessId
+            parent_pid = [int]$process.ParentProcessId
+            executable_path = [IO.Path]::GetFullPath($process.ExecutablePath)
+            creation_time = if ($process.CreationDate -is [DateTime]) { $process.CreationDate.ToUniversalTime() } elseif ($process.CreationDate) { [Management.ManagementDateTimeConverter]::ToDateTime([string]$process.CreationDate).ToUniversalTime() } else { $null }
+        }
+    } catch { return $null }
+}
+
+function Test-TrustedProcessIdentity([int]$SpawnRootPid, [int]$CandidatePid, [string]$ExpectedPath) {
+    $root = Get-ProcessIdentity $SpawnRootPid
+    $candidate = Get-ProcessIdentity $CandidatePid
+    $expected = [IO.Path]::GetFullPath($ExpectedPath)
+    $result = [ordered]@{
+        accepted = $false
+        mode = $null
+        executable_match = $false
+        ancestry_verified = $false
+        creation_time_match = $false
+        candidate_pid = $CandidatePid
+    }
+    if ($null -eq $root -or $null -eq $candidate) { return $result }
+    $result.executable_match = $candidate.executable_path -ieq $expected
+    $result.creation_time_match = $null -ne $root.creation_time -and $null -ne $candidate.creation_time -and $candidate.creation_time -ge $root.creation_time
+    if (-not $result.executable_match -or -not $result.creation_time_match) { return $result }
+    if ($CandidatePid -eq $SpawnRootPid) {
+        $result.accepted = $true
+        $result.mode = "same_process"
+        $result.ancestry_verified = $true
+        return $result
+    }
+    $current = $candidate
+    $visited = @($CandidatePid)
+    for ($depth = 0; $depth -lt 16; $depth++) {
+        $parentPid = [int]$current.parent_pid
+        if ($visited -contains $parentPid) { return $result }
+        if ($parentPid -eq $SpawnRootPid) {
+            $parent = Get-ProcessIdentity $parentPid
+            if ($parent -and $parent.pid -eq $root.pid -and $parent.creation_time -eq $root.creation_time) {
+                $result.accepted = $true
+                $result.mode = "trusted_descendant"
+                $result.ancestry_verified = $true
+            }
+            return $result
+        }
+        $current = Get-ProcessIdentity $parentPid
+        if ($null -eq $current) { return $result }
+        $visited += $parentPid
+    }
+    return $result
+}
+
 function Get-RuntimeManifest {
     if (-not (Test-Path -LiteralPath $runtimeManifest -PathType Leaf)) { return $null }
     try { return Get-Content -LiteralPath $runtimeManifest -Raw | ConvertFrom-Json } catch { return $null }
@@ -128,6 +196,10 @@ function New-ReadinessDiagnostic([string]$Mode) {
         manifest_status = $null
         manifest_pid = $null
         pid_match = $null
+        process_identity = $null
+        executable_match = $null
+        ancestry_verified = $null
+        creation_time_match = $null
         port = $null
         listener_observed = $false
         listener_pid = $null
@@ -137,6 +209,7 @@ function New-ReadinessDiagnostic([string]$Mode) {
         ready_result = $null
         tauri_still_alive = $null
         child_still_alive = $null
+        runtime_gone = $null
         manifest_removed = $null
         manifest_removed_by_api = $null
         lock_present = $null
@@ -155,7 +228,7 @@ function Add-ReadinessTransition($Diagnostic, [string]$State, $Manifest, [int]$E
         state = $State
         manifest_pid = if ($Manifest) { [int]$Manifest.pid } else { $null }
         port = if ($Manifest) { [int]$Manifest.port } else { $null }
-        pid_match = if ($Manifest) { ([int]$Manifest.pid -eq [int]$Diagnostic.process_pid) } else { $null }
+        pid_match = if ($Manifest) { $Diagnostic.pid_match } else { $null }
         lock_present = (Test-Path -LiteralPath "$runtimeManifest.lock")
     }
 }
@@ -241,7 +314,12 @@ function Observe-Readiness($Diagnostic, [int]$ExpectedPid, [System.Diagnostics.P
     if ($manifest) {
         $Diagnostic.manifest_status = [string]$manifest.status
         $Diagnostic.manifest_pid = [int]$manifest.pid
-        $Diagnostic.pid_match = ([int]$manifest.pid -eq $ExpectedPid)
+        $identity = Test-TrustedProcessIdentity $ExpectedPid ([int]$manifest.pid) $apiExecutable
+        $Diagnostic.process_identity = $identity.mode
+        $Diagnostic.executable_match = $identity.executable_match
+        $Diagnostic.ancestry_verified = $identity.ancestry_verified
+        $Diagnostic.creation_time_match = $identity.creation_time_match
+        $Diagnostic.pid_match = $identity.accepted
         $Diagnostic.port = [int]$manifest.port
         $listener = Get-ListenerSnapshot ([int]$manifest.port)
         $Diagnostic.listener_observed = [bool]$listener.observed
@@ -289,7 +367,7 @@ function Wait-ForReadinessDiagnostic($Diagnostic, [int]$ExpectedPid, [int]$Timeo
             $Diagnostic.process_exit_within_30s = $Diagnostic.elapsed_ms -le 30000
             return $false
         }
-        if ($manifest -and $manifest.status -eq "ready" -and $Diagnostic.pid_match -eq $true -and $Diagnostic.ready_status -eq 200) { return $true }
+        if ($manifest -and $manifest.status -eq "ready" -and $Diagnostic.pid_match -eq $true -and $Diagnostic.listener_pid -eq [int]$manifest.pid -and $Diagnostic.ready_status -eq 200) { return $true }
         Start-Sleep -Milliseconds 250
     }
     Observe-Readiness $Diagnostic $ExpectedPid $TauriProcess $ManagedProcess | Out-Null
@@ -371,6 +449,7 @@ function Wait-ForRuntimeReady {
     if (-not $success) {
         throw "Packaged API did not reach bounded loopback readiness."
     }
+    $script:runtimePid = [int]$diagnostic.manifest_pid
     return (Get-RuntimeManifest)
 }
 
@@ -529,7 +608,10 @@ try {
     Write-Phase "graceful_shutdown" "starting"
     $appProcess.CloseMainWindow()
     Wait-Until { $appProcess.Refresh(); return $appProcess.HasExited } $ShutdownTimeoutSeconds "Tauri process did not exit within the bounded shutdown window."
-    Wait-Until { $null -eq (Get-CimInstance Win32_Process -Filter "ProcessId=$apiPid" -ErrorAction SilentlyContinue) } $ShutdownTimeoutSeconds "Packaged API child did not exit after Tauri shutdown."
+    Wait-Until { $null -eq (Get-CimInstance Win32_Process -Filter "ProcessId=$apiPid" -ErrorAction SilentlyContinue) } $ShutdownTimeoutSeconds "Packaged API spawn root did not exit after Tauri shutdown."
+    Wait-Until { $null -eq (Get-CimInstance Win32_Process -Filter "ProcessId=$runtimePid" -ErrorAction SilentlyContinue) } $ShutdownTimeoutSeconds "Trusted packaged API runtime did not exit after Tauri shutdown."
+    $supervisedDiagnostic.child_still_alive = $false
+    $supervisedDiagnostic.runtime_gone = $true
     Assert-True (-not (Test-Path $runtimeManifest)) "Owned runtime manifest was not cleared after shutdown."
     Write-Phase "graceful_shutdown" "completed" @{ orphan_api = $false }
 
@@ -579,10 +661,12 @@ try {
         $deadline = [DateTime]::UtcNow.AddSeconds($ShutdownTimeoutSeconds)
         while (-not $appProcess.HasExited -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 250; $appProcess.Refresh() }
     }
-    if ($apiPid) {
-        $apiProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$apiPid" -ErrorAction SilentlyContinue
-        if ($apiProcess -and ([IO.Path]::GetFullPath($apiProcess.ExecutablePath) -ieq $apiExecutable)) {
-            Stop-Process -Id $apiPid -Force -ErrorAction SilentlyContinue
+    foreach ($processId in (@($apiPid, $runtimePid) | Select-Object -Unique)) {
+        if ($processId) {
+            $apiProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction SilentlyContinue
+            if ($apiProcess -and $apiProcess.ExecutablePath -and ([IO.Path]::GetFullPath($apiProcess.ExecutablePath) -ieq $apiExecutable)) {
+                Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+            }
         }
     }
     foreach ($name in @("tauri_supervised", "tauri_supervised_restart")) {
@@ -593,6 +677,7 @@ try {
             $treeIds = @()
             if ($appProcess) { $treeIds += [int]$appProcess.Id }
             if ($apiPid) { $treeIds += [int]$apiPid }
+            if ($runtimePid) { $treeIds += [int]$runtimePid }
             $tree = @(Get-VerifiedProcessTree $treeIds $apiExecutable $appExecutable)
             if ($tree.Count -gt 0) { $diagnostic.process_tree = $tree }
         }
