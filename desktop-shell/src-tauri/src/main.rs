@@ -11,9 +11,11 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
 struct RuntimeManifest {
+    instance_id: Uuid,
     base_url: String,
     pid: u32,
     port: u16,
@@ -100,9 +102,395 @@ struct RestoreStatusFile<'a> {
 #[derive(Default)]
 struct Processes {
     api: Option<Child>,
+    api_spawn_root: Option<TrustedProcessIdentity>,
+    api_runtime: Option<TrustedRuntimeIdentity>,
+    api_expected_instance_id: Option<Uuid>,
+    api_launch_started_at: Option<u64>,
+    api_expected_executable: Option<PathBuf>,
     web: Option<Child>,
     manifest: Option<PathBuf>,
     cleanup_executable: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TrustedProcessIdentity {
+    pid: u32,
+    executable_path: Option<PathBuf>,
+    parent_pid: Option<u32>,
+    creation_time: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RuntimeOwnershipMode {
+    SameProcess,
+    SpawnDescendant,
+    TauriHandoff,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TrustedRuntimeIdentity {
+    process: TrustedProcessIdentity,
+    instance_id: Uuid,
+    ownership_mode: RuntimeOwnershipMode,
+}
+
+const MAX_PROCESS_ANCESTRY_DEPTH: usize = 16;
+const LAUNCH_CLOCK_TOLERANCE_100NS: u64 = 2 * 10_000_000;
+const API_READINESS_TIMEOUT_SECONDS: u64 = 30;
+
+fn normalized_executable_path(path: &Path) -> Option<PathBuf> {
+    fs::canonicalize(path).ok()
+}
+
+fn process_identity_is_exact(identity: &TrustedProcessIdentity, expected: &Path) -> bool {
+    identity
+        .executable_path
+        .as_deref()
+        .and_then(normalized_executable_path)
+        .zip(normalized_executable_path(expected))
+        .is_some_and(|(actual, expected)| actual == expected)
+}
+
+fn same_process_identity(
+    expected: &TrustedProcessIdentity,
+    actual: &TrustedProcessIdentity,
+) -> bool {
+    expected.pid == actual.pid
+        && expected.creation_time.is_some()
+        && expected.creation_time == actual.creation_time
+        && expected
+            .executable_path
+            .as_deref()
+            .and_then(normalized_executable_path)
+            == actual
+                .executable_path
+                .as_deref()
+                .and_then(normalized_executable_path)
+}
+
+fn creation_time_is_in_launch_window(
+    creation_time: Option<u64>,
+    launch_started_at: u64,
+    readiness_deadline: u64,
+) -> bool {
+    creation_time.is_some_and(|time| {
+        time >= launch_started_at.saturating_sub(LAUNCH_CLOCK_TOLERANCE_100NS)
+            && time <= readiness_deadline
+    })
+}
+
+fn lineage_reaches(
+    candidate: &TrustedProcessIdentity,
+    target: &TrustedProcessIdentity,
+    graph: &[TrustedProcessIdentity],
+) -> bool {
+    let mut current = candidate;
+    let mut visited = vec![current.pid];
+    for _ in 0..MAX_PROCESS_ANCESTRY_DEPTH {
+        let Some(parent_pid) = current.parent_pid else {
+            return false;
+        };
+        if visited.contains(&parent_pid) {
+            return false;
+        }
+        if parent_pid == target.pid {
+            let Some(parent) = graph.iter().find(|item| item.pid == parent_pid) else {
+                return false;
+            };
+            return same_process_identity(target, parent);
+        }
+        let Some(parent) = graph.iter().find(|item| item.pid == parent_pid) else {
+            return false;
+        };
+        current = parent;
+        visited.push(current.pid);
+    }
+    false
+}
+
+fn trusted_runtime_from_graph(
+    spawn_root: &TrustedProcessIdentity,
+    tauri_identity: &TrustedProcessIdentity,
+    candidate_pid: u32,
+    expected_executable: &Path,
+    expected_instance_id: Uuid,
+    observed_instance_id: Uuid,
+    launch_started_at: u64,
+    readiness_deadline: u64,
+    graph: &[TrustedProcessIdentity],
+) -> Option<TrustedRuntimeIdentity> {
+    if observed_instance_id != expected_instance_id {
+        return None;
+    }
+    let candidate = graph.iter().find(|item| item.pid == candidate_pid)?;
+    if !process_identity_is_exact(candidate, expected_executable)
+        || !creation_time_is_in_launch_window(
+            candidate.creation_time,
+            launch_started_at,
+            readiness_deadline,
+        )
+    {
+        return None;
+    }
+    let ownership_mode = if candidate.pid == spawn_root.pid {
+        same_process_identity(spawn_root, candidate).then_some(RuntimeOwnershipMode::SameProcess)
+    } else if lineage_reaches(candidate, spawn_root, graph) {
+        Some(RuntimeOwnershipMode::SpawnDescendant)
+    } else if lineage_reaches(candidate, tauri_identity, graph) {
+        Some(RuntimeOwnershipMode::TauriHandoff)
+    } else {
+        None
+    }?;
+    Some(TrustedRuntimeIdentity {
+        process: candidate.clone(),
+        instance_id: expected_instance_id,
+        ownership_mode,
+    })
+}
+
+#[cfg(windows)]
+mod windows_process {
+    use super::{normalized_executable_path, TrustedProcessIdentity};
+    use std::collections::HashMap;
+    use std::ffi::OsString;
+    use std::os::windows::ffi::OsStringExt;
+    use std::path::PathBuf;
+    use std::thread;
+    use std::time::{Duration, Instant};
+    use windows_sys::Win32::Foundation::{CloseHandle, FILETIME, HANDLE};
+    use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+        TH32CS_SNAPPROCESS,
+    };
+    use windows_sys::Win32::System::SystemInformation::GetSystemTimeAsFileTime;
+    use windows_sys::Win32::System::Threading::{
+        GetProcessTimes, OpenProcess, QueryFullProcessImageNameW, TerminateProcess,
+        PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE,
+    };
+
+    struct Handle(HANDLE);
+    impl Drop for Handle {
+        fn drop(&mut self) {
+            if !self.0.is_null() {
+                unsafe { CloseHandle(self.0) };
+            }
+        }
+    }
+
+    fn process_handle(pid: u32, rights: u32) -> Option<Handle> {
+        let handle = unsafe { OpenProcess(rights, 0, pid) };
+        (!handle.is_null()).then_some(Handle(handle))
+    }
+
+    fn creation_time(handle: HANDLE) -> Option<u64> {
+        let mut created = FILETIME {
+            dwLowDateTime: 0,
+            dwHighDateTime: 0,
+        };
+        let mut exited = FILETIME {
+            dwLowDateTime: 0,
+            dwHighDateTime: 0,
+        };
+        let mut kernel = FILETIME {
+            dwLowDateTime: 0,
+            dwHighDateTime: 0,
+        };
+        let mut user = FILETIME {
+            dwLowDateTime: 0,
+            dwHighDateTime: 0,
+        };
+        let ok =
+            unsafe { GetProcessTimes(handle, &mut created, &mut exited, &mut kernel, &mut user) };
+        (ok != 0)
+            .then_some((u64::from(created.dwHighDateTime) << 32) | u64::from(created.dwLowDateTime))
+    }
+
+    fn executable_path(handle: HANDLE) -> Option<PathBuf> {
+        let mut buffer = vec![0_u16; 32768];
+        let mut length = buffer.len() as u32;
+        let ok = unsafe { QueryFullProcessImageNameW(handle, 0, buffer.as_mut_ptr(), &mut length) };
+        if ok == 0 || length == 0 {
+            return None;
+        }
+        normalized_executable_path(&PathBuf::from(OsString::from_wide(
+            &buffer[..length as usize],
+        )))
+    }
+
+    fn parent_pid(pid: u32) -> Option<u32> {
+        let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+        if snapshot.is_null() {
+            return None;
+        }
+        let snapshot = Handle(snapshot);
+        let mut entry = PROCESSENTRY32W {
+            dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+            ..unsafe { std::mem::zeroed() }
+        };
+        let mut found = unsafe { Process32FirstW(snapshot.0, &mut entry) } != 0;
+        while found {
+            if entry.th32ProcessID == pid {
+                return Some(entry.th32ParentProcessID);
+            }
+            found = unsafe { Process32NextW(snapshot.0, &mut entry) } != 0;
+        }
+        None
+    }
+
+    fn process_parents() -> Option<HashMap<u32, u32>> {
+        let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+        if snapshot.is_null() {
+            return None;
+        }
+        let snapshot = Handle(snapshot);
+        let mut entry = PROCESSENTRY32W {
+            dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+            ..unsafe { std::mem::zeroed() }
+        };
+        let mut parents = HashMap::new();
+        let mut found = unsafe { Process32FirstW(snapshot.0, &mut entry) } != 0;
+        while found {
+            parents.insert(entry.th32ProcessID, entry.th32ParentProcessID);
+            found = unsafe { Process32NextW(snapshot.0, &mut entry) } != 0;
+        }
+        Some(parents)
+    }
+
+    fn capture_with_parent(pid: u32, parent_pid: Option<u32>) -> Option<TrustedProcessIdentity> {
+        let handle = process_handle(pid, PROCESS_QUERY_LIMITED_INFORMATION)?;
+        Some(TrustedProcessIdentity {
+            pid,
+            executable_path: executable_path(handle.0),
+            parent_pid,
+            creation_time: creation_time(handle.0),
+        })
+    }
+
+    pub(super) fn capture(pid: u32) -> Option<TrustedProcessIdentity> {
+        capture_with_parent(pid, parent_pid(pid))
+    }
+
+    pub(super) fn capture_process_lineage(
+        candidate_pid: u32,
+        anchors: &[&TrustedProcessIdentity],
+    ) -> Option<Vec<TrustedProcessIdentity>> {
+        let parents = process_parents()?;
+        let mut graph = Vec::new();
+        let mut pid = candidate_pid;
+        for _ in 0..=super::MAX_PROCESS_ANCESTRY_DEPTH {
+            let parent = *parents.get(&pid)?;
+            graph.push(capture_with_parent(pid, Some(parent))?);
+            if let Some(anchor) = anchors.iter().find(|anchor| anchor.pid == parent) {
+                graph.push((*anchor).clone());
+                return Some(graph);
+            }
+            if parent == pid {
+                return Some(graph);
+            }
+            pid = parent;
+        }
+        Some(graph)
+    }
+
+    pub(super) fn now_filetime() -> u64 {
+        let mut current = FILETIME {
+            dwLowDateTime: 0,
+            dwHighDateTime: 0,
+        };
+        unsafe { GetSystemTimeAsFileTime(&mut current) };
+        (u64::from(current.dwHighDateTime) << 32) | u64::from(current.dwLowDateTime)
+    }
+
+    pub(super) fn terminate(identity: &TrustedProcessIdentity) -> bool {
+        let Some(current) = capture(identity.pid) else {
+            return false;
+        };
+        if !super::same_process_identity(identity, &current) {
+            return false;
+        }
+        let Some(handle) = process_handle(
+            identity.pid,
+            PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE,
+        ) else {
+            return false;
+        };
+        unsafe { TerminateProcess(handle.0, 1) != 0 }
+    }
+
+    pub(super) fn wait_until_gone(identity: &TrustedProcessIdentity, timeout: Duration) -> bool {
+        let deadline = Instant::now() + timeout;
+        while Instant::now() < deadline {
+            match capture(identity.pid) {
+                None => return true,
+                Some(current) if !super::same_process_identity(identity, &current) => return false,
+                Some(_) => thread::sleep(Duration::from_millis(100)),
+            }
+        }
+        capture(identity.pid).is_none()
+    }
+}
+
+#[cfg(windows)]
+fn capture_process_identity(pid: u32) -> Option<TrustedProcessIdentity> {
+    windows_process::capture(pid)
+}
+
+#[cfg(not(windows))]
+fn capture_process_identity(pid: u32) -> Option<TrustedProcessIdentity> {
+    Some(TrustedProcessIdentity {
+        pid,
+        executable_path: None,
+        parent_pid: None,
+        creation_time: None,
+    })
+}
+
+#[cfg(windows)]
+fn process_launch_time() -> u64 {
+    windows_process::now_filetime()
+}
+
+#[cfg(not(windows))]
+fn process_launch_time() -> u64 {
+    0
+}
+
+fn trusted_runtime_identity(
+    spawn_root: &TrustedProcessIdentity,
+    tauri_identity: &TrustedProcessIdentity,
+    candidate_pid: u32,
+    expected_executable: &Path,
+    expected_instance_id: Uuid,
+    observed_instance_id: Uuid,
+    launch_started_at: u64,
+    readiness_deadline: u64,
+) -> Option<TrustedRuntimeIdentity> {
+    #[cfg(windows)]
+    {
+        let graph =
+            windows_process::capture_process_lineage(candidate_pid, &[spawn_root, tauri_identity])?;
+        return trusted_runtime_from_graph(
+            spawn_root,
+            tauri_identity,
+            candidate_pid,
+            expected_executable,
+            expected_instance_id,
+            observed_instance_id,
+            launch_started_at,
+            readiness_deadline,
+            &graph,
+        );
+    }
+    #[cfg(not(windows))]
+    {
+        (candidate_pid == spawn_root.pid && observed_instance_id == expected_instance_id).then(
+            || TrustedRuntimeIdentity {
+                process: spawn_root.clone(),
+                instance_id: expected_instance_id,
+                ownership_mode: RuntimeOwnershipMode::SameProcess,
+            },
+        )
+    }
 }
 
 #[derive(Default)]
@@ -443,6 +831,9 @@ impl DesktopProcesses {
         } else {
             return Err("Packaged FastAPI artifact was not configured. Build the Windows package with scripts/windows/Build-Windows-Installer.ps1.".to_string());
         };
+        let tauri_identity = capture_process_identity(std::process::id())
+            .ok_or_else(|| "Could not capture Tauri process identity".to_string())?;
+        let expected_runtime_instance_id = Uuid::new_v4();
         let restore = apply_pending_restore(&app_data, &database_path)?;
         let migration = match prepare_migration(
             &api_executable,
@@ -459,6 +850,7 @@ impl DesktopProcesses {
                 return Err(error);
             }
         };
+        let launch_started_at = process_launch_time();
         let api_child = Command::new(&api_executable)
             .args(api_arguments)
             .current_dir(&api_working_directory)
@@ -473,12 +865,20 @@ impl DesktopProcesses {
             .env("ENVIRONMENT", "test")
             .env("API_HOST", "127.0.0.1")
             .env("API_PORT", "0")
+            .env(
+                "SAPSOS_RUNTIME_INSTANCE_ID",
+                expected_runtime_instance_id.to_string(),
+            )
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
             .map_err(|error| format!("Could not start FastAPI child: {error}"))?;
         let api_pid = api_child.id();
+        let expected_executable =
+            normalized_executable_path(&api_executable).unwrap_or_else(|| api_executable.clone());
+        let api_spawn_root = capture_process_identity(api_pid)
+            .ok_or_else(|| "Could not capture packaged API spawn identity".to_string())?;
         let manifest_path = app_data.join("runtime.json");
         let cleanup_executable = if packaged_resource_dir.is_some() {
             Some(api_executable.clone())
@@ -486,11 +886,24 @@ impl DesktopProcesses {
             None
         };
         guard.api = Some(api_child);
+        guard.api_spawn_root = Some(api_spawn_root.clone());
+        guard.api_expected_instance_id = Some(expected_runtime_instance_id);
+        guard.api_launch_started_at = Some(launch_started_at);
+        guard.api_expected_executable = Some(expected_executable.clone());
+        guard.api_runtime = None;
         guard.manifest = Some(manifest_path.clone());
         guard.cleanup_executable = cleanup_executable;
         drop(guard);
 
-        let api_manifest = match wait_for_api(&self.0, &manifest_path, api_pid) {
+        let api_manifest = match wait_for_api(
+            &self.0,
+            &manifest_path,
+            &api_spawn_root,
+            &tauri_identity,
+            &expected_executable,
+            expected_runtime_instance_id,
+            launch_started_at,
+        ) {
             Ok(manifest) => {
                 if let Some(application) = restore {
                     finalize_restore(&application)?;
@@ -550,22 +963,60 @@ impl DesktopProcesses {
     }
 
     fn stop(&self) {
-        let cleanup_executable = if let Ok(mut guard) = self.0.lock() {
-            if let Some(mut child) = guard.web.take() {
-                let _ = child.kill();
-                let _ = child.wait();
+        let (cleanup_executable, api_runtime, expected_instance_id, manifest_path) =
+            if let Ok(mut guard) = self.0.lock() {
+                if let Some(mut child) = guard.web.take() {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                }
+                if let Some(mut child) = guard.api.take() {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                }
+                let api_runtime = guard.api_runtime.take();
+                guard.api_spawn_root.take();
+                let expected_instance_id = guard.api_expected_instance_id.take();
+                guard.api_launch_started_at.take();
+                guard.api_expected_executable.take();
+                (
+                    guard.cleanup_executable.take(),
+                    api_runtime,
+                    expected_instance_id,
+                    guard.manifest.take(),
+                )
+            } else {
+                (None, None, None, None)
+            };
+        #[cfg(windows)]
+        let mut runtime_cleanup_allowed = true;
+        #[cfg(windows)]
+        if let Some(identity) = api_runtime {
+            let _ = windows_process::terminate(&identity.process);
+            runtime_cleanup_allowed = windows_process::wait_until_gone(
+                &identity.process,
+                Duration::from_secs(API_READINESS_TIMEOUT_SECONDS),
+            );
+        }
+        if let (Some(manifest_path), Some(expected_instance_id)) =
+            (manifest_path, expected_instance_id)
+        {
+            let owned = fs::read_to_string(&manifest_path)
+                .ok()
+                .and_then(|contents| serde_json::from_str::<RuntimeManifest>(&contents).ok())
+                .is_some_and(|manifest| manifest.instance_id == expected_instance_id);
+            if owned && {
+                #[cfg(windows)]
+                {
+                    runtime_cleanup_allowed
+                }
+                #[cfg(not(windows))]
+                {
+                    true
+                }
+            } {
+                let _ = fs::remove_file(manifest_path);
             }
-            if let Some(mut child) = guard.api.take() {
-                let _ = child.kill();
-                let _ = child.wait();
-            }
-            if let Some(manifest) = guard.manifest.take() {
-                let _ = fs::remove_file(manifest);
-            }
-            guard.cleanup_executable.take()
-        } else {
-            None
-        };
+        }
         let Some(executable) = cleanup_executable else {
             return;
         };
@@ -833,33 +1284,57 @@ fn local_app_data_root() -> PathBuf {
 fn wait_for_api(
     processes: &Mutex<Processes>,
     manifest_path: &Path,
-    child_pid: u32,
+    spawn_root: &TrustedProcessIdentity,
+    tauri_identity: &TrustedProcessIdentity,
+    expected_executable: &Path,
+    expected_instance_id: Uuid,
+    launch_started_at: u64,
 ) -> Result<RuntimeManifest, String> {
-    let deadline = Instant::now() + Duration::from_secs(30);
+    let deadline = Instant::now() + Duration::from_secs(API_READINESS_TIMEOUT_SECONDS);
+    let readiness_deadline =
+        launch_started_at.saturating_add(API_READINESS_TIMEOUT_SECONDS * 10_000_000);
+    let mut provisional_runtime = None;
     while Instant::now() < deadline {
-        if let Ok(mut guard) = processes.lock() {
-            if let Some(child) = guard.api.as_mut() {
-                if let Some(status) = child
-                    .try_wait()
-                    .map_err(|error| format!("Could not inspect FastAPI child: {error}"))?
-                {
-                    return Err(format!("FastAPI child exited before readiness: {status}"));
-                }
-            }
-        }
         if let Ok(contents) = fs::read_to_string(manifest_path) {
             if let Ok(manifest) = serde_json::from_str::<RuntimeManifest>(&contents) {
-                if manifest.pid == child_pid
-                    && manifest.status == "ready"
-                    && http_probe(manifest.port, "/ready")
-                {
-                    return Ok(manifest);
+                if manifest.instance_id != expected_instance_id {
+                    thread::sleep(Duration::from_millis(100));
+                    continue;
+                }
+                if manifest.status == "ready" {
+                    if manifest.port == 0
+                        || manifest.base_url != format!("http://127.0.0.1:{}", manifest.port)
+                    {
+                        thread::sleep(Duration::from_millis(100));
+                        continue;
+                    }
+                    let Some(runtime) = trusted_runtime_identity(
+                        spawn_root,
+                        tauri_identity,
+                        manifest.pid,
+                        expected_executable,
+                        expected_instance_id,
+                        manifest.instance_id,
+                        launch_started_at,
+                        readiness_deadline,
+                    ) else {
+                        thread::sleep(Duration::from_millis(100));
+                        continue;
+                    };
+                    provisional_runtime = Some(runtime.clone());
+                    if let Ok(mut guard) = processes.lock() {
+                        guard.api_runtime = provisional_runtime.clone();
+                    }
+                    if http_probe(manifest.port, "/ready") {
+                        return Ok(manifest);
+                    }
                 }
             }
         }
         thread::sleep(Duration::from_millis(100));
     }
-    Err("FastAPI child did not become ready within 30 seconds".to_string())
+    let _ = provisional_runtime;
+    Err("PACKAGED_API_IDENTITY_MISMATCH: packaged API did not become ready with a trusted process identity within 30 seconds".to_string())
 }
 
 #[cfg(debug_assertions)]
@@ -886,16 +1361,18 @@ fn wait_for_web(processes: &Mutex<Processes>, web_pid: u32) -> Result<(), String
     ))
 }
 
+fn readiness_probe_request(port: u16, path: &str) -> Vec<u8> {
+    format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n")
+        .into_bytes()
+}
+
 fn http_probe(port: u16, path: &str) -> bool {
     let address = SocketAddr::from(([127, 0, 0, 1], port));
     let Ok(mut stream) = TcpStream::connect_timeout(&address, Duration::from_millis(500)) else {
         return false;
     };
     if stream
-        .write_all(
-            format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
-                .as_bytes(),
-        )
+        .write_all(&readiness_probe_request(port, path))
         .is_err()
     {
         return false;
@@ -920,6 +1397,377 @@ mod tests {
         let root = std::env::temp_dir().join(format!("sapsos-restore-{name}-{suffix}"));
         fs::create_dir_all(&root).expect("create test root");
         root
+    }
+
+    fn process_fixture(root: &Path) -> (PathBuf, TrustedProcessIdentity) {
+        let executable = root.join("sapsos-api.exe");
+        fs::write(&executable, b"test").expect("write executable fixture");
+        let identity = TrustedProcessIdentity {
+            pid: 10,
+            executable_path: Some(executable.clone()),
+            parent_pid: Some(20),
+            creation_time: Some(100_000_000),
+        };
+        (executable, identity)
+    }
+
+    fn tauri_fixture(root: &Path) -> TrustedProcessIdentity {
+        let executable = root.join("sapsos-local-desktop.exe");
+        fs::write(&executable, b"tauri").expect("write Tauri fixture");
+        TrustedProcessIdentity {
+            pid: 20,
+            executable_path: Some(executable),
+            parent_pid: Some(1),
+            creation_time: Some(90_000_000),
+        }
+    }
+
+    fn expected_instance_id() -> Uuid {
+        Uuid::from_u128(0x1234_5678_1234_4234_8234_1234_5678_9abc)
+    }
+
+    fn trust(
+        spawn: &TrustedProcessIdentity,
+        tauri: &TrustedProcessIdentity,
+        candidate_pid: u32,
+        executable: &Path,
+        instance_id: Uuid,
+        graph: &[TrustedProcessIdentity],
+    ) -> Option<TrustedRuntimeIdentity> {
+        trust_with_observed_instance(
+            spawn,
+            tauri,
+            candidate_pid,
+            executable,
+            instance_id,
+            instance_id,
+            graph,
+        )
+    }
+
+    fn trust_with_observed_instance(
+        spawn: &TrustedProcessIdentity,
+        tauri: &TrustedProcessIdentity,
+        candidate_pid: u32,
+        executable: &Path,
+        expected_instance_id: Uuid,
+        observed_instance_id: Uuid,
+        graph: &[TrustedProcessIdentity],
+    ) -> Option<TrustedRuntimeIdentity> {
+        trusted_runtime_from_graph(
+            spawn,
+            tauri,
+            candidate_pid,
+            executable,
+            expected_instance_id,
+            observed_instance_id,
+            100_000_000,
+            200_000_000,
+            graph,
+        )
+    }
+
+    #[test]
+    fn trusted_identity_accepts_same_process_with_correct_instance() {
+        let root = test_root("identity-root");
+        let (executable, spawn) = process_fixture(&root);
+        let tauri = tauri_fixture(&root);
+        let trusted = trust(
+            &spawn,
+            &tauri,
+            10,
+            &executable,
+            expected_instance_id(),
+            &[spawn.clone()],
+        )
+        .expect("same process should be trusted");
+        assert_eq!(trusted.ownership_mode, RuntimeOwnershipMode::SameProcess);
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[test]
+    fn trusted_identity_accepts_spawn_descendant_and_grandchild() {
+        let root = test_root("identity-descendants");
+        let (executable, spawn) = process_fixture(&root);
+        let tauri = tauri_fixture(&root);
+        let child = TrustedProcessIdentity {
+            pid: 11,
+            parent_pid: Some(10),
+            creation_time: Some(100_000_001),
+            ..spawn.clone()
+        };
+        let grandchild = TrustedProcessIdentity {
+            pid: 12,
+            parent_pid: Some(11),
+            creation_time: Some(100_000_002),
+            ..spawn.clone()
+        };
+        let graph = vec![grandchild.clone(), child.clone(), spawn.clone()];
+        assert_eq!(
+            trust(
+                &spawn,
+                &tauri,
+                11,
+                &executable,
+                expected_instance_id(),
+                &graph,
+            )
+            .expect("descendant should be trusted")
+            .ownership_mode,
+            RuntimeOwnershipMode::SpawnDescendant
+        );
+        assert_eq!(
+            trust(
+                &spawn,
+                &tauri,
+                12,
+                &executable,
+                expected_instance_id(),
+                &graph,
+            )
+            .expect("grandchild should be trusted")
+            .ownership_mode,
+            RuntimeOwnershipMode::SpawnDescendant
+        );
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[test]
+    fn trusted_identity_accepts_tauri_handoff_child_and_grandchild() {
+        let root = test_root("identity-handoff");
+        let (executable, spawn) = process_fixture(&root);
+        let tauri = tauri_fixture(&root);
+        let handoff_child = TrustedProcessIdentity {
+            pid: 30,
+            parent_pid: Some(20),
+            creation_time: Some(100_000_001),
+            ..spawn.clone()
+        };
+        let handoff_grandchild = TrustedProcessIdentity {
+            pid: 31,
+            parent_pid: Some(30),
+            creation_time: Some(100_000_002),
+            ..spawn.clone()
+        };
+        let graph = vec![
+            handoff_grandchild.clone(),
+            handoff_child.clone(),
+            tauri.clone(),
+        ];
+        assert_eq!(
+            trust(
+                &spawn,
+                &tauri,
+                30,
+                &executable,
+                expected_instance_id(),
+                &graph,
+            )
+            .expect("handoff child should be trusted")
+            .ownership_mode,
+            RuntimeOwnershipMode::TauriHandoff
+        );
+        assert_eq!(
+            trust(
+                &spawn,
+                &tauri,
+                31,
+                &executable,
+                expected_instance_id(),
+                &graph,
+            )
+            .expect("handoff grandchild should be trusted")
+            .ownership_mode,
+            RuntimeOwnershipMode::TauriHandoff
+        );
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[test]
+    fn trusted_identity_rejects_wrong_instance_and_executable() {
+        let root = test_root("identity-rejections");
+        let (executable, spawn) = process_fixture(&root);
+        let tauri = tauri_fixture(&root);
+        let unrelated = TrustedProcessIdentity {
+            pid: 12,
+            parent_pid: Some(1),
+            creation_time: Some(100_000_002),
+            ..spawn.clone()
+        };
+        let other = root.join("other.exe");
+        fs::write(&other, b"other").expect("write other fixture");
+        let wrong = TrustedProcessIdentity {
+            pid: 11,
+            parent_pid: Some(10),
+            executable_path: Some(other),
+            creation_time: Some(100_000_001),
+            ..spawn.clone()
+        };
+        assert!(trust(
+            &spawn,
+            &tauri,
+            12,
+            &executable,
+            expected_instance_id(),
+            &[spawn.clone(), unrelated],
+        )
+        .is_none());
+        assert!(trust(
+            &spawn,
+            &tauri,
+            11,
+            &executable,
+            expected_instance_id(),
+            &[spawn.clone(), wrong],
+        )
+        .is_none());
+        let handoff = TrustedProcessIdentity {
+            pid: 30,
+            parent_pid: Some(20),
+            creation_time: Some(100_000_001),
+            ..spawn.clone()
+        };
+        assert!(trust_with_observed_instance(
+            &spawn,
+            &tauri,
+            30,
+            &executable,
+            expected_instance_id(),
+            Uuid::new_v4(),
+            &[handoff, tauri.clone()],
+        )
+        .is_none());
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[test]
+    fn trusted_identity_rejects_prelaunch_process_and_unrelated_ancestry() {
+        let root = test_root("identity-race");
+        let (executable, spawn) = process_fixture(&root);
+        let tauri = tauri_fixture(&root);
+        let prelaunch = TrustedProcessIdentity {
+            pid: 11,
+            parent_pid: Some(20),
+            creation_time: Some(0),
+            ..spawn.clone()
+        };
+        let unrelated = TrustedProcessIdentity {
+            pid: 12,
+            parent_pid: Some(99),
+            creation_time: Some(100_000_002),
+            ..spawn.clone()
+        };
+        assert!(trust(
+            &spawn,
+            &tauri,
+            11,
+            &executable,
+            expected_instance_id(),
+            &[prelaunch, tauri.clone()],
+        )
+        .is_none());
+        assert!(trust(
+            &spawn,
+            &tauri,
+            12,
+            &executable,
+            expected_instance_id(),
+            &[unrelated],
+        )
+        .is_none());
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[test]
+    fn trusted_identity_rejects_pid_reuse_cleanup_and_missing_process() {
+        let root = test_root("identity-cleanup");
+        let (executable, spawn) = process_fixture(&root);
+        let tauri = tauri_fixture(&root);
+        let handoff = TrustedProcessIdentity {
+            pid: 30,
+            parent_pid: Some(20),
+            creation_time: Some(100_000_001),
+            ..spawn.clone()
+        };
+        let trusted = trust(
+            &spawn,
+            &tauri,
+            30,
+            &executable,
+            expected_instance_id(),
+            &[handoff.clone(), tauri.clone()],
+        )
+        .expect("handoff should be trusted");
+        let reused = TrustedProcessIdentity {
+            creation_time: Some(999_999_999),
+            ..handoff
+        };
+        assert!(!same_process_identity(&trusted.process, &reused));
+        assert!(trust(
+            &spawn,
+            &tauri,
+            999,
+            &executable,
+            expected_instance_id(),
+            &[tauri.clone()],
+        )
+        .is_none());
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[test]
+    fn trusted_identity_rejects_cycles_and_excessive_depth() {
+        let root = test_root("identity-bounds");
+        let (executable, spawn) = process_fixture(&root);
+        let tauri = tauri_fixture(&root);
+        let cycle_a = TrustedProcessIdentity {
+            pid: 11,
+            parent_pid: Some(12),
+            creation_time: Some(100_000_001),
+            ..spawn.clone()
+        };
+        let cycle_b = TrustedProcessIdentity {
+            pid: 12,
+            parent_pid: Some(11),
+            creation_time: Some(100_000_002),
+            ..spawn.clone()
+        };
+        assert!(trust(
+            &spawn,
+            &tauri,
+            11,
+            &executable,
+            expected_instance_id(),
+            &[spawn.clone(), cycle_a, cycle_b],
+        )
+        .is_none());
+        let mut deep = vec![spawn.clone()];
+        for pid in 11..=(11 + MAX_PROCESS_ANCESTRY_DEPTH as u32) {
+            deep.push(TrustedProcessIdentity {
+                pid,
+                parent_pid: Some(pid - 1),
+                creation_time: Some(100_000_000 + u64::from(pid)),
+                ..spawn.clone()
+            });
+        }
+        assert!(trust(
+            &spawn,
+            &tauri,
+            11 + MAX_PROCESS_ANCESTRY_DEPTH as u32,
+            &executable,
+            expected_instance_id(),
+            &deep,
+        )
+        .is_none());
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[test]
+    fn readiness_probe_includes_dynamic_port_in_host() {
+        let request = String::from_utf8(readiness_probe_request(49152, "/ready"))
+            .expect("probe request is valid UTF-8");
+        assert!(request.contains("GET /ready HTTP/1.1"));
+        assert!(request.contains("Host: 127.0.0.1:49152"));
     }
 
     fn marker(root: &Path, staged: &Path, request_id: &str) {

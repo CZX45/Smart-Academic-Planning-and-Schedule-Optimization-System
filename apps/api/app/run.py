@@ -11,6 +11,7 @@ from app.runtime.discovery import (
     new_runtime_manifest,
     publish_runtime_manifest,
     read_runtime_manifest,
+    runtime_instance_id_from_environment,
 )
 
 if __name__ == "__main__":
@@ -41,7 +42,11 @@ if __name__ == "__main__":
         Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / APP_DATA_DIR_NAME
     )
     settings.runtime_manifest_path = manifest_path
-    manifest = new_runtime_manifest(host=settings.api_host, port=port)
+    manifest = new_runtime_manifest(
+        host=settings.api_host,
+        port=port,
+        instance_id=runtime_instance_id_from_environment(),
+    )
     publish_runtime_manifest(manifest_path, manifest)
     try:
         uvicorn.run("app.main:app", host=settings.api_host, port=port, reload=False)

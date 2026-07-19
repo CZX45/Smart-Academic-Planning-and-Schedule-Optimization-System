@@ -40,12 +40,28 @@ def default_runtime_manifest_path(data_directory: Path) -> Path:
     return data_directory / RUNTIME_MANIFEST_NAME
 
 
-def new_runtime_manifest(*, host: str, port: int, pid: int | None = None) -> RuntimeManifest:
+def runtime_instance_id_from_environment() -> UUID:
+    raw_instance_id = os.environ.get("SAPSOS_RUNTIME_INSTANCE_ID")
+    if raw_instance_id is None:
+        return uuid4()
+    try:
+        return UUID(raw_instance_id)
+    except ValueError as error:
+        raise RuntimeError("SAPSOS_RUNTIME_INSTANCE_ID must be a valid UUID.") from error
+
+
+def new_runtime_manifest(
+    *,
+    host: str,
+    port: int,
+    pid: int | None = None,
+    instance_id: UUID | None = None,
+) -> RuntimeManifest:
     resolved_pid = pid if pid is not None else os.getpid()
     url_host = f"[{host}]" if ":" in host and not host.startswith("[") else host
     base_url = f"http://{url_host}:{port}"
     return RuntimeManifest(
-        instance_id=uuid4(),
+        instance_id=instance_id if instance_id is not None else uuid4(),
         pid=resolved_pid,
         host=host,
         port=port,

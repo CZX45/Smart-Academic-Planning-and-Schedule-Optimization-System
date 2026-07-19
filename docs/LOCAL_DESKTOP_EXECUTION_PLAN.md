@@ -135,7 +135,8 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 20. Windows Installer Lifecycle Safety — complete through PR #77.
 21. Installer Documentation Closeout — complete through this documentation-only
     PR.
-22. Packaged Desktop E2E — next milestone; not started.
+22. Packaged Desktop E2E — in progress; real installed-runtime validation is
+    being added in this milestone.
 23. Controlled Student Beta — not started.
 24. Release Candidate — not started.
 
@@ -613,8 +614,8 @@ PR; Packaged Desktop E2E is next.
 
 ## Resume checkpoint
 
-- Current milestone: Installer Documentation Closeout is complete; Packaged
-  Desktop E2E is next and not started.
+- Current milestone: Packaged Desktop E2E is in progress; Controlled Student
+  Beta remains not started.
 - Stage 10 status: complete.
 - Stage 11 status: Real Section Import complete; PRs #56, #57, and #58 merged.
 - Real Section Optimizer Integration: complete; PRs #60 and #61 merged.
@@ -1353,3 +1354,25 @@ and production publishing are not implemented. Packaged Desktop E2E is also
 not complete: it still needs real desktop startup, Tauri-to-packaged-API
 supervision/readiness, static UI rendering, key workflows, restart/persistence,
 extension/local integration where applicable, and failure/recovery behavior.
+
+### Packaged Desktop E2E — in progress
+
+This milestone adds one bounded Windows workflow that builds the current NSIS
+installer once, installs it into an isolated root, launches the installed Tauri
+executable, proves that the installed packaged FastAPI sidecar reaches
+loopback readiness, and verifies the static WebView2 shell through Windows UI
+Automation. The synthetic workflow uses the existing sanitized MyProgress
+fixture through the visible import, review, and explicit apply controls; it
+does not insert SQLite rows or add a production automation boundary.
+
+The harness uses the existing supported `initialize_database` helper to prepare
+an empty valid LOCAL_DESKTOP SQLite fixture because Tauri preflight requires a
+database before it can run the local migration contract; it does not insert
+domain rows or fabricate a schema version. The packaged app then performs the
+real preflight, sidecar startup, readiness, and WebView launch. The harness
+checks stable AppData identity across a graceful shutdown and relaunch, stale
+runtime metadata recovery, diagnostics refresh, exact packaged-process cleanup,
+and sanitized evidence screenshots and summary JSON. The Windows workflow is
+the authoritative real-desktop proof; local API-only or Web development-server
+tests remain supplementary. The milestone is not complete until the installed
+WebView2 workflow and evidence artifact pass on the Windows runner.
