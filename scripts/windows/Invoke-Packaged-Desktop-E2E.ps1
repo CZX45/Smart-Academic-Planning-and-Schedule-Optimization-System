@@ -29,6 +29,7 @@ $script:tauriIdentity = $null
 $script:firstRuntimeInstanceId = $null
 $script:uiAutomationDiagnostics = [System.Collections.Generic.List[object]]::new()
 $script:uiNativeMethodsLoaded = $false
+$script:uiMouseMethodsLoaded = $false
 $currentPhase = "initialization"
 $appProcess = $null
 $apiPid = $null
@@ -610,6 +611,24 @@ public static class SapsosUiNativeMethods {
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool IsIconic(IntPtr hWnd);
 }
+
+function Find-UiElementAny([string[]]$Names) {
+    foreach ($name in $Names) {
+        $element = Find-UiElement $name
+        if ($null -ne $element) { return [pscustomobject]@{ Name = $name; Element = $element } }
+    }
+    return $null
+}
+
+function Try-Wait-UiElementAny([string[]]$Names, [int]$TimeoutSeconds) {
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $deadline) {
+        $match = Find-UiElementAny $Names
+        if ($null -ne $match) { return $match }
+        Start-Sleep -Milliseconds 250
+    }
+    return $null
+}
 "@
             $script:uiNativeMethodsLoaded = $true
         }
@@ -735,6 +754,44 @@ function Invoke-UiButton([string]$Name) {
     }
 }
 
+function Invoke-UiElementByBoundingRectangle([string]$Name) {
+    $element = Wait-UiActionElement $Name
+    $current = $element.Current
+    $bounds = $current.BoundingRectangle
+    $window = Get-MainWindow
+    if ($null -eq $window) { throw "Main Tauri window was not available for bounded UI fallback." }
+    $windowEvidence = Get-UiWindowEvidence $window
+    if (-not $windowEvidence.window_foreground -or $windowEvidence.window_minimized) {
+        throw "Main Tauri window was not foreground and visible for bounded UI fallback."
+    }
+    if ($bounds.Width -le 0 -or $bounds.Height -le 0) {
+        throw "UI element did not expose a valid bounding rectangle for bounded fallback."
+    }
+    if (-not $script:uiMouseMethodsLoaded) {
+        Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class SapsosUiMouseMethods {
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extraInfo);
+}
+"@
+        $script:uiMouseMethodsLoaded = $true
+    }
+    $x = [int][Math]::Round($bounds.X + ($bounds.Width / 2))
+    $y = [int][Math]::Round($bounds.Y + ($bounds.Height / 2))
+    if (-not [SapsosUiMouseMethods]::SetCursorPos($x, $y)) {
+        throw "Could not position the cursor on the exact UI element bounds."
+    }
+    [SapsosUiMouseMethods]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+    [SapsosUiMouseMethods]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+    $diagnostic = Get-UiElementDiagnostic $element $Name
+    $diagnostic["selected_action"] = "BoundingRectangleMouseClick"
+    $diagnostic["action_succeeded"] = $true
+    $diagnostic["action_attempts"] = @("InvokePattern postcondition missing", "BoundingRectangleMouseClick")
+    $script:uiAutomationDiagnostics.Add([pscustomobject]$diagnostic)
+}
+
 function Capture-Window([string]$Name) {
     $window = Get-MainWindow
     if ($null -eq $window) { return }
@@ -829,7 +886,14 @@ try {
     Wait-UiElement "数据导入预览" | Out-Null
     Capture-Window "synthetic-import-page"
     Invoke-UiButton "加载脱敏 MyProgress 示例"
-    Wait-UiElement "数据导入预览汇总" | Out-Null
+    $importSignals = @("正在解析导入", "数据导入预览汇总", "数据导入不可用", "数据导入结构错误")
+    $importSignal = Try-Wait-UiElementAny $importSignals 5
+    if ($null -eq $importSignal) {
+        Invoke-UiElementByBoundingRectangle "加载脱敏 MyProgress 示例"
+    }
+    $importResult = Try-Wait-UiElementAny @("数据导入预览汇总", "数据导入不可用", "数据导入结构错误") 60
+    if ($null -eq $importResult) { throw "UI did not show a bounded synthetic import result." }
+    if ($importResult.Name -ne "数据导入预览汇总") { throw "Synthetic import entered UI error state: $($importResult.Name)" }
     Capture-Window "synthetic-staging"
     Write-Phase "synthetic_import" "completed" @{ fixture = "sanitized-myprogress" }
 
