@@ -493,10 +493,13 @@ function Initialize-TestDatabase {
     New-Item -ItemType Directory -Force -Path $appData | Out-Null
     $databasePath = Join-Path $appData "sapsos.db"
     $databaseInitializer = "import sys; from pathlib import Path; from sqlalchemy import create_engine; from app.db.bootstrap import initialize_database; initialize_database(create_engine('sqlite+pysqlite:///' + Path(sys.argv[1]).as_posix()))"
+    $databaseSeeder = "import sys; from pathlib import Path; from sqlalchemy import create_engine; from sqlalchemy.orm import Session; from app.db.bootstrap import initialize_database; from app.seed_dev import seed_mock_data; engine=create_engine('sqlite+pysqlite:///' + Path(sys.argv[1]).as_posix()); initialize_database(engine); session=Session(engine); seed_mock_data(session); session.close()"
     Push-Location (Join-Path $repoRoot "apps\api")
     try {
         & (Get-Command python -ErrorAction Stop).Source -c $databaseInitializer $databasePath
         Assert-True ($LASTEXITCODE -eq 0) "The supported LOCAL_DESKTOP SQLite bootstrap helper failed."
+        & (Get-Command python -ErrorAction Stop).Source -c $databaseSeeder $databasePath
+        Assert-True ($LASTEXITCODE -eq 0) "The deterministic LOCAL_DESKTOP mock fixture seeder failed."
     } finally {
         Pop-Location
     }
@@ -824,7 +827,7 @@ try {
 
     Write-Phase "test_fixture_setup" "starting"
     Initialize-TestDatabase
-    Write-Phase "test_fixture_setup" "completed" @{ database = "SAPSOS/sapsos.db" }
+    Write-Phase "test_fixture_setup" "completed" @{ database = "SAPSOS/sapsos.db"; fixture = "seeded-mock-student" }
 
     Write-Phase "direct_api_diagnostic" "starting"
     $directDiagnostic = Invoke-DirectPackagedApiDiagnostic
