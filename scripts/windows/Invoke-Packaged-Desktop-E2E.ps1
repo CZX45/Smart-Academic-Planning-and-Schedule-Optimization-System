@@ -958,7 +958,7 @@ try {
 
     Write-Phase "restart" "starting"
     New-Item -ItemType Directory -Force -Path $appData | Out-Null
-    @{ instance_id = ([Guid]::NewGuid()).ToString(); status = "ready"; pid = 4294967295; port = 1; base_url = "http://127.0.0.1:1" } | ConvertTo-Json | Set-Content -LiteralPath $runtimeManifest -Encoding UTF8
+    @{ instance_id = ([Guid]::NewGuid()).ToString(); status = "ready"; pid = [int]::MaxValue; port = 1; base_url = "http://127.0.0.1:1" } | ConvertTo-Json | Set-Content -LiteralPath $runtimeManifest -Encoding UTF8
     $restartDiagnostic = New-ReadinessDiagnostic "tauri_supervised_restart"
     $restartDiagnostic.started_at = [DateTime]::UtcNow
     $restartDiagnostic.process_started = $true
