@@ -27,6 +27,8 @@ $script:readinessHttpAt = @{}
 $script:apiSpawnIdentity = $null
 $script:tauriIdentity = $null
 $script:firstRuntimeInstanceId = $null
+$script:uiAutomationDiagnostics = [System.Collections.Generic.List[object]]::new()
+$script:uiNativeMethodsLoaded = $false
 $currentPhase = "initialization"
 $appProcess = $null
 $apiPid = $null
@@ -75,6 +77,7 @@ function Save-Evidence {
             api_executable = "runtime/sapsos-api/sapsos-api.exe"
             manifest = "SAPSOS/runtime.json"
         }
+        ui_automation_diagnostics = @($script:uiAutomationDiagnostics)
     } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $summaryPath -Encoding UTF8
     $script:readinessDiagnostics | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $evidenceRoot "readiness-diagnostic.json") -Encoding UTF8
     $supervised = $script:readinessDiagnostics["tauri_supervised"]
@@ -557,22 +560,178 @@ function Wait-UiElementContains([string]$Name) {
     return $script:uiElement
 }
 
-function Invoke-UiButton([string]$Name) {
-    $element = Wait-UiElement $Name
-    try {
-        $pattern = $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-        $pattern.Invoke()
-        return
-    } catch {
-        try {
-            $legacyPattern = $element.GetCurrentPattern([System.Windows.Automation.LegacyIAccessiblePattern]::Pattern)
-            $legacyPattern.DoDefaultAction()
-            return
-        } catch {
-            Add-Type -AssemblyName System.Windows.Forms
-            $element.SetFocus()
-            [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+function Get-UiPatternState($Element) {
+    $invoke = $null
+    $invokeSupported = $false
+    $legacy = $null
+    $legacySupported = $false
+    $selection = $null
+    $selectionSupported = $false
+    $expandCollapse = $null
+    $expandCollapseSupported = $false
+    $toggle = $null
+    $toggleSupported = $false
+    $scrollItem = $null
+    $scrollItemSupported = $false
+    try { $invokeSupported = $Element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invoke) } catch {}
+    try { $legacySupported = $Element.TryGetCurrentPattern([System.Windows.Automation.LegacyIAccessiblePattern]::Pattern, [ref]$legacy) } catch {}
+    try { $selectionSupported = $Element.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$selection) } catch {}
+    try { $expandCollapseSupported = $Element.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$expandCollapse) } catch {}
+    try { $toggleSupported = $Element.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$toggle) } catch {}
+    try { $scrollItemSupported = $Element.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$scrollItem) } catch {}
+    return [pscustomobject]@{
+        Invoke = $invoke
+        InvokeSupported = [bool]$invokeSupported
+        Legacy = $legacy
+        LegacySupported = [bool]$legacySupported
+        Selection = $selection
+        SelectionSupported = [bool]$selectionSupported
+        ExpandCollapse = $expandCollapse
+        ExpandCollapseSupported = [bool]$expandCollapseSupported
+        Toggle = $toggle
+        ToggleSupported = [bool]$toggleSupported
+        ScrollItem = $scrollItem
+        ScrollItemSupported = [bool]$scrollItemSupported
+    }
+}
+
+function Get-UiWindowEvidence($Window) {
+    $current = $Window.Current
+    $bounds = $current.BoundingRectangle
+    $handle = [IntPtr]$current.NativeWindowHandle
+    $foreground = $false
+    $minimized = $null
+    if ($handle -ne [IntPtr]::Zero) {
+        if (-not $script:uiNativeMethodsLoaded) {
+            Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class SapsosUiNativeMethods {
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool IsIconic(IntPtr hWnd);
+}
+"@
+            $script:uiNativeMethodsLoaded = $true
         }
+        $foreground = [SapsosUiNativeMethods]::GetForegroundWindow() -eq $handle
+        $minimized = [SapsosUiNativeMethods]::IsIconic($handle)
+    }
+    return [ordered]@{
+        window_pid = [int]$current.ProcessId
+        window_handle_present = $handle -ne [IntPtr]::Zero
+        window_foreground = $foreground
+        window_minimized = $minimized
+        window_bounds_valid = $bounds.Width -gt 0 -and $bounds.Height -gt 0
+    }
+}
+
+function Get-UiElementDiagnostic($Element, [string]$RequestedName) {
+    $current = $Element.Current
+    $bounds = $current.BoundingRectangle
+    $patterns = Get-UiPatternState $Element
+    $window = Get-MainWindow
+    $windowEvidence = if ($window) { Get-UiWindowEvidence $window } else { [ordered]@{ window_pid = $null; window_handle_present = $false; window_foreground = $false; window_minimized = $null; window_bounds_valid = $false } }
+    $diagnostic = [ordered]@{
+        requested_name = $RequestedName
+        actual_name = [string]$current.Name
+        control_type = [string]$current.ControlType.ProgrammaticName
+        process_id = [int]$current.ProcessId
+        is_enabled = [bool]$current.IsEnabled
+        is_offscreen = [bool]$current.IsOffscreen
+        is_keyboard_focusable = [bool]$current.IsKeyboardFocusable
+        has_keyboard_focus = [bool]$current.HasKeyboardFocus
+        bounding_rectangle_valid = $bounds.Width -gt 0 -and $bounds.Height -gt 0
+        invoke_pattern_supported = $patterns.InvokeSupported
+        legacy_accessible_pattern_supported = $patterns.LegacySupported
+        selection_item_pattern_supported = $patterns.SelectionSupported
+        expand_collapse_pattern_supported = $patterns.ExpandCollapseSupported
+        toggle_pattern_supported = $patterns.ToggleSupported
+        scroll_item_pattern_supported = $patterns.ScrollItemSupported
+    }
+    foreach ($key in $windowEvidence.Keys) { $diagnostic[$key] = $windowEvidence[$key] }
+    return $diagnostic
+}
+
+function Find-UiActionElement([string]$Name) {
+    $window = Get-MainWindow
+    if ($null -eq $window) { return $null }
+    $condition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::NameProperty, $Name)
+    $ranked = @()
+    foreach ($candidate in @($window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition))) {
+        $patterns = Get-UiPatternState $candidate
+        $score = 0
+        if ($patterns.InvokeSupported) { $score += 100 }
+        if ($patterns.LegacySupported) { $score += 80 }
+        if ($patterns.SelectionSupported) { $score += 60 }
+        if ($patterns.ExpandCollapseSupported) { $score += 40 }
+        if ($patterns.ToggleSupported) { $score += 40 }
+        if ($patterns.ScrollItemSupported) { $score += 10 }
+        if ($candidate.Current.IsEnabled) { $score += 5 }
+        if (-not $candidate.Current.IsOffscreen) { $score += 5 }
+        $ranked += [pscustomobject]@{ Score = $score; Element = $candidate }
+    }
+    if ($ranked.Count -eq 0) { return $null }
+    return ($ranked | Sort-Object Score -Descending | Select-Object -First 1).Element
+}
+
+function Wait-UiActionElement([string]$Name) {
+    Wait-Until { $script:uiElement = Find-UiActionElement $Name; $null -ne $script:uiElement } $UiTimeoutSeconds "UI action/control was not found: $Name"
+    return $script:uiElement
+}
+
+function Invoke-UiButton([string]$Name) {
+    $element = Wait-UiActionElement $Name
+    $patterns = Get-UiPatternState $element
+    if ($element.Current.IsOffscreen -and $patterns.ScrollItemSupported) {
+        $patterns.ScrollItem.ScrollIntoView()
+        Start-Sleep -Milliseconds 250
+        $element = Wait-UiActionElement $Name
+        $patterns = Get-UiPatternState $element
+    }
+    $diagnostic = Get-UiElementDiagnostic $element $Name
+    $attempts = @()
+    $selectedAction = $null
+    $actionError = $null
+    try {
+        $actionCandidates = @()
+        if ($patterns.InvokeSupported) { $actionCandidates += [pscustomobject]@{ Name = "InvokePattern.Invoke"; Pattern = $patterns.Invoke } }
+        if ($patterns.LegacySupported) { $actionCandidates += [pscustomobject]@{ Name = "LegacyIAccessiblePattern.DoDefaultAction"; Pattern = $patterns.Legacy } }
+        if ($patterns.SelectionSupported) { $actionCandidates += [pscustomobject]@{ Name = "SelectionItemPattern.Select"; Pattern = $patterns.Selection } }
+        if ($patterns.ExpandCollapseSupported) { $actionCandidates += [pscustomobject]@{ Name = "ExpandCollapsePattern.Expand"; Pattern = $patterns.ExpandCollapse } }
+        if ($patterns.ToggleSupported) { $actionCandidates += [pscustomobject]@{ Name = "TogglePattern.Toggle"; Pattern = $patterns.Toggle } }
+        if ($actionCandidates.Count -eq 0) { throw "No supported UI Automation action pattern was available." }
+        foreach ($candidate in $actionCandidates) {
+            try {
+                $selectedAction = $candidate.Name
+                switch ($candidate.Name) {
+                    "InvokePattern.Invoke" { $candidate.Pattern.Invoke() }
+                    "LegacyIAccessiblePattern.DoDefaultAction" { $candidate.Pattern.DoDefaultAction() }
+                    "SelectionItemPattern.Select" { $candidate.Pattern.Select() }
+                    "ExpandCollapsePattern.Expand" { $candidate.Pattern.Expand() }
+                    "TogglePattern.Toggle" { $candidate.Pattern.Toggle() }
+                }
+                $diagnostic["action_succeeded"] = $true
+                break
+            } catch {
+                $attempts += $candidate.Name
+                $actionError = $_.Exception.Message.Substring(0, [Math]::Min(240, $_.Exception.Message.Length))
+                $selectedAction = $null
+            }
+        }
+        if (-not $diagnostic["action_succeeded"]) {
+            throw "All supported UI Automation action patterns failed: $actionError"
+        }
+        $diagnostic["selected_action"] = $selectedAction
+    } catch {
+        if (-not $actionError) { $actionError = $_.Exception.Message.Substring(0, [Math]::Min(240, $_.Exception.Message.Length)) }
+        $diagnostic["action_succeeded"] = $false
+        $diagnostic["action_error"] = $actionError
+        throw "UIA action failed for '$Name': $actionError"
+    } finally {
+        $diagnostic["action_attempts"] = @($attempts)
+        if ($selectedAction) { $diagnostic["selected_action"] = $selectedAction }
+        $script:uiAutomationDiagnostics.Add([pscustomobject]$diagnostic)
     }
 }
 
@@ -665,8 +824,10 @@ try {
     Write-Phase "webview_render" "completed" @{ marker = "智能学业规划"; source = "installed-static-webview" }
 
     Write-Phase "synthetic_import" "starting"
+    Capture-Window "before-synthetic-import"
     Invoke-UiButton "数据导入"
     Wait-UiElement "数据导入预览" | Out-Null
+    Capture-Window "synthetic-import-page"
     Invoke-UiButton "加载脱敏 MyProgress 示例"
     Wait-UiElement "数据导入预览汇总" | Out-Null
     Capture-Window "synthetic-staging"
@@ -757,6 +918,7 @@ try {
     Save-SanitizedLog (Join-Path $root "tauri-restart.stderr.log") "tauri-restart.stderr.log"
     Save-SanitizedLog (Join-Path $root "tauri.stdout.log") "tauri.stdout.log"
     Save-SanitizedLog (Join-Path $root "tauri-restart.stdout.log") "tauri-restart.stdout.log"
+    if ($currentPhase -eq "synthetic_import") { try { Capture-Window "synthetic-import-failure" } catch {} }
     if ($currentPhase) { Write-Phase $currentPhase "failed" @{ error = $_.Exception.Message.Substring(0, [Math]::Min(240, $_.Exception.Message.Length)) } }
     throw
 } finally {
