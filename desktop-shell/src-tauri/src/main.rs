@@ -186,6 +186,7 @@ fn trusted_descendant_from_graph(
 #[cfg(windows)]
 mod windows_process {
     use super::{normalized_executable_path, TrustedProcessIdentity};
+    use std::collections::HashMap;
     use std::ffi::OsString;
     use std::os::windows::ffi::OsStringExt;
     use std::path::PathBuf;
@@ -268,14 +269,63 @@ mod windows_process {
         None
     }
 
-    pub(super) fn capture(pid: u32) -> Option<TrustedProcessIdentity> {
+    fn process_parents() -> Option<HashMap<u32, u32>> {
+        let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+        if snapshot.is_null() {
+            return None;
+        }
+        let snapshot = Handle(snapshot);
+        let mut entry = PROCESSENTRY32W {
+            dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+            ..unsafe { std::mem::zeroed() }
+        };
+        let mut parents = HashMap::new();
+        let mut found = unsafe { Process32FirstW(snapshot.0, &mut entry) } != 0;
+        while found {
+            parents.insert(entry.th32ProcessID, entry.th32ParentProcessID);
+            found = unsafe { Process32NextW(snapshot.0, &mut entry) } != 0;
+        }
+        Some(parents)
+    }
+
+    fn capture_with_parent(pid: u32, parent_pid: Option<u32>) -> Option<TrustedProcessIdentity> {
         let handle = process_handle(pid, PROCESS_QUERY_LIMITED_INFORMATION)?;
         Some(TrustedProcessIdentity {
             pid,
             executable_path: executable_path(handle.0),
-            parent_pid: parent_pid(pid),
+            parent_pid,
             creation_time: creation_time(handle.0),
         })
+    }
+
+    pub(super) fn capture(pid: u32) -> Option<TrustedProcessIdentity> {
+        capture_with_parent(pid, parent_pid(pid))
+    }
+
+    pub(super) fn capture_descendant_graph(
+        spawn_root: &TrustedProcessIdentity,
+        candidate_pid: u32,
+    ) -> Option<Vec<TrustedProcessIdentity>> {
+        let root_current = capture(spawn_root.pid)?;
+        if !super::same_process_identity(spawn_root, &root_current) {
+            return None;
+        }
+        let parents = process_parents()?;
+        if !parents.contains_key(&spawn_root.pid) {
+            return None;
+        }
+        let mut graph = Vec::new();
+        let mut pid = candidate_pid;
+        for _ in 0..=super::MAX_PROCESS_ANCESTRY_DEPTH {
+            if pid == spawn_root.pid {
+                graph.push(spawn_root.clone());
+                return Some(graph);
+            }
+            let parent = *parents.get(&pid)?;
+            graph.push(capture_with_parent(pid, Some(parent))?);
+            pid = parent;
+        }
+        None
     }
 
     pub(super) fn terminate(identity: &TrustedProcessIdentity) -> bool {
@@ -317,17 +367,7 @@ fn trusted_runtime_identity(
 ) -> Option<TrustedProcessIdentity> {
     #[cfg(windows)]
     {
-        let mut graph = Vec::new();
-        let mut pid = candidate_pid;
-        for _ in 0..=MAX_PROCESS_ANCESTRY_DEPTH {
-            let identity = windows_process::capture(pid)?;
-            let parent = identity.parent_pid;
-            graph.push(identity);
-            if pid == spawn_root.pid {
-                break;
-            }
-            pid = parent?;
-        }
+        let graph = windows_process::capture_descendant_graph(spawn_root, candidate_pid)?;
         return trusted_descendant_from_graph(
             spawn_root,
             candidate_pid,
