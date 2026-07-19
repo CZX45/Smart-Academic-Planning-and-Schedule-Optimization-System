@@ -24,6 +24,7 @@ $summaryPath = Join-Path $evidenceRoot "summary.json"
 $phases = [ordered]@{}
 $script:readinessDiagnostics = [ordered]@{}
 $script:readinessHttpAt = @{}
+$script:apiSpawnIdentity = $null
 $currentPhase = "initialization"
 $appProcess = $null
 $apiPid = $null
@@ -135,8 +136,8 @@ function Get-ProcessIdentity([int]$ProcessId) {
     } catch { return $null }
 }
 
-function Test-TrustedProcessIdentity([int]$SpawnRootPid, [int]$CandidatePid, [string]$ExpectedPath) {
-    $root = Get-ProcessIdentity $SpawnRootPid
+function Test-TrustedProcessIdentity([int]$SpawnRootPid, [int]$CandidatePid, [string]$ExpectedPath, [object]$SpawnRootIdentity = $null) {
+    $root = if ($SpawnRootIdentity) { $SpawnRootIdentity } else { Get-ProcessIdentity $SpawnRootPid }
     $candidate = Get-ProcessIdentity $CandidatePid
     $expected = [IO.Path]::GetFullPath($ExpectedPath)
     $result = [ordered]@{
@@ -163,8 +164,7 @@ function Test-TrustedProcessIdentity([int]$SpawnRootPid, [int]$CandidatePid, [st
         $parentPid = [int]$current.parent_pid
         if ($visited -contains $parentPid) { return $result }
         if ($parentPid -eq $SpawnRootPid) {
-            $parent = Get-ProcessIdentity $parentPid
-            if ($parent -and $parent.pid -eq $root.pid -and $parent.creation_time -eq $root.creation_time) {
+            if ($root.pid -eq $SpawnRootPid) {
                 $result.accepted = $true
                 $result.mode = "trusted_descendant"
                 $result.ancestry_verified = $true
@@ -322,7 +322,7 @@ function Observe-Readiness($Diagnostic, [int]$ExpectedPid, [System.Diagnostics.P
             $Diagnostic.creation_time_match = $null -ne $runtime -and $runtime.creation_time -eq $Diagnostic.trusted_runtime_creation_time
             $Diagnostic.pid_match = $Diagnostic.executable_match -and $Diagnostic.creation_time_match
         } elseif ($null -eq $Diagnostic.trusted_runtime_pid) {
-            $identity = Test-TrustedProcessIdentity $ExpectedPid ([int]$manifest.pid) $apiExecutable
+            $identity = Test-TrustedProcessIdentity $ExpectedPid ([int]$manifest.pid) $apiExecutable $script:apiSpawnIdentity
             $Diagnostic.process_identity = $identity.mode
             $Diagnostic.executable_match = $identity.executable_match
             $Diagnostic.ancestry_verified = $identity.ancestry_verified
@@ -578,6 +578,8 @@ try {
         $child = Get-ChildProcess $appProcess.Id $apiExecutable
         if ($child) {
             $script:apiPid = [int]$child.ProcessId
+            $script:apiSpawnIdentity = Get-ProcessIdentity $script:apiPid
+            if ($null -eq $script:apiSpawnIdentity) { throw "Could not capture packaged API spawn identity." }
             $supervisedDiagnostic.process_pid = [int]$apiPid
             $supervisedDiagnostic.child_observed = $true
             $supervisedDiagnostic.child_still_alive = $true

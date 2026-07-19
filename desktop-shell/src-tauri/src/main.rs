@@ -306,14 +306,7 @@ mod windows_process {
         spawn_root: &TrustedProcessIdentity,
         candidate_pid: u32,
     ) -> Option<Vec<TrustedProcessIdentity>> {
-        let root_current = capture(spawn_root.pid)?;
-        if !super::same_process_identity(spawn_root, &root_current) {
-            return None;
-        }
         let parents = process_parents()?;
-        if !parents.contains_key(&spawn_root.pid) {
-            return None;
-        }
         let mut graph = Vec::new();
         let mut pid = candidate_pid;
         for _ in 0..=super::MAX_PROCESS_ANCESTRY_DEPTH {
