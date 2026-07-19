@@ -596,20 +596,19 @@ function Get-UiPatternState($Element) {
     }
 }
 
-function Get-UiWindowEvidence($Window) {
-    $current = $Window.Current
-    $bounds = $current.BoundingRectangle
-    $handle = [IntPtr]$current.NativeWindowHandle
-    $foreground = $false
-    $minimized = $null
-    if ($handle -ne [IntPtr]::Zero) {
-        if (-not $script:uiNativeMethodsLoaded) {
-            Add-Type @"
+function Ensure-UiNativeMethods {
+    if ($script:uiNativeMethodsLoaded) { return }
+    if (-not ("SapsosUiNativeMethods" -as [type])) {
+        Add-Type @"
 using System;
 using System.Runtime.InteropServices;
 public static class SapsosUiNativeMethods {
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool IsIconic(IntPtr hWnd);
+}
+"@
+    }
+    $script:uiNativeMethodsLoaded = $true
 }
 
 function Find-UiElementAny([string[]]$Names) {
@@ -629,9 +628,15 @@ function Try-Wait-UiElementAny([string[]]$Names, [int]$TimeoutSeconds) {
     }
     return $null
 }
-"@
-            $script:uiNativeMethodsLoaded = $true
-        }
+
+function Get-UiWindowEvidence($Window) {
+    $current = $Window.Current
+    $bounds = $current.BoundingRectangle
+    $handle = [IntPtr]$current.NativeWindowHandle
+    $foreground = $false
+    $minimized = $null
+    if ($handle -ne [IntPtr]::Zero) {
+        Ensure-UiNativeMethods
         $foreground = [SapsosUiNativeMethods]::GetForegroundWindow() -eq $handle
         $minimized = [SapsosUiNativeMethods]::IsIconic($handle)
     }
@@ -768,7 +773,8 @@ function Invoke-UiElementByBoundingRectangle([string]$Name) {
         throw "UI element did not expose a valid bounding rectangle for bounded fallback."
     }
     if (-not $script:uiMouseMethodsLoaded) {
-        Add-Type @"
+        if (-not ("SapsosUiMouseMethods" -as [type])) {
+            Add-Type @"
 using System;
 using System.Runtime.InteropServices;
 public static class SapsosUiMouseMethods {
@@ -776,6 +782,7 @@ public static class SapsosUiMouseMethods {
     [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extraInfo);
 }
 "@
+        }
         $script:uiMouseMethodsLoaded = $true
     }
     $x = [int][Math]::Round($bounds.X + ($bounds.Width / 2))
