@@ -652,12 +652,16 @@ try {
     Write-Phase "webview_render" "completed" @{ marker = "智能学业规划"; source = "installed-static-webview" }
 
     Write-Phase "synthetic_import" "starting"
+    Invoke-UiButton "数据导入"
+    Wait-UiElement "数据导入预览" | Out-Null
     Invoke-UiButton "加载脱敏 MyProgress 示例"
     Wait-UiElement "数据导入预览汇总" | Out-Null
     Capture-Window "synthetic-staging"
     Write-Phase "synthetic_import" "completed" @{ fixture = "sanitized-myprogress" }
 
     Write-Phase "review_apply" "starting"
+    Invoke-UiButton "审核与应用"
+    Wait-UiElement "数据审核与确认" | Out-Null
     Invoke-UiButton "创建审核"
     Wait-UiElement "数据审核汇总" | Out-Null
     Invoke-UiButton "应用已确认记录"
@@ -720,6 +724,8 @@ try {
 
     Write-Phase "persistence_verify" "starting"
     Assert-True ((Resolve-Path $appData).Path -eq $firstAppData) "AppData root changed across restart."
+    Invoke-UiButton "数据导入"
+    Wait-UiElement "数据导入预览" | Out-Null
     Invoke-UiButton "加载已保存导入"
     Wait-UiElement "数据导入预览汇总" | Out-Null
     Capture-Window "restart-persistence"
