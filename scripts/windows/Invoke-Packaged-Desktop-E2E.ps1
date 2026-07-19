@@ -559,8 +559,21 @@ function Wait-UiElementContains([string]$Name) {
 
 function Invoke-UiButton([string]$Name) {
     $element = Wait-UiElement $Name
-    $pattern = $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-    $pattern.Invoke()
+    try {
+        $pattern = $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+        $pattern.Invoke()
+        return
+    } catch {
+        try {
+            $legacyPattern = $element.GetCurrentPattern([System.Windows.Automation.LegacyIAccessiblePattern]::Pattern)
+            $legacyPattern.DoDefaultAction()
+            return
+        } catch {
+            Add-Type -AssemblyName System.Windows.Forms
+            $element.SetFocus()
+            [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+        }
+    }
 }
 
 function Capture-Window([string]$Name) {
