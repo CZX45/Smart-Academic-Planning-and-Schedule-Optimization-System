@@ -25,6 +25,8 @@ $phases = [ordered]@{}
 $script:readinessDiagnostics = [ordered]@{}
 $script:readinessHttpAt = @{}
 $script:apiSpawnIdentity = $null
+$script:tauriIdentity = $null
+$script:firstRuntimeInstanceId = $null
 $currentPhase = "initialization"
 $appProcess = $null
 $apiPid = $null
@@ -79,8 +81,11 @@ function Save-Evidence {
     [ordered]@{
         spawn_root_observed = $null -ne $supervised -and $supervised.child_observed
         manifest_runtime_observed = $null -ne $supervised -and $supervised.manifest_observed
+        instance_id_match = if ($supervised) { $supervised.instance_id_match } else { $null }
         identity_mode = if ($supervised) { $supervised.process_identity } else { $null }
         executable_match = if ($supervised) { $supervised.executable_match } else { $null }
+        creation_window_valid = if ($supervised) { $supervised.creation_window_valid } else { $null }
+        tauri_ownership_verified = if ($supervised) { $supervised.tauri_ownership_verified } else { $null }
         ancestry_verified = if ($supervised) { $supervised.ancestry_verified } else { $null }
         listener_owner_match = if ($supervised) { $supervised.listener_pid -eq $supervised.manifest_pid } else { $null }
         shutdown_root_gone = if ($supervised) { -not $supervised.child_still_alive } else { $null }
@@ -136,7 +141,22 @@ function Get-ProcessIdentity([int]$ProcessId) {
     } catch { return $null }
 }
 
-function Test-TrustedProcessIdentity([int]$SpawnRootPid, [int]$CandidatePid, [string]$ExpectedPath, [object]$SpawnRootIdentity = $null) {
+function Test-SameProcessIdentity($Left, $Right) {
+    return $null -ne $Left -and $null -ne $Right -and
+        [int]$Left.pid -eq [int]$Right.pid -and
+        $Left.executable_path -ieq $Right.executable_path -and
+        $null -ne $Left.creation_time -and $null -ne $Right.creation_time -and
+        $Left.creation_time -eq $Right.creation_time
+}
+
+function Test-TrustedProcessIdentity(
+    [int]$SpawnRootPid,
+    [int]$CandidatePid,
+    [string]$ExpectedPath,
+    [object]$SpawnRootIdentity = $null,
+    [object]$TauriIdentity = $null,
+    [DateTime]$LaunchStartedAt = [DateTime]::MinValue
+) {
     $root = if ($SpawnRootIdentity) { $SpawnRootIdentity } else { Get-ProcessIdentity $SpawnRootPid }
     $candidate = Get-ProcessIdentity $CandidatePid
     $expected = [IO.Path]::GetFullPath($ExpectedPath)
@@ -146,28 +166,44 @@ function Test-TrustedProcessIdentity([int]$SpawnRootPid, [int]$CandidatePid, [st
         executable_match = $false
         ancestry_verified = $false
         creation_time_match = $false
+        creation_window_valid = $false
+        tauri_ownership_verified = $false
         candidate_pid = $CandidatePid
     }
-    if ($null -eq $root -or $null -eq $candidate) { return $result }
+    if ($null -eq $candidate) { return $result }
     $result.executable_match = $candidate.executable_path -ieq $expected
-    $result.creation_time_match = $null -ne $root.creation_time -and $null -ne $candidate.creation_time -and $candidate.creation_time -ge $root.creation_time
-    if (-not $result.executable_match -or -not $result.creation_time_match) { return $result }
-    if ($CandidatePid -eq $SpawnRootPid) {
+    $result.creation_window_valid = $null -ne $candidate.creation_time -and
+        ($LaunchStartedAt -eq [DateTime]::MinValue -or
+            ($candidate.creation_time -ge $LaunchStartedAt.AddSeconds(-2) -and $candidate.creation_time -le [DateTime]::UtcNow.AddSeconds(2)))
+    $result.creation_time_match = $result.creation_window_valid
+    if (-not $result.executable_match -or -not $result.creation_window_valid) { return $result }
+    if ($CandidatePid -eq $SpawnRootPid -and (Test-SameProcessIdentity $root $candidate)) {
         $result.accepted = $true
         $result.mode = "same_process"
         $result.ancestry_verified = $true
+        $result.tauri_ownership_verified = $true
         return $result
     }
     $current = $candidate
     $visited = @($CandidatePid)
     for ($depth = 0; $depth -lt 16; $depth++) {
         $parentPid = [int]$current.parent_pid
-        if ($visited -contains $parentPid) { return $result }
+        if ($parentPid -le 0 -or $visited -contains $parentPid) { return $result }
         if ($parentPid -eq $SpawnRootPid) {
-            if ($root.pid -eq $SpawnRootPid) {
+            if ($null -ne $root -and (Test-SameProcessIdentity $root ([ordered]@{ pid = $parentPid; executable_path = $root.executable_path; creation_time = $root.creation_time })) ) {
                 $result.accepted = $true
-                $result.mode = "trusted_descendant"
+                $result.mode = "spawn_descendant"
                 $result.ancestry_verified = $true
+                $result.tauri_ownership_verified = $true
+            }
+            return $result
+        }
+        if ($TauriIdentity -and $parentPid -eq [int]$TauriIdentity.pid) {
+            if (Test-SameProcessIdentity $TauriIdentity ([ordered]@{ pid = $parentPid; executable_path = $TauriIdentity.executable_path; creation_time = $TauriIdentity.creation_time })) {
+                $result.accepted = $true
+                $result.mode = "trusted_tauri_handoff"
+                $result.ancestry_verified = $true
+                $result.tauri_ownership_verified = $true
             }
             return $result
         }
@@ -195,11 +231,14 @@ function New-ReadinessDiagnostic([string]$Mode) {
         manifest_observed = $false
         manifest_status = $null
         manifest_pid = $null
+        instance_id_match = $null
         pid_match = $null
         process_identity = $null
         executable_match = $null
         ancestry_verified = $null
         creation_time_match = $null
+        creation_window_valid = $null
+        tauri_ownership_verified = $null
         trusted_runtime_pid = $null
         trusted_runtime_creation_time = $null
         port = $null
@@ -316,19 +355,24 @@ function Observe-Readiness($Diagnostic, [int]$ExpectedPid, [System.Diagnostics.P
     if ($manifest) {
         $Diagnostic.manifest_status = [string]$manifest.status
         $Diagnostic.manifest_pid = [int]$manifest.pid
+        $manifestInstanceId = [Guid]::Empty
+        $Diagnostic.instance_id_match = [Guid]::TryParse([string]$manifest.instance_id, [ref]$manifestInstanceId)
         if ($null -ne $Diagnostic.trusted_runtime_pid -and [int]$manifest.pid -eq [int]$Diagnostic.trusted_runtime_pid) {
             $runtime = Get-ProcessIdentity ([int]$manifest.pid)
             $Diagnostic.executable_match = $null -ne $runtime -and $runtime.executable_path -ieq ([IO.Path]::GetFullPath($apiExecutable))
             $Diagnostic.creation_time_match = $null -ne $runtime -and $runtime.creation_time -eq $Diagnostic.trusted_runtime_creation_time
-            $Diagnostic.pid_match = $Diagnostic.executable_match -and $Diagnostic.creation_time_match
+            $Diagnostic.creation_window_valid = $Diagnostic.creation_time_match
+            $Diagnostic.pid_match = $Diagnostic.executable_match -and $Diagnostic.creation_time_match -and $Diagnostic.instance_id_match
         } elseif ($null -eq $Diagnostic.trusted_runtime_pid) {
-            $identity = Test-TrustedProcessIdentity $ExpectedPid ([int]$manifest.pid) $apiExecutable $script:apiSpawnIdentity
+            $identity = Test-TrustedProcessIdentity $ExpectedPid ([int]$manifest.pid) $apiExecutable $script:apiSpawnIdentity $script:tauriIdentity $Diagnostic.started_at
             $Diagnostic.process_identity = $identity.mode
             $Diagnostic.executable_match = $identity.executable_match
             $Diagnostic.ancestry_verified = $identity.ancestry_verified
             $Diagnostic.creation_time_match = $identity.creation_time_match
-            $Diagnostic.pid_match = $identity.accepted
-            if ($identity.accepted) {
+            $Diagnostic.creation_window_valid = $identity.creation_window_valid
+            $Diagnostic.tauri_ownership_verified = $identity.tauri_ownership_verified
+            $Diagnostic.pid_match = $identity.accepted -and $Diagnostic.instance_id_match
+            if ($identity.accepted -and $Diagnostic.instance_id_match) {
                 $Diagnostic.trusted_runtime_pid = [int]$manifest.pid
                 $trustedRuntime = Get-ProcessIdentity ([int]$manifest.pid)
                 $Diagnostic.trusted_runtime_creation_time = if ($trustedRuntime) { $trustedRuntime.creation_time } else { $null }
@@ -565,6 +609,8 @@ try {
         -RedirectStandardOutput (Join-Path $root "tauri.stdout.log") `
         -RedirectStandardError (Join-Path $root "tauri.stderr.log")
     $supervisedDiagnostic.tauri_pid = [int]$appProcess.Id
+    $script:tauriIdentity = Get-ProcessIdentity $appProcess.Id
+    if ($null -eq $script:tauriIdentity) { throw "Could not capture installed Tauri process identity." }
     $childDeadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
     $childFound = $false
     while ([DateTime]::UtcNow -lt $childDeadline) {
@@ -594,6 +640,9 @@ try {
     Write-Phase "api_readiness" "starting"
     $manifest = Wait-ForRuntimeReady
     Assert-True ($manifest.base_url -match '^http://127\.0\.0\.1:\d+$') "Runtime manifest is not loopback-only."
+    $firstInstanceId = [Guid]::Empty
+    Assert-True ([Guid]::TryParse([string]$manifest.instance_id, [ref]$firstInstanceId)) "First runtime manifest did not contain a valid instance id."
+    $script:firstRuntimeInstanceId = $firstInstanceId
     Write-Phase "api_readiness" "completed" @{ status = "ready"; binding = "127.0.0.1" }
 
     Write-Phase "webview_render" "starting"
@@ -636,18 +685,36 @@ try {
 
     Write-Phase "restart" "starting"
     New-Item -ItemType Directory -Force -Path $appData | Out-Null
-    @{ status = "ready"; pid = 4294967295; port = 1; base_url = "http://127.0.0.1:1" } | ConvertTo-Json | Set-Content -LiteralPath $runtimeManifest -Encoding UTF8
+    @{ instance_id = ([Guid]::NewGuid()).ToString(); status = "ready"; pid = 4294967295; port = 1; base_url = "http://127.0.0.1:1" } | ConvertTo-Json | Set-Content -LiteralPath $runtimeManifest -Encoding UTF8
+    $restartDiagnostic = New-ReadinessDiagnostic "tauri_supervised_restart"
+    $restartDiagnostic.started_at = [DateTime]::UtcNow
+    $restartDiagnostic.process_started = $true
+    $script:readinessDiagnostics["tauri_supervised_restart"] = $restartDiagnostic
     $appProcess = Start-Process -FilePath $appExecutable -WorkingDirectory $installRoot -PassThru `
         -RedirectStandardOutput (Join-Path $root "tauri-restart.stdout.log") `
         -RedirectStandardError (Join-Path $root "tauri-restart.stderr.log")
+    $restartDiagnostic.tauri_pid = [int]$appProcess.Id
+    $script:tauriIdentity = Get-ProcessIdentity $appProcess.Id
+    if ($null -eq $script:tauriIdentity) { throw "Could not capture restarted Tauri process identity." }
     Wait-Until {
         $appProcess.Refresh()
         if ($appProcess.HasExited) { throw "Installed Tauri executable exited during restart." }
         $child = Get-ChildProcess $appProcess.Id $apiExecutable
-        if ($child) { $script:apiPid = [int]$child.ProcessId; return $true }
+        if ($child) {
+            $script:apiPid = [int]$child.ProcessId
+            $script:apiSpawnIdentity = Get-ProcessIdentity $script:apiPid
+            if ($null -eq $script:apiSpawnIdentity) { throw "Could not capture restarted packaged API spawn identity." }
+            $restartDiagnostic.process_pid = [int]$script:apiPid
+            $restartDiagnostic.child_observed = $true
+            $restartDiagnostic.child_still_alive = $true
+            return $true
+        }
         return $false
     } $StartupTimeoutSeconds "Packaged API child was not recreated on restart."
-    Wait-ForRuntimeReady "tauri_supervised_restart" | Out-Null
+    $restartManifest = Wait-ForRuntimeReady "tauri_supervised_restart"
+    $restartInstanceId = [Guid]::Empty
+    Assert-True ([Guid]::TryParse([string]$restartManifest.instance_id, [ref]$restartInstanceId)) "Restart runtime manifest did not contain a valid instance id."
+    Assert-True ($restartInstanceId -ne $script:firstRuntimeInstanceId) "Restart reused the previous runtime instance id."
     Wait-UiElement "智能学业规划" | Out-Null
     Write-Phase "restart" "completed" @{ stale_state = "recovered" }
 
@@ -682,10 +749,7 @@ try {
     }
     foreach ($processId in (@($apiPid, $runtimePid) | Select-Object -Unique)) {
         if ($processId) {
-            $apiProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction SilentlyContinue
-            if ($apiProcess -and $apiProcess.ExecutablePath -and ([IO.Path]::GetFullPath($apiProcess.ExecutablePath) -ieq $apiExecutable)) {
-                Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
-            }
+            Stop-ExactPackagedProcess $processId
         }
     }
     foreach ($name in @("tauri_supervised", "tauri_supervised_restart")) {

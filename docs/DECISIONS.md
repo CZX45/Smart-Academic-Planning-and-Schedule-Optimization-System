@@ -824,3 +824,35 @@ static UI rendering, key workflows, restart/persistence, applicable
 extension/local integration, and failure/recovery validation. Beta and RC remain
 not started.
 
+# ADR-0032: Trust packaged runtime handoff by launch identity
+
+Status: Proposed — validation pending on the fresh Packaged Desktop E2E head.
+
+## Decision
+
+The packaged desktop starts each API launch with a fresh UUID instance identity.
+The Tauri child command receives that UUID through a launch-scoped environment
+variable, and the API publishes the same value in `runtime.json`. Tauri accepts
+readiness only when the manifest UUID matches the launch UUID, the manifest PID
+resolves to the exact packaged API executable, its creation time is within the
+launch window, and its process lineage is either the API spawn root, the Tauri
+process through an explicit handoff, or the same process. A parent PID equal to
+Tauri alone is not sufficient without the identity and creation-time checks.
+
+The spawn root is therefore an observed launch identity, not a required living
+ancestor. This accommodates PyInstaller handoff while preserving fail-closed
+trust. Shutdown revalidates PID, creation time, and exact executable before
+termination, waits within a bounded timeout, and removes `runtime.json` only
+when its UUID still belongs to the stopped launch. Foreign, malformed, stale,
+or reused-PID state is left untouched for diagnostics and recovery.
+
+## Validation contract
+
+The packaged E2E evidence must record only sanitized booleans and ownership
+mode: instance match, creation-window validity, exact executable match, Tauri
+ownership, listener owner, readiness, shutdown disappearance of the spawn root
+and trusted runtime, restart UUID non-reuse, and absence of an orphan API. Raw
+UUIDs, user paths, and student data are not evidence outputs. Full E2E remains
+required before PR #79 can leave Draft; signing, release, Store/MSIX, Beta, and
+RC work remain out of scope.
+
