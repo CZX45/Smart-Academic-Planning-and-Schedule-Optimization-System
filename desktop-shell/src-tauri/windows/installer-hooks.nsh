@@ -1,6 +1,6 @@
 !macro NSIS_HOOK_PREINSTALL
   File /oname=$PLUGINSDIR\InstallerProcessCoordination.ps1 "${__FILEDIR__}\..\..\..\..\windows\InstallerProcessCoordination.ps1"
-  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\InstallerProcessCoordination.ps1" -InstallRoot "$INSTDIR" -TestMode'
+  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\InstallerProcessCoordination.ps1" -InstallRoot "$INSTDIR" -TimeoutSeconds 45 -TestMode'
   Pop $0
   ${If} $0 != 0
     DetailPrint "preinstall coordination failed with exit code $0"
@@ -15,7 +15,7 @@
 
 !macro NSIS_HOOK_PREUNINSTALL
   File /oname=$PLUGINSDIR\InstallerProcessCoordination.ps1 "${__FILEDIR__}\..\..\..\..\windows\InstallerProcessCoordination.ps1"
-  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\InstallerProcessCoordination.ps1" -InstallRoot "$INSTDIR" -TestMode'
+  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\InstallerProcessCoordination.ps1" -InstallRoot "$INSTDIR" -TimeoutSeconds 45 -TestMode'
   Pop $0
   ${If} $0 != 0
     DetailPrint "preuninstall coordination failed with exit code $0"
