@@ -135,10 +135,10 @@ to make Docker/PostgreSQL the final LOCAL_DESKTOP dependency.
 20. Windows Installer Lifecycle Safety — complete through PR #77.
 21. Installer Documentation Closeout — complete through this documentation-only
     PR.
-22. Packaged Desktop E2E — in progress; real installed-runtime validation is
-    being added in this milestone.
-23. Controlled Student Beta — not started.
-24. Release Candidate — not started.
+22. Packaged Desktop E2E — complete through merged PR #79.
+23. Controlled Student Beta Readiness — current milestone.
+24. Controlled Student Beta execution — not started.
+25. Release Candidate — not started.
 
 The Local Runtime Foundation includes stages 1–8: local database, runtime
 discovery and supervision, desktop-shell proof, FastAPI runtime packaging, Web
@@ -1343,19 +1343,17 @@ review findings. The current route remains:
 
 ```text
 Installer Documentation Closeout
-→ Packaged Desktop E2E
-→ Controlled Student Beta
-→ Release Candidate
+→ Packaged Desktop E2E (completed; PR #79)
+→ Controlled Student Beta Readiness
+→ Controlled Student Beta execution
+→ Release Candidate (future, not started)
 ```
 
 The installer artifact remains unsigned development output. Code signing,
 GitHub/public release distribution, Store/MSIX packaging, automatic updates,
-and production publishing are not implemented. Packaged Desktop E2E is also
-not complete: it still needs real desktop startup, Tauri-to-packaged-API
-supervision/readiness, static UI rendering, key workflows, restart/persistence,
-extension/local integration where applicable, and failure/recovery behavior.
+and production publishing are not implemented.
 
-### Packaged Desktop E2E — in progress
+### Packaged Desktop E2E — completed
 
 This milestone adds one bounded Windows workflow that builds the current NSIS
 installer once, installs it into an isolated root, launches the installed Tauri
@@ -1374,5 +1372,20 @@ checks stable AppData identity across a graceful shutdown and relaunch, stale
 runtime metadata recovery, diagnostics refresh, exact packaged-process cleanup,
 and sanitized evidence screenshots and summary JSON. The Windows workflow is
 the authoritative real-desktop proof; local API-only or Web development-server
-tests remain supplementary. The milestone is not complete until the installed
-WebView2 workflow and evidence artifact pass on the Windows runner.
+tests remain supplementary. PR #79 (`8efa290103ebb465942ee0d2c744fcc11ea0eb93`,
+feature head `030d7765e4811984a59de9af1e006e53a7451765`) completed the installed
+Windows workflow. The authoritative runner proof covered install, Tauri and
+packaged FastAPI startup, trusted supervision/readiness, WebView2 rendering,
+synthetic MyProgress review/apply, SQLite persistence, graceful shutdown,
+no-orphan verification, restart, stale-runtime recovery, diagnostics smoke,
+and cleanup. Evidence was sanitized and synthetic. This does not make real
+student Controlled Beta complete and does not change the read-only portal
+boundary.
+
+### Controlled Student Beta Readiness — current milestone
+
+This milestone prepares a controlled, local-first student beta protocol. It
+does not claim that real-student beta execution has occurred. The authoritative
+plan and executable checklist are maintained in
+`docs/CONTROLLED_STUDENT_BETA_PLAN.md` and
+`docs/CONTROLLED_STUDENT_BETA_CHECKLIST.md`.
