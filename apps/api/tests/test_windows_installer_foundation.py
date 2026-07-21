@@ -158,9 +158,16 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
     assert "ExecToStack" not in hook
     assert "preinstall coordination failed" in hook
     assert "preuninstall coordination failed" in hook
+    assert "-TimeoutSeconds 45" in hook
     assert "SetErrorLevel 1" in hook
     assert "MessageBox" in hook
     assert "MainWindowHandle" in coordinator
+    assert "TimeoutSeconds = 45" in coordinator
+    assert "Get-ProcessDescendants" in coordinator
+    assert "runtime_manifest" in coordinator
+    assert "stale=dead" in coordinator
+    assert "stale=path-mismatch" in coordinator
+    assert "Exact SAPSOS desktop process detected" in coordinator
     assert "CI test mode: terminating exact-path" in coordinator
     assert "CIM process enumeration was unavailable" in coordinator
     assert "Get-Process -ErrorAction SilentlyContinue" in coordinator
