@@ -25,9 +25,7 @@ def test_windows_identity_and_tauri_bundle_are_single_target_per_user() -> None:
         == "runtime-payload.zip"
     )
     assert (
-        config["bundle"]["resources"][
-            "../../dist/installer-stage/runtime-payload-metadata.json"
-        ]
+        config["bundle"]["resources"]["../../dist/installer-stage/runtime-payload-metadata.json"]
         == "runtime-payload-metadata.json"
     )
     assert config["build"]["frontendDist"] == "../../dist/installer-stage/web"
