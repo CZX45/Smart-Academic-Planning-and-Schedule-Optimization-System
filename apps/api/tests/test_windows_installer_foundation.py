@@ -129,6 +129,7 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
     assert "NSIS_HOOK_PREINSTALL" in hook
     assert "NSIS_HOOK_POSTINSTALL" in hook
     assert "NSIS_HOOK_PREUNINSTALL" in hook
+    assert "-RemoveInstalledRuntime" in hook
     assert "ExecutablePath" in coordinator
     assert "ParentProcessId" in coordinator
     assert "Get-ExactProcess" in coordinator
@@ -178,6 +179,7 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
     assert "-TimeoutSeconds 45" in hook
     assert "SetErrorLevel 1" in hook
     assert "Required runtime files were not skipped" in hook
+    assert "installed runtime payload cleanup failed" in hook
     assert "installer-runtime" in hook
     assert "MessageBox" in hook
     assert "MainWindowHandle" in coordinator

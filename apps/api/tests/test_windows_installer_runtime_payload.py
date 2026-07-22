@@ -102,6 +102,29 @@ def begin_attempt(install_root: Path, diagnostics: Path) -> None:
     assert result.returncode == 0, result.stderr or result.stdout
 
 
+def remove_installed_runtime(
+    install_root: Path, diagnostics: Path
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            "pwsh",
+            "-NoProfile",
+            "-File",
+            str(INSTALLER),
+            "-InstallRoot",
+            str(install_root),
+            "-DiagnosticDirectory",
+            str(diagnostics),
+            "-RemoveInstalledRuntime",
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
 def read_latest_diagnostic(diagnostics: Path) -> dict[str, object]:
     records = sorted(diagnostics.glob("runtime-install-*.json"), key=lambda p: p.stat().st_mtime)
     assert records
@@ -142,6 +165,28 @@ def test_existing_runtime_is_replaced_and_user_data_is_not_touched(tmp_path: Pat
 
     assert result.returncode == 0, result.stderr or result.stdout
     assert (old_runtime / "MSVCP140.dll").read_bytes() == b"vc-runtime"
+    assert sentinel.read_bytes() == b"user-data"
+
+
+def test_uninstall_cleanup_removes_runtime_but_preserves_user_data(tmp_path: Path) -> None:
+    archive, metadata = create_payload(tmp_path)
+    install_root = tmp_path / "Programs" / "SAPSOS Local Desktop"
+    diagnostics = tmp_path / "diagnostics"
+    result = run_payload(install_root, archive, metadata, diagnostics)
+    assert result.returncode == 0, result.stderr or result.stdout
+    (install_root / "runtime-payload.zip").write_bytes(b"stale-archive")
+    (install_root / "runtime-payload-metadata.json").write_text("{}", encoding="utf-8")
+    data_root = tmp_path / "SAPSOS"
+    data_root.mkdir()
+    sentinel = data_root / "sapsos.db"
+    sentinel.write_bytes(b"user-data")
+
+    cleanup = remove_installed_runtime(install_root, diagnostics)
+
+    assert cleanup.returncode == 0, cleanup.stderr or cleanup.stdout
+    assert not (install_root / "runtime/sapsos-api").exists()
+    assert not (install_root / "runtime-payload.zip").exists()
+    assert not (install_root / "runtime-payload-metadata.json").exists()
     assert sentinel.read_bytes() == b"user-data"
 
 

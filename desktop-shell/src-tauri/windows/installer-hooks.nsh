@@ -76,4 +76,16 @@
     SetErrorLevel 1
     Abort
   ${EndIf}
+  File /oname=$PLUGINSDIR\Install-Runtime-Payload.ps1 "${__FILEDIR__}\..\..\..\..\windows\Install-Runtime-Payload.ps1"
+  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\Install-Runtime-Payload.ps1" -InstallRoot "$INSTDIR" -DiagnosticDirectory "$TEMP\SAPSOS\installer-runtime" -RemoveInstalledRuntime'
+  Pop $0
+  ${If} $0 != 0
+    DetailPrint "installed runtime payload cleanup failed with exit code $0"
+    IfSilent sapsos_preuninstall_payload_silent_failure sapsos_preuninstall_payload_interactive_failure
+    sapsos_preuninstall_payload_interactive_failure:
+      MessageBox MB_ICONSTOP|MB_OK "SAPSOS could not remove its installed runtime safely. Please retry. Diagnostics: $TEMP\SAPSOS\installer-runtime"
+    sapsos_preuninstall_payload_silent_failure:
+    SetErrorLevel 1
+    Abort
+  ${EndIf}
 !macroend

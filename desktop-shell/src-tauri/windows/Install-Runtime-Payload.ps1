@@ -6,6 +6,7 @@ param(
     [string]$InstallerVersion = "",
     [string]$DiagnosticDirectory = "",
     [switch]$BeginAttempt,
+    [switch]$RemoveInstalledRuntime,
     [switch]$TestMode,
     [int]$SimulateWin32ErrorCode = 0,
     [string]$SimulateFailurePath = "MSVCP140.dll"
@@ -168,6 +169,27 @@ if (-not $DiagnosticDirectory) {
 }
 $InstallRoot = Get-FullPath $InstallRoot
 $runtimePath = Get-FullPath (Join-Path $InstallRoot "runtime\sapsos-api")
+
+if ($RemoveInstalledRuntime) {
+    try {
+        if (Test-Path -LiteralPath $runtimePath -PathType Container) {
+            [IO.Directory]::Delete($runtimePath, $true)
+        }
+        foreach ($payloadPath in @(
+                (Join-Path $InstallRoot "runtime-payload.zip"),
+                (Join-Path $InstallRoot "runtime-payload-metadata.json")
+            )) {
+            if (Test-Path -LiteralPath $payloadPath -PathType Leaf) {
+                [IO.File]::Delete($payloadPath)
+            }
+        }
+        Write-Output "Installed runtime payload removed."
+        exit 0
+    } catch {
+        Write-Error "Installed runtime payload cleanup failed: $($_.Exception.Message)"
+        exit 1
+    }
+}
 
 if ($BeginAttempt) {
     $record = New-AttemptRecord $InstallRoot $runtimePath
