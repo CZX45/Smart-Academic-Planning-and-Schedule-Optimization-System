@@ -2,6 +2,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$InstallerPath,
     [Parameter(Mandatory = $true)][string]$UpgradeInstallerPath,
+    [string]$InstallerVersion = "0.1.0",
+    [string]$UpgradeInstallerVersion = "0.1.1",
     [string]$TestRoot = (Join-Path ([IO.Path]::GetTempPath()) "SAPSOS-installer-lifecycle-$([Guid]::NewGuid().ToString('N'))")
 )
 
@@ -103,24 +105,24 @@ function Stop-TestProcess([System.Diagnostics.Process]$Process) {
 }
 
 try {
-    Write-Host "logical_installer_version=0.1.0 logical_install_root=Programs/SAPSOS Local Desktop"
+    Write-Host "logical_installer_version=$InstallerVersion upgrade_installer_version=$UpgradeInstallerVersion logical_install_root=Programs/SAPSOS Local Desktop"
     Write-Phase "clean_install" "starting" "timeout_seconds=$processTimeoutSeconds"
     Invoke-Installer $installer "clean_install"
-    Assert-InstalledFiles "0.1.0"
+    Assert-InstalledFiles $InstallerVersion
     Write-Phase "clean_install" "completed"
     $external = Write-Sentinels
     Write-Phase "write_sentinels" "completed"
 
     Write-Phase "same_version_repair" "starting" "timeout_seconds=$processTimeoutSeconds"
     Invoke-Installer $installer "same_version_repair"
-    Assert-InstalledFiles "0.1.0"; Assert-Retention $external
+    Assert-InstalledFiles $InstallerVersion; Assert-Retention $external
     Write-Phase "same_version_repair" "completed"
 
     # The two-version upgrade intentionally reuses the stable product identity.
     Write-Host "two-version upgrade uses the same product identity."
     Write-Phase "two_version_upgrade" "starting" "timeout_seconds=$processTimeoutSeconds"
     Invoke-Installer $upgradeInstaller "two_version_upgrade"
-    Assert-InstalledFiles "0.1.1"; Assert-Retention $external
+    Assert-InstalledFiles $UpgradeInstallerVersion; Assert-Retention $external
     Write-Phase "two_version_upgrade" "completed"
 
     Write-Phase "launch_installed_app" "starting"
@@ -158,7 +160,7 @@ try {
 
     Write-Phase "reinstall" "starting" "timeout_seconds=$processTimeoutSeconds"
     Invoke-Installer $installer "reinstall"
-    Assert-InstalledFiles "0.1.0"; Assert-Retention $external
+    Assert-InstalledFiles $InstallerVersion; Assert-Retention $external
     Write-Phase "reinstall" "completed"
     Write-Output "clean_install=passed"; Write-Output "same_version_repair=passed"; Write-Output "two_version_upgrade=passed"; Write-Output "running_process_coordination=passed"; Write-Output "default_uninstall_retention=passed"; Write-Output "reinstall_after_uninstall=passed"
 }

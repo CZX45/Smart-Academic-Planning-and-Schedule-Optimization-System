@@ -56,6 +56,8 @@ jobs:
           pwsh -NoProfile -File scripts/windows/Invoke-Windows-Installer-Lifecycle.ps1
           -InstallerPath dist/windows-installer-previous/SAPSOS-Local-Desktop-0.1.1-x64-setup.exe
           -UpgradeInstallerPath dist/windows-installer-next/SAPSOS-Local-Desktop-0.1.2-x64-setup.exe
+          -InstallerVersion 0.1.1
+          -UpgradeInstallerVersion 0.1.2
       - run: cargo test --manifest-path desktop-shell/src-tauri/Cargo.toml
       - run: cargo check --manifest-path desktop-shell/src-tauri/Cargo.toml
       - uses: actions/upload-artifact@v4
