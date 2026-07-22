@@ -46,7 +46,10 @@ def test_web_ui_packaging_uses_static_export_and_runtime_bridge() -> None:
     assert "api_base_url" in build_script
     assert '"frontendDist": "../../dist/installer-stage/web"' in tauri_config
     assert '"../../dist/installer-stage/runtime-payload.zip": "runtime-payload.zip"' in tauri_config
-    assert '"../../dist/installer-stage/runtime-payload-metadata.json": "runtime-payload-metadata.json"' in tauri_config
+    assert (
+        '"../../dist/installer-stage/runtime-payload-metadata.json": '
+        '"runtime-payload-metadata.json"'
+    ) in tauri_config
     assert "../../dist/local-desktop-api" not in tauri_config
     assert "../../dist/local-desktop-web" not in tauri_config
     assert "WebviewUrl::App" in shell_source
