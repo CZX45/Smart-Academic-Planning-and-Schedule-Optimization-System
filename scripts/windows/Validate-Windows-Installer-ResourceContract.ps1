@@ -33,6 +33,15 @@ if ($scripts.Count -ne 1) {
 }
 $scriptPath = $scripts[0].FullName
 $scriptText = Get-Content -LiteralPath $scriptPath -Raw
+$hookIncludes = [regex]::Matches($scriptText, '(?im)^\s*!include\s+"([^"]+installer-hooks\.nsh)"\s*$')
+if ($hookIncludes.Count -ne 1) {
+    throw "Generated NSIS script must include exactly one installer-hooks.nsh; found $($hookIncludes.Count)."
+}
+$hookPath = $hookIncludes[0].Groups[1].Value
+if (-not (Test-Path -LiteralPath $hookPath -PathType Leaf)) {
+    throw "Generated NSIS installer hook include was not found: $hookPath"
+}
+$hookText = Get-Content -LiteralPath $hookPath -Raw
 $requiredPatterns = @(
     '(?im)^\s*File\b[^\r\n]*/oname=[^\r\n]*PLUGINSDIR[^\r\n]*runtime-payload\.zip[^\r\n]*$',
     '(?im)^\s*File\b[^\r\n]*/oname=[^\r\n]*PLUGINSDIR[^\r\n]*runtime-payload-metadata\.json[^\r\n]*$',
@@ -40,12 +49,14 @@ $requiredPatterns = @(
     '(?i)-PayloadMetadataPath[^\r\n]*PLUGINSDIR[^\r\n]*runtime-payload-metadata\.json'
 )
 foreach ($pattern in $requiredPatterns) {
-    if ($scriptText -notmatch $pattern) {
+    if ($hookText -notmatch $pattern) {
         throw "Generated NSIS resource contract is missing pattern: $pattern"
     }
 }
-if ($scriptText -match '(?i)File\s+/a\s+"/oname=runtime-payload(?:-metadata)?\.(?:zip|json)"') {
-    throw "Generated NSIS script still embeds a transient payload at $INSTDIR."
+foreach ($text in @($scriptText, $hookText)) {
+    if ($text -match '(?i)File\s+/a\s+"/oname=runtime-payload(?:-metadata)?\.(?:zip|json)"') {
+        throw "NSIS source still embeds a transient payload at $INSTDIR."
+    }
 }
 
 $metadata = Get-Content -LiteralPath $PayloadMetadataPath -Raw | ConvertFrom-Json
@@ -58,6 +69,7 @@ $contract = [ordered]@{
     schema_version = 1
     delivery_mode = "nsis_plugin_directory_transient"
     nsis_script_sha256 = Get-Sha256 $scriptPath
+    installer_hook_sha256 = Get-Sha256 $hookPath
     resources = @(
         [ordered]@{
             name = "runtime-payload.zip"
