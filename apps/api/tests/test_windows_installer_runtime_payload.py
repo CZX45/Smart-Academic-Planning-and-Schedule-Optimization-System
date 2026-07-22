@@ -4,6 +4,7 @@ import os
 import subprocess
 import zipfile
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -101,10 +102,10 @@ def begin_attempt(install_root: Path, diagnostics: Path) -> None:
     assert result.returncode == 0, result.stderr or result.stdout
 
 
-def read_latest_diagnostic(diagnostics: Path) -> dict:
+def read_latest_diagnostic(diagnostics: Path) -> dict[str, object]:
     records = sorted(diagnostics.glob("runtime-install-*.json"), key=lambda p: p.stat().st_mtime)
     assert records
-    return json.loads(records[-1].read_text(encoding="utf-8-sig"))
+    return cast(dict[str, object], json.loads(records[-1].read_text(encoding="utf-8-sig")))
 
 
 def test_clean_install_and_runtime_integrity(tmp_path: Path) -> None:
