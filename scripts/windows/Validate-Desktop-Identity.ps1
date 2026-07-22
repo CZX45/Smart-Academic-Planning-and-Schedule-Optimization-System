@@ -50,7 +50,8 @@ foreach ($category in @("PERSISTENT_USER_DATA", "RECOVERABLE_OPERATIONAL_STATE",
 
 if ($tauri.bundle.targets -join "," -ne "nsis") { throw "Windows packaging must use exactly one target: nsis." }
 if ($tauri.bundle.windows.nsis.installMode -ne "currentUser") { throw "Windows installer must remain per-user/currentUser." }
-if (-not $tauri.bundle.resources.PSObject.Properties.Name.Contains("../../dist/installer-stage/api/")) { throw "Tauri API runtime resource mapping is missing." }
+if (-not $tauri.bundle.resources.PSObject.Properties.Name.Contains("../../dist/installer-stage/runtime-payload.zip")) { throw "Tauri runtime payload resource mapping is missing." }
+if (-not $tauri.bundle.resources.PSObject.Properties.Name.Contains("../../dist/installer-stage/runtime-payload-metadata.json")) { throw "Tauri runtime payload metadata mapping is missing." }
 if ($tauri.build.frontendDist -ne "../../dist/installer-stage/web") { throw "Tauri Web resource staging path drifted." }
 if ($identity.install_scope -ne "per-user") { throw "Identity install scope must be per-user." }
 

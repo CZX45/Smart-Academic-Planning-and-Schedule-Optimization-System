@@ -84,6 +84,12 @@ if (-not (Test-Path -LiteralPath (Join-Path $stageApiRoot "sapsos-api.exe") -Pat
 if (-not (Test-Path -LiteralPath (Join-Path $stageWebRoot "index.html") -PathType Leaf)) {
     throw "Short Web staging is missing index.html."
 }
+$requiredRuntimeFiles = @("sapsos-api.exe", "MSVCP140.dll")
+foreach ($requiredRuntimeFile in $requiredRuntimeFiles) {
+    if (-not (Test-Path -LiteralPath (Join-Path $stageApiRoot $requiredRuntimeFile) -PathType Leaf)) {
+        throw "Short API staging is missing required runtime file: $requiredRuntimeFile"
+    }
+}
 $licenseFiles = @(Get-ChildItem -LiteralPath $stageApiRoot -Recurse -Force -File | Where-Object {
     $_.FullName -match '(?i)(^|[\\/])(license|licenses|notice|notices)([\\/]|$)|(?i)\\.dist-info[\\/]'
 })
@@ -95,6 +101,29 @@ $stagingManifest = Join-Path $outputPath "staging-manifest.json"
     -ApiRoot $stageApiRoot `
     -WebRoot $stageWebRoot `
     -ManifestPath $stagingManifest
+
+$commit = (& git -C $repoRoot rev-parse HEAD).Trim()
+$payloadArchivePath = Join-Path $stageRoot "runtime-payload.zip"
+if (Test-Path -LiteralPath $payloadArchivePath) {
+    Remove-Item -LiteralPath $payloadArchivePath -Force
+}
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[IO.Compression.ZipFile]::CreateFromDirectory(
+    $stageApiRoot,
+    $payloadArchivePath,
+    [IO.Compression.CompressionLevel]::Optimal,
+    $false
+)
+$payloadHash = Get-Sha256 $payloadArchivePath
+$payloadMetadataPath = Join-Path $stageRoot "runtime-payload-metadata.json"
+[ordered]@{
+    schema_version = 1
+    source = "dist/installer-stage/api"
+    commit = $commit
+    installer_version = $effectiveVersion
+    archive_sha256 = $payloadHash
+    required_runtime_files = $requiredRuntimeFiles
+} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $payloadMetadataPath -Encoding UTF8
 
 $tauriRoot = Join-Path $repoRoot "desktop-shell\src-tauri"
 $targetRoot = Join-Path $tauriRoot "target"
@@ -133,7 +162,6 @@ $artifactName = $identity.installer_artifact_name.Replace("{version}", $identity
 $artifactPath = Join-Path $outputPath $artifactName
 Copy-Item -LiteralPath $installers[0].FullName -Destination $artifactPath -Force
 $hash = Get-Sha256 $artifactPath
-$commit = (& git -C $repoRoot rev-parse HEAD).Trim()
 $stageApiUri = [Uri]::new((Resolve-Path $stageApiRoot).Path.TrimEnd('\', '/') + '\')
 $manifest = [ordered]@{
     schema_version = 1
@@ -147,7 +175,8 @@ $manifest = [ordered]@{
         tauri_executable = "sapsos-local-desktop.exe"
         fastapi_runtime = "dist/installer-stage/api"
         static_web = "dist/installer-stage/web"
-        required_runtime_resources = @("index.html", "runtime/sapsos-api")
+        required_runtime_resources = @("index.html", "runtime/sapsos-api/sapsos-api.exe", "runtime/sapsos-api/MSVCP140.dll")
+        runtime_payload_archive = "runtime-payload.zip"
         licenses_notices = @($licenseFiles | ForEach-Object {
             $relative = [Uri]::UnescapeDataString(
                 $stageApiUri.MakeRelativeUri([Uri]::new($_.FullName)).ToString()

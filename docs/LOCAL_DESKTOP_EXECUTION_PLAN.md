@@ -1353,6 +1353,24 @@ The installer artifact remains unsigned development output. Code signing,
 GitHub/public release distribution, Store/MSIX packaging, automatic updates,
 and production publishing are not implemented.
 
+### Beta Findings Hardening — runtime payload write blocker — in progress
+
+BETA-A-INSTALL-003 hardening keeps the root-cause status
+`UNKNOWN / INSUFFICIENT ORIGINAL WINDOWS ERROR EVIDENCE`. The runtime is
+packaged as a single archive and deployed only after complete staged
+extraction and required-file validation, including `MSVCP140.dll`. Failed
+replacement restores the previous installer-owned runtime when possible and
+aborts without allowing a required file to be ignored. Attempt and failure
+diagnostics persist locally under `%TEMP%\SAPSOS\installer-runtime`, including
+Windows error category/code when the controlled deployment operation exposes
+one. Partial program payload recovery does not touch `%LOCALAPPDATA%\SAPSOS`.
+
+Fresh-head Regular CI, Windows Installer Foundation, Windows Installer
+Lifecycle, and Windows Packaged Desktop E2E evidence is required before this
+finding can be called resolved. This hardening does not declare Controlled
+Student Beta complete and does not authorize Checklist B–N or Release
+Candidate work.
+
 ### Packaged Desktop E2E — completed
 
 This milestone adds one bounded Windows workflow that builds the current NSIS
