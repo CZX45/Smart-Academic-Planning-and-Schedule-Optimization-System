@@ -52,6 +52,14 @@ if ($manifest.components.static_web -ne "dist/installer-stage/web") {
 if ($manifest.components.required_runtime_resources -notcontains "index.html") {
     throw "index.html is missing from the packaging contract."
 }
+foreach ($requiredResource in @("runtime/sapsos-api/sapsos-api.exe", "runtime/sapsos-api/MSVCP140.dll")) {
+    if ($manifest.components.required_runtime_resources -notcontains $requiredResource) {
+        throw "Required packaged runtime resource is missing from the packaging contract: $requiredResource"
+    }
+}
+if ($manifest.components.runtime_payload_archive -ne "runtime-payload.zip") {
+    throw "Runtime payload archive is missing from the packaging contract."
+}
 if (-not $manifest.staging_manifest) { throw "Staging manifest is missing from the packaging manifest." }
 if (@($manifest.components.licenses_notices).Count -eq 0) { throw "License/notice contract is empty." }
 foreach ($license in @($manifest.components.licenses_notices)) {
@@ -85,6 +93,21 @@ if ($artifact.Length -ne [int64]$manifest.installer.bytes) {
 }
 if ($hash -ne $manifest.installer.sha256.ToLowerInvariant()) {
     throw "Installer SHA-256 does not match the manifest."
+}
+$payloadArchivePath = Join-Path $repoRoot "dist/installer-stage/runtime-payload.zip"
+$payloadMetadataPath = Join-Path $repoRoot "dist/installer-stage/runtime-payload-metadata.json"
+if (-not (Test-Path -LiteralPath $payloadArchivePath -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $payloadMetadataPath -PathType Leaf)) {
+    throw "Runtime payload archive or metadata is missing from staging."
+}
+$payloadMetadata = Get-Content -LiteralPath $payloadMetadataPath -Raw | ConvertFrom-Json
+if ($payloadMetadata.archive_sha256.ToLowerInvariant() -ne (Get-Sha256 $payloadArchivePath)) {
+    throw "Runtime payload archive hash does not match its metadata."
+}
+foreach ($requiredRuntimeFile in @("sapsos-api.exe", "MSVCP140.dll")) {
+    if (@($payloadMetadata.required_runtime_files) -notcontains $requiredRuntimeFile) {
+        throw "Runtime payload metadata does not require: $requiredRuntimeFile"
+    }
 }
 
 $stagingPath = Join-Path (Split-Path -Parent $manifestFile) $manifest.staging_manifest

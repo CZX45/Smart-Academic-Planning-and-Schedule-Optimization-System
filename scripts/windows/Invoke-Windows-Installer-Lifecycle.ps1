@@ -66,6 +66,7 @@ function Assert-InstalledFiles([string]$ExpectedVersion) {
     Assert-True ($installedVersion -like "$ExpectedVersion*") "Installed executable version '$installedVersion' does not match expected '$ExpectedVersion'."
     $runtimeRoot = Join-Path $installRoot "runtime\sapsos-api"
     Assert-True (Test-Path (Join-Path $runtimeRoot "sapsos-api.exe") -PathType Leaf) "Packaged API sidecar is missing."
+    Assert-True (Test-Path (Join-Path $runtimeRoot "MSVCP140.dll") -PathType Leaf) "Packaged VC runtime MSVCP140.dll is missing."
     $pydanticCoreBinary = Get-ChildItem -LiteralPath $runtimeRoot -Recurse -Filter "_pydantic_core*.pyd" -File -ErrorAction SilentlyContinue | Select-Object -First 1
     Assert-True ($null -ne $pydanticCoreBinary) "Packaged pydantic-core native extension is missing."
     Write-Host "installed_pydantic_core=$($pydanticCoreBinary.FullName)"

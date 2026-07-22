@@ -822,6 +822,8 @@ try {
     Assert-True (Test-Path $appExecutable -PathType Leaf) "Installed Tauri executable is missing."
     Assert-True (Test-Path $apiExecutable -PathType Leaf) "Installed packaged API executable is missing."
     Assert-True (Test-Path (Join-Path $installRoot "runtime\sapsos-api") -PathType Container) "Packaged API runtime directory is missing."
+    Assert-True (Test-Path (Join-Path $installRoot "runtime\sapsos-api\sapsos-api.exe") -PathType Leaf) "Packaged API executable is missing."
+    Assert-True (Test-Path (Join-Path $installRoot "runtime\sapsos-api\MSVCP140.dll") -PathType Leaf) "Packaged VC runtime MSVCP140.dll is missing."
     Assert-True ((Get-ChildItem $installRoot -Recurse -Filter "_pydantic_core*.pyd" -File).Count -gt 0) "pydantic_core native extension is missing."
     Write-Phase "install" "completed" @{ install_root = "<isolated-install-root>" }
 

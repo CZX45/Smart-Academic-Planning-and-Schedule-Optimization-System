@@ -888,3 +888,39 @@ Diagnostics contain only timestamp, installer version, root values, category,
 exit code, process count, and trusted candidate PID/path pairs. They contain
 no student data, SQLite contents, credentials, cookies, tokens, or sessions.
 
+# ADR-0034: Deploy the packaged runtime as a validated payload
+
+Status: Proposed — fresh-head installer, lifecycle, and packaged desktop
+validation pending for BETA-A-INSTALL-003.
+
+## Context
+
+The 0.1.2 real-machine install reached the NSIS payload copy phase but showed
+an opaque write failure for `runtime/sapsos-api/MSVCP140.dll`. Abort removed
+the partial runtime tree, so the original Windows error category cannot be
+reconstructed. ACL, Defender, a runtime lock, and a sharing violation are not
+treated as proven causes.
+
+## Decision
+
+The packaged FastAPI one-folder runtime is carried through NSIS as one
+versioned archive plus privacy-safe metadata. A preinstall hook records an
+attempt before resource copying, so an Abort leaves a local diagnostic under
+`%TEMP%\SAPSOS\installer-runtime`. A postinstall helper extracts into a
+same-volume staging directory, validates `sapsos-api.exe` and `MSVCP140.dll`,
+then replaces the destination runtime directory with bounded handling for
+confirmed sharing/lock errors. It restores the previous runtime on a failed
+replacement and aborts the installer; required runtime files are never
+ignored.
+
+The helper records timestamp, installer version, build commit when present,
+phase, destination path and attributes, archive identity, Windows error code,
+category/message, retry count, install mode, and final outcome. It records no
+student data, SQLite contents, credentials, cookies, tokens, or sessions.
+Only installer-owned program payload paths participate in staging, rollback,
+and cleanup. `%LOCALAPPDATA%\SAPSOS` is not touched.
+
+The helper classifies access denied separately from sharing/lock violations,
+and treats unknown I/O interference as unknown. The exact BETA-A-INSTALL-003
+machine error remains unproven unless the same Windows error is observed.
+

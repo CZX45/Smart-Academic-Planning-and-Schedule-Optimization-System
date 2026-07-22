@@ -27,6 +27,32 @@
     SetErrorLevel 1
     Abort
   ${EndIf}
+  File /oname=$PLUGINSDIR\Install-Runtime-Payload.ps1 "${__FILEDIR__}\..\..\..\..\windows\Install-Runtime-Payload.ps1"
+  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\Install-Runtime-Payload.ps1" -InstallRoot "$INSTDIR" -InstallerVersion "${VERSION}" -DiagnosticDirectory "$TEMP\SAPSOS\installer-runtime" -BeginAttempt'
+  Pop $0
+  ${If} $0 != 0
+    DetailPrint "runtime payload attempt initialization failed with exit code $0"
+    IfSilent sapsos_payload_begin_silent_failure sapsos_payload_begin_interactive_failure
+    sapsos_payload_begin_interactive_failure:
+      MessageBox MB_ICONSTOP|MB_OK "SAPSOS could not initialize runtime payload diagnostics. Please retry. Diagnostics: $TEMP\SAPSOS\installer-runtime"
+    sapsos_payload_begin_silent_failure:
+    SetErrorLevel 1
+    Abort
+  ${EndIf}
+!macroend
+
+!macro NSIS_HOOK_POSTINSTALL
+  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\Install-Runtime-Payload.ps1" -InstallRoot "$INSTDIR" -PayloadArchivePath "$INSTDIR\runtime-payload.zip" -PayloadMetadataPath "$INSTDIR\runtime-payload-metadata.json" -InstallerVersion "${VERSION}" -DiagnosticDirectory "$TEMP\SAPSOS\installer-runtime"'
+  Pop $0
+  ${If} $0 != 0
+    DetailPrint "runtime payload installation failed with exit code $0"
+    IfSilent sapsos_payload_silent_failure sapsos_payload_interactive_failure
+    sapsos_payload_interactive_failure:
+      MessageBox MB_ICONSTOP|MB_OK "SAPSOS runtime payload installation failed safely. Required runtime files were not skipped. Diagnostics: $TEMP\SAPSOS\installer-runtime"
+    sapsos_payload_silent_failure:
+    SetErrorLevel 1
+    Abort
+  ${EndIf}
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL

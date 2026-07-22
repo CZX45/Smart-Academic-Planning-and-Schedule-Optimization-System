@@ -20,7 +20,8 @@ def test_windows_identity_and_tauri_bundle_are_single_target_per_user() -> None:
     assert identity["installer_artifact_name"] == "SAPSOS-Local-Desktop-{version}-x64-setup.exe"
     assert config["bundle"]["targets"] == ["nsis"]
     assert config["bundle"]["windows"]["nsis"]["installMode"] == "currentUser"
-    assert config["bundle"]["resources"]["../../dist/installer-stage/api/"] == "runtime/sapsos-api/"
+    assert config["bundle"]["resources"]["../../dist/installer-stage/runtime-payload.zip"] == "runtime-payload.zip"
+    assert config["bundle"]["resources"]["../../dist/installer-stage/runtime-payload-metadata.json"] == "runtime-payload-metadata.json"
     assert config["build"]["frontendDist"] == "../../dist/installer-stage/web"
 
 
@@ -43,6 +44,9 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     assert "Get-Sha256" in validator
     assert "ExpectedCommit" in validator
     assert "required_runtime_resources" in script
+    assert "runtime-payload.zip" in script
+    assert "MSVCP140.dll" in script
+    assert "Runtime payload archive or metadata is missing from staging." in validator
     assert "licenses_notices" in script
     assert "data-retention-contract.json" in script
     assert "Validate-Packaging-Staging.ps1" in script
@@ -117,6 +121,7 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
 
     assert config["bundle"]["windows"]["nsis"]["installerHooks"] == "windows/installer-hooks.nsh"
     assert "NSIS_HOOK_PREINSTALL" in hook
+    assert "NSIS_HOOK_POSTINSTALL" in hook
     assert "NSIS_HOOK_PREUNINSTALL" in hook
     assert "ExecutablePath" in coordinator
     assert "ParentProcessId" in coordinator
@@ -137,6 +142,7 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
     assert "does not match expected" in lifecycle
     assert '"_pydantic_core*.pyd"' in lifecycle
     assert "Packaged pydantic-core native extension is missing" in lifecycle
+    assert "Packaged VC runtime MSVCP140.dll is missing" in lifecycle
     assert "initialize_database" in lifecycle
     assert "sqlite+pysqlite:///" in lifecycle
     for marker in (
@@ -156,7 +162,8 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
     assert "timeout-minutes: 90" in workflow
     assert "timeout-minutes: 20" in workflow
     assert "-InstallerVersion 0.1.1" in workflow
-    assert "-UpgradeInstallerVersion 0.1.2" in workflow
+    assert "-TestVersionOverride 0.1.3" in workflow
+    assert "-UpgradeInstallerVersion 0.1.3" in workflow
     assert "IfSilent" in hook
     assert "ExecToLog" in hook
     assert "ExecToStack" not in hook
@@ -164,6 +171,8 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
     assert "preuninstall coordination failed" in hook
     assert "-TimeoutSeconds 45" in hook
     assert "SetErrorLevel 1" in hook
+    assert "Required runtime files were not skipped" in hook
+    assert "installer-runtime" in hook
     assert "MessageBox" in hook
     assert "MainWindowHandle" in coordinator
     assert "TimeoutSeconds = 45" in coordinator
