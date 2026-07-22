@@ -69,6 +69,13 @@ function Get-Sha256([string]$PathValue) {
         $sha256.Dispose()
     }
 }
+function Get-OptionalEnvironmentValue([string]$Name) {
+    if (Test-Path -LiteralPath "Env:$Name") {
+        $value = (Get-Item -LiteralPath "Env:$Name").Value
+        if ($value) { return $value.Trim() }
+    }
+    return $null
+}
 $stageRoot = Join-Path $repoRoot "dist\installer-stage"
 $stageApiRoot = Join-Path $stageRoot "api"
 $stageWebRoot = Join-Path $stageRoot "web"
@@ -103,6 +110,11 @@ $stagingManifest = Join-Path $outputPath "staging-manifest.json"
     -ManifestPath $stagingManifest
 
 $commit = (& git -C $repoRoot rev-parse HEAD).Trim()
+$sourceHeadSha = Get-OptionalEnvironmentValue "SAPSOS_SOURCE_HEAD_SHA"
+if (-not $sourceHeadSha) { $sourceHeadSha = $commit }
+$workflowSha = Get-OptionalEnvironmentValue "SAPSOS_WORKFLOW_SHA"
+$workflowRef = Get-OptionalEnvironmentValue "SAPSOS_WORKFLOW_REF"
+$mergeRefSha = Get-OptionalEnvironmentValue "SAPSOS_MERGE_REF_SHA"
 $payloadArchivePath = Join-Path $stageRoot "runtime-payload.zip"
 if (Test-Path -LiteralPath $payloadArchivePath) {
     Remove-Item -LiteralPath $payloadArchivePath -Force
@@ -120,6 +132,11 @@ $payloadMetadataPath = Join-Path $stageRoot "runtime-payload-metadata.json"
     schema_version = 1
     source = "dist/installer-stage/api"
     commit = $commit
+    build_commit = $commit
+    source_head_sha = $sourceHeadSha
+    workflow_sha = $workflowSha
+    workflow_ref = $workflowRef
+    merge_ref_sha = $mergeRefSha
     installer_version = $effectiveVersion
     archive_sha256 = $payloadHash
     required_runtime_files = $requiredRuntimeFiles
@@ -148,6 +165,13 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Tauri NSIS release build failed." }
 } finally { Pop-Location }
 
+$nsisResourceContractPath = Join-Path $outputPath "installer-resource-contract.json"
+& (Join-Path $PSScriptRoot "Validate-Windows-Installer-ResourceContract.ps1") `
+    -NsisScriptRoot (Join-Path $targetRoot "release\nsis") `
+    -PayloadArchivePath $payloadArchivePath `
+    -PayloadMetadataPath $payloadMetadataPath `
+    -OutputPath $nsisResourceContractPath
+
 $releaseExecutable = Join-Path $targetRoot "release\sapsos-local-desktop.exe"
 if (-not (Test-Path -LiteralPath $releaseExecutable -PathType Leaf)) {
     throw "Tauri release executable is missing: $releaseExecutable"
@@ -167,6 +191,13 @@ $manifest = [ordered]@{
     schema_version = 1
     product = $identity
     commit = $commit
+    provenance = [ordered]@{
+        source_head_sha = $sourceHeadSha
+        workflow_sha = $workflowSha
+        workflow_ref = $workflowRef
+        merge_ref_sha = $mergeRefSha
+        build_commit = $commit
+    }
     product_mode = "LOCAL_DESKTOP"
     signed = $false
     staging_manifest = "staging-manifest.json"
@@ -177,6 +208,7 @@ $manifest = [ordered]@{
         static_web = "dist/installer-stage/web"
         required_runtime_resources = @("index.html", "runtime/sapsos-api/sapsos-api.exe", "runtime/sapsos-api/MSVCP140.dll")
         runtime_payload_archive = "runtime-payload.zip"
+        installer_transient_resources = @("runtime-payload.zip", "runtime-payload-metadata.json")
         licenses_notices = @($licenseFiles | ForEach-Object {
             $relative = [Uri]::UnescapeDataString(
                 $stageApiUri.MakeRelativeUri([Uri]::new($_.FullName)).ToString()
@@ -184,6 +216,7 @@ $manifest = [ordered]@{
             "api/$relative"
         })
     }
+    installer_resource_contract = "installer-resource-contract.json"
     installer = [ordered]@{ path = $artifactName; bytes = (Get-Item $artifactPath).Length; sha256 = $hash }
     notes = @("NSIS per-user installer", "Code signing is not configured", "Installer-level E2E is a later milestone")
 }

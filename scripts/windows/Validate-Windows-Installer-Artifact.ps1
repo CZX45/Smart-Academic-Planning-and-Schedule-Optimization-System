@@ -60,6 +60,30 @@ foreach ($requiredResource in @("runtime/sapsos-api/sapsos-api.exe", "runtime/sa
 if ($manifest.components.runtime_payload_archive -ne "runtime-payload.zip") {
     throw "Runtime payload archive is missing from the packaging contract."
 }
+foreach ($transientResource in @("runtime-payload.zip", "runtime-payload-metadata.json")) {
+    if (@($manifest.components.installer_transient_resources) -notcontains $transientResource) {
+        throw "Installer transient resource is missing from the packaging contract: $transientResource"
+    }
+}
+if (-not $manifest.provenance -or -not $manifest.provenance.source_head_sha) {
+    throw "Packaging manifest is missing source-head provenance."
+}
+if (-not $manifest.installer_resource_contract) {
+    throw "Installer resource contract is missing from the packaging manifest."
+}
+$resourceContractPath = Join-Path (Split-Path -Parent $manifestFile) $manifest.installer_resource_contract
+if (-not (Test-Path -LiteralPath $resourceContractPath -PathType Leaf)) {
+    throw "Installer resource contract file is missing: $resourceContractPath"
+}
+$resourceContract = Get-Content -LiteralPath $resourceContractPath -Raw | ConvertFrom-Json
+if ($resourceContract.delivery_mode -ne "nsis_plugin_directory_transient") {
+    throw "Installer resource delivery mode is not explicit and transient."
+}
+foreach ($resourceName in @("runtime-payload.zip", "runtime-payload-metadata.json")) {
+    $resource = @($resourceContract.resources) | Where-Object { $_.name -eq $resourceName } | Select-Object -First 1
+    if (-not $resource) { throw "Installer resource contract is missing: $resourceName" }
+    if ($resource.target -notlike '$PLUGINSDIR\*') { throw "Installer resource is not owned by PLUGINSDIR: $resourceName" }
+}
 if (-not $manifest.staging_manifest) { throw "Staging manifest is missing from the packaging manifest." }
 if (@($manifest.components.licenses_notices).Count -eq 0) { throw "License/notice contract is empty." }
 foreach ($license in @($manifest.components.licenses_notices)) {

@@ -28,7 +28,12 @@
     Abort
   ${EndIf}
   File /oname=$PLUGINSDIR\Install-Runtime-Payload.ps1 "${__FILEDIR__}\..\..\..\..\windows\Install-Runtime-Payload.ps1"
-  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\Install-Runtime-Payload.ps1" -InstallRoot "$INSTDIR" -InstallerVersion "${VERSION}" -DiagnosticDirectory "$TEMP\SAPSOS\installer-runtime" -BeginAttempt'
+  ; Payloads are installer-transient. Embed and extract them explicitly into
+  ; $PLUGINSDIR before postinstall instead of depending on Tauri's incidental
+  ; $INSTDIR resource placement.
+  File /oname=$PLUGINSDIR\runtime-payload.zip "${__FILEDIR__}\..\..\..\..\..\..\dist\installer-stage\runtime-payload.zip"
+  File /oname=$PLUGINSDIR\runtime-payload-metadata.json "${__FILEDIR__}\..\..\..\..\..\..\dist\installer-stage\runtime-payload-metadata.json"
+  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\Install-Runtime-Payload.ps1" -InstallRoot "$INSTDIR" -PayloadArchivePath "$PLUGINSDIR\runtime-payload.zip" -PayloadMetadataPath "$PLUGINSDIR\runtime-payload-metadata.json" -InstallerVersion "${VERSION}" -DiagnosticDirectory "$TEMP\SAPSOS\installer-runtime" -BeginAttempt'
   Pop $0
   ${If} $0 != 0
     DetailPrint "runtime payload attempt initialization failed with exit code $0"
@@ -42,7 +47,7 @@
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
-  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\Install-Runtime-Payload.ps1" -InstallRoot "$INSTDIR" -PayloadArchivePath "$INSTDIR\runtime-payload.zip" -PayloadMetadataPath "$INSTDIR\runtime-payload-metadata.json" -InstallerVersion "${VERSION}" -DiagnosticDirectory "$TEMP\SAPSOS\installer-runtime"'
+  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\Install-Runtime-Payload.ps1" -InstallRoot "$INSTDIR" -PayloadArchivePath "$PLUGINSDIR\runtime-payload.zip" -PayloadMetadataPath "$PLUGINSDIR\runtime-payload-metadata.json" -InstallerVersion "${VERSION}" -DiagnosticDirectory "$TEMP\SAPSOS\installer-runtime"'
   Pop $0
   ${If} $0 != 0
     DetailPrint "runtime payload installation failed with exit code $0"

@@ -10,6 +10,8 @@ on:
       - "scripts/windows/Build-Windows-Installer.ps1"
       - "scripts/windows/Validate-Desktop-Identity.ps1"
       - "scripts/windows/Validate-Windows-Installer-Artifact.ps1"
+      - "scripts/windows/Validate-Windows-Installer-ResourceContract.ps1"
+      - "scripts/windows/Invoke-Windows-Installer-Artifact-RoundTrip.ps1"
       - "scripts/windows/Validate-Packaging-Staging.ps1"
       - "scripts/windows/Validate-FastAPI-Runtime.ps1"
       - "scripts/windows/Invoke-SafeBuildCleanup.ps1"
@@ -27,6 +29,11 @@ permissions:
 jobs:
   package:
     runs-on: windows-2022
+    env:
+      SAPSOS_SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SAPSOS_WORKFLOW_SHA: ${{ github.sha }}
+      SAPSOS_WORKFLOW_REF: ${{ github.ref }}
+      SAPSOS_MERGE_REF_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

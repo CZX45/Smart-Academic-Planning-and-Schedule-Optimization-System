@@ -20,13 +20,9 @@ def test_windows_identity_and_tauri_bundle_are_single_target_per_user() -> None:
     assert identity["installer_artifact_name"] == "SAPSOS-Local-Desktop-{version}-x64-setup.exe"
     assert config["bundle"]["targets"] == ["nsis"]
     assert config["bundle"]["windows"]["nsis"]["installMode"] == "currentUser"
-    assert (
-        config["bundle"]["resources"]["../../dist/installer-stage/runtime-payload.zip"]
-        == "runtime-payload.zip"
-    )
-    assert (
-        config["bundle"]["resources"]["../../dist/installer-stage/runtime-payload-metadata.json"]
-        == "runtime-payload-metadata.json"
+    assert not any(
+        "runtime-payload" in resource
+        for resource in config["bundle"].get("resources", {})
     )
     assert config["build"]["frontendDist"] == "../../dist/installer-stage/web"
 
@@ -35,6 +31,12 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     workflow = (ROOT / ".github/workflows/windows-installer-foundation.yml").read_text()
     script = (ROOT / "scripts/windows/Build-Windows-Installer.ps1").read_text()
     validator = (ROOT / "scripts/windows/Validate-Windows-Installer-Artifact.ps1").read_text()
+    resource_contract = (
+        ROOT / "scripts/windows/Validate-Windows-Installer-ResourceContract.ps1"
+    ).read_text()
+    roundtrip = (
+        ROOT / "scripts/windows/Invoke-Windows-Installer-Artifact-RoundTrip.ps1"
+    ).read_text()
 
     assert "actions/upload-artifact@v4" in workflow
     assert "desktop:installer:windows" in workflow
@@ -51,6 +53,14 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     assert "ExpectedCommit" in validator
     assert "required_runtime_resources" in script
     assert "runtime-payload.zip" in script
+    assert "source_head_sha" in script
+    assert "installer-resource-contract.json" in script
+    assert "nsis_plugin_directory_transient" in validator
+    assert 'File /oname=$PLUGINSDIR\\runtime-payload.zip' in resource_contract
+    assert 'File /oname=$PLUGINSDIR\\runtime-payload-metadata.json' in resource_contract
+    assert "Downloaded installer SHA-256 differs from manifest." in roundtrip
+    assert "source_payload_path -and" in roundtrip
+    assert "Transient archive leaked into the final install root." in roundtrip
     assert "MSVCP140.dll" in script
     assert "Runtime payload archive or metadata is missing from staging." in validator
     assert "licenses_notices" in script
@@ -169,8 +179,10 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
     assert "timeout-minutes: 90" in workflow
     assert "timeout-minutes: 20" in workflow
     assert "-InstallerVersion 0.1.1" in workflow
-    assert "-TestVersionOverride 0.1.3" in workflow
-    assert "-UpgradeInstallerVersion 0.1.3" in workflow
+    assert "-TestVersionOverride 0.1.4" in workflow
+    assert "-UpgradeInstallerVersion 0.1.4" in workflow
+    assert "Invoke-Windows-Installer-Artifact-RoundTrip.ps1" in workflow
+    assert "actions/download-artifact@v4" in workflow
     assert "IfSilent" in hook
     assert "ExecToLog" in hook
     assert "ExecToStack" not in hook

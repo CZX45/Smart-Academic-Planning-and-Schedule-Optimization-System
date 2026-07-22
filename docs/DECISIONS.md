@@ -890,8 +890,8 @@ no student data, SQLite contents, credentials, cookies, tokens, or sessions.
 
 # ADR-0034: Deploy the packaged runtime as a validated payload
 
-Status: Proposed — fresh-head installer, lifecycle, and packaged desktop
-validation pending for BETA-A-INSTALL-003.
+Status: Proposed — fresh-head installer, lifecycle, packaged desktop, and
+uploaded-artifact round-trip validation pending for BETA-A-INSTALL-003.
 
 ## Context
 
@@ -904,23 +904,32 @@ treated as proven causes.
 ## Decision
 
 The packaged FastAPI one-folder runtime is carried through NSIS as one
-versioned archive plus privacy-safe metadata. A preinstall hook records an
-attempt before resource copying, so an Abort leaves a local diagnostic under
-`%TEMP%\SAPSOS\installer-runtime`. A postinstall helper extracts into a
-same-volume staging directory, validates `sapsos-api.exe` and `MSVCP140.dll`,
-then replaces the destination runtime directory with bounded handling for
-confirmed sharing/lock errors. It restores the previous runtime on a failed
-replacement and aborts the installer; required runtime files are never
-ignored.
+versioned archive plus privacy-safe metadata. The archive and metadata are
+explicitly embedded into and consumed from NSIS `$PLUGINSDIR`, a transient
+installer resource directory; they are not supplied through Tauri's incidental
+`bundle.resources` placement and are not left in the final install root. A
+preinstall hook records an attempt before payload validation, so a missing
+resource leaves a local diagnostic under `%TEMP%\SAPSOS\installer-runtime`.
+A postinstall helper extracts into a same-volume staging directory, validates
+`sapsos-api.exe` and `MSVCP140.dll`, then replaces the destination runtime
+directory with bounded handling for confirmed sharing/lock errors. It restores
+the previous runtime on a failed replacement and aborts the installer;
+required runtime files are never ignored.
 
-The helper records timestamp, installer version, build commit when present,
-phase, destination path and attributes, archive identity, Windows error code,
-category/message, retry count, install mode, and final outcome. It records no
-student data, SQLite contents, credentials, cookies, tokens, or sessions.
-Only installer-owned program payload paths participate in staging, rollback,
-and cleanup. `%LOCALAPPDATA%\SAPSOS` is not touched.
+The helper records an attempt ID, timestamp, installer version, build/source
+commit provenance, phase, source/staging/backup paths and existence flags,
+destination path and attributes, archive identity, failing relative/absolute
+path, Windows error code, category/message, retry count, rollback outcome,
+install mode, and final outcome. It records no student data, SQLite contents,
+credentials, cookies, tokens, or sessions. Only installer-owned program
+payload paths participate in staging, rollback, and cleanup.
+`%LOCALAPPDATA%\SAPSOS` is not touched.
 
 The helper classifies access denied separately from sharing/lock violations,
 and treats unknown I/O interference as unknown. The exact BETA-A-INSTALL-003
-machine error remains unproven unless the same Windows error is observed.
+machine error remains unproven unless the same Windows error is observed. The
+build emits a resource-delivery contract and provenance model, and Lifecycle CI
+downloads the exact uploaded artifact before running an isolated installer
+round-trip. Workspace-only validation is not treated as artifact-delivery
+proof.
 
