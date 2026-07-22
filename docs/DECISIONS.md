@@ -856,3 +856,35 @@ UUIDs, user paths, and student data are not evidence outputs. Full E2E remains
 required before PR #79 can leave Draft; signing, release, Store/MSIX, Beta, and
 RC work remain out of scope.
 
+# ADR-0033: Pass the canonical per-user root to installer preflight
+
+Status: Proposed — fresh-head Windows installer validation pending.
+
+## Context
+
+The Tauri currentUser NSIS template initializes a clean install to
+`%LOCALAPPDATA%\\SAPSOS Local Desktop`, while the product identity contract
+uses `%LOCALAPPDATA%\\Programs\\SAPSOS Local Desktop`. The preinstall hook
+runs after `SetOutPath $INSTDIR`, so passing the untouched Tauri default to
+the exact-path coordinator produces an invalid-root failure. NSIS then
+incorrectly presents every nonzero coordinator result as a running-app error.
+
+## Decision
+
+The preinstall hook rewrites only the untouched Tauri currentUser default to
+the canonical per-user Programs root before invoking coordination. A valid
+existing canonical root remains unchanged; foreign, stale, or user-selected
+roots are not silently trusted and remain subject to coordinator validation.
+The preuninstall hook does not rewrite `$INSTDIR`, preserving stale-root
+rejection and uninstall safety.
+
+The coordinator uses privacy-safe local temporary diagnostics and a stable
+exit contract: `0` success, `10` real trusted SAPSOS process still active,
+`20` invalid install root, `30` process inspection failure, and `40` internal
+failure. NSIS maps these categories to distinct user-facing messages while
+keeping the real running-app message only for code `10`.
+
+Diagnostics contain only timestamp, installer version, root values, category,
+exit code, process count, and trusted candidate PID/path pairs. They contain
+no student data, SQLite contents, credentials, cookies, tokens, or sessions.
+
