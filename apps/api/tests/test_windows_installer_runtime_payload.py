@@ -163,7 +163,8 @@ def test_clean_install_and_runtime_integrity(tmp_path: Path) -> None:
     assert record["final_outcome"] == "runtime_payload_installed"
     assert record["payload_archive_exists"] is True
     assert record["payload_metadata_exists"] is True
-    assert record["provenance"]["source_head_sha"] == "source-head"
+    provenance = cast(dict[str, object], record["provenance"])
+    assert provenance["source_head_sha"] == "source-head"
     assert record["build_commit"] == "test-build-commit"
 
 
@@ -269,8 +270,12 @@ def test_transient_resource_delivery_failure_is_explicit_and_preserves_install(
     assert message in str(record["windows_error_message"])
     assert record["payload_archive_exists"] is (missing != "archive")
     assert record["payload_metadata_exists"] is (missing != "metadata")
-    assert record["source_payload_path"].endswith("runtime-payload.zip")
-    assert record["source_metadata_path"].endswith("runtime-payload-metadata.json")
+    source_payload_path = record["source_payload_path"]
+    source_metadata_path = record["source_metadata_path"]
+    assert isinstance(source_payload_path, str)
+    assert isinstance(source_metadata_path, str)
+    assert source_payload_path.endswith("runtime-payload.zip")
+    assert source_metadata_path.endswith("runtime-payload-metadata.json")
     assert record["staging_path"]
     assert not (install_root / "runtime/sapsos-api").exists()
 
