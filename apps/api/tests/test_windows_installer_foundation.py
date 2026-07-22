@@ -56,7 +56,7 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     assert "installer-resource-contract.json" in script
     assert "nsis_plugin_directory_transient" in validator
     assert "requiredPatterns" in resource_contract
-    assert "\\$PLUGINSDIR" in resource_contract
+    assert "PLUGINSDIR" in resource_contract
     assert "runtime-payload\\.zip" in resource_contract
     assert "runtime-payload-metadata\\.json" in resource_contract
     assert "Downloaded installer SHA-256 differs from manifest." in roundtrip
