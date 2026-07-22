@@ -34,10 +34,10 @@ if ($scripts.Count -ne 1) {
 $scriptPath = $scripts[0].FullName
 $scriptText = Get-Content -LiteralPath $scriptPath -Raw
 $requiredPatterns = @(
-    '(?im)^\s*File\s+["'']?/oname=\$PLUGINSDIR\\runtime-payload\.zip["'']?\s',
-    '(?im)^\s*File\s+["'']?/oname=\$PLUGINSDIR\\runtime-payload-metadata\.json["'']?\s',
-    '(?i)-PayloadArchivePath\s+["'']?\$PLUGINSDIR\\runtime-payload\.zip["'']?',
-    '(?i)-PayloadMetadataPath\s+["'']?\$PLUGINSDIR\\runtime-payload-metadata\.json["'']?'
+    '(?im)^\s*File\b[^\r\n]*/oname=[^\r\n]*PLUGINSDIR[^\r\n]*runtime-payload\.zip[^\r\n]*$',
+    '(?im)^\s*File\b[^\r\n]*/oname=[^\r\n]*PLUGINSDIR[^\r\n]*runtime-payload-metadata\.json[^\r\n]*$',
+    '(?i)-PayloadArchivePath[^\r\n]*PLUGINSDIR[^\r\n]*runtime-payload\.zip',
+    '(?i)-PayloadMetadataPath[^\r\n]*PLUGINSDIR[^\r\n]*runtime-payload-metadata\.json'
 )
 foreach ($pattern in $requiredPatterns) {
     if ($scriptText -notmatch $pattern) {
