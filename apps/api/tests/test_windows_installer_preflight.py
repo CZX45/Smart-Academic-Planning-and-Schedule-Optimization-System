@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-
 ROOT = Path(__file__).parents[3]
 COORDINATOR = ROOT / "desktop-shell/src-tauri/windows/InstallerProcessCoordination.ps1"
 HOOK = ROOT / "desktop-shell/src-tauri/windows/installer-hooks.nsh"
