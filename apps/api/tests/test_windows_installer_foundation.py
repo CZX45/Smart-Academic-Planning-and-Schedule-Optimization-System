@@ -55,8 +55,10 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     assert "source_head_sha" in script
     assert "installer-resource-contract.json" in script
     assert "nsis_plugin_directory_transient" in validator
-    assert "File /oname=$PLUGINSDIR\\runtime-payload.zip" in resource_contract
-    assert "File /oname=$PLUGINSDIR\\runtime-payload-metadata.json" in resource_contract
+    assert "requiredPatterns" in resource_contract
+    assert "\\$PLUGINSDIR" in resource_contract
+    assert "runtime-payload\\.zip" in resource_contract
+    assert "runtime-payload-metadata\\.json" in resource_contract
     assert "Downloaded installer SHA-256 differs from manifest." in roundtrip
     assert "source_payload_path -and" in roundtrip
     assert "Transient archive leaked into the final install root." in roundtrip
