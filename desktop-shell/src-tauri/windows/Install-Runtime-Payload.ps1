@@ -175,6 +175,13 @@ if ($RemoveInstalledRuntime) {
         if (Test-Path -LiteralPath $runtimePath -PathType Container) {
             [IO.Directory]::Delete($runtimePath, $true)
         }
+        $runtimeParent = Split-Path -Parent $runtimePath
+        if (Test-Path -LiteralPath $runtimeParent -PathType Container) {
+            $runtimeChildren = [IO.Directory]::GetFileSystemEntries($runtimeParent)
+            if ($runtimeChildren.Count -eq 0) {
+                [IO.Directory]::Delete($runtimeParent)
+            }
+        }
         foreach ($payloadPath in @(
                 (Join-Path $InstallRoot "runtime-payload.zip"),
                 (Join-Path $InstallRoot "runtime-payload-metadata.json")

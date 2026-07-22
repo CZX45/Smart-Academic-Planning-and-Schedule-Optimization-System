@@ -184,7 +184,7 @@ def test_uninstall_cleanup_removes_runtime_but_preserves_user_data(tmp_path: Pat
     cleanup = remove_installed_runtime(install_root, diagnostics)
 
     assert cleanup.returncode == 0, cleanup.stderr or cleanup.stdout
-    assert not (install_root / "runtime/sapsos-api").exists()
+    assert not (install_root / "runtime").exists()
     assert not (install_root / "runtime-payload.zip").exists()
     assert not (install_root / "runtime-payload-metadata.json").exists()
     assert sentinel.read_bytes() == b"user-data"
