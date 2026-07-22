@@ -33,15 +33,15 @@ if ($scripts.Count -ne 1) {
 }
 $scriptPath = $scripts[0].FullName
 $scriptText = Get-Content -LiteralPath $scriptPath -Raw
-$requiredMarkers = @(
-    'File /oname=$PLUGINSDIR\runtime-payload.zip',
-    'File /oname=$PLUGINSDIR\runtime-payload-metadata.json',
-    '-PayloadArchivePath "$PLUGINSDIR\runtime-payload.zip"',
-    '-PayloadMetadataPath "$PLUGINSDIR\runtime-payload-metadata.json"'
+$requiredPatterns = @(
+    '(?im)^\s*File\s+["'']?/oname=\$PLUGINSDIR\\runtime-payload\.zip["'']?\s',
+    '(?im)^\s*File\s+["'']?/oname=\$PLUGINSDIR\\runtime-payload-metadata\.json["'']?\s',
+    '(?i)-PayloadArchivePath\s+["'']?\$PLUGINSDIR\\runtime-payload\.zip["'']?',
+    '(?i)-PayloadMetadataPath\s+["'']?\$PLUGINSDIR\\runtime-payload-metadata\.json["'']?'
 )
-foreach ($marker in $requiredMarkers) {
-    if (-not $scriptText.Contains($marker)) {
-        throw "Generated NSIS resource contract is missing: $marker"
+foreach ($pattern in $requiredPatterns) {
+    if ($scriptText -notmatch $pattern) {
+        throw "Generated NSIS resource contract is missing pattern: $pattern"
     }
 }
 if ($scriptText -match '(?i)File\s+/a\s+"/oname=runtime-payload(?:-metadata)?\.(?:zip|json)"') {
