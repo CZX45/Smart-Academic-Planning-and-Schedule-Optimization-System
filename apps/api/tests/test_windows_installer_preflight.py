@@ -12,12 +12,8 @@ HOOK = ROOT / "desktop-shell/src-tauri/windows/installer-hooks.nsh"
 
 def test_nsis_preinstall_only_rewrites_tauri_default_root() -> None:
     hook = HOOK.read_text(encoding="utf-8")
-    preinstall = hook.split("!macro NSIS_HOOK_PREINSTALL", 1)[1].split(
-        "!macroend", 1
-    )[0]
-    preuninstall = hook.split("!macro NSIS_HOOK_PREUNINSTALL", 1)[1].split(
-        "!macroend", 1
-    )[0]
+    preinstall = hook.split("!macro NSIS_HOOK_PREINSTALL", 1)[1].split("!macroend", 1)[0]
+    preuninstall = hook.split("!macro NSIS_HOOK_PREUNINSTALL", 1)[1].split("!macroend", 1)[0]
 
     assert 'StrCmp $INSTDIR "$LOCALAPPDATA\\${PRODUCTNAME}"' in preinstall
     assert 'StrCpy $INSTDIR "$LOCALAPPDATA\\Programs\\${PRODUCTNAME}"' in preinstall
@@ -34,9 +30,9 @@ def test_coordinator_has_structured_codes_and_privacy_safe_diagnostics() -> None
         "InvalidInstallRoot = 20",
         "ProcessInspectionError = 30",
         "InternalError = 40",
-        'category = $Category',
-        'received_root = $InstallRoot',
-        'trusted_candidates = $candidateRecords',
+        "category = $Category",
+        "received_root = $InstallRoot",
+        "trusted_candidates = $candidateRecords",
         "SAPSOS\\installer-preflight",
     ):
         assert marker in coordinator
