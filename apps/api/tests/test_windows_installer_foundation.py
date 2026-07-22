@@ -21,8 +21,7 @@ def test_windows_identity_and_tauri_bundle_are_single_target_per_user() -> None:
     assert config["bundle"]["targets"] == ["nsis"]
     assert config["bundle"]["windows"]["nsis"]["installMode"] == "currentUser"
     assert not any(
-        "runtime-payload" in resource
-        for resource in config["bundle"].get("resources", {})
+        "runtime-payload" in resource for resource in config["bundle"].get("resources", {})
     )
     assert config["build"]["frontendDist"] == "../../dist/installer-stage/web"
 
@@ -56,8 +55,8 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     assert "source_head_sha" in script
     assert "installer-resource-contract.json" in script
     assert "nsis_plugin_directory_transient" in validator
-    assert 'File /oname=$PLUGINSDIR\\runtime-payload.zip' in resource_contract
-    assert 'File /oname=$PLUGINSDIR\\runtime-payload-metadata.json' in resource_contract
+    assert "File /oname=$PLUGINSDIR\\runtime-payload.zip" in resource_contract
+    assert "File /oname=$PLUGINSDIR\\runtime-payload-metadata.json" in resource_contract
     assert "Downloaded installer SHA-256 differs from manifest." in roundtrip
     assert "source_payload_path -and" in roundtrip
     assert "Transient archive leaked into the final install root." in roundtrip

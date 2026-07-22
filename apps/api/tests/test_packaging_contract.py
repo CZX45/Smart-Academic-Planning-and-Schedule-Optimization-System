@@ -48,14 +48,13 @@ def test_web_ui_packaging_uses_static_export_and_runtime_bridge() -> None:
     assert '"frontendDist": "../../dist/installer-stage/web"' in tauri_config
     config = json.loads(tauri_config)
     assert not any(
-        "runtime-payload" in resource
-        for resource in config.get("bundle", {}).get("resources", {})
+        "runtime-payload" in resource for resource in config.get("bundle", {}).get("resources", {})
     )
     hook = (REPO_ROOT / "desktop-shell/src-tauri/windows/installer-hooks.nsh").read_text(
         encoding="utf-8"
     )
-    assert 'File /oname=$PLUGINSDIR\\runtime-payload.zip' in hook
-    assert 'File /oname=$PLUGINSDIR\\runtime-payload-metadata.json' in hook
+    assert "File /oname=$PLUGINSDIR\\runtime-payload.zip" in hook
+    assert "File /oname=$PLUGINSDIR\\runtime-payload-metadata.json" in hook
     assert '-PayloadArchivePath "$PLUGINSDIR\\runtime-payload.zip"' in hook
     assert '-PayloadMetadataPath "$PLUGINSDIR\\runtime-payload-metadata.json"' in hook
     assert "../../dist/local-desktop-api" not in tauri_config
