@@ -15,6 +15,7 @@ export type SectionMonitoringWorkflowState =
       targets: SectionMonitorTarget[];
       alerts: SectionMonitorAlert[];
     }
+  | { status: "empty"; message: string }
   | { status: "offline"; message: string }
   | { status: "failed" | "schema-error"; message: string };
 
@@ -38,9 +39,13 @@ export function useSectionMonitoringWorkflow(
       };
     }
     if (!studentId) {
-      setState({
-        status: "empty",
-        message: "尚未导入学生数据或启用演示工作流。",
+      queueMicrotask(() => {
+        if (guard.isCurrent(requestId)) {
+          setState({
+            status: "empty",
+            message: "尚未导入学生数据或启用演示工作流。",
+          });
+        }
       });
       return () => {
         guard.begin();

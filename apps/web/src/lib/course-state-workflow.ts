@@ -38,9 +38,13 @@ export function useCourseStateWorkflow(
       };
     }
     if (!studentId) {
-      setState({
-        status: "empty",
-        message: "尚未导入学生数据或启用演示工作流。",
+      queueMicrotask(() => {
+        if (guard.isCurrent(requestId)) {
+          setState({
+            status: "empty",
+            message: "尚未导入学生数据或启用演示工作流。",
+          });
+        }
       });
       return () => {
         guard.begin();
