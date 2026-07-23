@@ -564,6 +564,9 @@ function Invoke-FreshBootstrapLaunch {
         $freshManifest = Wait-ForRuntimeReady "fresh_bootstrap"
         Assert-True ($freshManifest.status -eq "ready") "Fresh packaged API runtime manifest did not become ready."
         Wait-Until { $null -ne (Get-MainWindow) } $UiTimeoutSeconds "Fresh packaged WebView2 window was not created."
+        Wait-UiElementContains "尚未导入学生数据"
+        Assert-True ($null -eq (Find-UiElementContains "演示工作流已显式启用")) "Fresh unseeded launch unexpectedly enabled the demo workflow."
+        Write-Phase "fresh_empty_state" "completed" @{ student_profile = "absent"; demo_workflow = "disabled"; ui_marker = "尚未导入学生数据" }
         Assert-True (Test-Path -LiteralPath $databasePath -PathType Leaf) "Packaged API lifespan did not create the fresh LOCAL_DESKTOP database."
         Assert-True (Test-Path -LiteralPath (Join-Path $appData "desktop-startup-diagnostics.json") -PathType Leaf) "Packaged desktop startup diagnostics were not published."
 

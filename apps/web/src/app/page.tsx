@@ -1229,15 +1229,16 @@ export default function Home() {
           message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
         },
   );
+  const [demoModeEnabled, setDemoModeEnabled] = useState(false);
+  const activeStudentId = demoModeEnabled ? mockStudentId : undefined;
   const sectionMonitoringState = useSectionMonitoringWorkflow(
     apiBaseUrl,
-    mockStudentId,
+    activeStudentId,
   );
   const [courseStateState, setCourseStateState] = useCourseStateWorkflow(
     apiBaseUrl,
-    mockStudentId,
+    activeStudentId,
   );
-  const [demoModeEnabled, setDemoModeEnabled] = useState(false);
 
   useEffect(() => {
     if (!apiBaseUrl) {
@@ -1280,9 +1281,18 @@ export default function Home() {
         }
         setHealth({ status: "online", payload });
 
+        if (!activeStudentId) {
+          setAuditState({
+            status: "empty",
+            message: "尚未导入学生数据；请先导入并审核数据，或显式启用演示工作流。",
+          });
+          return;
+        }
+        const studentId = activeStudentId;
+
         let audit: DegreeAuditRun;
         try {
-          audit = await fetchLatestDegreeAudit(baseUrl, mockStudentId, {
+          audit = await fetchLatestDegreeAudit(baseUrl, studentId, {
             timeoutMs: 5_000,
           });
         } catch (error: unknown) {
@@ -1292,7 +1302,7 @@ export default function Home() {
           audit = await createDegreeAudit(
             baseUrl,
             {
-              student_profile_id: mockStudentId,
+              student_profile_id: studentId,
               program_version_id: mockProgramVersionId,
               calculation_mode: "PROJECTED",
             },
@@ -1336,7 +1346,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl, health.status]);
+  }, [apiBaseUrl, activeStudentId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1347,11 +1357,22 @@ export default function Home() {
       };
     }
 
+    if (!activeStudentId) {
+      setDataImportState({
+        status: "empty",
+        message: "尚未导入学生数据；没有可加载的学生导入记录。",
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    const studentId = activeStudentId;
+
     async function loadLatestImportPreview(baseUrl: string): Promise<void> {
       try {
         const savedImports = await fetchStudentDataImports(
           baseUrl,
-          mockStudentId,
+          studentId,
           { timeoutMs: 5_000 },
         );
         if (cancelled || savedImports.length === 0) {
@@ -1385,7 +1406,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, activeStudentId]);
 
   const myProgressPreview = myProgressPreviewFromState(dataImportState);
   const warnings =
@@ -1411,17 +1432,17 @@ export default function Home() {
       ? courseStateState.detail.snapshot.readiness.semester_schedule
       : null;
   const downstreamAnalysisAllowed =
-    courseStateState.status === "ready"
+    activeStudentId && courseStateState.status === "ready"
       ? readinessAllows(longTermReadiness?.status)
-      : demoModeEnabled && !myProgressPreview;
+      : Boolean(activeStudentId) && demoModeEnabled && !myProgressPreview;
   const eligibilityAnalysisAllowed =
-    courseStateState.status === "ready"
+    activeStudentId && courseStateState.status === "ready"
       ? readinessAllows(eligibilityReadiness?.status)
-      : demoModeEnabled && !myProgressPreview;
+      : Boolean(activeStudentId) && demoModeEnabled && !myProgressPreview;
   const scheduleAnalysisAllowed =
-    courseStateState.status === "ready"
+    activeStudentId && courseStateState.status === "ready"
       ? readinessAllows(scheduleReadiness?.status)
-      : demoModeEnabled && !myProgressPreview;
+      : Boolean(activeStudentId) && demoModeEnabled && !myProgressPreview;
 
   return (
     <WorkflowShell
@@ -4505,6 +4526,13 @@ function DataImportPreviewPanel({
   );
 
   async function handlePreviewImport(sample = selectedSample): Promise<void> {
+    if (!activeStudentId) {
+      setDataImportState({
+        status: "empty",
+        message: "请先导入真实学生数据，或显式启用演示工作流。",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setDataImportState({
         status: "offline",
@@ -4517,7 +4545,7 @@ function DataImportPreviewPanel({
       const run = await createDataImport(
         apiBaseUrl,
         {
-          student_profile_id: mockStudentId,
+          student_profile_id: activeStudentId,
           import_type: sample.importType,
           file_name: sample.fileName,
           file_mime_type: sample.fileMimeType,
@@ -4533,7 +4561,7 @@ function DataImportPreviewPanel({
       await validateDataImport(apiBaseUrl, run.id, { timeoutMs: 5_000 });
       const savedImports = await fetchStudentDataImports(
         apiBaseUrl,
-        mockStudentId,
+        activeStudentId,
         { timeoutMs: 5_000 },
       );
       setDataImportState(
@@ -4549,6 +4577,13 @@ function DataImportPreviewPanel({
   }
 
   async function handleLoadSavedImports(): Promise<void> {
+    if (!activeStudentId) {
+      setDataImportState({
+        status: "empty",
+        message: "请先导入真实学生数据，或显式启用演示工作流。",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setDataImportState({
         status: "offline",
@@ -4560,7 +4595,7 @@ function DataImportPreviewPanel({
     try {
       const savedImports = await fetchStudentDataImports(
         apiBaseUrl,
-        mockStudentId,
+        activeStudentId,
         { timeoutMs: 5_000 },
       );
       if (savedImports.length === 0) {
@@ -4592,6 +4627,13 @@ function DataImportPreviewPanel({
   }
 
   async function handleSelectSavedImport(runId: string): Promise<void> {
+    if (!activeStudentId) {
+      setDataImportState({
+        status: "empty",
+        message: "请先导入真实学生数据，或显式启用演示工作流。",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setDataImportState({
         status: "offline",
@@ -4613,7 +4655,7 @@ function DataImportPreviewPanel({
     try {
       const savedImports = await fetchStudentDataImports(
         apiBaseUrl,
-        mockStudentId,
+        activeStudentId,
         { timeoutMs: 5_000 },
       );
       const run = savedImports.find((savedRun) => savedRun.id === runId);
@@ -5452,6 +5494,13 @@ function DataReviewPanel({
   const [gradeEdits, setGradeEdits] = useState<Record<string, string>>({});
 
   async function loadActiveCourseStates(): Promise<void> {
+    if (!activeStudentId) {
+      setCourseStateState({
+        status: "empty",
+        message: "请先导入真实学生数据，或显式启用演示工作流。",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setCourseStateState({
         status: "offline",
@@ -5463,7 +5512,7 @@ function DataReviewPanel({
     try {
       const detail = await fetchActiveCourseStateSnapshot(
         apiBaseUrl,
-        mockStudentId,
+        activeStudentId,
         { timeoutMs: 5_000 },
       );
       setCourseStateState({ status: "ready", detail });
@@ -5551,6 +5600,13 @@ function DataReviewPanel({
   }
 
   async function handleLoadLatestReviews(): Promise<void> {
+    if (!activeStudentId) {
+      setDataReviewState({
+        status: "empty",
+        message: "请先导入真实学生数据，或显式启用演示工作流。",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setDataReviewState({
         status: "offline",
@@ -5562,7 +5618,7 @@ function DataReviewPanel({
     try {
       const reviews = await fetchStudentDataImportReviews(
         apiBaseUrl,
-        mockStudentId,
+        activeStudentId,
         { timeoutMs: 5_000 },
       );
       if (reviews.length === 0) {
