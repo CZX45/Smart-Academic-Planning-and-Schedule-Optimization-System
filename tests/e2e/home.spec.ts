@@ -2262,6 +2262,11 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
+async function activateDemoWorkflow(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "启用演示工作流" }).click();
+  await expect(page.getByText("演示工作流已显式启用")).toBeVisible();
+}
+
 test("home page shows degree progress shell and required mock warnings", async ({
   page,
 }) => {
@@ -2269,6 +2274,7 @@ test("home page shows degree progress shell and required mock warnings", async (
   await mockNoSavedDataImports(page);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   await expect(page.getByRole("heading", { name: /学业进度/ })).toBeVisible();
   await expect(page.getByText("API 已连接")).toBeVisible();
@@ -2289,6 +2295,7 @@ test("home page clearly marks the degree dashboard as demo data when no MyProgre
   await mockNoSavedDataImports(page);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   const auditSummary = page.getByLabel("学业审核汇总");
   await expect(auditSummary.getByText("演示 / 模拟数据")).toBeVisible();
@@ -2321,6 +2328,7 @@ test("saved auto-verified MyProgress import overrides mock dashboard values", as
   await mockSavedMyProgressImportApis(page);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   const auditSummary = page.getByLabel("学业审核汇总");
   await expect(
@@ -2406,6 +2414,7 @@ test("home page reviews and applies confirmed MyProgress import summaries", asyn
 
   await page.goto("/");
   await waitForClientReady(page);
+  await activateDemoWorkflow(page);
 
   await expect(
     page.getByText("真实导入数据 - 已自动验证").first(),
@@ -2652,6 +2661,7 @@ test("reviewed 85-row MyProgress import drives the active real course-state snap
   await page.unroute("http://localhost:8000/api/v1/students/*/data-imports");
   await page.goto("/");
   await waitForClientReady(page);
+  await activateDemoWorkflow(page);
   const courseStatePanel = page.getByRole("region", {
     name: "已应用课程状态",
     exact: true,
@@ -2673,6 +2683,7 @@ test("saved MyProgress import with exceptions is marked as requiring review", as
   await mockSavedMyProgressImportApis(page, myProgressRequiresReviewPreview);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   const auditSummary = page.getByLabel("学业审核汇总");
   await expect(auditSummary.getByText("真实导入数据 - 需要审核")).toBeVisible();
@@ -2696,6 +2707,7 @@ test("home page shows product status cards with advisory labels", async ({
   await mockSuccessfulSectionMonitoringApis(page);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   const dashboard = page.getByLabel("产品状态概览");
   await expect(dashboard).toBeVisible();
@@ -2737,6 +2749,7 @@ test("home page explains empty states with reasons and manual next steps", async
   await mockSuccessfulAuditApis(page);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   await expect(page.getByLabel("数据导入空状态")).toContainText(
     "还没有数据导入",
@@ -2832,6 +2845,7 @@ test("home page reports when degree audit responses fail schema validation", asy
   );
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   await expect(page.getByText("学业审核不可用")).toBeVisible();
   await expect(page.getByText(/意外的学业审核响应结构/)).toBeVisible();
@@ -3077,6 +3091,7 @@ test("home page previews read-only data imports", async ({ page }) => {
   await mockSuccessfulDataImportApis(page);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   await expect(
     page.getByRole("heading", { name: /数据导入预览/ }),
@@ -3142,6 +3157,7 @@ test("home page loads the sanitized MyProgress sample for local verification", a
   await mockSavedMyProgressImportApis(page);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   await page.getByRole("button", { name: /加载脱敏 MyProgress 示例/ }).click();
 
@@ -3172,6 +3188,7 @@ test("home page shows read-only section monitoring alerts and manual checklist",
   await mockSuccessfulSectionMonitoringApis(page);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   await expect(
     page
@@ -3210,6 +3227,7 @@ test("home page reviews and applies confirmed data import records", async ({
 
   await page.goto("/");
   await waitForClientReady(page);
+  await activateDemoWorkflow(page);
   await page.getByLabel("示例导入").selectOption("mock-transcript-csv");
   await page.getByRole("button", { name: /预览导入/ }).click();
 
