@@ -544,6 +544,7 @@ function Invoke-FreshBootstrapLaunch {
         -RedirectStandardError (Join-Path $root "fresh-bootstrap.stderr.log")
     try {
         $freshDiagnostic.tauri_pid = [int]$freshProcess.Id
+        $freshDiagnostic.process_started = $true
         $script:appProcess = $freshProcess
         $script:apiPid = $null
         $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
@@ -553,6 +554,8 @@ function Invoke-FreshBootstrapLaunch {
             $child = Get-ChildProcess $freshProcess.Id $apiExecutable
             if ($child) {
                 $script:apiPid = [int]$child.ProcessId
+                $freshDiagnostic.child_observed = $true
+                $freshDiagnostic.child_still_alive = $true
                 break
             }
             Start-Sleep -Milliseconds 250
@@ -575,21 +578,74 @@ function Invoke-FreshBootstrapLaunch {
             if ($schemaJson) {
                 $schemaJson | Set-Content -LiteralPath (Join-Path $evidenceRoot "fresh-schema-verification.json") -Encoding UTF8
             }
-            $schemaError = if (Test-Path -LiteralPath $schemaErrorPath) {
-                (Get-Content -LiteralPath $schemaErrorPath -Raw).Trim()
-            } else { "" }
+            $schemaError = ""
+            if (Test-Path -LiteralPath $schemaErrorPath) {
+                $schemaErrorContent = Get-Content -LiteralPath $schemaErrorPath -Raw -ErrorAction SilentlyContinue
+                if ($null -ne $schemaErrorContent) {
+                    $schemaError = $schemaErrorContent.Trim()
+                }
+            }
             Assert-True ($schemaExitCode -eq 0) "Fresh database schema verification failed (exit=$schemaExitCode, stdout=$schemaJson, stderr=$schemaError)."
         } finally { Pop-Location }
         Write-Phase "fresh_first_launch" "completed" @{ database = "SAPSOS/sapsos.db"; schema = "LOCAL_DESKTOP/1"; webview = "created" }
     } finally {
-        if ($freshProcess) {
+        $freshApiPid = $script:apiPid
+        $gracefulCloseRequested = $false
+        $gracefulDesktopExit = $false
+        $gracefulApiExit = $false
+        if ($null -ne $freshProcess) {
             $freshProcess.Refresh()
             if (-not $freshProcess.HasExited) {
-                $null = $freshProcess.CloseMainWindow()
-                try { $null = $freshProcess.WaitForExit(5000) } catch { }
+                $gracefulCloseRequested = [bool]$freshProcess.CloseMainWindow()
+                $deadline = [DateTime]::UtcNow.AddSeconds($ShutdownTimeoutSeconds)
+                while (-not $freshProcess.HasExited -and [DateTime]::UtcNow -lt $deadline) {
+                    Start-Sleep -Milliseconds 250
+                    $freshProcess.Refresh()
+                }
+                $freshProcess.Refresh()
+                $gracefulDesktopExit = $freshProcess.HasExited
             }
-            $freshProcess.Refresh()
-            if (-not $freshProcess.HasExited) { Stop-Process -Id $freshProcess.Id -Force -ErrorAction SilentlyContinue }
+        }
+        if ($gracefulCloseRequested -and $gracefulDesktopExit -and $freshApiPid) {
+            Wait-Until {
+                $null -eq (Get-CimInstance Win32_Process -Filter "ProcessId=$freshApiPid" -ErrorAction SilentlyContinue)
+            } $ShutdownTimeoutSeconds "Fresh packaged API did not exit after graceful Tauri shutdown."
+            $gracefulApiExit = $true
+            $freshDiagnostic.child_still_alive = $false
+        }
+        $gracefulRuntimeCleanup = $false
+        if ($gracefulCloseRequested -and $gracefulDesktopExit -and $gracefulApiExit) {
+            Wait-Until {
+                -not (Test-Path -LiteralPath $runtimeManifest) -and
+                    -not (Test-Path -LiteralPath $startupLock)
+            } $ShutdownTimeoutSeconds "Fresh runtime manifest or startup lock was not cleaned after graceful shutdown."
+            $gracefulRuntimeCleanup = $true
+        }
+        if ($gracefulCloseRequested -and $gracefulDesktopExit -and $gracefulApiExit -and $gracefulRuntimeCleanup) {
+            Write-Phase "fresh_graceful_shutdown" "completed" @{
+                desktop_exited = $true
+                api_exited = $true
+                runtime_manifest_removed = $true
+                startup_lock_released = $true
+            }
+        } else {
+            Write-Phase "fresh_graceful_shutdown" "failed" @{
+                close_requested = $gracefulCloseRequested
+                desktop_exited = $gracefulDesktopExit
+                api_exited = $gracefulApiExit
+                runtime_manifest_removed = -not (Test-Path -LiteralPath $runtimeManifest)
+                startup_lock_released = -not (Test-Path -LiteralPath $startupLock)
+            }
+            if ($null -ne $freshProcess) {
+                $freshProcess.Refresh()
+                if (-not $freshProcess.HasExited) {
+                    Stop-Process -Id $freshProcess.Id -Force -ErrorAction SilentlyContinue
+                }
+            }
+            if ($freshApiPid) {
+                Stop-ExactPackagedProcess $freshApiPid
+            }
+            throw "Fresh bootstrap graceful shutdown did not complete; final exact-process cleanup was required."
         }
         $script:appProcess = $null
         $script:apiPid = $null
