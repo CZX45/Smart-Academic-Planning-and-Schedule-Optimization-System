@@ -41,6 +41,7 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
         ROOT / "scripts/windows/Invoke-Windows-Installer-Artifact-RoundTrip.ps1"
     ).read_text()
     desktop_main = (ROOT / "desktop-shell/src-tauri/src/main.rs").read_text()
+    schema_verifier = ROOT / "apps/api/scripts/verify_local_desktop_schema.py"
 
     assert "actions/upload-artifact@v4" in workflow
     assert "desktop:installer:windows" in workflow
@@ -70,6 +71,10 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     assert "desktop-startup-diagnostics.json" in desktop_main
     assert "FirstRunBootstrap" in desktop_main
     assert "CREATE_NO_WINDOW" in desktop_main
+    assert schema_verifier.is_file()
+    assert "fresh-schema-verification.json" in (
+        ROOT / "scripts/windows/Invoke-Packaged-Desktop-E2E.ps1"
+    ).read_text(encoding="utf-8")
     assert "MSVCP140.dll" in script
     assert "Runtime payload archive or metadata is missing from staging." in validator
     assert "licenses_notices" in script

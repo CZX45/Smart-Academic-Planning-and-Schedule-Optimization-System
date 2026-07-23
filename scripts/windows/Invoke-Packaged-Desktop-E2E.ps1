@@ -566,10 +566,19 @@ function Invoke-FreshBootstrapLaunch {
 
         Push-Location (Join-Path $repoRoot "apps\api")
         try {
-            $schemaCheck = & (Get-Command python -ErrorAction Stop).Source -c `
-                "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); r=c.execute(\"select schema_name,schema_version from local_schema_versions where schema_name='LOCAL_DESKTOP'\").fetchone(); assert r == ('LOCAL_DESKTOP', 1), r" `
-                $databasePath
-            Assert-True ($LASTEXITCODE -eq 0) "Fresh database did not contain the supported LOCAL_DESKTOP schema marker."
+            $schemaVerifier = Join-Path $repoRoot "apps\api\scripts\verify_local_desktop_schema.py"
+            $schemaErrorPath = Join-Path $root "fresh-schema-verification.stderr.log"
+            $python = (Get-Command python -ErrorAction Stop).Source
+            $schemaOutput = @(& $python $schemaVerifier $databasePath 2> $schemaErrorPath)
+            $schemaExitCode = $LASTEXITCODE
+            $schemaJson = ($schemaOutput -join "`n").Trim()
+            if ($schemaJson) {
+                $schemaJson | Set-Content -LiteralPath (Join-Path $evidenceRoot "fresh-schema-verification.json") -Encoding UTF8
+            }
+            $schemaError = if (Test-Path -LiteralPath $schemaErrorPath) {
+                (Get-Content -LiteralPath $schemaErrorPath -Raw).Trim()
+            } else { "" }
+            Assert-True ($schemaExitCode -eq 0) "Fresh database schema verification failed (exit=$schemaExitCode, stdout=$schemaJson, stderr=$schemaError)."
         } finally { Pop-Location }
         Write-Phase "fresh_first_launch" "completed" @{ database = "SAPSOS/sapsos.db"; schema = "LOCAL_DESKTOP/1"; webview = "created" }
     } finally {
