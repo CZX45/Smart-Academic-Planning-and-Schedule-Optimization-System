@@ -4,7 +4,7 @@ from pathlib import Path
 
 import uvicorn
 
-from app.config import APP_DATA_DIR_NAME, settings
+from app.config import APP_DATA_DIR_NAME, APPLICATION_VERSION, settings
 from app.runtime.discovery import (
     allocate_loopback_port,
     default_runtime_manifest_path,
@@ -26,7 +26,7 @@ if __name__ == "__main__":
             execute_deletion_plan(
                 FIXED_PLAN_PATH,
                 root=resolve_app_data_root(),
-                application_version="0.1.0",
+                application_version=APPLICATION_VERSION,
             )
         except Exception as error:
             print(f"Local data removal failed safely: {type(error).__name__}", file=sys.stderr)

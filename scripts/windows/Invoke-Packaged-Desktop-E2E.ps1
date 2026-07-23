@@ -511,6 +511,19 @@ function Initialize-TestDatabase {
     Assert-True (Test-Path $databasePath -PathType Leaf) "The supported SQLite bootstrap helper did not create the database."
 }
 
+function Get-TestFixtureSummary {
+    $databasePath = Join-Path $appData "sapsos.db"
+    $databaseInspector = "import json,sqlite3,sys; db=sqlite3.connect('file:' + sys.argv[1] + '?mode=ro', uri=True); tables={row[0] for row in db.execute(`"select name from sqlite_master where type='table'`")}; has_table='student_profiles' in tables; count=int(db.execute('select count(*) from student_profiles').fetchone()[0]) if has_table else 0; mock=bool(db.execute(`"select 1 from student_profiles where id='74874476-4024-5e2d-807a-fbb4ab620249' limit 1`" ).fetchone()) if has_table else False; seed_count=int(db.execute('select count(*) from dev_seed_records').fetchone()[0]) if 'dev_seed_records' in tables else 0; print(json.dumps(dict(student_profiles_count=count,mock_student_exists=mock,dev_seed_record_count=seed_count)))"
+    Push-Location (Join-Path $repoRoot "apps\api")
+    try {
+        $output = @(& (Get-Command python -ErrorAction Stop).Source -c $databaseInspector $databasePath)
+        Assert-True ($LASTEXITCODE -eq 0) "The seeded fixture read-only summary failed."
+    } finally {
+        Pop-Location
+    }
+    return (($output -join "`n").Trim() | ConvertFrom-Json)
+}
+
 function Wait-ForRuntimeReady {
     param([string]$DiagnosticName = "tauri_supervised")
     $diagnostic = if ($script:readinessDiagnostics.Contains($DiagnosticName)) { $script:readinessDiagnostics[$DiagnosticName] } else { New-ReadinessDiagnostic "tauri_supervised" }
@@ -965,7 +978,11 @@ try {
 
     Write-Phase "test_fixture_setup" "starting"
     Initialize-TestDatabase
-    Write-Phase "test_fixture_setup" "completed" @{ database = "SAPSOS/sapsos.db"; fixture = "seeded-mock-student" }
+    $fixtureSummary = Get-TestFixtureSummary
+    Assert-True ([int]$fixtureSummary.student_profiles_count -gt 0) "Seeded fixture did not create a student profile."
+    Assert-True ([bool]$fixtureSummary.mock_student_exists) "Seeded fixture did not create the deterministic mock student."
+    Assert-True ([int]$fixtureSummary.dev_seed_record_count -gt 0) "Seeded fixture did not create a dev seed marker."
+    Write-Phase "test_fixture_setup" "completed" @{ database = "SAPSOS/sapsos.db"; fixture = "seeded-mock-student"; student_profiles_count = [int]$fixtureSummary.student_profiles_count; mock_student_exists = [bool]$fixtureSummary.mock_student_exists; dev_seed_record_count = [int]$fixtureSummary.dev_seed_record_count }
 
     Write-Phase "direct_api_diagnostic" "starting"
     $directDiagnostic = Invoke-DirectPackagedApiDiagnostic
@@ -1029,6 +1046,11 @@ try {
     Assert-True ((Get-Content $startupLockDiagnostics -Raw) -match '"acquisition_result":\s*"acquired"') "Startup lock acquisition diagnostics were not recorded."
     Capture-Window "first-launch"
     Write-Phase "webview_render" "completed" @{ marker = "智能学业规划"; source = "installed-static-webview" }
+
+    Write-Phase "demo_activation" "starting"
+    Invoke-UiButton "启用演示工作流"
+    Wait-UiElementContains "演示工作流已显式启用" | Out-Null
+    Write-Phase "demo_activation" "completed" @{ boundary = "explicit-user-action"; mock_student = "active" }
 
     Write-Phase "synthetic_import" "starting"
     Capture-Window "before-synthetic-import"

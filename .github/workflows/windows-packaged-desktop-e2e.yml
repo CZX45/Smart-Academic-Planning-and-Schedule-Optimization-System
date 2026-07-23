@@ -63,7 +63,7 @@ jobs:
         timeout-minutes: 35
         run: >-
           pwsh -NoProfile -File scripts/windows/Build-Windows-Installer.ps1
-          -TestVersionOverride 0.1.5
+          -TestVersionOverride 0.1.6
           -AllowTestVersionOverride
 
       - name: Validate installer and installed runtime
@@ -75,7 +75,7 @@ jobs:
         timeout-minutes: 25
         run: >-
           pwsh -NoProfile -File scripts/windows/Invoke-Packaged-Desktop-E2E.ps1
-          -InstallerPath dist/windows-installer/SAPSOS-Local-Desktop-0.1.5-x64-setup.exe
+          -InstallerPath dist/windows-installer/SAPSOS-Local-Desktop-0.1.6-x64-setup.exe
           -TestRoot "$env:RUNNER_TEMP\sapsos-packaged-desktop-e2e"
 
       - name: Upload sanitized packaged desktop E2E evidence

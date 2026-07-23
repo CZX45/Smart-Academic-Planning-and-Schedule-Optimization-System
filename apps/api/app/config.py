@@ -18,6 +18,7 @@ LOCAL_DEVELOPMENT_CORS_ORIGINS = ",".join(
 )
 TAURI_LOCALHOST_ORIGIN = "http://tauri.localhost"
 APP_ID = "com.sapsos.smart-academic-planner"
+APPLICATION_VERSION = "0.1.6"
 APP_DATA_DIR_NAME = "SAPSOS"
 FUTURE_DATA_ROOT = "%LOCALAPPDATA%\\SAPSOS\\"
 

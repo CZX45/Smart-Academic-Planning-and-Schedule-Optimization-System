@@ -2,8 +2,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$InstallerPath,
     [Parameter(Mandatory = $true)][string]$UpgradeInstallerPath,
-    [string]$InstallerVersion = "0.1.0",
-    [string]$UpgradeInstallerVersion = "0.1.1",
+    [string]$InstallerVersion = "0.1.5",
+    [string]$UpgradeInstallerVersion = "0.1.6",
     [string]$TestRoot = (Join-Path ([IO.Path]::GetTempPath()) "SAPSOS-installer-lifecycle-$([Guid]::NewGuid().ToString('N'))")
 )
 

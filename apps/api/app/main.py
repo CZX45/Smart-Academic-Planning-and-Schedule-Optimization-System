@@ -13,7 +13,7 @@ from app.api.local_diagnostics import router as local_diagnostics_router
 from app.api.local_pairing import router as local_pairing_router
 from app.api.local_restore import router as local_restore_router
 from app.api.v1.academic import router as academic_router
-from app.config import settings
+from app.config import APPLICATION_VERSION, settings
 from app.db.bootstrap import initialize_database
 from app.db.session import engine
 from app.runtime.discovery import (
@@ -36,7 +36,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version=APPLICATION_VERSION, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

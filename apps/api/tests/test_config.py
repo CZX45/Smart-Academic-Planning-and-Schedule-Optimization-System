@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from app.config import (
     APP_DATA_DIR_NAME,
     APP_ID,
+    APPLICATION_VERSION,
     FUTURE_DATA_ROOT,
     LOCAL_DESKTOP_DATABASE_URL,
     LOCAL_DEVELOPMENT_DATABASE_URL,
@@ -115,6 +116,12 @@ def test_openapi_retains_server_bearer_security_scheme() -> None:
 
     assert "HTTPBearer" in security_schemes
     assert security_schemes["HTTPBearer"]["scheme"] == "bearer"
+
+
+def test_openapi_reports_the_desktop_application_version() -> None:
+    from app.main import app
+
+    assert app.openapi()["info"]["version"] == APPLICATION_VERSION == "0.1.6"
 
 
 @pytest.mark.parametrize("cors_origins", ["", "*", "https://planner.example.edu,*"])
