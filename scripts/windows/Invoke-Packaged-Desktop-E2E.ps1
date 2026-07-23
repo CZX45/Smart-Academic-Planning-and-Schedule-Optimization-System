@@ -20,6 +20,8 @@ $appExecutable = Join-Path $installRoot "sapsos-local-desktop.exe"
 $apiExecutable = Join-Path $installRoot "runtime\sapsos-api\sapsos-api.exe"
 $appData = Join-Path $localAppData "SAPSOS"
 $runtimeManifest = Join-Path $appData "runtime.json"
+$startupLock = Join-Path $appData "startup.lock"
+$startupLockDiagnostics = Join-Path $appData "startup-lock-diagnostics.json"
 $summaryPath = Join-Path $evidenceRoot "summary.json"
 $phases = [ordered]@{}
 $script:readinessDiagnostics = [ordered]@{}
@@ -889,6 +891,8 @@ try {
     Write-Phase "webview_render" "starting"
     Wait-UiElement "智能学业规划" | Out-Null
     Wait-UiElement "主要工作流" | Out-Null
+    Assert-True (Test-Path $startupLock -PathType Leaf) "Startup lock marker was not created during the first launch."
+    Assert-True ((Get-Content $startupLockDiagnostics -Raw) -match '"acquisition_result":\s*"acquired"') "Startup lock acquisition diagnostics were not recorded."
     Capture-Window "first-launch"
     Write-Phase "webview_render" "completed" @{ marker = "智能学业规划"; source = "installed-static-webview" }
 
@@ -956,11 +960,14 @@ try {
     $supervisedDiagnostic.child_still_alive = $false
     $supervisedDiagnostic.runtime_gone = $true
     Assert-True (-not (Test-Path $runtimeManifest)) "Owned runtime manifest was not cleared after shutdown."
-    Write-Phase "graceful_shutdown" "completed" @{ orphan_api = $false }
+    Assert-True (-not (Test-Path $startupLock)) "Startup lock marker remained after graceful shutdown."
+    Assert-True ((Get-Content $startupLockDiagnostics -Raw) -match '"final_startup_outcome":\s*"startup_stopped"') "Startup lock release diagnostics were not recorded."
+    Write-Phase "graceful_shutdown" "completed" @{ orphan_api = $false; startup_lock_released = $true }
 
     Write-Phase "restart" "starting"
     New-Item -ItemType Directory -Force -Path $appData | Out-Null
     @{ instance_id = ([Guid]::NewGuid()).ToString(); status = "ready"; pid = [int]::MaxValue; port = 1; base_url = "http://127.0.0.1:1" } | ConvertTo-Json | Set-Content -LiteralPath $runtimeManifest -Encoding UTF8
+    @{ marker_version = 1; pid = [int]::MaxValue; app_version = "stale-test-marker" } | ConvertTo-Json | Set-Content -LiteralPath $startupLock -Encoding UTF8
     $restartDiagnostic = New-ReadinessDiagnostic "tauri_supervised_restart"
     $restartDiagnostic.started_at = [DateTime]::UtcNow
     $restartDiagnostic.process_started = $true
@@ -990,6 +997,8 @@ try {
     $restartInstanceId = [Guid]::Empty
     Assert-True ([Guid]::TryParse([string]$restartManifest.instance_id, [ref]$restartInstanceId)) "Restart runtime manifest did not contain a valid instance id."
     Assert-True ($restartInstanceId -ne $script:firstRuntimeInstanceId) "Restart reused the previous runtime instance id."
+    Assert-True (Test-Path $startupLock -PathType Leaf) "Startup lock marker was not recreated after stale-lock recovery."
+    Assert-True ((Get-Content $startupLockDiagnostics -Raw) -match '"acquisition_result":\s*"acquired"') "Stale startup lock recovery was not recorded."
     Wait-UiElement "智能学业规划" | Out-Null
     Write-Phase "restart" "completed" @{ stale_state = "recovered" }
 

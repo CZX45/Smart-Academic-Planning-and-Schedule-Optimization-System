@@ -933,3 +933,20 @@ downloads the exact uploaded artifact before running an isolated installer
 round-trip. Workspace-only validation is not treated as artifact-delivery
 proof.
 
+## ADR-0034: Use an OS-owned mutex for desktop startup ownership
+
+The desktop startup marker previously used `create_new` and closed the file
+immediately. An abnormal exit therefore left a persistent `startup.lock` that
+could reject every later launch, and contention propagated through Tauri setup
+as a panic. Windows packaged launches now use a per-user named mutex derived
+from the stable LOCAL_DESKTOP data root. Windows releases the mutex
+automatically when the owning process exits, including crash and forced
+termination. The marker remains only as recoverable operational residue and
+is rewritten after mutex acquisition.
+
+Expected contention is diagnosed and exits cleanly. A stale marker does not
+imply a live owner; successful mutex acquisition safely replaces it. The local
+`startup-lock-diagnostics.json` file records only lock-path, build/version,
+acquisition, ownership, recovery, and outcome metadata; it contains no student
+data, credentials, portal data, or session material.
+

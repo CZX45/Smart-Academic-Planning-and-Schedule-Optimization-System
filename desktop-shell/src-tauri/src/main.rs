@@ -3,15 +3,24 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
+#[cfg(not(windows))]
+use std::fs::File;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
 use std::sync::Mutex;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 use uuid::Uuid;
+
+#[cfg(windows)]
+use std::os::windows::ffi::OsStrExt;
+#[cfg(windows)]
+use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, HANDLE};
+#[cfg(windows)]
+use windows_sys::Win32::System::Threading::{CreateMutexW, ReleaseMutex};
 
 #[derive(Debug, Deserialize)]
 struct RuntimeManifest {
@@ -49,25 +58,210 @@ struct MigrationMarker {
     safety_backup_reference: Option<String>,
 }
 
-struct StartupLock {
-    path: PathBuf,
+#[derive(Debug, Serialize)]
+struct StartupLockDiagnostic {
+    diagnostic_version: u32,
+    timestamp_unix_seconds: u64,
+    app_version: &'static str,
+    source_head_sha: Option<&'static str>,
+    build_identity: Option<&'static str>,
+    lock_path: String,
+    lock_exists: bool,
+    acquisition_result: &'static str,
+    live_owner_detected: Option<bool>,
+    trusted_owner_pid: Option<u32>,
+    stale_recovery_attempted: bool,
+    recovery_result: &'static str,
+    final_startup_outcome: &'static str,
 }
 
+#[derive(Debug)]
+enum StartupLockError {
+    Contended(PathBuf),
+    Failed(PathBuf, String),
+}
+
+impl std::fmt::Display for StartupLockError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Contended(path) => write!(
+                formatter,
+                "STARTUP_LOCK_CONTENDED: Another SAPSOS desktop startup is already in progress at {}.",
+                path.display()
+            ),
+            Self::Failed(path, error) => write!(
+                formatter,
+                "Could not acquire SAPSOS desktop startup lock at {}: {error}",
+                path.display()
+            ),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct StartupLock {
+    path: PathBuf,
+    #[cfg(windows)]
+    mutex: HANDLE,
+    #[cfg(not(windows))]
+    file: File,
+}
+
+// The mutex handle is owned and released only while protected by the
+// DesktopProcesses mutex; transferring that owner between Tauri state
+// threads does not duplicate or concurrently use the handle.
+#[cfg(windows)]
+unsafe impl Send for StartupLock {}
+
 impl StartupLock {
-    fn acquire(app_data: &Path) -> Result<Self, String> {
+    fn acquire(app_data: &Path) -> Result<Self, StartupLockError> {
         let path = app_data.join("startup.lock");
-        fs::OpenOptions::new()
+        let mutex_name = startup_mutex_name(app_data);
+
+        #[cfg(windows)]
+        let mutex = {
+            let name: Vec<u16> = std::ffi::OsStr::new(&mutex_name)
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect();
+            let handle = unsafe { CreateMutexW(std::ptr::null(), 1, name.as_ptr()) };
+            if handle.is_null() {
+                let error = std::io::Error::last_os_error().to_string();
+                write_startup_lock_diagnostic(
+                    app_data,
+                    "acquisition_failed",
+                    None,
+                    false,
+                    "not_attempted",
+                    "rejected",
+                );
+                return Err(StartupLockError::Failed(path, error));
+            }
+            if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+                unsafe { CloseHandle(handle) };
+                write_startup_lock_diagnostic(
+                    app_data,
+                    "rejected_contended",
+                    Some(true),
+                    false,
+                    "not_attempted",
+                    "rejected",
+                );
+                return Err(StartupLockError::Contended(path));
+            }
+            handle
+        };
+
+        #[cfg(windows)]
+        if let Err(error) = fs::write(
+            &path,
+            format!(
+                "{{\"marker_version\":1,\"pid\":{},\"app_version\":\"{}\"}}",
+                std::process::id(),
+                env!("CARGO_PKG_VERSION")
+            ),
+        ) {
+            unsafe {
+                let _ = ReleaseMutex(mutex);
+                let _ = CloseHandle(mutex);
+            }
+            return Err(StartupLockError::Failed(path, error.to_string()));
+        }
+
+        #[cfg(not(windows))]
+        let file = fs::OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(&path)
-            .map_err(|_| "Another SAPSOS desktop startup is already in progress.".to_string())?;
-        Ok(Self { path })
+            .map_err(|error| {
+                write_startup_lock_diagnostic(
+                    app_data,
+                    "rejected_contended",
+                    Some(true),
+                    false,
+                    "not_attempted",
+                    "rejected",
+                );
+                StartupLockError::Failed(path.clone(), error.to_string())
+            })?;
+
+        let lock = Self {
+            path,
+            #[cfg(windows)]
+            mutex,
+            #[cfg(not(windows))]
+            file,
+        };
+        write_startup_lock_diagnostic(
+            app_data,
+            "acquired",
+            Some(false),
+            true,
+            "not_needed",
+            "startup_continues",
+        );
+        Ok(lock)
     }
 }
 
 impl Drop for StartupLock {
     fn drop(&mut self) {
         let _ = fs::remove_file(&self.path);
+        if let Some(app_data) = self.path.parent() {
+            write_startup_lock_diagnostic(
+                app_data,
+                "released",
+                Some(false),
+                false,
+                "released",
+                "startup_stopped",
+            );
+        }
+        #[cfg(windows)]
+        unsafe {
+            let _ = ReleaseMutex(self.mutex);
+            let _ = CloseHandle(self.mutex);
+        }
+    }
+}
+
+fn startup_mutex_name(app_data: &Path) -> String {
+    let normalized = app_data.to_string_lossy().to_ascii_lowercase();
+    let digest = Sha256::digest(normalized.as_bytes());
+    format!(
+        "Local\\SAPSOS.Desktop.Startup.{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+        digest[0], digest[1], digest[2], digest[3], digest[4], digest[5], digest[6], digest[7]
+    )
+}
+
+fn write_startup_lock_diagnostic(
+    app_data: &Path,
+    acquisition_result: &'static str,
+    live_owner_detected: Option<bool>,
+    stale_recovery_attempted: bool,
+    recovery_result: &'static str,
+    final_startup_outcome: &'static str,
+) {
+    let diagnostic = StartupLockDiagnostic {
+        diagnostic_version: 1,
+        timestamp_unix_seconds: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |duration| duration.as_secs()),
+        app_version: env!("CARGO_PKG_VERSION"),
+        source_head_sha: option_env!("SAPSOS_SOURCE_HEAD_SHA"),
+        build_identity: option_env!("SAPSOS_BUILD_IDENTITY"),
+        lock_path: app_data.join("startup.lock").display().to_string(),
+        lock_exists: app_data.join("startup.lock").exists(),
+        acquisition_result,
+        live_owner_detected,
+        trusted_owner_pid: None,
+        stale_recovery_attempted,
+        recovery_result,
+        final_startup_outcome,
+    };
+    let path = app_data.join("startup-lock-diagnostics.json");
+    if let Ok(contents) = serde_json::to_vec_pretty(&diagnostic) {
+        let _ = fs::write(path, contents);
     }
 }
 
@@ -101,6 +295,7 @@ struct RestoreStatusFile<'a> {
 
 #[derive(Default)]
 struct Processes {
+    startup_lock: Option<StartupLock>,
     api: Option<Child>,
     api_spawn_root: Option<TrustedProcessIdentity>,
     api_runtime: Option<TrustedRuntimeIdentity>,
@@ -797,7 +992,7 @@ impl DesktopProcesses {
         let app_data = local_app_data.join("SAPSOS");
         fs::create_dir_all(&app_data)
             .map_err(|error| format!("Could not create app-data directory: {error}"))?;
-        let _startup_lock = StartupLock::acquire(&app_data)?;
+        let startup_lock = StartupLock::acquire(&app_data).map_err(|error| error.to_string())?;
         let database_path = app_data.join("sapsos.db");
         let database_url = format!(
             "sqlite+pysqlite:///{}",
@@ -959,11 +1154,14 @@ impl DesktopProcesses {
             }
         }
 
+        let mut guard = self.0.lock().map_err(|_| "process lock poisoned")?;
+        guard.startup_lock = Some(startup_lock);
+        drop(guard);
         Ok(api_manifest)
     }
 
     fn stop(&self) {
-        let (cleanup_executable, api_runtime, expected_instance_id, manifest_path) =
+        let (cleanup_executable, api_runtime, expected_instance_id, manifest_path, startup_lock) =
             if let Ok(mut guard) = self.0.lock() {
                 if let Some(mut child) = guard.web.take() {
                     let _ = child.kill();
@@ -983,9 +1181,10 @@ impl DesktopProcesses {
                     api_runtime,
                     expected_instance_id,
                     guard.manifest.take(),
+                    guard.startup_lock.take(),
                 )
             } else {
-                (None, None, None, None)
+                (None, None, None, None, None)
             };
         #[cfg(windows)]
         let mut runtime_cleanup_allowed = true;
@@ -1018,6 +1217,7 @@ impl DesktopProcesses {
             }
         }
         let Some(executable) = cleanup_executable else {
+            drop(startup_lock);
             return;
         };
         let plan = std::env::temp_dir()
@@ -1050,6 +1250,7 @@ impl DesktopProcesses {
         }
         let _ = helper.kill();
         let _ = helper.wait();
+        drop(startup_lock);
     }
 }
 
@@ -1861,6 +2062,117 @@ mod tests {
             .is_none());
         fs::remove_dir_all(root).expect("remove test root");
     }
+
+    #[test]
+    fn startup_lock_acquires_without_existing_lock_and_releases_cleanly() {
+        let root = test_root("startup-lock-clean");
+        assert!(!root.join("startup.lock").exists());
+        let lock = StartupLock::acquire(&root).expect("first launch should acquire");
+        assert!(root.join("startup.lock").exists());
+        drop(lock);
+        assert!(!root.join("startup.lock").exists());
+        let relaunch = StartupLock::acquire(&root).expect("relaunch should acquire");
+        drop(relaunch);
+        fs::remove_dir_all(root).expect("remove startup lock test root");
+    }
+
+    #[test]
+    fn startup_lock_rejects_real_owner_without_panicking() {
+        let root = test_root("startup-lock-contended");
+        let owner = StartupLock::acquire(&root).expect("owner should acquire");
+        let result = StartupLock::acquire(&root);
+        assert!(matches!(result, Err(StartupLockError::Contended(_))));
+        let diagnostics = fs::read_to_string(root.join("startup-lock-diagnostics.json"))
+            .expect("contention diagnostics should be written");
+        assert!(diagnostics.contains("rejected_contended"));
+        drop(owner);
+        fs::remove_dir_all(root).expect("remove startup lock test root");
+    }
+
+    #[test]
+    fn startup_lock_recovers_a_stale_file() {
+        let root = test_root("startup-lock-stale");
+        fs::write(root.join("startup.lock"), b"stale pid=999999").expect("write stale lock");
+        let lock = StartupLock::acquire(&root).expect("stale marker should not block launch");
+        drop(lock);
+        assert!(!root.join("startup.lock").exists());
+        fs::remove_dir_all(root).expect("remove startup lock test root");
+    }
+
+    #[test]
+    fn startup_lock_recovery_after_startup_failure_is_not_permanent() {
+        let root = test_root("startup-lock-failure-recovery");
+        let lock = StartupLock::acquire(&root).expect("launch should acquire");
+        drop(lock);
+        assert!(StartupLock::acquire(&root).is_ok());
+        fs::remove_dir_all(root).expect("remove startup lock test root");
+    }
+
+    #[test]
+    fn startup_lock_recovery_after_crash_simulation_is_safe() {
+        let root = test_root("startup-lock-crash-recovery");
+        {
+            let _lock = StartupLock::acquire(&root).expect("launch should acquire");
+        }
+        fs::write(root.join("startup.lock"), b"orphaned crash marker")
+            .expect("write crash residue");
+        let recovered = StartupLock::acquire(&root).expect("crash residue should recover");
+        drop(recovered);
+        fs::remove_dir_all(root).expect("remove startup lock test root");
+    }
+
+    #[test]
+    fn startup_lock_contention_is_a_normal_error_not_exit_101() {
+        let root = test_root("startup-lock-expected-contention");
+        let owner = StartupLock::acquire(&root).expect("owner should acquire");
+        let error = StartupLock::acquire(&root).expect_err("second launch should be rejected");
+        assert!(error.to_string().starts_with("STARTUP_LOCK_CONTENDED:"));
+        drop(owner);
+        fs::remove_dir_all(root).expect("remove startup lock test root");
+    }
+
+    #[test]
+    fn startup_lock_diagnostics_are_privacy_safe_and_include_decision() {
+        let root = test_root("startup-lock-diagnostics");
+        let lock = StartupLock::acquire(&root).expect("launch should acquire");
+        drop(lock);
+        let diagnostics = fs::read_to_string(root.join("startup-lock-diagnostics.json"))
+            .expect("startup lock diagnostics should exist");
+        assert!(diagnostics.contains("released"));
+        assert!(diagnostics.contains("startup_stopped"));
+        assert!(!diagnostics.contains("sapsos.db"));
+        fs::remove_dir_all(root).expect("remove startup lock test root");
+    }
+
+    #[test]
+    fn startup_lock_concurrent_acquisition_has_one_owner() {
+        let root = test_root("startup-lock-race");
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
+        let first_root = root.clone();
+        let first_barrier = barrier.clone();
+        let first = thread::spawn(move || {
+            let result = StartupLock::acquire(&first_root);
+            let acquired = result.is_ok();
+            first_barrier.wait();
+            drop(result);
+            acquired
+        });
+        let second_root = root.clone();
+        let second_barrier = barrier.clone();
+        let second = thread::spawn(move || {
+            let result = StartupLock::acquire(&second_root);
+            let acquired = result.is_ok();
+            second_barrier.wait();
+            drop(result);
+            acquired
+        });
+        let acquired = [
+            first.join().expect("first race worker"),
+            second.join().expect("second race worker"),
+        ];
+        assert_eq!(acquired.iter().filter(|value| **value).count(), 1);
+        fs::remove_dir_all(root).expect("remove startup lock test root");
+    }
 }
 
 fn main() {
@@ -1878,10 +2190,18 @@ fn main() {
                     None
                 }
             };
-            let api_manifest = app
+            let api_manifest = match app
                 .state::<DesktopProcesses>()
                 .start(packaged_resource_dir.as_deref())
-                .map_err(std::io::Error::other)?;
+            {
+                Ok(manifest) => manifest,
+                Err(error) if error.starts_with("STARTUP_LOCK_CONTENDED:") => {
+                    eprintln!("{error}");
+                    app.handle().exit(0);
+                    return Ok(());
+                }
+                Err(error) => return Err(Box::new(std::io::Error::other(error))),
+            };
 
             #[cfg(not(debug_assertions))]
             {
