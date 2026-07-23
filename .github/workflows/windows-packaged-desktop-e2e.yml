@@ -25,6 +25,10 @@ jobs:
       PRODUCT_MODE: LOCAL_DESKTOP
       AUTH_MODE: local
       ENVIRONMENT: test
+      SAPSOS_SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SAPSOS_WORKFLOW_SHA: ${{ github.sha }}
+      SAPSOS_WORKFLOW_REF: ${{ github.ref }}
+      SAPSOS_MERGE_REF_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -59,7 +63,7 @@ jobs:
         timeout-minutes: 35
         run: >-
           pwsh -NoProfile -File scripts/windows/Build-Windows-Installer.ps1
-          -TestVersionOverride 0.1.3
+          -TestVersionOverride 0.1.4
           -AllowTestVersionOverride
 
       - name: Validate installer and installed runtime
@@ -71,7 +75,7 @@ jobs:
         timeout-minutes: 25
         run: >-
           pwsh -NoProfile -File scripts/windows/Invoke-Packaged-Desktop-E2E.ps1
-          -InstallerPath dist/windows-installer/SAPSOS-Local-Desktop-0.1.3-x64-setup.exe
+          -InstallerPath dist/windows-installer/SAPSOS-Local-Desktop-0.1.4-x64-setup.exe
           -TestRoot "$env:RUNNER_TEMP\sapsos-packaged-desktop-e2e"
 
       - name: Upload sanitized packaged desktop E2E evidence

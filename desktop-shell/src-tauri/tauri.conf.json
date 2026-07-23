@@ -21,10 +21,6 @@
     "longDescription": "A local, advisory Smart Academic Planning and Schedule Optimization System.",
     "category": "Education",
     "icon": ["icons/icon.ico"],
-    "resources": {
-      "../../dist/installer-stage/runtime-payload.zip": "runtime-payload.zip",
-      "../../dist/installer-stage/runtime-payload-metadata.json": "runtime-payload-metadata.json"
-    },
     "windows": {
       "webviewInstallMode": {
         "type": "downloadBootstrapper",

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -45,11 +46,17 @@ def test_web_ui_packaging_uses_static_export_and_runtime_bridge() -> None:
     assert "dist\\local-desktop-web" in build_script
     assert "api_base_url" in build_script
     assert '"frontendDist": "../../dist/installer-stage/web"' in tauri_config
-    assert '"../../dist/installer-stage/runtime-payload.zip": "runtime-payload.zip"' in tauri_config
-    assert (
-        '"../../dist/installer-stage/runtime-payload-metadata.json": '
-        '"runtime-payload-metadata.json"'
-    ) in tauri_config
+    config = json.loads(tauri_config)
+    assert not any(
+        "runtime-payload" in resource for resource in config.get("bundle", {}).get("resources", {})
+    )
+    hook = (REPO_ROOT / "desktop-shell/src-tauri/windows/installer-hooks.nsh").read_text(
+        encoding="utf-8"
+    )
+    assert "File /oname=$PLUGINSDIR\\runtime-payload.zip" in hook
+    assert "File /oname=$PLUGINSDIR\\runtime-payload-metadata.json" in hook
+    assert '-PayloadArchivePath "$PLUGINSDIR\\runtime-payload.zip"' in hook
+    assert '-PayloadMetadataPath "$PLUGINSDIR\\runtime-payload-metadata.json"' in hook
     assert "../../dist/local-desktop-api" not in tauri_config
     assert "../../dist/local-desktop-web" not in tauri_config
     assert "WebviewUrl::App" in shell_source

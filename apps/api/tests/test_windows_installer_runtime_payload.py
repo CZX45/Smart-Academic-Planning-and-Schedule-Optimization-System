@@ -35,6 +35,11 @@ def create_payload(tmp_path: Path, suffix: str = "") -> tuple[Path, Path]:
                 "schema_version": 1,
                 "source": "dist/installer-stage/api",
                 "commit": "test-commit",
+                "build_commit": "test-build-commit",
+                "source_head_sha": "source-head",
+                "workflow_sha": "workflow-sha",
+                "workflow_ref": "refs/pull/1/merge",
+                "merge_ref_sha": "merge-ref",
                 "installer_version": "0.1.3",
                 "archive_sha256": digest,
                 "required_runtime_files": ["sapsos-api.exe", "MSVCP140.dll"],
@@ -78,7 +83,12 @@ def run_payload(
     )
 
 
-def begin_attempt(install_root: Path, diagnostics: Path) -> None:
+def begin_attempt(
+    install_root: Path,
+    diagnostics: Path,
+    archive: Path | None = None,
+    metadata: Path | None = None,
+) -> None:
     result = subprocess.run(
         [
             "pwsh",
@@ -89,6 +99,10 @@ def begin_attempt(install_root: Path, diagnostics: Path) -> None:
             str(install_root),
             "-InstallerVersion",
             "0.1.3",
+            "-PayloadArchivePath",
+            str(archive or install_root / "transient" / "runtime-payload.zip"),
+            "-PayloadMetadataPath",
+            str(metadata or install_root / "transient" / "runtime-payload-metadata.json"),
             "-DiagnosticDirectory",
             str(diagnostics),
             "-BeginAttempt",
@@ -147,6 +161,11 @@ def test_clean_install_and_runtime_integrity(tmp_path: Path) -> None:
     assert record["install_mode"] == "clean_install"
     assert record["status"] == "succeeded"
     assert record["final_outcome"] == "runtime_payload_installed"
+    assert record["payload_archive_exists"] is True
+    assert record["payload_metadata_exists"] is True
+    provenance = cast(dict[str, object], record["provenance"])
+    assert provenance["source_head_sha"] == "source-head"
+    assert record["build_commit"] == "test-build-commit"
 
 
 def test_existing_runtime_is_replaced_and_user_data_is_not_touched(tmp_path: Path) -> None:
@@ -200,7 +219,7 @@ def test_write_failure_is_categorized_bounded_and_preserved(
     archive, metadata = create_payload(tmp_path)
     install_root = tmp_path / "Programs" / "SAPSOS Local Desktop"
     diagnostics = tmp_path / "diagnostics"
-    begin_attempt(install_root, diagnostics)
+    begin_attempt(install_root, diagnostics, archive, metadata)
 
     result = run_payload(
         install_root,
@@ -220,6 +239,67 @@ def test_write_failure_is_categorized_bounded_and_preserved(
     assert record["windows_error_code"] == int(error_code)
     assert record["windows_error_category"] == category
     assert record["retry_count"] == (3 if error_code == "32" else 0)
+    assert archive.exists()
+
+
+@pytest.mark.parametrize(
+    ("missing", "message"),
+    [
+        ("archive", "Runtime payload archive is missing."),
+        ("metadata", "Runtime payload metadata is missing."),
+    ],
+)
+def test_transient_resource_delivery_failure_is_explicit_and_preserves_install(
+    tmp_path: Path, missing: str, message: str
+) -> None:
+    archive, metadata = create_payload(tmp_path)
+    if missing == "archive":
+        archive.unlink()
+    else:
+        metadata.unlink()
+    install_root = tmp_path / "Programs" / "SAPSOS Local Desktop"
+    diagnostics = tmp_path / "diagnostics"
+    begin_attempt(install_root, diagnostics, archive, metadata)
+
+    result = run_payload(install_root, archive, metadata, diagnostics)
+
+    assert result.returncode != 0
+    record = read_latest_diagnostic(diagnostics)
+    assert record["status"] == "failed"
+    assert record["phase"] == "payload_validation"
+    assert message in str(record["windows_error_message"])
+    assert record["payload_archive_exists"] is (missing != "archive")
+    assert record["payload_metadata_exists"] is (missing != "metadata")
+    source_payload_path = record["source_payload_path"]
+    source_metadata_path = record["source_metadata_path"]
+    assert isinstance(source_payload_path, str)
+    assert isinstance(source_metadata_path, str)
+    assert source_payload_path.endswith("runtime-payload.zip")
+    assert source_metadata_path.endswith("runtime-payload-metadata.json")
+    assert record["staging_path"]
+    assert not (install_root / "runtime/sapsos-api").exists()
+
+
+def test_transient_resource_hash_mismatch_fails_closed(tmp_path: Path) -> None:
+    archive, metadata = create_payload(tmp_path)
+    metadata.write_text(
+        metadata.read_text(encoding="utf-8").replace(
+            hashlib.sha256(archive.read_bytes()).hexdigest(), "0" * 64
+        ),
+        encoding="utf-8",
+    )
+    install_root = tmp_path / "Programs" / "SAPSOS Local Desktop"
+    diagnostics = tmp_path / "diagnostics"
+    begin_attempt(install_root, diagnostics, archive, metadata)
+
+    result = run_payload(install_root, archive, metadata, diagnostics)
+
+    assert result.returncode != 0
+    record = read_latest_diagnostic(diagnostics)
+    assert record["phase"] == "payload_validation"
+    assert "hash does not match" in str(record["windows_error_message"])
+    assert record["failing_relative_path"] == "runtime-payload-metadata.json"
+    assert record["rollback_attempted"] is False
     assert archive.exists()
 
 

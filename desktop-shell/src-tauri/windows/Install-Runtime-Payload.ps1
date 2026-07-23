@@ -5,6 +5,10 @@ param(
     [string]$PayloadMetadataPath = "",
     [string]$InstallerVersion = "",
     [string]$DiagnosticDirectory = "",
+    [string]$SourceHeadSha = "",
+    [string]$WorkflowSha = "",
+    [string]$WorkflowRef = "",
+    [string]$MergeRefSha = "",
     [switch]$BeginAttempt,
     [switch]$RemoveInstalledRuntime,
     [switch]$TestMode,
@@ -66,7 +70,12 @@ function Write-Record([object]$Record, [string]$PathValue) {
     $Record | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $PathValue -Encoding UTF8
 }
 
-function New-AttemptRecord([string]$InstallRootValue, [string]$RuntimePathValue) {
+function Get-PayloadMetadata([string]$PathValue) {
+    if (-not $PathValue -or -not (Test-Path -LiteralPath $PathValue -PathType Leaf)) { return $null }
+    try { return Get-Content -LiteralPath $PathValue -Raw | ConvertFrom-Json } catch { return $null }
+}
+
+function New-AttemptRecord([string]$InstallRootValue, [string]$RuntimePathValue, [string]$AttemptIdValue) {
     $rootExists = Test-Path -LiteralPath $InstallRootValue -PathType Container
     $appPath = Join-Path $InstallRootValue "sapsos-local-desktop.exe"
     $runtimeExists = Test-Path -LiteralPath $RuntimePathValue -PathType Container
@@ -80,13 +89,29 @@ function New-AttemptRecord([string]$InstallRootValue, [string]$RuntimePathValue)
             $version = (Get-Item -LiteralPath $appPath -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
             if ($version -and $InstallerVersion -and $version -like "$InstallerVersion*") { "repair" } else { "upgrade" }
         }
+    $metadata = Get-PayloadMetadata $PayloadMetadataPath
+    $identity = $null
+    if ($metadata) {
+        $identity = [ordered]@{
+            expected_archive_sha256 = $metadata.archive_sha256
+            metadata_schema_version = $metadata.schema_version
+            source = $metadata.source
+        }
+    }
     return [ordered]@{
         schema_version = 1
+        attempt_id = $AttemptIdValue
         status = "in_progress"
         started_at = (Get-Date).ToUniversalTime().ToString("o")
         completed_at = $null
         installer_version = $InstallerVersion
-        build_commit = $null
+        build_commit = if ($metadata) { $metadata.commit } else { $null }
+        provenance = [ordered]@{
+            source_head_sha = $SourceHeadSha
+            workflow_sha = $WorkflowSha
+            workflow_ref = $WorkflowRef
+            merge_ref_sha = $MergeRefSha
+        }
         phase = "nsis_payload_copy"
         final_outcome = $null
         install_mode = $mode
@@ -95,11 +120,29 @@ function New-AttemptRecord([string]$InstallRootValue, [string]$RuntimePathValue)
         destination_existed_before = $runtimeExists
         destination_attributes = Get-PathAttributes $RuntimePathValue
         source_payload_path = $PayloadArchivePath
-        source_payload_identity = $null
+        source_metadata_path = $PayloadMetadataPath
+        payload_archive_exists = [bool]($PayloadArchivePath -and (Test-Path -LiteralPath $PayloadArchivePath -PathType Leaf))
+        payload_metadata_exists = [bool]($PayloadMetadataPath -and (Test-Path -LiteralPath $PayloadMetadataPath -PathType Leaf))
+        source_payload_identity = $identity
+        staging_path = $null
+        backup_path = $null
+        failing_relative_path = $null
+        failing_absolute_path = $null
         windows_error_code = $null
         windows_error_category = $null
         windows_error_message = $null
         retry_count = 0
+        rollback_attempted = $false
+        rollback_succeeded = $null
+    }
+}
+
+function Set-FailurePath([object]$Record, [string]$RelativePath, [string]$AbsolutePath = "") {
+    $Record.failing_relative_path = $RelativePath
+    if ($AbsolutePath) {
+        $Record.failing_absolute_path = $AbsolutePath
+    } elseif ($Record.staging_path -and $RelativePath) {
+        $Record.failing_absolute_path = Join-Path $Record.staging_path $RelativePath
     }
 }
 
@@ -122,6 +165,7 @@ function New-SimulatedError([int]$Code) {
 }
 
 function Invoke-WithRetry([scriptblock]$Operation, [string]$RelativePath, [object]$Record) {
+    Set-FailurePath $Record $RelativePath
     $attempt = 0
     while ($true) {
         try {
@@ -199,8 +243,9 @@ if ($RemoveInstalledRuntime) {
 }
 
 if ($BeginAttempt) {
-    $record = New-AttemptRecord $InstallRoot $runtimePath
-    $attemptPath = Join-Path $DiagnosticDirectory "runtime-install-$([Guid]::NewGuid().ToString('N')).json"
+    $attemptId = [Guid]::NewGuid().ToString('N')
+    $record = New-AttemptRecord $InstallRoot $runtimePath $attemptId
+    $attemptPath = Join-Path $DiagnosticDirectory "runtime-install-$attemptId.json"
     Write-Record $record $attemptPath
     Write-Output "Runtime installer attempt recorded: $attemptPath"
     exit 0
@@ -211,8 +256,9 @@ if ($attempt) {
     $record = $attempt.Record
     $attemptPath = $attempt.Path
 } else {
-    $record = New-AttemptRecord $InstallRoot $runtimePath
-    $attemptPath = Join-Path $DiagnosticDirectory "runtime-install-$([Guid]::NewGuid().ToString('N')).json"
+    $attemptId = [Guid]::NewGuid().ToString('N')
+    $record = New-AttemptRecord $InstallRoot $runtimePath $attemptId
+    $attemptPath = Join-Path $DiagnosticDirectory "runtime-install-$attemptId.json"
     Write-Record $record $attemptPath
 }
 
@@ -233,13 +279,25 @@ if (-not [StringComparer]::OrdinalIgnoreCase.Equals(
 }
 $backupCreated = $false
 $destinationReplaced = $false
+$rollbackAttempted = $false
+$rollbackSucceeded = $null
 $zip = $null
+
+$record.source_payload_path = $PayloadArchivePath
+$record.source_metadata_path = $PayloadMetadataPath
+$record.payload_archive_exists = [bool]($PayloadArchivePath -and (Test-Path -LiteralPath $PayloadArchivePath -PathType Leaf))
+$record.payload_metadata_exists = [bool]($PayloadMetadataPath -and (Test-Path -LiteralPath $PayloadMetadataPath -PathType Leaf))
+$record.staging_path = $stagePath
+$record.backup_path = $backupPath
+Write-Record $record $attemptPath
 
 try {
     $record.phase = "payload_validation"
+    Set-FailurePath $record "runtime-payload.zip" $PayloadArchivePath
     if (-not (Test-Path -LiteralPath $PayloadArchivePath -PathType Leaf)) {
         throw "Runtime payload archive is missing."
     }
+    Set-FailurePath $record "runtime-payload-metadata.json" $PayloadMetadataPath
     if (-not (Test-Path -LiteralPath $PayloadMetadataPath -PathType Leaf)) {
         throw "Runtime payload metadata is missing."
     }
@@ -249,7 +307,14 @@ try {
     if ($metadata.archive_sha256 -and $metadata.archive_sha256.ToLowerInvariant() -ne $archiveHash) {
         throw "Runtime payload archive hash does not match its metadata."
     }
-    $record.build_commit = $metadata.commit
+    $record.build_commit = $metadata.build_commit
+    if (-not $record.build_commit) { $record.build_commit = $metadata.commit }
+    if ($metadata.PSObject.Properties.Name -contains "source_head_sha") {
+        $record.provenance.source_head_sha = $metadata.source_head_sha
+        $record.provenance.workflow_sha = $metadata.workflow_sha
+        $record.provenance.workflow_ref = $metadata.workflow_ref
+        $record.provenance.merge_ref_sha = $metadata.merge_ref_sha
+    }
     $record.source_payload_path = $PayloadArchivePath
     $record.source_payload_identity = [ordered]@{
         archive_sha256 = $archiveHash
@@ -260,6 +325,8 @@ try {
 
     New-Item -ItemType Directory -Force -Path $runtimeParent, $stagePath, (Split-Path -Parent $backupPath) | Out-Null
     $zip = [IO.Compression.ZipFile]::OpenRead($PayloadArchivePath)
+    $record.phase = "staging_extraction"
+    Write-Record $record $attemptPath
     foreach ($entry in $zip.Entries) {
         $relativePath = $entry.FullName.Replace('\', '/')
         if ([string]::IsNullOrWhiteSpace($relativePath) -or $relativePath.EndsWith('/')) { continue }
@@ -278,6 +345,7 @@ try {
     }
 
     $record.phase = "runtime_replacement"
+    Set-FailurePath $record "runtime-directory" $runtimePath
     if (Test-Path -LiteralPath $runtimePath) {
         Invoke-WithRetry { [IO.Directory]::Move($runtimePath, $backupPath) } "runtime-directory" $record
         $backupCreated = $true
@@ -303,11 +371,15 @@ try {
     exit 0
 } catch {
     if ($zip) { $zip.Dispose() }
-    if ($destinationReplaced -and (Test-Path -LiteralPath $runtimePath)) {
-        Remove-Item -LiteralPath $runtimePath -Recurse -Force -ErrorAction SilentlyContinue
-    }
-    if ($backupCreated -and (Test-Path -LiteralPath $backupPath) -and -not (Test-Path -LiteralPath $runtimePath)) {
-        try { [IO.Directory]::Move($backupPath, $runtimePath) } catch { }
+    if ($destinationReplaced -or $backupCreated) {
+        $rollbackAttempted = $true
+        $rollbackSucceeded = $true
+        if ($destinationReplaced -and (Test-Path -LiteralPath $runtimePath)) {
+            try { [IO.Directory]::Delete($runtimePath, $true) } catch { $rollbackSucceeded = $false }
+        }
+        if ($backupCreated -and (Test-Path -LiteralPath $backupPath) -and -not (Test-Path -LiteralPath $runtimePath)) {
+            try { [IO.Directory]::Move($backupPath, $runtimePath) } catch { $rollbackSucceeded = $false }
+        }
     }
     if (Test-Path -LiteralPath $stagePath) {
         Remove-Item -LiteralPath $stagePath -Recurse -Force -ErrorAction SilentlyContinue
@@ -319,6 +391,10 @@ try {
     $record.windows_error_code = $code
     $record.windows_error_category = Get-ErrorCategory $code $_
     $record.windows_error_message = $_.Exception.Message
+    $record.payload_archive_exists = [bool]($PayloadArchivePath -and (Test-Path -LiteralPath $PayloadArchivePath -PathType Leaf))
+    $record.payload_metadata_exists = [bool]($PayloadMetadataPath -and (Test-Path -LiteralPath $PayloadMetadataPath -PathType Leaf))
+    $record.rollback_attempted = $rollbackAttempted
+    $record.rollback_succeeded = $rollbackSucceeded
     Write-Record $record $attemptPath
     Write-Output "Runtime payload installation failed: $($record.windows_error_category) code=$code"
     exit 1
