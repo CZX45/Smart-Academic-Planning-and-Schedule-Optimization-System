@@ -43,8 +43,8 @@ if (-not (Test-Path -LiteralPath $hookPath -PathType Leaf)) {
 }
 $hookText = Get-Content -LiteralPath $hookPath -Raw
 $requiredPatterns = @(
-    '(?im)^\s*File\b[^\r\n]*/oname=[^\r\n]*PLUGINSDIR[^\r\n]*runtime-payload\.zip[^\r\n]*$',
-    '(?im)^\s*File\b[^\r\n]*/oname=[^\r\n]*PLUGINSDIR[^\r\n]*runtime-payload-metadata\.json[^\r\n]*$',
+    '(?im)^\s*File\b[^\r\n]*/oname=[^\r\n]*PLUGINSDIR[^\r\n]*runtime-payload\.zip[^\r\n]*\r?$',
+    '(?im)^\s*File\b[^\r\n]*/oname=[^\r\n]*PLUGINSDIR[^\r\n]*runtime-payload-metadata\.json[^\r\n]*\r?$',
     '(?i)-PayloadArchivePath[^\r\n]*PLUGINSDIR[^\r\n]*runtime-payload\.zip',
     '(?i)-PayloadMetadataPath[^\r\n]*PLUGINSDIR[^\r\n]*runtime-payload-metadata\.json'
 )
