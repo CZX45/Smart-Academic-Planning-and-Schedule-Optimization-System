@@ -17,10 +17,21 @@ use uuid::Uuid;
 
 #[cfg(windows)]
 use std::os::windows::ffi::OsStrExt;
+#[cfg(all(windows, not(debug_assertions)))]
+use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, HANDLE};
 #[cfg(windows)]
 use windows_sys::Win32::System::Threading::{CreateMutexW, ReleaseMutex};
+
+#[cfg(all(windows, not(debug_assertions)))]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+#[allow(unused_variables)]
+fn configure_release_process(command: &mut Command) {
+    #[cfg(all(windows, not(debug_assertions)))]
+    command.creation_flags(CREATE_NO_WINDOW);
+}
 
 #[derive(Debug, Deserialize)]
 struct RuntimeManifest {
@@ -73,6 +84,25 @@ struct StartupLockDiagnostic {
     stale_recovery_attempted: bool,
     recovery_result: &'static str,
     final_startup_outcome: &'static str,
+}
+
+#[derive(Debug, Serialize)]
+struct DesktopStartupDiagnostic {
+    diagnostic_version: u32,
+    timestamp_unix_seconds: u64,
+    app_version: &'static str,
+    source_head_sha: Option<&'static str>,
+    build_identity: Option<&'static str>,
+    startup_stage: &'static str,
+    database_state: &'static str,
+    packaged_api_resolved: bool,
+    migration_preflight_attempted: bool,
+    api_spawn_attempted: bool,
+    runtime_manifest_observed: bool,
+    api_readiness_observed: bool,
+    webview_creation_attempted: bool,
+    final_outcome: &'static str,
+    error: Option<String>,
 }
 
 #[derive(Debug)]
@@ -691,11 +721,70 @@ fn trusted_runtime_identity(
 #[derive(Default)]
 struct DesktopProcesses(Mutex<Processes>);
 
+#[derive(Debug)]
 struct MigrationApplication {
     app_data: PathBuf,
     database: PathBuf,
     marker_path: PathBuf,
     marker: MigrationMarker,
+}
+
+fn write_desktop_startup_diagnostic(
+    app_data: &Path,
+    stage: &'static str,
+    database_state: DatabaseStartupState,
+    packaged_api_resolved: bool,
+    migration_preflight_attempted: bool,
+    api_spawn_attempted: bool,
+    runtime_manifest_observed: bool,
+    api_readiness_observed: bool,
+    webview_creation_attempted: bool,
+    final_outcome: &'static str,
+    error: Option<&str>,
+) {
+    let diagnostic = DesktopStartupDiagnostic {
+        diagnostic_version: 1,
+        timestamp_unix_seconds: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |duration| duration.as_secs()),
+        app_version: env!("CARGO_PKG_VERSION"),
+        source_head_sha: option_env!("SAPSOS_SOURCE_HEAD_SHA"),
+        build_identity: option_env!("SAPSOS_BUILD_IDENTITY"),
+        startup_stage: stage,
+        database_state: match database_state {
+            DatabaseStartupState::FirstRunBootstrap => "first_run_bootstrap",
+            DatabaseStartupState::ExistingDatabase => "existing_database",
+        },
+        packaged_api_resolved,
+        migration_preflight_attempted,
+        api_spawn_attempted,
+        runtime_manifest_observed,
+        api_readiness_observed,
+        webview_creation_attempted,
+        final_outcome,
+        error: error.map(|value| value.chars().take(512).collect()),
+    };
+    let path = app_data.join("desktop-startup-diagnostics.json");
+    let temporary = path.with_extension(format!("{}.tmp", std::process::id()));
+    if let Ok(contents) = serde_json::to_vec_pretty(&diagnostic) {
+        if fs::write(&temporary, contents).is_ok() {
+            let _ = fs::rename(temporary, path);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DatabaseStartupState {
+    FirstRunBootstrap,
+    ExistingDatabase,
+}
+
+fn database_startup_state(database: &Path) -> DatabaseStartupState {
+    if database.is_file() {
+        DatabaseStartupState::ExistingDatabase
+    } else {
+        DatabaseStartupState::FirstRunBootstrap
+    }
 }
 
 fn migration_database_identity(database: &Path) -> String {
@@ -756,7 +845,9 @@ fn run_migration_command(
         "sqlite+pysqlite:///{}",
         database.to_string_lossy().replace('\\', "/")
     );
-    let output: Output = Command::new(executable)
+    let mut process = Command::new(executable);
+    configure_release_process(&mut process);
+    let output: Output = process
         .args(arguments)
         .arg(command)
         .current_dir(working_directory)
@@ -878,6 +969,12 @@ fn prepare_migration(
         return Err(
             "An interrupted migration was rolled back; startup is safely stopped.".to_string(),
         );
+    }
+    // The packaged API owns first-run database creation in its LOCAL_DESKTOP
+    // lifespan. Existing databases still go through the migration contract
+    // and its safety-backup/rollback path above.
+    if database_startup_state(database) == DatabaseStartupState::FirstRunBootstrap {
+        return Ok(None);
     }
     let preflight = run_migration_command(
         api_executable,
@@ -1030,6 +1127,33 @@ impl DesktopProcesses {
             .ok_or_else(|| "Could not capture Tauri process identity".to_string())?;
         let expected_runtime_instance_id = Uuid::new_v4();
         let restore = apply_pending_restore(&app_data, &database_path)?;
+        let database_state = database_startup_state(&database_path);
+        write_desktop_startup_diagnostic(
+            &app_data,
+            "database_classification",
+            database_state,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            "startup_continues",
+            None,
+        );
+        write_desktop_startup_diagnostic(
+            &app_data,
+            "api_resolved",
+            database_state,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            "startup_continues",
+            None,
+        );
         let migration = match prepare_migration(
             &api_executable,
             &api_arguments,
@@ -1046,7 +1170,9 @@ impl DesktopProcesses {
             }
         };
         let launch_started_at = process_launch_time();
-        let api_child = Command::new(&api_executable)
+        let mut api_command = Command::new(&api_executable);
+        configure_release_process(&mut api_command);
+        let api_child = api_command
             .args(api_arguments)
             .current_dir(&api_working_directory)
             .env(
@@ -1070,6 +1196,19 @@ impl DesktopProcesses {
             .spawn()
             .map_err(|error| format!("Could not start FastAPI child: {error}"))?;
         let api_pid = api_child.id();
+        write_desktop_startup_diagnostic(
+            &app_data,
+            "api_spawn",
+            database_state,
+            true,
+            database_state == DatabaseStartupState::ExistingDatabase,
+            true,
+            false,
+            false,
+            false,
+            "startup_continues",
+            None,
+        );
         let expected_executable =
             normalized_executable_path(&api_executable).unwrap_or_else(|| api_executable.clone());
         let api_spawn_root = capture_process_identity(api_pid)
@@ -1119,6 +1258,19 @@ impl DesktopProcesses {
                 return Err(error);
             }
         };
+        write_desktop_startup_diagnostic(
+            &app_data,
+            "api_readiness",
+            database_state,
+            true,
+            database_state == DatabaseStartupState::ExistingDatabase,
+            true,
+            true,
+            true,
+            false,
+            "startup_continues",
+            None,
+        );
 
         #[cfg(debug_assertions)]
         {
@@ -1131,7 +1283,9 @@ impl DesktopProcesses {
                 .join("dist")
                 .join("bin")
                 .join("next");
-            let web_child = Command::new(node)
+            let mut web_command = Command::new(node);
+            configure_release_process(&mut web_command);
+            let web_child = web_command
                 .arg(web_script)
                 .args(["dev", "--hostname", "127.0.0.1", "--port", "3000"])
                 .current_dir(repo_root.join("apps").join("web"))
@@ -1157,6 +1311,19 @@ impl DesktopProcesses {
         let mut guard = self.0.lock().map_err(|_| "process lock poisoned")?;
         guard.startup_lock = Some(startup_lock);
         drop(guard);
+        write_desktop_startup_diagnostic(
+            &app_data,
+            "running",
+            database_state,
+            true,
+            database_state == DatabaseStartupState::ExistingDatabase,
+            true,
+            true,
+            true,
+            false,
+            "running",
+            None,
+        );
         Ok(api_manifest)
     }
 
@@ -1229,7 +1396,9 @@ impl DesktopProcesses {
         let Some(helper_parent) = executable.parent() else {
             return;
         };
-        let mut helper = match Command::new(&executable)
+        let mut helper_command = Command::new(&executable);
+        configure_release_process(&mut helper_command);
+        let mut helper = match helper_command
             .arg("local-data-remove")
             .current_dir(helper_parent)
             .stdin(Stdio::null())
@@ -2173,6 +2342,47 @@ mod tests {
         assert_eq!(acquired.iter().filter(|value| **value).count(), 1);
         fs::remove_dir_all(root).expect("remove startup lock test root");
     }
+
+    #[test]
+    fn missing_database_is_classified_for_api_owned_first_run_bootstrap() {
+        let root = test_root("first-run-database-classification");
+        let database = root.join("sapsos.db");
+        assert_eq!(
+            database_startup_state(&database),
+            DatabaseStartupState::FirstRunBootstrap
+        );
+        let migration = prepare_migration(
+            Path::new("missing-sapsos-api.exe"),
+            &[],
+            &root,
+            &root,
+            &database,
+        )
+        .expect("first run must not invoke migration preflight");
+        assert!(migration.is_none());
+        fs::remove_dir_all(root).expect("remove first-run test root");
+    }
+
+    #[test]
+    fn existing_database_remains_on_migration_contract_path() {
+        let root = test_root("existing-database-migration-path");
+        let database = root.join("sapsos.db");
+        fs::write(&database, b"not-a-valid-sqlite-database").expect("write database fixture");
+        assert_eq!(
+            database_startup_state(&database),
+            DatabaseStartupState::ExistingDatabase
+        );
+        let error = prepare_migration(
+            Path::new("missing-sapsos-api.exe"),
+            &[],
+            &root,
+            &root,
+            &database,
+        )
+        .expect_err("existing database must stay on migration preflight path");
+        assert!(error.contains("Could not start migration command"));
+        fs::remove_dir_all(root).expect("remove existing-database test root");
+    }
 }
 
 fn main() {
@@ -2200,14 +2410,20 @@ fn main() {
                     app.handle().exit(0);
                     return Ok(());
                 }
-                Err(error) => return Err(Box::new(std::io::Error::other(error))),
+                Err(error) => {
+                    eprintln!("SAPSOS startup stopped safely: {error}");
+                    app.handle().exit(1);
+                    return Ok(());
+                }
             };
 
             #[cfg(not(debug_assertions))]
             {
-                let resource_dir = packaged_resource_dir
-                    .as_deref()
-                    .expect("release resource directory is initialized");
+                let Some(resource_dir) = packaged_resource_dir.as_deref() else {
+                    eprintln!("SAPSOS startup stopped safely: release resource directory is unavailable.");
+                    app.handle().exit(1);
+                    return Ok(());
+                };
                 if !resource_dir.join("runtime/sapsos-api/sapsos-api.exe").is_file()
                     && std::env::var_os("SAPSOS_API_EXECUTABLE").is_none()
                 {
@@ -2235,6 +2451,21 @@ fn main() {
                 .resizable(true)
                 .build()
                 .map_err(std::io::Error::other)?;
+            let app_data = local_app_data_root().join("SAPSOS");
+            let database = app_data.join("sapsos.db");
+            write_desktop_startup_diagnostic(
+                &app_data,
+                "webview_creation",
+                database_startup_state(&database),
+                true,
+                database.is_file(),
+                true,
+                true,
+                true,
+                true,
+                "running",
+                None,
+            );
             Ok(())
         })
         .build(context)

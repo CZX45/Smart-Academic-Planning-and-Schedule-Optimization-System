@@ -65,6 +65,9 @@ function Save-SanitizedLog([string]$SourcePath, [string]$Name) {
 }
 
 function Save-Evidence {
+    if (Test-Path -LiteralPath (Join-Path $appData "desktop-startup-diagnostics.json") -PathType Leaf) {
+        Copy-Item -LiteralPath (Join-Path $appData "desktop-startup-diagnostics.json") -Destination (Join-Path $evidenceRoot "desktop-startup-diagnostics.json") -Force
+    }
     [ordered]@{
         schema_version = 1
         product = "SAPSOS Local Desktop"
@@ -528,6 +531,65 @@ function Add-UiAutomationAssemblies {
     Add-Type -AssemblyName UIAutomationTypes
 }
 
+function Invoke-FreshBootstrapLaunch {
+    $databasePath = Join-Path $appData "sapsos.db"
+    Assert-True (-not (Test-Path -LiteralPath $appData)) "Fresh-install app-data directory already exists before first launch."
+    Assert-True (-not (Test-Path -LiteralPath $databasePath)) "Fresh-install database already exists before first launch."
+
+    $freshDiagnostic = New-ReadinessDiagnostic "fresh_bootstrap"
+    $freshDiagnostic.started_at = [DateTime]::UtcNow
+    $script:readinessDiagnostics["fresh_bootstrap"] = $freshDiagnostic
+    $freshProcess = Start-Process -FilePath $appExecutable -WorkingDirectory $installRoot -PassThru `
+        -RedirectStandardOutput (Join-Path $root "fresh-bootstrap.stdout.log") `
+        -RedirectStandardError (Join-Path $root "fresh-bootstrap.stderr.log")
+    try {
+        $freshDiagnostic.tauri_pid = [int]$freshProcess.Id
+        $script:appProcess = $freshProcess
+        $script:apiPid = $null
+        $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
+        while ([DateTime]::UtcNow -lt $deadline) {
+            $freshProcess.Refresh()
+            if ($freshProcess.HasExited) { throw "Fresh packaged desktop launch exited before API child readiness." }
+            $child = Get-ChildProcess $freshProcess.Id $apiExecutable
+            if ($child) {
+                $script:apiPid = [int]$child.ProcessId
+                break
+            }
+            Start-Sleep -Milliseconds 250
+        }
+        Assert-True ($null -ne $script:apiPid) "Fresh packaged API child was not observed under Tauri."
+        $freshManifest = Wait-ForRuntimeReady "fresh_bootstrap"
+        Assert-True ($freshManifest.status -eq "ready") "Fresh packaged API runtime manifest did not become ready."
+        Wait-Until { $null -ne (Get-MainWindow) } $UiTimeoutSeconds "Fresh packaged WebView2 window was not created."
+        Assert-True (Test-Path -LiteralPath $databasePath -PathType Leaf) "Packaged API lifespan did not create the fresh LOCAL_DESKTOP database."
+        Assert-True (Test-Path -LiteralPath (Join-Path $appData "desktop-startup-diagnostics.json") -PathType Leaf) "Packaged desktop startup diagnostics were not published."
+
+        Push-Location (Join-Path $repoRoot "apps\api")
+        try {
+            $schemaCheck = & (Get-Command python -ErrorAction Stop).Source -c `
+                "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); r=c.execute(\"select schema_name,schema_version from local_schema_versions where schema_name='LOCAL_DESKTOP'\").fetchone(); assert r == ('LOCAL_DESKTOP', 1), r" `
+                $databasePath
+            Assert-True ($LASTEXITCODE -eq 0) "Fresh database did not contain the supported LOCAL_DESKTOP schema marker."
+        } finally { Pop-Location }
+        Write-Phase "fresh_first_launch" "completed" @{ database = "SAPSOS/sapsos.db"; schema = "LOCAL_DESKTOP/1"; webview = "created" }
+    } finally {
+        if ($freshProcess) {
+            $freshProcess.Refresh()
+            if (-not $freshProcess.HasExited) {
+                $null = $freshProcess.CloseMainWindow()
+                try { $null = $freshProcess.WaitForExit(5000) } catch { }
+            }
+            $freshProcess.Refresh()
+            if (-not $freshProcess.HasExited) { Stop-Process -Id $freshProcess.Id -Force -ErrorAction SilentlyContinue }
+        }
+        $script:appProcess = $null
+        $script:apiPid = $null
+        $script:runtimePid = $null
+        Assert-True (Test-Path -LiteralPath $databasePath -PathType Leaf) "Fresh bootstrap database disappeared after shutdown."
+        Assert-True (-not (Test-Path -LiteralPath (Join-Path $appData "startup.lock"))) "Fresh bootstrap startup lock remained after shutdown."
+    }
+}
+
 function Get-MainWindow {
     $rootElement = [System.Windows.Automation.AutomationElement]::RootElement
     $condition = New-Object System.Windows.Automation.PropertyCondition(
@@ -828,6 +890,10 @@ try {
     Assert-True (Test-Path (Join-Path $installRoot "runtime\sapsos-api\MSVCP140.dll") -PathType Leaf) "Packaged VC runtime MSVCP140.dll is missing."
     Assert-True ((Get-ChildItem $installRoot -Recurse -Filter "_pydantic_core*.pyd" -File).Count -gt 0) "pydantic_core native extension is missing."
     Write-Phase "install" "completed" @{ install_root = "<isolated-install-root>" }
+
+    Add-UiAutomationAssemblies
+    Write-Phase "fresh_first_launch" "starting"
+    Invoke-FreshBootstrapLaunch
 
     Write-Phase "test_fixture_setup" "starting"
     Initialize-TestDatabase

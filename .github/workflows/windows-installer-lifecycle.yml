@@ -54,16 +54,16 @@ jobs:
       - run: >-
           pwsh -NoProfile -File scripts/windows/Build-Windows-Installer.ps1
           -OutputRoot dist/windows-installer-next
-          -TestVersionOverride 0.1.4
+          -TestVersionOverride 0.1.5
           -AllowTestVersionOverride
       - name: Run bounded installer lifecycle
         timeout-minutes: 20
         run: >-
           pwsh -NoProfile -File scripts/windows/Invoke-Windows-Installer-Lifecycle.ps1
           -InstallerPath dist/windows-installer-previous/SAPSOS-Local-Desktop-0.1.1-x64-setup.exe
-          -UpgradeInstallerPath dist/windows-installer-next/SAPSOS-Local-Desktop-0.1.4-x64-setup.exe
+          -UpgradeInstallerPath dist/windows-installer-next/SAPSOS-Local-Desktop-0.1.5-x64-setup.exe
           -InstallerVersion 0.1.1
-          -UpgradeInstallerVersion 0.1.4
+          -UpgradeInstallerVersion 0.1.5
       - run: cargo test --manifest-path desktop-shell/src-tauri/Cargo.toml
       - run: cargo check --manifest-path desktop-shell/src-tauri/Cargo.toml
       - uses: actions/upload-artifact@v4
@@ -81,7 +81,7 @@ jobs:
         run: >-
           pwsh -NoProfile -File scripts/windows/Invoke-Windows-Installer-Artifact-RoundTrip.ps1
           -ArtifactRoot dist/artifact-roundtrip
-          -InstallerVersion 0.1.4
+          -InstallerVersion 0.1.5
           -TestRoot "$env:RUNNER_TEMP\sapsos-installer-artifact-roundtrip"
           -EvidencePath dist/artifact-roundtrip-evidence.json
       - uses: actions/upload-artifact@v4

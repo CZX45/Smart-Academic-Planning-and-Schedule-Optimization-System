@@ -1,6 +1,6 @@
 [package]
 name = "sapsos-local-desktop"
-version = "0.1.0"
+version = "0.1.5"
 description = "SAPSOS Local Desktop application shell"
 authors = ["SAPSOS"]
 edition = "2021"
