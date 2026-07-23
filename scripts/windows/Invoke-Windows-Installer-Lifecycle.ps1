@@ -59,6 +59,13 @@ function Wait-PathAbsent([string]$PathValue, [int]$TimeoutSeconds, [string]$Phas
     }
     Assert-True (-not (Test-Path -LiteralPath $PathValue)) "$PhaseName did not remove installer-owned files within $TimeoutSeconds seconds."
 }
+function Wait-PathPresent([string]$PathValue, [int]$TimeoutSeconds, [string]$PhaseName) {
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ((-not (Test-Path -LiteralPath $PathValue -PathType Leaf)) -and [DateTime]::UtcNow -lt $deadline) {
+        Start-Sleep -Milliseconds 500
+    }
+    Assert-True (Test-Path -LiteralPath $PathValue -PathType Leaf) "$PhaseName did not publish the expected runtime manifest within $TimeoutSeconds seconds."
+}
 function Assert-InstalledFiles([string]$ExpectedVersion) {
     $executable = Join-Path $installRoot "sapsos-local-desktop.exe"
     Assert-True (Test-Path $executable -PathType Leaf) "Installed executable is missing."
@@ -143,6 +150,7 @@ try {
         }
     }
     Assert-True ($null -ne (Get-Process -Id $appProcess.Id -ErrorAction SilentlyContinue)) "Installed application did not remain running for coordination smoke."
+    Wait-PathPresent (Join-Path $dataRoot "runtime.json") 30 "launch_installed_app"
     Write-Phase "launch_installed_app" "completed"
 
     Write-Phase "process_coordination" "starting" "timeout_seconds=30"
