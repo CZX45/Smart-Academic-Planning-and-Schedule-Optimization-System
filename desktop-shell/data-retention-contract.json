@@ -14,7 +14,7 @@
       "uninstall": "preserve"
     },
     "EPHEMERAL_RUNTIME_STATE": {
-      "paths": ["runtime.json", "startup.lock", "restore-status.json"],
+      "paths": ["runtime.json", "startup.lock", "startup-lock-diagnostics.json", "restore-status.json"],
       "upgrade": "regenerate when needed",
       "uninstall": "no destructive cleanup"
     },

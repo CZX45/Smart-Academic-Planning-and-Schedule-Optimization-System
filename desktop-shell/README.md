@@ -26,6 +26,12 @@ cargo run --manifest-path desktop-shell/src-tauri/Cargo.toml
 The debug shell uses the current user Python and Node.js runtimes. It does not
 use Docker or PostgreSQL. Closing the Tauri window terminates both children.
 
+Desktop single-instance ownership uses a per-user Windows named mutex. The
+`%LOCALAPPDATA%\SAPSOS\startup.lock` file is only a recoverable marker and is
+safe to replace after an abnormal exit; `startup-lock-diagnostics.json` records
+privacy-safe lock decisions locally. A second launch exits cleanly when the
+mutex is owned by an active desktop instance.
+
 ## Build the Windows package foundation
 
 Build the static Web artifact first:
