@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).parents[3]
@@ -11,9 +12,12 @@ ROOT = Path(__file__).parents[3]
 def test_windows_identity_and_tauri_bundle_are_single_target_per_user() -> None:
     identity = json.loads((ROOT / "desktop-shell/desktop-identity.json").read_text())
     config = json.loads((ROOT / "desktop-shell/src-tauri/tauri.conf.json").read_text())
+    cargo = tomllib.loads((ROOT / "desktop-shell/src-tauri/Cargo.toml").read_text())
 
     assert identity["product_name"] == "SAPSOS Local Desktop"
     assert identity["version"] == config["version"]
+    assert identity["version"] == "0.1.5"
+    assert cargo["package"]["version"] == "0.1.5"
     assert identity["bundle_identifier"] == config["identifier"]
     assert identity["windows_application_id"] == identity["bundle_identifier"]
     assert identity["executable_name"] == "sapsos-local-desktop.exe"
@@ -36,6 +40,8 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     roundtrip = (
         ROOT / "scripts/windows/Invoke-Windows-Installer-Artifact-RoundTrip.ps1"
     ).read_text()
+    desktop_main = (ROOT / "desktop-shell/src-tauri/src/main.rs").read_text()
+    schema_verifier = ROOT / "apps/api/scripts/verify_local_desktop_schema.py"
 
     assert "actions/upload-artifact@v4" in workflow
     assert "desktop:installer:windows" in workflow
@@ -62,6 +68,13 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     assert "Downloaded installer SHA-256 differs from manifest." in roundtrip
     assert "source_payload_path -and" in roundtrip
     assert "Transient archive leaked into the final install root." in roundtrip
+    assert "desktop-startup-diagnostics.json" in desktop_main
+    assert "FirstRunBootstrap" in desktop_main
+    assert "CREATE_NO_WINDOW" in desktop_main
+    assert schema_verifier.is_file()
+    assert "fresh-schema-verification.json" in (
+        ROOT / "scripts/windows/Invoke-Packaged-Desktop-E2E.ps1"
+    ).read_text(encoding="utf-8")
     assert "MSVCP140.dll" in script
     assert "Runtime payload archive or metadata is missing from staging." in validator
     assert "licenses_notices" in script
@@ -180,8 +193,8 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
     assert "timeout-minutes: 90" in workflow
     assert "timeout-minutes: 20" in workflow
     assert "-InstallerVersion 0.1.1" in workflow
-    assert "-TestVersionOverride 0.1.4" in workflow
-    assert "-UpgradeInstallerVersion 0.1.4" in workflow
+    assert "-TestVersionOverride 0.1.5" in workflow
+    assert "-UpgradeInstallerVersion 0.1.5" in workflow
     assert "Invoke-Windows-Installer-Artifact-RoundTrip.ps1" in workflow
     assert "actions/download-artifact@v4" in workflow
     assert "IfSilent" in hook
