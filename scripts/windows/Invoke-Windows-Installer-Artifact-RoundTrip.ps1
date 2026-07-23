@@ -35,7 +35,7 @@ $installerHash = Get-Sha256 $installerPath
 Assert-True ($installer.Length -eq [int64]$manifest.installer.bytes) "Downloaded installer byte count differs from manifest."
 Assert-True ($installerHash -eq $manifest.installer.sha256.ToLowerInvariant()) "Downloaded installer SHA-256 differs from manifest."
 Assert-True ($contract.delivery_mode -eq "nsis_plugin_directory_transient") "Artifact does not declare explicit transient resource delivery."
-Assert-True ($manifest.provenance.source_head_sha) "Artifact has no source-head provenance."
+Assert-True (-not [string]::IsNullOrWhiteSpace([string]$manifest.provenance.source_head_sha)) "Artifact has no source-head provenance."
 
 $root = [IO.Path]::GetFullPath($TestRoot).TrimEnd('\', '/')
 if ([IO.Path]::GetPathRoot($root) -eq $root) { throw "Round-trip test root cannot be a drive root." }
