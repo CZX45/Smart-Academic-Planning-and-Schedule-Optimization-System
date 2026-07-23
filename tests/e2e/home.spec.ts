@@ -2314,9 +2314,9 @@ test("home page clearly marks the degree dashboard as demo data when no MyProgre
   await expect(auditSummary.getByText("22.50%")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: /创建假设方案/ }),
-  ).toBeDisabled();
-  await expect(page.getByRole("button", { name: /创建规划/ })).toBeDisabled();
-  await expect(page.getByRole("button", { name: /生成课表/ })).toBeDisabled();
+  ).toBeEnabled();
+  await expect(page.getByRole("button", { name: /创建规划/ })).toBeEnabled();
+  await expect(page.getByRole("button", { name: /生成课表/ })).toBeEnabled();
   await expect(page.getByLabel("本地诊断")).toContainText("导入来源状态");
   await expect(page.getByLabel("本地诊断")).toContainText("演示 / 模拟数据");
 });
