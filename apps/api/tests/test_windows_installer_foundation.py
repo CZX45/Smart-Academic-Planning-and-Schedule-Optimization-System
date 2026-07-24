@@ -16,8 +16,8 @@ def test_windows_identity_and_tauri_bundle_are_single_target_per_user() -> None:
 
     assert identity["product_name"] == "SAPSOS Local Desktop"
     assert identity["version"] == config["version"]
-    assert identity["version"] == "0.1.5"
-    assert cargo["package"]["version"] == "0.1.5"
+    assert identity["version"] == "0.1.6"
+    assert cargo["package"]["version"] == "0.1.6"
     assert identity["bundle_identifier"] == config["identifier"]
     assert identity["windows_application_id"] == identity["bundle_identifier"]
     assert identity["executable_name"] == "sapsos-local-desktop.exe"
@@ -162,8 +162,8 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
     assert '$env:CI -ne "true"' in build
     assert "semantic version" in build
     assert "two-version" in lifecycle
-    assert 'InstallerVersion = "0.1.0"' in lifecycle
-    assert 'UpgradeInstallerVersion = "0.1.1"' in lifecycle
+    assert 'InstallerVersion = "0.1.5"' in lifecycle
+    assert 'UpgradeInstallerVersion = "0.1.6"' in lifecycle
     assert "Invoke-ProcessWithTimeout" in lifecycle
     assert "Start-Process -FilePath $PathValue -ArgumentList $Arguments -PassThru" in lifecycle
     assert 'Invoke-ProcessWithTimeout $PathValue @("/S", "/D=$installRoot")' in lifecycle
@@ -192,9 +192,9 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
         assert marker in lifecycle
     assert "timeout-minutes: 90" in workflow
     assert "timeout-minutes: 20" in workflow
-    assert "-InstallerVersion 0.1.1" in workflow
-    assert "-TestVersionOverride 0.1.5" in workflow
-    assert "-UpgradeInstallerVersion 0.1.5" in workflow
+    assert "-InstallerVersion 0.1.5" in workflow
+    assert "-TestVersionOverride 0.1.6" in workflow
+    assert "-UpgradeInstallerVersion 0.1.6" in workflow
     assert "Invoke-Windows-Installer-Artifact-RoundTrip.ps1" in workflow
     assert "actions/download-artifact@v4" in workflow
     assert "IfSilent" in hook

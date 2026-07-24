@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SAPSOS Read-only Import Assistant",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "User-triggered visible-page extraction into staging imports.",
   "action": {
     "default_title": "SAPSOS Import",

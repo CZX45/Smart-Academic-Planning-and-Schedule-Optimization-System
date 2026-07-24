@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.config import APP_ID, settings
+from app.config import APP_ID, APPLICATION_VERSION, settings
 from app.services.local_data_removal import (
     CONFIRMATION_TEXT,
     FIXED_PLAN_PATH,
@@ -23,7 +23,6 @@ from app.services.local_data_removal import (
 )
 
 router = APIRouter(prefix="/api/v1/local-data-removal", tags=["local-data-removal"])
-APPLICATION_VERSION = "0.1.0"
 PLAN_PATH = FIXED_PLAN_PATH
 PLAN_DIRECTORY = FIXED_PLAN_PATH.parent
 ACTIVE_OPERATION_MARKERS = (

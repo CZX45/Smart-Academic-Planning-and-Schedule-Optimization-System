@@ -4,7 +4,7 @@
   "executable_name": "sapsos-local-desktop.exe",
   "bundle_identifier": "com.sapsos.smart-academic-planner",
   "windows_application_id": "com.sapsos.smart-academic-planner",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "SAPSOS Project",
   "app_data_directory": "SAPSOS",
   "installer_artifact_name": "SAPSOS-Local-Desktop-{version}-x64-setup.exe",
