@@ -6,6 +6,17 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$requiredHostModules = @(
+    "Microsoft.PowerShell.Security",
+    "Microsoft.PowerShell.Utility"
+)
+foreach ($moduleName in $requiredHostModules) {
+    $modulePath = Join-Path $PSHOME "Modules\$moduleName\$moduleName.psd1"
+    if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
+        throw "The current PowerShell host is missing a required module: $modulePath"
+    }
+    Import-Module -Name $modulePath -ErrorAction Stop
+}
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $apiRoot = Join-Path $repoRoot "apps\api"
 $resolvedRuntimeRoot = [IO.Path]::GetFullPath($RuntimeRoot)
@@ -24,7 +35,7 @@ function Assert-TrustedVCRuntime([string]$PathValue) {
     if ($runtime.VersionInfo.CompanyName -ne "Microsoft Corporation") {
         throw "VC runtime publisher metadata is not Microsoft Corporation: $($runtime.FullName)"
     }
-    $signature = Get-AuthenticodeSignature -LiteralPath $runtime.FullName
+    $signature = Microsoft.PowerShell.Security\Get-AuthenticodeSignature -LiteralPath $runtime.FullName
     if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
         throw "VC runtime Authenticode signature is not valid: $($runtime.FullName) [$($signature.Status)]"
     }
@@ -71,8 +82,8 @@ $sourcePath = @($resolverOutput | ForEach-Object { $_.ToString().Trim() } | Wher
 $source = Assert-TrustedVCRuntime $sourcePath
 Copy-Item -LiteralPath $source.FullName -Destination $target
 $staged = Assert-TrustedVCRuntime $target
-if ((Get-FileHash -LiteralPath $source.FullName -Algorithm SHA256).Hash -ne
-    (Get-FileHash -LiteralPath $staged.FullName -Algorithm SHA256).Hash) {
+if ((Microsoft.PowerShell.Utility\Get-FileHash -LiteralPath $source.FullName -Algorithm SHA256).Hash -ne
+    (Microsoft.PowerShell.Utility\Get-FileHash -LiteralPath $staged.FullName -Algorithm SHA256).Hash) {
     throw "Staged VC runtime hash does not match its trusted source."
 }
 Write-Output "Staged trusted x64 VC runtime: $($source.FullName) -> $($staged.FullName)"

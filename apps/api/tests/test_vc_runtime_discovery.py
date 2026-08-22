@@ -73,21 +73,23 @@ def test_resolve_msvcp140_fails_with_searched_locations(tmp_path: Path) -> None:
     assert str(program_files) in message
 
 
-@pytest.mark.skipif(
-    sys.platform != "win32" or shutil.which("pwsh") is None,
-    reason="The packaged VC runtime staging boundary is Windows-only.",
-)
+@pytest.mark.parametrize("powershell_host", ["powershell.exe", "pwsh"])
 def test_missing_pyinstaller_vc_runtime_is_staged_from_trusted_windows_source(
     tmp_path: Path,
+    powershell_host: str,
 ) -> None:
+    if sys.platform != "win32" or shutil.which(powershell_host) is None:
+        pytest.skip(f"{powershell_host} is unavailable on this platform.")
     runtime_root = tmp_path / "sapsos-api"
     runtime_root.mkdir()
     script = REPO_ROOT / "scripts/windows/Ensure-Packaged-VCRuntime.ps1"
 
     result = subprocess.run(
         [
-            "pwsh",
+            powershell_host,
             "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
             "-File",
             str(script),
             "-RuntimeRoot",
@@ -109,11 +111,13 @@ def test_missing_pyinstaller_vc_runtime_is_staged_from_trusted_windows_source(
     assert staged_runtime.stat().st_size > 0
 
 
-@pytest.mark.skipif(
-    sys.platform != "win32" or shutil.which("pwsh") is None,
-    reason="The packaged VC runtime staging boundary is Windows-only.",
-)
-def test_existing_vc_runtime_returns_control_to_build_caller(tmp_path: Path) -> None:
+@pytest.mark.parametrize("powershell_host", ["powershell.exe", "pwsh"])
+def test_existing_vc_runtime_returns_control_to_build_caller(
+    tmp_path: Path,
+    powershell_host: str,
+) -> None:
+    if sys.platform != "win32" or shutil.which(powershell_host) is None:
+        pytest.skip(f"{powershell_host} is unavailable on this platform.")
     runtime_root = tmp_path / "sapsos-api"
     runtime_root.mkdir()
     system_runtime = Path("C:/Windows/System32/MSVCP140.dll")
@@ -135,7 +139,14 @@ def test_existing_vc_runtime_returns_control_to_build_caller(tmp_path: Path) -> 
     )
 
     result = subprocess.run(
-        ["pwsh", "-NoProfile", "-File", str(wrapper)],
+        [
+            powershell_host,
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(wrapper),
+        ],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
