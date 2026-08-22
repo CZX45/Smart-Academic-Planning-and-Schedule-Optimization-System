@@ -120,7 +120,8 @@ not established by local automation alone.
 | First launch / packaged FastAPI / supervision / readiness | MANUAL VERIFICATION REQUIRED | PR #79 runner proof exists; rerun required for candidate head. |
 | WebView and SQLite persistence | MANUAL VERIFICATION REQUIRED | PR #79 evidence exists; real candidate execution remains required. |
 | Extension pairing | READY | Pairing implementation and regression tests; participant pairing remains checklist work. |
-| MyProgress capture/staging/preview/review/apply | READY | Review-gated implementation and focused tests; real portal flow is manual. |
+| Fresh student-profile onboarding | BLOCKED | No list/create API or web create/select workflow exists; the extension requires a profile ID and the development seed is synthetic. |
+| MyProgress capture/staging/preview/review/apply | BLOCKED | Review-gated implementation and focused tests exist, but a fresh real participant cannot establish the required local student profile. |
 | Degree Audit / Eligibility / Planner | READY | Existing deterministic tests and advisory/unknown semantics; official comparison is manual. |
 | What-If isolation | READY | Isolation tests cover no formal-state mutation. |
 | Reviewed Section import / provenance | READY | Reviewed workflow, source metadata, age/drift fields, and tests exist. |
@@ -137,10 +138,12 @@ not established by local automation alone.
 | Beta plan/checklist | READY | This plan and companion checklist are present. |
 | Manual verification boundaries | READY | Manual login/MFA pause and read-only portal rules are explicit. |
 
-The audit found no confirmed code-level Controlled Beta blocker. The truthful
-documentation status drift in the execution plan was a readiness blocker and is
-reconciled in this change. Real Windows candidate execution, accessibility
-review, and participant protocol execution remain manual requirements.
+The release-convergence audit found a confirmed code-level Controlled Beta
+blocker: a genuinely fresh local database has no supported student-profile
+creation/selection workflow. The deterministic development seed cannot be used
+as a real participant identity, and institution/campus/program mappings must not
+be guessed. Real Windows candidate execution, accessibility review, and
+participant protocol execution also remain manual requirements.
 
 ## Rollback, limitations, and exit
 

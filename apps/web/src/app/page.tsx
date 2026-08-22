@@ -1230,7 +1230,8 @@ export default function Home() {
         },
   );
   const [demoModeEnabled, setDemoModeEnabled] = useState(false);
-  const activeStudentId = demoModeEnabled ? mockStudentId : undefined;
+  const [importedStudentId, setImportedStudentId] = useState<string>();
+  const activeStudentId = importedStudentId ?? (demoModeEnabled ? mockStudentId : undefined);
   const sectionMonitoringState = useSectionMonitoringWorkflow(
     apiBaseUrl,
     activeStudentId,
@@ -1359,29 +1360,23 @@ export default function Home() {
       };
     }
 
-    if (!activeStudentId) {
-      queueMicrotask(() => {
-        if (!cancelled) {
-          setDataImportState({
-            status: "empty",
-            message: "尚未导入学生数据；没有可加载的学生导入记录。",
-          });
-        }
-      });
-      return () => {
-        cancelled = true;
-      };
-    }
-    const studentId = activeStudentId;
+    const studentId = activeStudentId ?? mockStudentId;
 
     async function loadLatestImportPreview(baseUrl: string): Promise<void> {
       try {
-        const savedImports = await fetchStudentDataImports(
-          baseUrl,
-          studentId,
-          { timeoutMs: 5_000 },
-        );
-        if (cancelled || savedImports.length === 0) {
+        const savedImports = await fetchStudentDataImports(baseUrl, studentId, {
+          timeoutMs: 5_000,
+        });
+        if (cancelled) {
+          return;
+        }
+        if (savedImports.length === 0) {
+          if (!activeStudentId) {
+            setDataImportState({
+              status: "empty",
+              message: "尚未导入学生数据；没有可加载的学生导入记录。",
+            });
+          }
           return;
         }
         const previewState = await loadPreferredDataImportPreviewState(
@@ -1392,10 +1387,18 @@ export default function Home() {
           return;
         }
         if (!cancelled) {
+          setImportedStudentId(previewState.run.student_profile_id);
           setDataImportState(previewState);
         }
       } catch (error: unknown) {
         if (!cancelled) {
+          if (!activeStudentId && isNotFound(error)) {
+            setDataImportState({
+              status: "empty",
+              message: "尚未导入学生数据；没有可加载的学生导入记录。",
+            });
+            return;
+          }
           setDataImportState({
             status:
               error instanceof ApiResponseSchemaError
@@ -1628,6 +1631,7 @@ export default function Home() {
           setSelectedDataImportSampleId={setSelectedDataImportSampleId}
           dataImportState={dataImportState}
           setDataImportState={setDataImportState}
+          setImportedStudentId={setImportedStudentId}
           dataReviewState={dataReviewState}
           setDataReviewState={setDataReviewState}
           courseStateState={courseStateState}
@@ -4522,6 +4526,7 @@ function DataImportPreviewPanel({
   setSelectedDataImportSampleId,
   dataImportState,
   setDataImportState,
+  setImportedStudentId,
   dataReviewState,
   setDataReviewState,
   courseStateState,
@@ -4532,6 +4537,7 @@ function DataImportPreviewPanel({
   setSelectedDataImportSampleId: (value: string) => void;
   dataImportState: DataImportPreviewState;
   setDataImportState: Dispatch<SetStateAction<DataImportPreviewState>>;
+  setImportedStudentId: Dispatch<SetStateAction<string | undefined>>;
   dataReviewState: DataReviewState;
   setDataReviewState: Dispatch<SetStateAction<DataReviewState>>;
   courseStateState: CourseStateState;
@@ -4584,9 +4590,13 @@ function DataImportPreviewPanel({
         studentId,
         { timeoutMs: 5_000 },
       );
-      setDataImportState(
-        await loadDataImportPreviewState(apiBaseUrl, run, savedImports),
+      const previewState = await loadDataImportPreviewState(
+        apiBaseUrl,
+        run,
+        savedImports,
       );
+      setImportedStudentId(previewState.run.student_profile_id);
+      setDataImportState(previewState);
     } catch (error: unknown) {
       setDataImportState({
         status:
@@ -4636,6 +4646,7 @@ function DataImportPreviewPanel({
         });
         return;
       }
+      setImportedStudentId(previewState.run.student_profile_id);
       setDataImportState(previewState);
     } catch (error: unknown) {
       setDataImportState({
@@ -4686,9 +4697,13 @@ function DataImportPreviewPanel({
         });
         return;
       }
-      setDataImportState(
-        await loadDataImportPreviewState(apiBaseUrl, run, savedImports),
+      const previewState = await loadDataImportPreviewState(
+        apiBaseUrl,
+        run,
+        savedImports,
       );
+      setImportedStudentId(previewState.run.student_profile_id);
+      setDataImportState(previewState);
     } catch (error: unknown) {
       setDataImportState({
         status:

@@ -2262,7 +2262,39 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
+test("home page treats a missing legacy local student as an empty first run", async ({
+  page,
+}) => {
+  await page.unroute(
+    "http://localhost:8000/api/v1/students/*/data-imports",
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/students/*/data-imports",
+    async (route) => {
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: {
+            code: "not_found",
+            message: "StudentProfile was not found.",
+          },
+        }),
+      });
+    },
+  );
+
+  await page.goto("/");
+  await waitForClientReady(page);
+
+  await expect(page.getByLabel("数据导入空状态")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "数据导入不可用" }),
+  ).toHaveCount(0);
+});
+
 async function activateDemoWorkflow(page: Page): Promise<void> {
+  await waitForClientReady(page);
   await page.getByRole("button", { name: "启用演示工作流" }).click();
   await expect(page.getByText("演示工作流已显式启用")).toBeVisible();
 }
@@ -2328,7 +2360,7 @@ test("saved auto-verified MyProgress import overrides mock dashboard values", as
   await mockSavedMyProgressImportApis(page);
 
   await page.goto("/");
-  await activateDemoWorkflow(page);
+  await waitForClientReady(page);
 
   const auditSummary = page.getByLabel("学业审核汇总");
   await expect(
@@ -2414,7 +2446,6 @@ test("home page reviews and applies confirmed MyProgress import summaries", asyn
 
   await page.goto("/");
   await waitForClientReady(page);
-  await activateDemoWorkflow(page);
 
   await expect(
     page.getByText("真实导入数据 - 已自动验证").first(),
@@ -2661,7 +2692,6 @@ test("reviewed 85-row MyProgress import drives the active real course-state snap
   await page.unroute("http://localhost:8000/api/v1/students/*/data-imports");
   await page.goto("/");
   await waitForClientReady(page);
-  await activateDemoWorkflow(page);
   const courseStatePanel = page.getByRole("region", {
     name: "已应用课程状态",
     exact: true,
@@ -2683,7 +2713,7 @@ test("saved MyProgress import with exceptions is marked as requiring review", as
   await mockSavedMyProgressImportApis(page, myProgressRequiresReviewPreview);
 
   await page.goto("/");
-  await activateDemoWorkflow(page);
+  await waitForClientReady(page);
 
   const auditSummary = page.getByLabel("学业审核汇总");
   await expect(auditSummary.getByText("真实导入数据 - 需要审核")).toBeVisible();
@@ -3157,7 +3187,7 @@ test("home page loads the sanitized MyProgress sample for local verification", a
   await mockSavedMyProgressImportApis(page);
 
   await page.goto("/");
-  await activateDemoWorkflow(page);
+  await waitForClientReady(page);
 
   await page.getByRole("button", { name: /加载脱敏 MyProgress 示例/ }).click();
 

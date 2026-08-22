@@ -12,6 +12,11 @@ in the repository. Share only inspected sanitized evidence.
 
 ## B — Extension pairing
 
+- [ ] Before portal capture, use the supported product workflow to create or
+      select the participant's pseudonymous local student profile with reviewed,
+      source-tagged institution/campus/program identity. `BLOCKED`: that workflow
+      is not implemented in the current candidate; do not use the development
+      seed or direct database editing as a substitute.
 - [ ] Verify local pairing success, invalid pairing, retry, expired pairing,
       desktop-unavailable behavior, and no remote student-data connection.
 - [ ] Confirm no credential is collected.

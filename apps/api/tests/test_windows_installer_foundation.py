@@ -96,6 +96,22 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     assert positions == sorted(positions)
 
 
+def test_packaged_restart_restores_imported_student_without_reenabling_demo() -> None:
+    script = (ROOT / "scripts/windows/Invoke-Packaged-Desktop-E2E.ps1").read_text(encoding="utf-8")
+
+    restart_position = script.index('Write-Phase "restart" "completed"')
+    client_ready_position = script.rindex(
+        'Wait-UiElementContains "API 已连接"', 0, restart_position
+    )
+    persistence_position = script.index('Write-Phase "persistence_verify" "starting"')
+
+    assert client_ready_position < restart_position < persistence_position
+    restart_segment = script[client_ready_position:persistence_position]
+    assert 'Wait-UiElementContains "真实导入数据 - 已自动验证"' in restart_segment
+    assert 'Invoke-UiButton "启用演示工作流"' not in restart_segment
+    assert 'imported_student = "restored"' in restart_segment
+
+
 def test_short_staging_contract_preserves_deep_metadata_and_licenses() -> None:
     script = (ROOT / "scripts/windows/Build-Windows-Installer.ps1").read_text()
     validator = (ROOT / "scripts/windows/Validate-Windows-Installer-Artifact.ps1").read_text()

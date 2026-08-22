@@ -1048,6 +1048,7 @@ try {
     Write-Phase "webview_render" "completed" @{ marker = "智能学业规划"; source = "installed-static-webview" }
 
     Write-Phase "demo_activation" "starting"
+    Wait-UiElementContains "API 已连接" | Out-Null
     Invoke-UiButton "启用演示工作流"
     Wait-UiElementContains "演示工作流已显式启用" | Out-Null
     Write-Phase "demo_activation" "completed" @{ boundary = "explicit-user-action"; mock_student = "active" }
@@ -1156,7 +1157,10 @@ try {
     Assert-True (Test-Path $startupLock -PathType Leaf) "Startup lock marker was not recreated after stale-lock recovery."
     Assert-True ((Get-Content $startupLockDiagnostics -Raw) -match '"acquisition_result":\s*"acquired"') "Stale startup lock recovery was not recorded."
     Wait-UiElement "智能学业规划" | Out-Null
-    Write-Phase "restart" "completed" @{ stale_state = "recovered" }
+    Wait-UiElementContains "API 已连接" | Out-Null
+    Assert-True ($null -eq (Find-UiElementContains "演示工作流已显式启用")) "Restart unexpectedly preserved the in-memory demo workflow activation."
+    Wait-UiElementContains "真实导入数据 - 已自动验证" | Out-Null
+    Write-Phase "restart" "completed" @{ stale_state = "recovered"; demo_workflow = "disabled"; imported_student = "restored" }
 
     Write-Phase "persistence_verify" "starting"
     Assert-True ((Resolve-Path $appData).Path -eq $firstAppData) "AppData root changed across restart."
