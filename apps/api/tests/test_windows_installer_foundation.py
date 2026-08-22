@@ -98,13 +98,29 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
 
 def test_packaged_restart_restores_imported_student_without_reenabling_demo() -> None:
     script = (ROOT / "scripts/windows/Invoke-Packaged-Desktop-E2E.ps1").read_text(encoding="utf-8")
+    page = (ROOT / "apps/web/src/app/page.tsx").read_text(encoding="utf-8")
 
+    sample_start = page.index("const sanitizedMyProgressSampleContent")
+    sample_end = page.index("const dataImportSamples", sample_start)
+    sample_segment = page[sample_start:sample_end]
+    assert "courseRows: []" not in sample_segment
+    assert sample_segment.count("source_row_index:") == 2
+    assert "autoConfirmedCourseRowCount: 2" in sample_segment
+    review_position = script.index('Write-Phase "review_apply" "starting"')
+    shutdown_position = script.index('Write-Phase "graceful_shutdown" "starting"')
     restart_position = script.index('Write-Phase "restart" "completed"')
     client_ready_position = script.rindex(
         'Wait-UiElementContains "API 已连接"', 0, restart_position
     )
     persistence_position = script.index('Write-Phase "persistence_verify" "starting"')
 
+    review_segment = script[review_position:shutdown_position]
+    assert review_segment.count('Invoke-UiButton "确认"') == 2
+    assert review_segment.index('Invoke-UiButton "确认"') < review_segment.index(
+        'Invoke-UiButton "应用已确认记录"'
+    )
+    assert 'Wait-UiElementCount "已确认" 2' in review_segment
+    assert 'Wait-UiElementContains "真实导入数据 - 已审核应用"' in review_segment
     assert client_ready_position < restart_position < persistence_position
     restart_segment = script[client_ready_position:persistence_position]
     assert 'Wait-UiElementContains "真实导入数据 - 已审核应用"' in restart_segment

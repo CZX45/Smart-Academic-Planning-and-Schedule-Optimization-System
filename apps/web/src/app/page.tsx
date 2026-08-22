@@ -641,13 +641,56 @@ const sanitizedMyProgressSampleContent = JSON.stringify({
       requiresReview: false,
     },
   ],
-  courseRows: [],
+  courseRows: [
+    {
+      requirements: "Finance Requirements",
+      requirement_section: "Finance Requirements",
+      status: "COMPLETED",
+      course_code: "FIN 300",
+      course_title: "Managerial Finance",
+      term_code: "2024FA",
+      credits: "3",
+      raw_row_text: "COMPLETED FIN 300 Managerial Finance 2024FA 3",
+      source_table_index: "1",
+      source_row_index: "1",
+      field_provenance: {
+        course_code: {
+          rawText: "FIN 300",
+          source: "sanitized table 1 row 1",
+          confidence: "high",
+        },
+      },
+      confidence: "high",
+      warnings: [],
+    },
+    {
+      requirements: "Finance Requirements",
+      requirement_section: "Finance Requirements",
+      status: "PLANNED",
+      course_code: "FIN 400",
+      course_title: "Advanced Finance",
+      term_code: "2025SP",
+      credits: "3",
+      raw_row_text: "PLANNED FIN 400 Advanced Finance 2025SP 3",
+      source_table_index: "1",
+      source_row_index: "2",
+      field_provenance: {
+        course_code: {
+          rawText: "FIN 400",
+          source: "sanitized table 1 row 2",
+          confidence: "high",
+        },
+      },
+      confidence: "high",
+      warnings: [],
+    },
+  ],
   validation: {
     status: "AUTO_VERIFIED",
     exceptionCount: 0,
     exceptions: [],
     autoConfirmedFieldCount: 14,
-    autoConfirmedCourseRowCount: 0,
+    autoConfirmedCourseRowCount: 2,
     overallConfidenceScore: 0.98,
     downstreamAnalysisAllowed: true,
   },
@@ -657,6 +700,13 @@ const sanitizedMyProgressSampleContent = JSON.stringify({
     progressBarText: "67 24 13",
     visibleTextSample:
       "My Progress Finance, BS Catalog 2024 GPA 3.916 Total Credits 104 of 120",
+    diagnostics: {
+      rowCount: 2,
+      courseLikeRowCount: 2,
+      requirementGroupCount: 1,
+      bounded: false,
+      truncated: false,
+    },
   },
 });
 const dataImportSamples: DataImportSample[] = [
@@ -6197,6 +6247,9 @@ function DataReviewPanel({
                   payloadValue(payload, "source_table_index") ?? "未知表";
                 const rowIndex =
                   payloadValue(payload, "source_row_index") ?? "未知行";
+                const isConfirmed =
+                  recordReview.decision === "CONFIRMED" ||
+                  recordReview.decision === "EDITED_AND_CONFIRMED";
                 return (
                   <div key={recordReview.id} className="comparison-row">
                     <strong>
@@ -6239,6 +6292,7 @@ function DataReviewPanel({
                       </label>
                       <button
                         type="button"
+                        disabled={isConfirmed}
                         onClick={() =>
                           void handleDecision(recordReview, "CONFIRMED")
                         }

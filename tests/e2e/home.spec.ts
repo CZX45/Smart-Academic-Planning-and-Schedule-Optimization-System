@@ -3427,6 +3427,12 @@ test("home page reviews and applies confirmed data import records", async ({
     .first()
     .click();
   await expect(page.getByLabel("审核记录").getByText("已确认")).toBeVisible();
+  await expect(
+    page
+      .getByLabel("审核记录")
+      .getByRole("button", { name: /^确认$/ })
+      .first(),
+  ).toBeDisabled();
 
   await page.getByRole("button", { name: /^试运行$/ }).click();
   await expect(

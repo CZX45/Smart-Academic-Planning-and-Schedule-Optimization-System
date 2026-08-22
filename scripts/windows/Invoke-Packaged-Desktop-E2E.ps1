@@ -704,6 +704,23 @@ function Wait-UiElement([string]$Name) {
     return $script:uiElement
 }
 
+function Get-UiElementCount([string]$Name) {
+    $window = Get-MainWindow
+    if ($null -eq $window) { return 0 }
+    $condition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::NameProperty, $Name)
+    return $window.FindAll(
+        [System.Windows.Automation.TreeScope]::Descendants,
+        $condition
+    ).Count
+}
+
+function Wait-UiElementCount([string]$Name, [int]$ExpectedCount) {
+    Wait-Until {
+        (Get-UiElementCount $Name) -eq $ExpectedCount
+    } $UiTimeoutSeconds "UI element count did not reach $ExpectedCount for: $Name"
+}
+
 function Wait-UiElementContains([string]$Name) {
     Wait-Until { $script:uiElement = Find-UiElementContains $Name; $null -ne $script:uiElement } $UiTimeoutSeconds "UI marker was not found: $Name"
     return $script:uiElement
@@ -1075,10 +1092,20 @@ try {
     Wait-UiElement "数据审核与确认" | Out-Null
     Invoke-UiButton "创建审核"
     Wait-UiElement "数据审核汇总" | Out-Null
+    Invoke-UiButton "确认"
+    Wait-UiElementCount "已确认" 1
+    Invoke-UiButton "确认"
+    Wait-UiElementCount "已确认" 2
     Invoke-UiButton "应用已确认记录"
     Wait-UiElement "应用结果" | Out-Null
+    Wait-UiElement "内部课程状态快照" | Out-Null
+    Wait-UiElementContains "真实导入数据 - 已审核应用" | Out-Null
     Capture-Window "reviewed-synthetic-data"
-    Write-Phase "review_apply" "completed" @{ boundary = "explicit-review-apply" }
+    Write-Phase "review_apply" "completed" @{
+        boundary = "explicit-review-apply"
+        confirmed_course_state_records = 2
+        active_course_state_snapshot = $true
+    }
 
     Write-Phase "persistence_write" "starting"
     Assert-True (Test-Path $appData -PathType Container) "Stable AppData root was not created."

@@ -444,3 +444,9 @@ Packaged restart acceptance must correlate the reloaded import with the active
 course-state snapshot by `data_import_run_id`. The UI reports a matching durable
 snapshot as reviewed and applied, while a preview without that exact match
 continues to require review.
+
+The packaged fixture contains two sanitized, source-tagged MyProgress course
+rows. Installed acceptance must explicitly confirm both rows, apply them, and
+observe the reviewed-and-applied label before shutdown and again after restart;
+an empty review or a zero-confirmation application does not satisfy persistence
+acceptance.
