@@ -59,11 +59,13 @@ export function WorkflowShell({
   activeWorkflow,
   apiStatus,
   sourceLabel,
+  studentLabel,
   children,
 }: {
   activeWorkflow: WorkflowId;
   apiStatus: string;
   sourceLabel: string;
+  studentLabel: string;
   children: React.ReactNode;
 }) {
   return (
@@ -78,7 +80,9 @@ export function WorkflowShell({
             label={`连接状态：${apiStatus.replace(/^API\s*/, "")}`}
           />
           {activeWorkflow !== "diagnostics" ? (
-            <span className="app-shell-context-label">当前学生：演示学生</span>
+            <span className="app-shell-context-label">
+              当前学生：{studentLabel}
+            </span>
           ) : null}
           <span className="app-shell-context-label">数据：{sourceLabel}</span>
         </div>

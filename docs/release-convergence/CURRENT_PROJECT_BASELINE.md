@@ -48,18 +48,31 @@ Evidence:
 - `scripts/windows/Invoke-Packaged-Desktop-E2E.ps1` restarted the WebView and correctly lost demo activation, then waited for persisted real-import UI state.
 - Run `30064769864`, job `89393469236` reached the persisted write and restart before timing out on the readback marker.
 
-The local fix keeps demo state ephemeral while restoring the persisted imported student: the UI discovers the known local student's saved import, records the import run's `student_profile_id` as active, and drives downstream state from that imported identity. Source E2E no longer enables demo for saved real-import scenarios. The packaged harness now waits for client hydration and, after restart, proves both that demo is disabled and that the imported-student marker is restored. An isolated full Playwright run completed with 25/25 tests passing, including the explicit missing-profile first-run empty-state regression.
+The local fix keeps demo state ephemeral while restoring the persisted imported student: the UI discovers the known local student's saved import, records the import run's `student_profile_id` as active, and drives downstream state from that imported identity. Source E2E no longer enables demo for saved real-import scenarios. The packaged harness now waits for client hydration and, after restart, proves both that demo is disabled and that the imported-student marker is restored. The latest isolated seeded Playwright run completed with 26/26 tests passing, including explicit missing-profile and first-profile onboarding regressions.
 
-## Confirmed fresh-install beta blocker
+## Fresh-install onboarding resolution and remaining proof
 
-The current repository does not provide a production onboarding path for a genuinely empty local database:
+The candidate now provides a production-shaped local bootstrap for a genuinely
+empty database:
 
-- the API exposes `GET /students/{student_id}` and student-scoped import endpoints, but no list/create student-profile endpoint;
-- the web UI has no create/select student-profile workflow;
-- the extension requires a manually entered `Student profile ID`;
-- the packaged and source E2E path relies on the deterministic development-seed student ID.
+- `GET/POST /api/v1/local-onboarding/student-profiles` list non-mock profiles
+  and create only the first non-mock profile in `LOCAL_DESKTOP`; development
+  mock seed records neither appear nor block that creation;
+- the web form creates a pseudonymous student plus student-provided,
+  non-official institution/campus labels and never creates a program/catalog or
+  academic rule;
+- reviewed or different code collisions return 409 without overwrite;
+- a real profile with no audit remains an explained empty state and never
+  borrows the deterministic mock program; and
+- after pairing, the Extension worker signs profile discovery and auto-selects
+  exactly one profile without exposing its credential or requiring UUID copy.
 
-The restart fix is therefore valid for an existing persisted local student, but it does not make a truly fresh participant install ready for real-source capture. Adding a profile requires reviewed institution/campus/program identity and source metadata; those values must not be guessed or silently replaced with mock data. Controlled beta remains blocked until an explicit onboarding contract is implemented and verified.
+Focused API, shared-client, Extension, and browser tests cover this contract.
+Installed create/restart/rediscovery/pairing proof has not yet run on a
+disposable Windows account. No participant-owned authenticated portal session
+or explicit real-source capture authorization is available, so real-source and
+downstream academic acceptance remain blocked/manual rather than inferred from
+synthetic evidence.
 
 ## Version and artifact baseline
 
@@ -105,4 +118,10 @@ The first local artifact was built successfully from the PR starting head before
 
 ## Release-convergence baseline decision
 
-The project is not yet a release candidate. The packaged restart defect has a root-cause fix plus source-E2E regression evidence, but authoritative post-fix installed execution still requires a disposable Windows runner. A fresh real participant also cannot create/select the required local student profile, and no participant-owned authenticated source session was authorized. Real-source work must remain blocked until onboarding is implemented and a participant explicitly completes authentication in a user-owned session and authorizes the read-only capture flow.
+The project is not yet a release candidate. The packaged restart defect and
+fresh-profile code gap now have source/API/Extension regression evidence, but
+authoritative post-fix installed execution still requires a disposable Windows
+runner. No participant-owned authenticated source session was authorized.
+Real-source work must remain blocked until a participant explicitly completes
+authentication in a user-owned session and authorizes the read-only capture
+flow.

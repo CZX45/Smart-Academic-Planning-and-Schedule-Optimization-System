@@ -53,6 +53,7 @@ type PopupElements = {
   confirmImportButton: FakeButtonElement;
   statusText: FakeElement;
   apiStatusText: FakeElement;
+  pairingStatusText: FakeElement;
 };
 
 function createElementForId(id: string): FakeElement {
@@ -76,6 +77,9 @@ function createPopupElements(): PopupElements & Record<string, FakeElement> {
     "confirmImportButton",
     "statusText",
     "apiStatusText",
+    "pairingCodeInput",
+    "pairExtensionButton",
+    "pairingStatusText",
     "detectedPageText",
     "countsText",
     "warningsList",
@@ -161,11 +165,14 @@ async function importPopupWithFetch(
   options: {
     apiBaseUrl?: string;
     apiBearerToken?: string;
+    discoveredProfile?: { id: string; displayName: string };
     snapshot?: AcademicPageSnapshot;
+    storedStudentProfileId?: string | null;
   } = {},
 ): Promise<{
   elements: PopupElements;
   fetchMock: ReturnType<typeof vi.fn>;
+  storageSet: ReturnType<typeof vi.fn>;
 }> {
   vi.resetModules();
   const elements = createPopupElements();
@@ -174,9 +181,50 @@ async function importPopupWithFetch(
   const snapshot = options.snapshot ?? myProgressSnapshot();
   elements.apiBaseUrlInput.value = apiBaseUrl;
   elements.apiBearerTokenInput.value = apiBearerToken;
+  elements.studentProfileIdInput.value =
+    options.storedStudentProfileId === null
+      ? ""
+      : (options.storedStudentProfileId ?? FAKE_STUDENT_PROFILE_ID);
   const fetchMock = vi.fn(fetchImpl);
+  const storageSet = vi.fn();
   const runtime = {
     sendMessage: (message: unknown, callback: (response: unknown) => void) => {
+      if (
+        typeof message === "object" &&
+        message !== null &&
+        "type" in message &&
+        message.type === "SAPSOS_GET_PAIRING_STATUS"
+      ) {
+        callback({
+          ok: true,
+          status: 200,
+          payload: { paired: Boolean(options.discoveredProfile) },
+        });
+        return;
+      }
+      if (
+        typeof message === "object" &&
+        message !== null &&
+        "type" in message &&
+        message.type === "SAPSOS_GET_LOCAL_STUDENT_PROFILES"
+      ) {
+        const discovered = options.discoveredProfile;
+        callback({
+          ok: true,
+          status: 200,
+          payload: discovered
+            ? [
+                {
+                  student: {
+                    id: discovered.id,
+                    display_name: discovered.displayName,
+                  },
+                },
+              ]
+            : [],
+        });
+        return;
+      }
       if (
         typeof message !== "object" ||
         message === null ||
@@ -217,12 +265,17 @@ async function importPopupWithFetch(
             studentProfileId?: string;
           }) => void,
         ) => {
-          callback({
-            apiBaseUrl,
-            studentProfileId: FAKE_STUDENT_PROFILE_ID,
-          });
+          callback(
+            options.storedStudentProfileId === null
+              ? { apiBaseUrl }
+              : {
+                  apiBaseUrl,
+                  studentProfileId:
+                    options.storedStudentProfileId ?? FAKE_STUDENT_PROFILE_ID,
+                },
+          );
         },
-        set: vi.fn(),
+        set: storageSet,
       },
     },
     tabs: {
@@ -264,7 +317,7 @@ async function importPopupWithFetch(
   vi.stubGlobal("fetch", fetchMock);
 
   await import("../src/popup/popup.js");
-  return { elements, fetchMock };
+  return { elements, fetchMock, storageSet };
 }
 
 async function flushPopupWork(): Promise<void> {
@@ -278,6 +331,28 @@ afterEach(() => {
 });
 
 describe("popup staging import confirmation", () => {
+  it("auto-selects the only local student profile after pairing", async () => {
+    const discoveredId = "44444444-4444-4444-8444-444444444444";
+    const { elements, storageSet } = await importPopupWithFetch(
+      async () => new Response("{}", { status: 200 }),
+      {
+        discoveredProfile: {
+          id: discoveredId,
+          displayName: "Local learner",
+        },
+        storedStudentProfileId: null,
+      },
+    );
+    await flushPopupWork();
+
+    expect(elements.studentProfileIdInput.value).toBe(discoveredId);
+    expect(elements.pairingStatusText.textContent).toContain("Local learner");
+    expect(storageSet).toHaveBeenCalledWith({
+      apiBaseUrl: "http://localhost:8000",
+      studentProfileId: discoveredId,
+    });
+  });
+
   it("posts confirmed extracted rows and shows import id with row count", async () => {
     const { elements, fetchMock } = await importPopupWithFetch(
       async () =>

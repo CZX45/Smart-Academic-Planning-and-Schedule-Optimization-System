@@ -39,7 +39,10 @@ type ApiResponse = {
 type ChromeApi = Omit<PopupChromeApi, "runtime"> & {
   runtime: {
     lastError?: { message?: string };
-    sendMessage: (message: unknown, callback: (response: unknown) => void) => void;
+    sendMessage: (
+      message: unknown,
+      callback: (response: unknown) => void,
+    ) => void;
   };
   storage: {
     local: {
@@ -676,10 +679,76 @@ async function handlePairExtension(): Promise<void> {
   });
   const payload = result.payload;
   if (result.ok === true) {
-    setPairingStatus("Paired with the local app. The credential is held by the Extension worker.");
+    await refreshLocalStudentProfile(apiBaseUrl);
   } else {
-    setPairingStatus(apiErrorMessage(payload) ?? "Pairing failed. Check the code and app state.");
+    setPairingStatus(
+      apiErrorMessage(payload) ??
+        "Pairing failed. Check the code and app state.",
+    );
   }
+}
+
+function localStudentProfiles(
+  payload: unknown,
+): Array<{ id: string; displayName: string }> {
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+  const profiles: Array<{ id: string; displayName: string }> = [];
+  for (const item of payload) {
+    if (!isObject(item) || !isObject(item.student)) {
+      continue;
+    }
+    const id = item.student.id;
+    const displayName = item.student.display_name;
+    if (
+      typeof id === "string" &&
+      id.length > 0 &&
+      typeof displayName === "string" &&
+      displayName.length > 0
+    ) {
+      profiles.push({ id, displayName });
+    }
+  }
+  return profiles;
+}
+
+async function refreshLocalStudentProfile(apiBaseUrl: string): Promise<void> {
+  const result = await sendBackgroundMessage({
+    type: "SAPSOS_GET_LOCAL_STUDENT_PROFILES",
+    apiBaseUrl,
+  });
+  if (result.ok !== true) {
+    setPairingStatus(
+      apiErrorMessage(result.payload) ??
+        "Paired, but local student profiles could not be read.",
+    );
+    return;
+  }
+  const profiles = localStudentProfiles(result.payload);
+  if (profiles.length === 0) {
+    setInputValue(studentProfileIdInput, "");
+    chrome.storage.local.set({ apiBaseUrl, studentProfileId: "" });
+    setPairingStatus(
+      "A local app pairing is active. Create a local student profile in SAPSOS first.",
+    );
+    return;
+  }
+  if (profiles.length > 1) {
+    setPairingStatus(
+      "A local app pairing is active. Multiple local profiles exist; select the intended profile in SAPSOS before importing.",
+    );
+    return;
+  }
+  const profile = profiles[0];
+  if (!profile) {
+    return;
+  }
+  setInputValue(studentProfileIdInput, profile.id);
+  chrome.storage.local.set({ apiBaseUrl, studentProfileId: profile.id });
+  setPairingStatus(
+    `A local app pairing is active. Using ${profile.displayName}. The credential remains in the Extension worker.`,
+  );
 }
 
 async function refreshPairingStatus(): Promise<void> {
@@ -694,7 +763,7 @@ async function refreshPairingStatus(): Promise<void> {
   });
   const payload = result.payload;
   if (result.ok === true && isObject(payload) && payload.paired === true) {
-    setPairingStatus("A local app pairing is active.");
+    await refreshLocalStudentProfile(apiBaseUrl);
   } else if (result.ok === true) {
     setPairingStatus("Pairing required.");
   } else {

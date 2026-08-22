@@ -399,3 +399,29 @@ are excluded in real-snapshot mode, and planner readiness blocks unsafe input.
 PostgreSQL migration/seed idempotency and a browser E2E must verify the same
 active student-scoped readiness and provenance labels without using a real
 student portal page.
+
+## 10. Local Onboarding Verification
+
+The first-profile slice requires deterministic tests for:
+
+- creation on an empty SQLite database with fixed non-official,
+  student-provided provenance;
+- no program declaration, external reference, catalog rule, or guessed degree
+  data;
+- refusal of a second profile and refusal to overwrite a conflicting reviewed
+  institution code;
+- explicit acknowledgement validation, IANA timezone validation, and SERVER
+  mode unavailability;
+- omission of development mock profiles from discovery and from the guard that
+  permits the first non-mock profile;
+- shared-client schema rejection when a create response claims official source
+  status;
+- browser UI creation and active-profile selection without any mock degree-audit
+  POST for the real profile; and
+- Extension worker credential isolation, signed discovery, pairing-required
+  failure, and popup auto-selection only when exactly one profile exists.
+
+Installed acceptance must additionally prove first launch, create, restart,
+profile rediscovery, extension pairing, and synthetic staging import in a
+disposable Windows account. Real portal acceptance remains a participant-owned,
+explicitly authorized manual/computer-assisted step.

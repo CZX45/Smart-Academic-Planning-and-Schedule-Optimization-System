@@ -3771,15 +3771,10 @@ def student_programs_response(
     ]
 
 
-@router.get(
-    "/students/{student_id}",
-    response_model=StudentProfileResponse,
-    responses={404: not_found_response},
-)
-def get_student(student_id: UUID, db: DatabaseSession) -> StudentProfileResponse:
-    student = db.get(StudentProfile, student_id)
-    if student is None:
-        raise not_found("StudentProfile", student_id)
+def student_profile_response(
+    student: StudentProfile,
+    db: Session,
+) -> StudentProfileResponse:
     return StudentProfileResponse(
         id=student.id,
         home_institution_id=student.home_institution_id,
@@ -3791,6 +3786,18 @@ def get_student(student_id: UUID, db: DatabaseSession) -> StudentProfileResponse
         programs=student_programs_response(student.id, db),
         source=source_response(student),
     )
+
+
+@router.get(
+    "/students/{student_id}",
+    response_model=StudentProfileResponse,
+    responses={404: not_found_response},
+)
+def get_student(student_id: UUID, db: DatabaseSession) -> StudentProfileResponse:
+    student = db.get(StudentProfile, student_id)
+    if student is None:
+        raise not_found("StudentProfile", student_id)
+    return student_profile_response(student, db)
 
 
 @router.get(

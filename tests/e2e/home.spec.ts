@@ -411,7 +411,8 @@ const mockScheduleOptimization = {
   planning_mode: "CUSTOM_COURSE_SET",
   section_data_mode: "REVIEWED_IMPORTED",
   source_age_max_minutes: 1440,
-  input_snapshot_hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  input_snapshot_hash:
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   source_readiness: {
     status: "READY_WITH_WARNINGS",
     section_data_mode: "REVIEWED_IMPORTED",
@@ -2218,6 +2219,15 @@ test.beforeEach(async ({ page }) => {
     });
   });
   await page.route(
+    "http://localhost:8000/api/v1/local-onboarding/student-profiles",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    },
+  );
+  await page.route(
     "http://localhost:8000/api/v1/students/*/course-state-snapshots/active",
     async (route) => {
       await route.fulfill({
@@ -2262,12 +2272,145 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
+test("fresh local user creates an unverified profile without borrowing mock rules", async ({
+  page,
+}) => {
+  const studentId = "33333333-3333-4333-8333-333333333333";
+  const source = {
+    source_type: "STUDENT_PROVIDED",
+    is_official: false,
+    source_reference: "Local onboarding form",
+    source_retrieved_at: "2026-08-22T00:00:00Z",
+    source_confidence: "student-provided-unverified",
+  };
+  const profile = {
+    institution: {
+      id: "11111111-1111-4111-8111-111111111111",
+      code: "LOCAL-U",
+      name: "Student-provided university",
+      country: "US",
+      timezone: "America/New_York",
+      source,
+    },
+    campus: {
+      id: "22222222-2222-4222-8222-222222222222",
+      institution_id: "11111111-1111-4111-8111-111111111111",
+      code: "MAIN",
+      name: "Main campus",
+      location: null,
+      source,
+    },
+    student: {
+      id: studentId,
+      home_institution_id: "11111111-1111-4111-8111-111111111111",
+      home_campus_id: "22222222-2222-4222-8222-222222222222",
+      expected_graduation_term_id: null,
+      external_ref: null,
+      display_name: "Local learner",
+      class_standing: null,
+      programs: [],
+      source,
+    },
+    reason_codes: ["STUDENT_PROVIDED_PROFILE_CREATED"],
+    warnings: [
+      "This profile and its school details are student-provided and unverified. Confirm high-impact academic decisions with the school or an advisor.",
+    ],
+    assumptions: [
+      "Institution and campus details were entered by the local user and were not verified.",
+    ],
+    source_references: ["Local onboarding form"],
+  };
+  let profiles = [] as (typeof profile)[];
+  let auditCreateRequests = 0;
+  const requestedAuditStudentIds: string[] = [];
+
+  await page.unroute(
+    "http://localhost:8000/api/v1/local-onboarding/student-profiles",
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/local-onboarding/student-profiles",
+    async (route) => {
+      if (route.request().method() === "POST") {
+        profiles = [profile];
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify(profile),
+        });
+        return;
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(profiles),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/students/*/degree-audits/latest",
+    async (route) => {
+      const segments = new URL(route.request().url()).pathname.split("/");
+      const requestedStudentId = segments[4] ?? "";
+      requestedAuditStudentIds.push(requestedStudentId);
+      if (requestedStudentId === mockAuditRun.student_profile_id) {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify(mockAuditRun),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: { code: "not_found" } }),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/degree-audits",
+    async (route) => {
+      auditCreateRequests += 1;
+      await route.fulfill({ status: 500 });
+    },
+  );
+
+  await page.goto("/");
+  await waitForClientReady(page);
+  await expect(
+    page.getByRole("heading", { name: "建立本地学生档案" }),
+  ).toBeVisible();
+
+  await page.getByLabel("显示名称（可使用昵称）").fill("Local learner");
+  await page.getByLabel("学校代码").fill("LOCAL-U");
+  await page.getByLabel("学校名称").fill("Student-provided university");
+  await page.getByLabel("校区代码").fill("MAIN");
+  await page.getByLabel("校区名称").fill("Main campus");
+  await page.getByLabel("国家或地区代码").fill("US");
+  await page.getByLabel("IANA 时区").fill("America/New_York");
+  await page
+    .getByLabel("我知道这些学校与校区信息由我提供，尚未经学校核验。")
+    .check();
+  await page.getByRole("button", { name: "创建非官方本地档案" }).click();
+
+  await expect(page.getByText("当前学生：Local learner")).toBeVisible();
+  await expect(page.getByLabel("本地学生档案")).toContainText(
+    "不会创建或猜测专业、Catalog 年份、课程规则或毕业结论",
+  );
+  await expect(page.getByLabel("本地学生档案")).toContainText(
+    "请向学校或 advisor 确认高影响决定",
+  );
+  await expect.poll(() => auditCreateRequests).toBe(0);
+
+  await page.getByRole("button", { name: "启用演示工作流" }).click();
+  await expect(page.getByText("当前学生：演示学生")).toBeVisible();
+  await expect
+    .poll(() => requestedAuditStudentIds.includes(mockAuditRun.student_profile_id))
+    .toBe(true);
+});
+
 test("home page treats a missing legacy local student as an empty first run", async ({
   page,
 }) => {
-  await page.unroute(
-    "http://localhost:8000/api/v1/students/*/data-imports",
-  );
+  await page.unroute("http://localhost:8000/api/v1/students/*/data-imports");
   await page.route(
     "http://localhost:8000/api/v1/students/*/data-imports",
     async (route) => {

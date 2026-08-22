@@ -5303,6 +5303,70 @@
         }
       }
     },
+    "/api/v1/local-onboarding/student-profiles": {
+      "get": {
+        "tags": [
+          "local-onboarding"
+        ],
+        "summary": "List Local Student Profiles",
+        "operationId": "list_local_student_profiles_api_v1_local_onboarding_student_profiles_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LocalStudentProfileResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Local Student Profiles Api V1 Local Onboarding Student Profiles Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "local-onboarding"
+        ],
+        "summary": "Create Local Student Profile Endpoint",
+        "operationId": "create_local_student_profile_endpoint_api_v1_local_onboarding_student_profiles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocalOnboardingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalStudentProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/local-data-removal/status": {
       "get": {
         "tags": [
@@ -10422,6 +10486,123 @@
           "message"
         ],
         "title": "LocalDataRemovalStatus"
+      },
+      "LocalOnboardingRequest": {
+        "properties": {
+          "acknowledge_non_official": {
+            "type": "boolean",
+            "const": true,
+            "title": "Acknowledge Non Official"
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Display Name"
+          },
+          "institution_code": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Institution Code"
+          },
+          "institution_name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Institution Name"
+          },
+          "campus_code": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Campus Code"
+          },
+          "campus_name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Campus Name"
+          },
+          "country": {
+            "type": "string",
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "Country"
+          },
+          "timezone": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Timezone"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "acknowledge_non_official",
+          "display_name",
+          "institution_code",
+          "institution_name",
+          "campus_code",
+          "campus_name",
+          "country",
+          "timezone"
+        ],
+        "title": "LocalOnboardingRequest"
+      },
+      "LocalStudentProfileResponse": {
+        "properties": {
+          "institution": {
+            "$ref": "#/components/schemas/InstitutionResponse"
+          },
+          "campus": {
+            "$ref": "#/components/schemas/CampusResponse"
+          },
+          "student": {
+            "$ref": "#/components/schemas/StudentProfileResponse"
+          },
+          "reason_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reason Codes"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assumptions"
+          },
+          "source_references": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Source References"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "institution",
+          "campus",
+          "student",
+          "reason_codes",
+          "warnings",
+          "assumptions",
+          "source_references"
+        ],
+        "title": "LocalStudentProfileResponse"
       },
       "MigrationHealth": {
         "properties": {

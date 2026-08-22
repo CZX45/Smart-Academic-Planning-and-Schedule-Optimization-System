@@ -375,3 +375,28 @@ Once one exists, development mock attempts are excluded instead of being mixed
 with imported evidence. Degree audit, course eligibility, and long-term planning
 consume separate readiness decisions. Semester section scheduling remains
 demo-only because MyProgress does not provide current official section data.
+
+## 11. Local First-Profile Onboarding Boundary
+
+`LOCAL_DESKTOP` exposes a narrow onboarding router and service for a genuinely
+empty local database. The API lists persisted non-mock profiles and permits one
+first non-mock profile creation even when development seed data is present. It
+creates only an `Institution`, `Campus`, and `StudentProfile`; it does not
+create or infer `AcademicProgram`, `ProgramVersion`, catalog-year, requirement,
+course-rule, degree-audit, or optimizer input records.
+
+Client-supplied source authority is not accepted. The service fixes source type
+to `STUDENT_PROVIDED`, official status to false, confidence to
+`student-provided-unverified`, and source reference to `Local onboarding form`.
+Existing code collisions are reused only when the stored student-provided record
+matches exactly; otherwise the transaction returns a conflict without updates.
+The same router returns 404 in `SERVER` mode, leaving server-mode tenant/user
+authorization unchanged.
+
+The web chooses a real profile independently of ephemeral demo activation. A
+missing degree-audit snapshot for a real profile remains an explained empty
+state; only the explicitly enabled deterministic demo profile may invoke mock
+program rules. The paired Extension asks its background worker to discover the
+single local profile using the existing nonce/timestamp/credential request
+boundary. The popup never receives the pairing credential, and multiple
+profiles are never chosen silently.

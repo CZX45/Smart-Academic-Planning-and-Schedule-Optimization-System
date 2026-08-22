@@ -121,6 +121,28 @@ submission, no automatic registration, no waitlist automation, no background
 polling, no seat reservation, no seat grabbing, no browser-store publishing,
 and no hidden automation.
 
+## First-run local student profile
+
+On a genuinely empty `LOCAL_DESKTOP` database, the web app now offers a
+first-profile form backed by:
+
+- `GET /api/v1/local-onboarding/student-profiles`
+- `POST /api/v1/local-onboarding/student-profiles`
+
+The create endpoint is local-desktop-only and works only before the first
+non-mock student profile exists; development demo records neither appear in
+discovery nor block that one creation. The server fixes all new institution,
+campus, and student source metadata to `STUDENT_PROVIDED`,
+`is_official = false`, and `student-provided-unverified`. It creates no academic
+program, catalog year, course rule, or degree conclusion. Code collisions never overwrite reviewed,
+official, imported, or different existing records. High-impact guidance still
+requires school or advisor confirmation.
+
+After local extension pairing, the Extension worker uses its pairing credential
+to read this local profile list. If exactly one non-mock profile exists, the
+popup selects it automatically; the credential remains in the worker and is
+never sent to a school portal. Multiple profiles are not selected silently.
+
 ## Local mixed development
 
 After dependencies are installed, this command starts Docker PostgreSQL plus local FastAPI and local Next.js dev servers:

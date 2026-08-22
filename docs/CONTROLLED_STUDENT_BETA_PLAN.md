@@ -119,9 +119,9 @@ not established by local automation alone.
 | Installer | MANUAL VERIFICATION REQUIRED | Existing Windows foundation CI; candidate installer still needs runner proof. |
 | First launch / packaged FastAPI / supervision / readiness | MANUAL VERIFICATION REQUIRED | PR #79 runner proof exists; rerun required for candidate head. |
 | WebView and SQLite persistence | MANUAL VERIFICATION REQUIRED | PR #79 evidence exists; real candidate execution remains required. |
-| Extension pairing | READY | Pairing implementation and regression tests; participant pairing remains checklist work. |
-| Fresh student-profile onboarding | BLOCKED | No list/create API or web create/select workflow exists; the extension requires a profile ID and the development seed is synthetic. |
-| MyProgress capture/staging/preview/review/apply | BLOCKED | Review-gated implementation and focused tests exist, but a fresh real participant cannot establish the required local student profile. |
+| Extension pairing | READY | Pairing implementation and regression tests; the worker now discovers the only non-mock local profile without exposing its credential. Participant pairing remains checklist work. |
+| Fresh student-profile onboarding | READY | Local-only list/create API, pseudonymous first-profile web form, non-official provenance, mock exclusion, conflict safety, and API/shared/browser tests exist. Installed restart proof remains part of candidate execution. |
+| MyProgress capture/staging/preview/review/apply | MANUAL VERIFICATION REQUIRED | Review-gated implementation and focused tests exist. A participant-owned authenticated source session and explicit capture authorization are still absent. |
 | Degree Audit / Eligibility / Planner | READY | Existing deterministic tests and advisory/unknown semantics; official comparison is manual. |
 | What-If isolation | READY | Isolation tests cover no formal-state mutation. |
 | Reviewed Section import / provenance | READY | Reviewed workflow, source metadata, age/drift fields, and tests exist. |
@@ -138,12 +138,13 @@ not established by local automation alone.
 | Beta plan/checklist | READY | This plan and companion checklist are present. |
 | Manual verification boundaries | READY | Manual login/MFA pause and read-only portal rules are explicit. |
 
-The release-convergence audit found a confirmed code-level Controlled Beta
-blocker: a genuinely fresh local database has no supported student-profile
-creation/selection workflow. The deterministic development seed cannot be used
-as a real participant identity, and institution/campus/program mappings must not
-be guessed. Real Windows candidate execution, accessibility review, and
-participant protocol execution also remain manual requirements.
+The release-convergence audit's code-level first-profile blocker is resolved by
+a local-only pseudonymous onboarding workflow. Institution and campus labels
+remain student-provided and unverified, while program/catalog mappings are not
+created or guessed. Controlled Beta is still not complete: real Windows
+candidate execution, participant-owned portal authentication and authorization,
+accessibility review, and participant protocol execution remain manual
+requirements.
 
 ## Rollback, limitations, and exit
 

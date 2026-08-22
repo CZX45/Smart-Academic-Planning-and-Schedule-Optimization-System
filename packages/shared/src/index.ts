@@ -278,6 +278,92 @@ export const SourceMetadataSchema = z.object({
 
 export type SourceMetadata = z.infer<typeof SourceMetadataSchema>;
 
+export const InstitutionSchema = z.object({
+  id: UuidSchema,
+  code: z.string(),
+  name: z.string(),
+  country: z.string(),
+  timezone: z.string(),
+  source: SourceMetadataSchema,
+});
+
+export const CampusSchema = z.object({
+  id: UuidSchema,
+  institution_id: UuidSchema,
+  code: z.string(),
+  name: z.string(),
+  location: z.string().nullable().optional(),
+  source: SourceMetadataSchema,
+});
+
+export const StudentAcademicProgramSchema = z.object({
+  id: UuidSchema,
+  program_version_id: UuidSchema,
+  program_code: z.string(),
+  program_name: z.string(),
+  program_type: z.string(),
+  status: z.string(),
+  declared_on: z.string().nullable().optional(),
+  source: SourceMetadataSchema,
+});
+
+export const StudentProfileSchema = z.object({
+  id: UuidSchema,
+  home_institution_id: UuidSchema,
+  home_campus_id: UuidSchema,
+  expected_graduation_term_id: UuidSchema.nullable().optional(),
+  external_ref: z.string().nullable().optional(),
+  display_name: z.string(),
+  class_standing: z.string().nullable().optional(),
+  programs: z.array(StudentAcademicProgramSchema),
+  source: SourceMetadataSchema,
+});
+
+export const LocalStudentProfileResponseSchema = z.object({
+  institution: InstitutionSchema,
+  campus: CampusSchema,
+  student: StudentProfileSchema,
+  reason_codes: z.array(z.string()),
+  warnings: z.array(z.string()),
+  assumptions: z.array(z.string()),
+  source_references: z.array(z.string()),
+});
+
+export const CreatedLocalStudentProfileResponseSchema =
+  LocalStudentProfileResponseSchema.superRefine((value, context) => {
+    for (const [recordName, source] of [
+      ["institution", value.institution.source],
+      ["campus", value.campus.source],
+      ["student", value.student.source],
+    ] as const) {
+      if (
+        source.source_type !== "STUDENT_PROVIDED" ||
+        source.is_official ||
+        source.source_confidence !== "student-provided-unverified"
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: `${recordName} must remain student-provided and unverified`,
+        });
+      }
+    }
+  });
+
+export type LocalStudentProfileResponse = z.infer<
+  typeof LocalStudentProfileResponseSchema
+>;
+
+export type CreateLocalStudentProfileRequest = {
+  acknowledge_non_official: true;
+  display_name: string;
+  institution_code: string;
+  institution_name: string;
+  campus_code: string;
+  campus_name: string;
+  country: string;
+  timezone: string;
+};
+
 export type AcademicStatusTone =
   | "success"
   | "warning"
@@ -2219,6 +2305,48 @@ export async function fetchLocalDiagnostics(
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Local diagnostics response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchLocalStudentProfiles(
+  apiBaseUrl: string,
+  options: FetchHealthOptions = {},
+): Promise<LocalStudentProfileResponse[]> {
+  const parsed = z
+    .array(LocalStudentProfileResponseSchema)
+    .safeParse(
+      await fetchJson(
+        apiBaseUrl,
+        "/api/v1/local-onboarding/student-profiles",
+        options,
+      ),
+    );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Local student profiles response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export async function createLocalStudentProfile(
+  apiBaseUrl: string,
+  request: CreateLocalStudentProfileRequest,
+  options: FetchHealthOptions = {},
+): Promise<LocalStudentProfileResponse> {
+  const parsed = CreatedLocalStudentProfileResponseSchema.safeParse(
+    await fetchJson(apiBaseUrl, "/api/v1/local-onboarding/student-profiles", {
+      ...options,
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(request),
+    }),
+  );
+  if (!parsed.success) {
+    throw new ApiResponseSchemaError(
+      "Created local student profile did not match the expected schema",
     );
   }
   return parsed.data;

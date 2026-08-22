@@ -77,6 +77,18 @@ Use the in-page workflow links to jump to:
 - Semester Schedule Builder for section-level schedule optimization.
 - Section Monitoring for advisory comparisons of user-triggered snapshots.
 
+### Create The First Local Student Profile
+
+On a fresh local desktop database, use the **Create non-official local profile**
+form before importing data. A nickname is acceptable. Enter only the school and
+campus labels you know, acknowledge that they are student-provided and
+unverified, and create the profile. The app does not infer a program, catalog
+year, course rule, or graduation conclusion. Confirm high-impact decisions with
+the school or an advisor.
+
+After Extension pairing, the popup discovers the only non-mock local profile
+automatically. If multiple profiles exist, it refuses to choose silently.
+
 ### Import Data
 
 Browser-extension imports go into staging first. They are non-official and
@@ -243,6 +255,16 @@ Smart Academic Planner 是一个可以在本机运行的学业规划和课表优
 `LOCAL_WEB_PORT` 为 `3001`、`3010` 或 `3011`。页面会显示本地 API 状态、API base
 URL、当前 web origin、当前 import source 状态，以及 degree audit、data import review、browser
 extension import、section monitoring、schedule optimization、what-if planning 等工作流入口。
+
+### 创建首个本地学生档案
+
+全新本地桌面数据库会显示“创建非官方本地档案”表单。可以使用昵称，只填写自己
+明确知道的学校和校区标签，并确认这些信息由学生提供、尚未经学校核验。系统不会
+推断专业、Catalog 年份、课程规则或毕业结论；高影响决定仍需向学校或 advisor
+确认。
+
+扩展完成本地配对后，会自动发现唯一的非 mock 本地档案；如果存在多个档案，扩展
+不会静默替你选择。
 
 ### 如何导入 Kean 数据
 

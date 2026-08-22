@@ -643,3 +643,24 @@ Every official or imported rule should track:
 Course-state statuses are `COMPLETED`, `IN_PROGRESS`, `PLANNED`,
 `NOT_STARTED`, and `UNKNOWN`. Validation states are `RELIABLE`,
 `RELIABLE_WITH_WARNINGS`, `EXTERNAL_EVIDENCE`, and `EXCEPTION`.
+
+## 7. Local Onboarding Records
+
+Local onboarding adds no table or migration. It creates existing domain
+entities with a constrained provenance contract:
+
+- `Institution`: user-entered code, name, country, and IANA timezone.
+- `Campus`: user-entered code and name under the created or exactly matching
+  institution.
+- `StudentProfile`: pseudonymous display name, home institution/campus, no
+  external reference, no expected graduation term, and no class standing.
+- All three records use `source_type = STUDENT_PROVIDED`,
+  `is_official = false`, `source_reference = Local onboarding form`, and
+  `source_confidence = student-provided-unverified`.
+- No `StudentAcademicProgram` is created. A program declaration requires a
+  separately reviewed program/catalog version and cannot be guessed during
+  identity onboarding.
+
+Creation is valid only when no student profile exists. Institution/campus code
+conflicts do not overwrite stored rows. Development `MOCK` profiles are omitted
+from local profile discovery so demo data cannot become the active real identity.
