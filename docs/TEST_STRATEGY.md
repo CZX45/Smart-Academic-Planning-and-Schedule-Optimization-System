@@ -425,3 +425,17 @@ Installed acceptance must additionally prove first launch, create, restart,
 profile rediscovery, extension pairing, and synthetic staging import in a
 disposable Windows account. Real portal acceptance remains a participant-owned,
 explicitly authorized manual/computer-assisted step.
+
+## 11. Release Convergence Infrastructure Regressions
+
+PostgreSQL `alembic check` must continue to detect explicit named CHECK
+constraint drift while ignoring only reflected constraints that match a
+SQLAlchemy type-bound enum constraint in the same metadata table. This protects
+the schema Gate from Alembic comparator changes without disabling named CHECK
+constraint comparison.
+
+Windows packaging tests resolve and stage a missing `MSVCP140.dll` from a
+trusted x64 Microsoft runtime location, validate its publisher, signature, PE
+architecture, and copy hash, and then run the existing installer and installed
+runtime assertions. A runner image that cannot provide a verifiable runtime
+must fail closed before NSIS packaging.

@@ -13,6 +13,8 @@ on:
       - "apps/api/tests/test_local_data_removal.py"
       - "apps/api/tests/test_windows_installer_preflight.py"
       - "apps/api/tests/test_windows_installer_runtime_payload.py"
+      - "apps/api/build_support/**"
+      - "apps/api/tests/test_vc_runtime_discovery.py"
       - "packages/shared/src/index.ts"
       - "apps/web/src/app/page.tsx"
 
@@ -45,6 +47,7 @@ jobs:
       - run: python -m pytest apps/api/tests/test_local_data_removal.py -q
       - run: python -m pytest apps/api/tests/test_windows_installer_preflight.py -q
       - run: python -m pytest apps/api/tests/test_windows_installer_runtime_payload.py -q
+      - run: python -m pytest apps/api/tests/test_vc_runtime_discovery.py -q
       - run: corepack pnpm openapi:check
       - run: >-
           pwsh -NoProfile -File scripts/windows/Build-Windows-Installer.ps1

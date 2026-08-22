@@ -815,6 +815,14 @@ under its package-relative directory, and keep runtime-directory/DLL lookup
 environment aligned with the installed layout. Lifecycle fixtures must be real,
 valid LOCAL_DESKTOP SQLite fixtures.
 
+Hosted-runner image changes must not silently remove the x64 Microsoft VC
+runtime from that layout. When PyInstaller does not copy `MSVCP140.dll`, the
+build resolves it only from the 64-bit Windows, Python, or installed Visual
+Studio redistributable roots, then verifies Microsoft publisher metadata,
+Authenticode status, PE architecture, and the staged hash. Missing or
+unverifiable runtime files fail the build; the installer/runtime assertions are
+not downgraded.
+
 The installer remains an unsigned development artifact and may trigger
 SmartScreen. Code signing, automatic updates, GitHub/public release
 distribution, Store/MSIX packaging, and production publishing are not done.
