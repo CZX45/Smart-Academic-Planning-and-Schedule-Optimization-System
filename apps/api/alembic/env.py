@@ -4,6 +4,7 @@ from sqlalchemy import create_engine, pool
 
 from alembic import context
 from app.config import settings
+from app.db.alembic_autogenerate import build_alembic_include_object
 from app.db.base import Base
 
 config = context.config
@@ -12,12 +13,14 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+include_object = build_alembic_include_object(target_metadata)
 
 
 def run_migrations_offline() -> None:
     context.configure(
         url=settings.database_url,
         target_metadata=target_metadata,
+        include_object=include_object,
         literal_binds=True,
     )
     with context.begin_transaction():
@@ -35,7 +38,11 @@ def run_migrations_online() -> None:
         ),
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=include_object,
+        )
         with context.begin_transaction():
             context.run_migrations()
 
