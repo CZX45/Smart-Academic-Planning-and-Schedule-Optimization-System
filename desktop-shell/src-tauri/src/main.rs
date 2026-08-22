@@ -362,6 +362,39 @@ struct TrustedRuntimeIdentity {
 const MAX_PROCESS_ANCESTRY_DEPTH: usize = 16;
 const LAUNCH_CLOCK_TOLERANCE_100NS: u64 = 2 * 10_000_000;
 const API_READINESS_TIMEOUT_SECONDS: u64 = 30;
+const RUNTIME_MANIFEST_CLEANUP_ATTEMPTS: usize = 20;
+const RUNTIME_MANIFEST_CLEANUP_DELAY: Duration = Duration::from_millis(50);
+
+fn remove_owned_runtime_manifest(
+    manifest_path: &Path,
+    expected_instance_id: Uuid,
+    runtime_cleanup_allowed: bool,
+) -> bool {
+    if !runtime_cleanup_allowed {
+        return !manifest_path.exists();
+    }
+    for attempt in 0..RUNTIME_MANIFEST_CLEANUP_ATTEMPTS {
+        let owned = match fs::read_to_string(manifest_path) {
+            Ok(contents) => serde_json::from_str::<RuntimeManifest>(&contents)
+                .ok()
+                .is_some_and(|manifest| manifest.instance_id == expected_instance_id),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return true,
+            Err(_) => false,
+        };
+        if !owned {
+            return false;
+        }
+        match fs::remove_file(manifest_path) {
+            Ok(()) => return true,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return true,
+            Err(_) if attempt + 1 < RUNTIME_MANIFEST_CLEANUP_ATTEMPTS => {
+                thread::sleep(RUNTIME_MANIFEST_CLEANUP_DELAY);
+            }
+            Err(_) => return false,
+        }
+    }
+    false
+}
 
 fn normalized_executable_path(path: &Path) -> Option<PathBuf> {
     fs::canonicalize(path).ok()
@@ -1366,11 +1399,7 @@ impl DesktopProcesses {
         if let (Some(manifest_path), Some(expected_instance_id)) =
             (manifest_path, expected_instance_id)
         {
-            let owned = fs::read_to_string(&manifest_path)
-                .ok()
-                .and_then(|contents| serde_json::from_str::<RuntimeManifest>(&contents).ok())
-                .is_some_and(|manifest| manifest.instance_id == expected_instance_id);
-            if owned && {
+            let _ = remove_owned_runtime_manifest(&manifest_path, expected_instance_id, {
                 #[cfg(windows)]
                 {
                     runtime_cleanup_allowed
@@ -1379,9 +1408,7 @@ impl DesktopProcesses {
                 {
                     true
                 }
-            } {
-                let _ = fs::remove_file(manifest_path);
-            }
+            });
         }
         let Some(executable) = cleanup_executable else {
             drop(startup_lock);
@@ -1757,6 +1784,10 @@ fn http_probe(port: u16, path: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
+    use std::fs::OpenOptions;
+    #[cfg(windows)]
+    use std::os::windows::fs::OpenOptionsExt;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn test_root(name: &str) -> PathBuf {
@@ -1794,6 +1825,80 @@ mod tests {
 
     fn expected_instance_id() -> Uuid {
         Uuid::from_u128(0x1234_5678_1234_4234_8234_1234_5678_9abc)
+    }
+
+    fn write_runtime_manifest_fixture(path: &Path, instance_id: Uuid) {
+        fs::write(
+            path,
+            serde_json::json!({
+                "instance_id": instance_id,
+                "base_url": "http://127.0.0.1:49152",
+                "pid": 10,
+                "port": 49152,
+                "status": "ready"
+            })
+            .to_string(),
+        )
+        .expect("write runtime manifest fixture");
+    }
+
+    #[test]
+    fn runtime_manifest_cleanup_removes_only_the_owned_instance() {
+        let root = test_root("owned-runtime-manifest");
+        let manifest = root.join("runtime.json");
+        write_runtime_manifest_fixture(&manifest, expected_instance_id());
+
+        assert!(remove_owned_runtime_manifest(
+            &manifest,
+            expected_instance_id(),
+            true
+        ));
+        assert!(!manifest.exists());
+
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[test]
+    fn runtime_manifest_cleanup_preserves_a_foreign_instance() {
+        let root = test_root("foreign-runtime-manifest");
+        let manifest = root.join("runtime.json");
+        write_runtime_manifest_fixture(&manifest, Uuid::new_v4());
+
+        assert!(!remove_owned_runtime_manifest(
+            &manifest,
+            expected_instance_id(),
+            true
+        ));
+        assert!(manifest.exists());
+
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn runtime_manifest_cleanup_retries_a_transient_windows_delete_denial() {
+        let root = test_root("locked-runtime-manifest");
+        let manifest = root.join("runtime.json");
+        write_runtime_manifest_fixture(&manifest, expected_instance_id());
+        let blocker = OpenOptions::new()
+            .read(true)
+            .share_mode(0x0000_0001)
+            .open(&manifest)
+            .expect("open manifest without delete sharing");
+        let release = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(150));
+            drop(blocker);
+        });
+
+        assert!(remove_owned_runtime_manifest(
+            &manifest,
+            expected_instance_id(),
+            true
+        ));
+        release.join().expect("release manifest blocker");
+        assert!(!manifest.exists());
+
+        fs::remove_dir_all(root).expect("remove test root");
     }
 
     fn trust(

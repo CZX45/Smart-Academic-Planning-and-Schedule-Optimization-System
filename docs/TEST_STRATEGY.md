@@ -450,3 +450,8 @@ rows. Installed acceptance must explicitly confirm both rows, apply them, and
 observe the reviewed-and-applied label before shutdown and again after restart;
 an empty review or a zero-confirmation application does not satisfy persistence
 acceptance.
+
+Desktop shutdown must remove only the runtime manifest whose `instance_id`
+matches the instance launched by that desktop process. Windows cleanup retries
+bounded transient deletion failures after the trusted API process is gone, but
+must preserve a manifest owned by any different instance.
