@@ -16,8 +16,8 @@ def test_windows_identity_and_tauri_bundle_are_single_target_per_user() -> None:
 
     assert identity["product_name"] == "SAPSOS Local Desktop"
     assert identity["version"] == config["version"]
-    assert identity["version"] == "0.1.5"
-    assert cargo["package"]["version"] == "0.1.5"
+    assert identity["version"] == "0.1.6"
+    assert cargo["package"]["version"] == "0.1.6"
     assert identity["bundle_identifier"] == config["identifier"]
     assert identity["windows_application_id"] == identity["bundle_identifier"]
     assert identity["executable_name"] == "sapsos-local-desktop.exe"
@@ -96,6 +96,38 @@ def test_windows_packaging_contract_has_no_release_or_auto_update_step() -> None
     assert positions == sorted(positions)
 
 
+def test_packaged_restart_restores_imported_student_without_reenabling_demo() -> None:
+    script = (ROOT / "scripts/windows/Invoke-Packaged-Desktop-E2E.ps1").read_text(encoding="utf-8")
+    page = (ROOT / "apps/web/src/app/page.tsx").read_text(encoding="utf-8")
+
+    sample_start = page.index("const sanitizedMyProgressSampleContent")
+    sample_end = page.index("const dataImportSamples", sample_start)
+    sample_segment = page[sample_start:sample_end]
+    assert "courseRows: []" not in sample_segment
+    assert sample_segment.count("source_row_index:") == 2
+    assert "autoConfirmedCourseRowCount: 2" in sample_segment
+    review_position = script.index('Write-Phase "review_apply" "starting"')
+    shutdown_position = script.index('Write-Phase "graceful_shutdown" "starting"')
+    restart_position = script.index('Write-Phase "restart" "completed"')
+    client_ready_position = script.rindex(
+        'Wait-UiElementContains "API 已连接"', 0, restart_position
+    )
+    persistence_position = script.index('Write-Phase "persistence_verify" "starting"')
+
+    review_segment = script[review_position:shutdown_position]
+    assert review_segment.count('Invoke-UiButton "确认"') == 2
+    assert review_segment.index('Invoke-UiButton "确认"') < review_segment.index(
+        'Invoke-UiButton "应用已确认记录"'
+    )
+    assert 'Wait-UiElementCount "已确认" 2' in review_segment
+    assert 'Wait-UiElementContains "真实导入数据 - 已审核应用"' in review_segment
+    assert client_ready_position < restart_position < persistence_position
+    restart_segment = script[client_ready_position:persistence_position]
+    assert 'Wait-UiElementContains "真实导入数据 - 已审核应用"' in restart_segment
+    assert 'Invoke-UiButton "启用演示工作流"' not in restart_segment
+    assert 'imported_student = "restored"' in restart_segment
+
+
 def test_short_staging_contract_preserves_deep_metadata_and_licenses() -> None:
     script = (ROOT / "scripts/windows/Build-Windows-Installer.ps1").read_text()
     validator = (ROOT / "scripts/windows/Validate-Windows-Installer-Artifact.ps1").read_text()
@@ -162,8 +194,8 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
     assert '$env:CI -ne "true"' in build
     assert "semantic version" in build
     assert "two-version" in lifecycle
-    assert 'InstallerVersion = "0.1.0"' in lifecycle
-    assert 'UpgradeInstallerVersion = "0.1.1"' in lifecycle
+    assert 'InstallerVersion = "0.1.5"' in lifecycle
+    assert 'UpgradeInstallerVersion = "0.1.6"' in lifecycle
     assert "Invoke-ProcessWithTimeout" in lifecycle
     assert "Start-Process -FilePath $PathValue -ArgumentList $Arguments -PassThru" in lifecycle
     assert 'Invoke-ProcessWithTimeout $PathValue @("/S", "/D=$installRoot")' in lifecycle
@@ -192,9 +224,9 @@ def test_lifecycle_contract_has_strict_process_hooks_and_ci_only_version_overrid
         assert marker in lifecycle
     assert "timeout-minutes: 90" in workflow
     assert "timeout-minutes: 20" in workflow
-    assert "-InstallerVersion 0.1.1" in workflow
-    assert "-TestVersionOverride 0.1.5" in workflow
-    assert "-UpgradeInstallerVersion 0.1.5" in workflow
+    assert "-InstallerVersion 0.1.5" in workflow
+    assert "-TestVersionOverride 0.1.6" in workflow
+    assert "-UpgradeInstallerVersion 0.1.6" in workflow
     assert "Invoke-Windows-Installer-Artifact-RoundTrip.ps1" in workflow
     assert "actions/download-artifact@v4" in workflow
     assert "IfSilent" in hook

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { DataImportRun, ImportPreviewSummary } from "@sapsos/shared";
 import {
+  importSourceStateLabel,
   isUsableMyProgressPreviewSummary,
   savedImportOptionFromRun,
   selectPreferredLoadedDataImport,
@@ -59,6 +60,30 @@ function preview(
 }
 
 describe("saved data import preview helpers", () => {
+  it("labels a reloaded preview as reviewed and applied only when its active snapshot matches", () => {
+    const display = {
+      realImportStatus: "REAL_IMPORTED_DATA_PENDING_REVIEW",
+      downstreamAnalysisAllowed: true,
+      canApplyVerifiedImport: false,
+      exceptionCount: 0,
+    };
+
+    expect(
+      importSourceStateLabel(
+        display,
+        "00000000-0000-4000-8000-000000000001",
+        "00000000-0000-4000-8000-000000000001",
+      ),
+    ).toBe("真实导入数据 - 已审核应用");
+    expect(
+      importSourceStateLabel(
+        display,
+        "00000000-0000-4000-8000-000000000001",
+        "00000000-0000-4000-8000-000000000002",
+      ),
+    ).toBe("真实导入数据 - 需要审核");
+  });
+
   it("formats saved import selector metadata with timestamp, source, counts, validation, and confidence", () => {
     const option = savedImportOptionFromRun(
       run({

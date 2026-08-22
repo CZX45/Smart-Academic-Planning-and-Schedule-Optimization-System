@@ -18,7 +18,7 @@ export type CourseStateWorkflowState =
 
 export function useCourseStateWorkflow(
   apiBaseUrl: string | undefined,
-  studentId: string,
+  studentId: string | undefined,
 ): readonly [
   CourseStateWorkflowState,
   Dispatch<SetStateAction<CourseStateWorkflowState>>,
@@ -33,6 +33,19 @@ export function useCourseStateWorkflow(
     const guard = guardRef.current;
     const requestId = guard.begin();
     if (!apiBaseUrl) {
+      return () => {
+        guard.begin();
+      };
+    }
+    if (!studentId) {
+      queueMicrotask(() => {
+        if (guard.isCurrent(requestId)) {
+          setState({
+            status: "empty",
+            message: "尚未导入学生数据或启用演示工作流。",
+          });
+        }
+      });
       return () => {
         guard.begin();
       };

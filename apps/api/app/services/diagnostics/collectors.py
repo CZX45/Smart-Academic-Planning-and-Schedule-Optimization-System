@@ -13,7 +13,7 @@ from urllib.parse import quote, urlsplit
 
 from sqlalchemy.engine import Engine, make_url
 
-from app.config import LOCALHOST_NAMES, Settings, settings
+from app.config import APPLICATION_VERSION, LOCALHOST_NAMES, Settings, settings
 from app.db.bootstrap import LOCAL_SCHEMA_VERSION
 from app.db.local_migrations import LocalSchemaState, inspect_schema
 from app.runtime.discovery import (
@@ -41,7 +41,6 @@ from app.services.diagnostics.models import (
 )
 from app.services.diagnostics.sanitization import sanitize_free_text, sanitize_structured_summary
 
-APPLICATION_VERSION = "0.1.0"
 INTEGRITY_CHECK_TIMEOUT_SECONDS = 0.75
 
 

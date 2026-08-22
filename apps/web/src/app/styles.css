@@ -422,6 +422,59 @@ h2 {
   padding: 18px;
 }
 
+.local-profile-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.local-profile-panel h2,
+.local-profile-panel p {
+  margin-bottom: 0;
+}
+
+.local-profile-form {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.local-profile-form label,
+.local-profile-select {
+  display: grid;
+  gap: 6px;
+}
+
+.local-profile-form label > span,
+.local-profile-select > span {
+  color: #374151;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.local-profile-form input,
+.local-profile-select select {
+  border: 1px solid #9ca3af;
+  border-radius: 6px;
+  font: inherit;
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.local-profile-form .local-profile-acknowledgement {
+  align-items: start;
+  display: flex;
+  grid-column: 1 / -1;
+}
+
+.local-profile-acknowledgement input {
+  min-height: auto;
+  width: auto;
+}
+
+.local-profile-form button {
+  justify-self: start;
+}
+
 .empty-state {
   display: grid;
   gap: 8px;

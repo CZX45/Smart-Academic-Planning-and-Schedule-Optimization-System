@@ -12,6 +12,7 @@ import {
   createDataImportReview,
   createCourseEligibilityCheck,
   createDegreeAudit,
+  createLocalStudentProfile,
   createScheduleOptimization,
   applyDataImportReview,
   fetchAcademicScenarioAllocations,
@@ -37,6 +38,7 @@ import {
   confirmLocalRestore,
   cancelLocalRestore,
   fetchLatestDegreeAudit,
+  fetchLocalStudentProfiles,
   fetchStudentDataImports,
   fetchStudentScheduleOptimizations,
   fetchStudentAcademicPlans,
@@ -61,6 +63,7 @@ import {
   type DataReviewWarning,
   type DegreeAuditRun,
   type HealthResponse,
+  type LocalStudentProfileResponse,
   type BackupStatus,
   type RestorePreview,
   type ImportedRecord,
@@ -82,6 +85,7 @@ import {
 } from "@sapsos/shared";
 import {
   type Dispatch,
+  type FormEvent,
   type SetStateAction,
   startTransition,
   useEffect,
@@ -90,9 +94,11 @@ import {
 } from "react";
 import { parsePublicEnv, parseRuntimeApiBaseUrl } from "../lib/env";
 import {
+  importSourceStateLabel,
   isUsableMyProgressPreviewSummary,
   savedImportOptionFromRun,
   selectPreferredLoadedDataImport,
+  type ImportSourceStateLabel,
 } from "../lib/data-import-preview";
 import {
   formatZhCnBeforeAfterValue,
@@ -220,12 +226,6 @@ type ReadyDataImportPreviewState = Extract<
   DataImportPreviewState,
   { status: "ready" }
 >;
-type ImportSourceStateLabel =
-  | "真实导入数据 - 已自动验证"
-  | "真实导入数据 - 需要审核"
-  | "真实导入数据 - 等待审核"
-  | "演示 / 模拟数据"
-  | "尚未加载导入";
 type DataReviewState =
   | { status: "idle" }
   | { status: "loading" }
@@ -384,6 +384,11 @@ type ProductStatusCard = {
   actionLabel: string;
   advisoryLabels?: AdvisoryLabelKey[];
 };
+
+type LocalProfilesState =
+  | { status: "loading" }
+  | { status: "ready"; profiles: LocalStudentProfileResponse[] }
+  | { status: "failed"; message: string };
 
 function configuredApiBaseUrl(): string | undefined {
   try {
@@ -636,13 +641,56 @@ const sanitizedMyProgressSampleContent = JSON.stringify({
       requiresReview: false,
     },
   ],
-  courseRows: [],
+  courseRows: [
+    {
+      requirements: "Finance Requirements",
+      requirement_section: "Finance Requirements",
+      status: "COMPLETED",
+      course_code: "FIN 300",
+      course_title: "Managerial Finance",
+      term_code: "2024FA",
+      credits: "3",
+      raw_row_text: "COMPLETED FIN 300 Managerial Finance 2024FA 3",
+      source_table_index: "1",
+      source_row_index: "1",
+      field_provenance: {
+        course_code: {
+          rawText: "FIN 300",
+          source: "sanitized table 1 row 1",
+          confidence: "high",
+        },
+      },
+      confidence: "high",
+      warnings: [],
+    },
+    {
+      requirements: "Finance Requirements",
+      requirement_section: "Finance Requirements",
+      status: "PLANNED",
+      course_code: "FIN 400",
+      course_title: "Advanced Finance",
+      term_code: "2025SP",
+      credits: "3",
+      raw_row_text: "PLANNED FIN 400 Advanced Finance 2025SP 3",
+      source_table_index: "1",
+      source_row_index: "2",
+      field_provenance: {
+        course_code: {
+          rawText: "FIN 400",
+          source: "sanitized table 1 row 2",
+          confidence: "high",
+        },
+      },
+      confidence: "high",
+      warnings: [],
+    },
+  ],
   validation: {
     status: "AUTO_VERIFIED",
     exceptionCount: 0,
     exceptions: [],
     autoConfirmedFieldCount: 14,
-    autoConfirmedCourseRowCount: 0,
+    autoConfirmedCourseRowCount: 2,
     overallConfidenceScore: 0.98,
     downstreamAnalysisAllowed: true,
   },
@@ -652,6 +700,13 @@ const sanitizedMyProgressSampleContent = JSON.stringify({
     progressBarText: "67 24 13",
     visibleTextSample:
       "My Progress Finance, BS Catalog 2024 GPA 3.916 Total Credits 104 of 120",
+    diagnostics: {
+      rowCount: 2,
+      courseLikeRowCount: 2,
+      requirementGroupCount: 1,
+      bounded: false,
+      truncated: false,
+    },
   },
 });
 const dataImportSamples: DataImportSample[] = [
@@ -1007,26 +1062,21 @@ async function loadPreferredDataImportPreviewState(
 
 function importModeLabel(
   display: MyProgressPreviewDisplay | null,
+  dataImportRunId?: string,
+  activeSnapshotDataImportRunId?: string,
 ): ImportSourceStateLabel {
-  if (!display) {
-    return "演示 / 模拟数据";
-  }
-  if (
-    display.realImportStatus === "REAL_IMPORTED_DATA_AUTO_VERIFIED" &&
-    display.downstreamAnalysisAllowed &&
-    display.canApplyVerifiedImport &&
-    display.exceptions.length === 0
-  ) {
-    return "真实导入数据 - 已自动验证";
-  }
-  if (
-    display.exceptions.length > 0 ||
-    !display.downstreamAnalysisAllowed ||
-    !display.canApplyVerifiedImport
-  ) {
-    return "真实导入数据 - 需要审核";
-  }
-  return "真实导入数据 - 等待审核";
+  return importSourceStateLabel(
+    display
+      ? {
+          realImportStatus: display.realImportStatus,
+          downstreamAnalysisAllowed: display.downstreamAnalysisAllowed,
+          canApplyVerifiedImport: display.canApplyVerifiedImport,
+          exceptionCount: display.exceptions.length,
+        }
+      : null,
+    dataImportRunId,
+    activeSnapshotDataImportRunId,
+  );
 }
 
 function dashboardSourceLabel(
@@ -1034,9 +1084,14 @@ function dashboardSourceLabel(
   reviewState: DataReviewState,
   auditState: AuditState,
   dataImportState: DataImportPreviewState,
+  activeSnapshotDataImportRunId?: string,
 ): ImportSourceStateLabel {
   if (display) {
-    return importModeLabel(display);
+    return importModeLabel(
+      display,
+      dataImportState.status === "ready" ? dataImportState.run.id : undefined,
+      activeSnapshotDataImportRunId,
+    );
   }
   if (
     dataImportState.status === "failed" ||
@@ -1229,15 +1284,37 @@ export default function Home() {
           message: "NEXT_PUBLIC_API_BASE_URL 未配置。",
         },
   );
+  const [demoModeEnabled, setDemoModeEnabled] = useState(false);
+  const [importedStudentId, setImportedStudentId] = useState<string>();
+  const [selectedLocalStudentId, setSelectedLocalStudentId] =
+    useState<string>();
+  const [localProfilesState, setLocalProfilesState] =
+    useState<LocalProfilesState>(() =>
+      apiBaseUrl
+        ? { status: "loading" }
+        : { status: "failed", message: "NEXT_PUBLIC_API_BASE_URL 未配置。" },
+  );
+  const activeStudentId =
+    demoModeEnabled
+      ? mockStudentId
+      : (selectedLocalStudentId ?? importedStudentId);
+  const selectedLocalProfile =
+    localProfilesState.status === "ready"
+      ? localProfilesState.profiles.find(
+          (profile) => profile.student.id === activeStudentId,
+        )
+      : undefined;
+  const activeStudentLabel = demoModeEnabled
+    ? "演示学生"
+    : (selectedLocalProfile?.student.display_name ?? "尚未选择");
   const sectionMonitoringState = useSectionMonitoringWorkflow(
     apiBaseUrl,
-    mockStudentId,
+    activeStudentId,
   );
   const [courseStateState, setCourseStateState] = useCourseStateWorkflow(
     apiBaseUrl,
-    mockStudentId,
+    activeStudentId,
   );
-  const [demoModeEnabled, setDemoModeEnabled] = useState(false);
 
   useEffect(() => {
     if (!apiBaseUrl) {
@@ -1272,27 +1349,87 @@ export default function Home() {
       };
     }
 
+    void fetchLocalStudentProfiles(apiBaseUrl, { timeoutMs: 5_000 })
+      .then((profiles) => {
+        if (cancelled) {
+          return;
+        }
+        setLocalProfilesState({ status: "ready", profiles });
+        setSelectedLocalStudentId((current) => {
+          if (
+            current &&
+            profiles.some((profile) => profile.student.id === current)
+          ) {
+            return current;
+          }
+          return profiles.length === 1 ? profiles[0]?.student.id : undefined;
+        });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setLocalProfilesState({
+            status: "failed",
+            message:
+              error instanceof Error ? error.message : "无法读取本地学生档案。",
+          });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBaseUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!apiBaseUrl) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
     async function loadDegreeProgress(baseUrl: string): Promise<void> {
+      let healthLoaded = false;
       try {
         const payload = await fetchHealth(baseUrl, { timeoutMs: 5_000 });
         if (cancelled) {
           return;
         }
         setHealth({ status: "online", payload });
+        healthLoaded = true;
+
+        if (!activeStudentId) {
+          setAuditState({
+            status: "empty",
+            message:
+              "尚未导入学生数据；请先导入并审核数据，或显式启用演示工作流。",
+          });
+          return;
+        }
+        const studentId = activeStudentId;
 
         let audit: DegreeAuditRun;
         try {
-          audit = await fetchLatestDegreeAudit(baseUrl, mockStudentId, {
+          audit = await fetchLatestDegreeAudit(baseUrl, studentId, {
             timeoutMs: 5_000,
           });
         } catch (error: unknown) {
           if (!isNotFound(error)) {
             throw error;
           }
+          if (!demoModeEnabled || studentId !== mockStudentId) {
+            setAuditState({
+              status: "empty",
+              message:
+                "该本地学生档案尚无已审核的专业版本或学业审核；系统不会套用演示规则。",
+            });
+            return;
+          }
           audit = await createDegreeAudit(
             baseUrl,
             {
-              student_profile_id: mockStudentId,
+              student_profile_id: studentId,
               program_version_id: mockProgramVersionId,
               calculation_mode: "PROJECTED",
             },
@@ -1321,7 +1458,7 @@ export default function Home() {
         if (!cancelled) {
           const message = describeAuditError(error);
           setAuditState({ status: "failed", message });
-          if (health.status !== "online") {
+          if (!healthLoaded) {
             setHealth({
               status: "offline",
               message: describeHealthError(error),
@@ -1336,7 +1473,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl, health.status]);
+  }, [apiBaseUrl, activeStudentId, demoModeEnabled]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1347,14 +1484,23 @@ export default function Home() {
       };
     }
 
+    const studentId = activeStudentId ?? mockStudentId;
+
     async function loadLatestImportPreview(baseUrl: string): Promise<void> {
       try {
-        const savedImports = await fetchStudentDataImports(
-          baseUrl,
-          mockStudentId,
-          { timeoutMs: 5_000 },
-        );
-        if (cancelled || savedImports.length === 0) {
+        const savedImports = await fetchStudentDataImports(baseUrl, studentId, {
+          timeoutMs: 5_000,
+        });
+        if (cancelled) {
+          return;
+        }
+        if (savedImports.length === 0) {
+          if (!activeStudentId) {
+            setDataImportState({
+              status: "empty",
+              message: "尚未导入学生数据；没有可加载的学生导入记录。",
+            });
+          }
           return;
         }
         const previewState = await loadPreferredDataImportPreviewState(
@@ -1365,10 +1511,18 @@ export default function Home() {
           return;
         }
         if (!cancelled) {
+          setImportedStudentId(previewState.run.student_profile_id);
           setDataImportState(previewState);
         }
       } catch (error: unknown) {
         if (!cancelled) {
+          if (!activeStudentId && isNotFound(error)) {
+            setDataImportState({
+              status: "empty",
+              message: "尚未导入学生数据；没有可加载的学生导入记录。",
+            });
+            return;
+          }
           setDataImportState({
             status:
               error instanceof ApiResponseSchemaError
@@ -1385,7 +1539,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, activeStudentId]);
 
   const myProgressPreview = myProgressPreviewFromState(dataImportState);
   const warnings =
@@ -1397,6 +1551,9 @@ export default function Home() {
     dataReviewState,
     auditState,
     dataImportState,
+    courseStateState.status === "ready"
+      ? courseStateState.detail.snapshot.data_import_run_id
+      : undefined,
   );
   const longTermReadiness =
     courseStateState.status === "ready"
@@ -1411,17 +1568,17 @@ export default function Home() {
       ? courseStateState.detail.snapshot.readiness.semester_schedule
       : null;
   const downstreamAnalysisAllowed =
-    courseStateState.status === "ready"
+    activeStudentId && courseStateState.status === "ready"
       ? readinessAllows(longTermReadiness?.status)
-      : demoModeEnabled && !myProgressPreview;
+      : Boolean(activeStudentId) && demoModeEnabled && !myProgressPreview;
   const eligibilityAnalysisAllowed =
-    courseStateState.status === "ready"
+    activeStudentId && courseStateState.status === "ready"
       ? readinessAllows(eligibilityReadiness?.status)
-      : demoModeEnabled && !myProgressPreview;
+      : Boolean(activeStudentId) && demoModeEnabled && !myProgressPreview;
   const scheduleAnalysisAllowed =
-    courseStateState.status === "ready"
+    activeStudentId && courseStateState.status === "ready"
       ? readinessAllows(scheduleReadiness?.status)
-      : demoModeEnabled && !myProgressPreview;
+      : Boolean(activeStudentId) && demoModeEnabled && !myProgressPreview;
 
   return (
     <WorkflowShell
@@ -1434,6 +1591,7 @@ export default function Home() {
             : "API 不可用"
       }
       sourceLabel={currentImportMode}
+      studentLabel={activeStudentLabel}
     >
       <main>
         <DiagnosticsWorkflow
@@ -1441,175 +1599,396 @@ export default function Home() {
           active={activeWorkflow === "diagnostics"}
         />
         <section id="overview" className="progress-shell">
-        <div className="topbar">
-          <p className={`badge ${health.status === "online" ? "ok" : "warn"}`}>
-            {health.status === "loading"
-              ? "API 检查中"
-              : health.status === "online"
-                ? "API 已连接"
-                : "API 不可用"}
-          </p>
-          <p className="notice compact">{currentImportMode}</p>
-          <button
-            type="button"
-            aria-pressed={demoModeEnabled}
-            onClick={() => setDemoModeEnabled((enabled) => !enabled)}
-            disabled={
-              courseStateState.status === "ready" || Boolean(myProgressPreview)
-            }
-          >
-            {demoModeEnabled ? "关闭演示工作流" : "启用演示工作流"}
-          </button>
-        </div>
+          <div className="topbar">
+            <p
+              className={`badge ${health.status === "online" ? "ok" : "warn"}`}
+            >
+              {health.status === "loading"
+                ? "API 检查中"
+                : health.status === "online"
+                  ? "API 已连接"
+                  : "API 不可用"}
+            </p>
+            <p className="notice compact">{currentImportMode}</p>
+            <button
+              type="button"
+              aria-pressed={demoModeEnabled}
+              onClick={() => setDemoModeEnabled((enabled) => !enabled)}
+              disabled={
+                courseStateState.status === "ready" ||
+                Boolean(myProgressPreview)
+              }
+            >
+              {demoModeEnabled ? "关闭演示工作流" : "启用演示工作流"}
+            </button>
+          </div>
 
-        {demoModeEnabled ? (
-          <p className="notice compact" role="status">
-            演示工作流已显式启用；所有结果仅使用模拟数据，不代表真实学业状态。
-          </p>
-        ) : null}
+          {demoModeEnabled ? (
+            <p className="notice compact" role="status">
+              演示工作流已显式启用；所有结果仅使用模拟数据，不代表真实学业状态。
+            </p>
+          ) : null}
 
-        <DevelopmentDiagnostics
-          apiBaseUrl={apiBaseUrl}
-          webOrigin={webOrigin}
-          health={health}
-          dataImportState={dataImportState}
-          sourceLabel={currentImportMode}
-          downstreamAnalysisAllowed={downstreamAnalysisAllowed}
-        />
-
-        <LocalPairingPanel apiBaseUrl={apiBaseUrl} />
-
-        <BackupPanel apiBaseUrl={apiBaseUrl} />
-
-        <h1>学业进度</h1>
-        <p className="subtle">
-          高风险学业建议需要 advisor / registrar / 学校确认。
-        </p>
-
-        <ProductStatusDashboard
-          auditState={auditState}
-          dataImportState={dataImportState}
-          myProgressPreview={myProgressPreview}
-          dataReviewState={dataReviewState}
-          scenarioState={scenarioState}
-          scheduleState={scheduleState}
-          sectionMonitoringState={sectionMonitoringState}
-        />
-
-        {auditState.status === "ready" ? (
-          <DegreeProgress
-            audit={auditState.audit}
-            requirements={auditState.requirements}
-            myProgressPreview={myProgressPreview}
-            courseStateState={courseStateState}
+          <LocalStudentProfilePanel
+            apiBaseUrl={apiBaseUrl}
+            state={localProfilesState}
+            selectedStudentId={selectedLocalStudentId}
+            onSelect={(studentId) => {
+              setSelectedLocalStudentId(studentId);
+              setDemoModeEnabled(false);
+            }}
+            onCreated={(profile) => {
+              setLocalProfilesState({ status: "ready", profiles: [profile] });
+              setSelectedLocalStudentId(profile.student.id);
+              setImportedStudentId(undefined);
+              setDemoModeEnabled(false);
+            }}
           />
-        ) : (
-          <AuditFallback state={auditState} health={health} />
-        )}
 
-        <CourseStateSnapshotPanel state={courseStateState} />
+          <DevelopmentDiagnostics
+            apiBaseUrl={apiBaseUrl}
+            webOrigin={webOrigin}
+            health={health}
+            dataImportState={dataImportState}
+            sourceLabel={currentImportMode}
+            downstreamAnalysisAllowed={downstreamAnalysisAllowed}
+          />
 
-        {warnings.length > 0 ? (
-          <section className="warning-panel" aria-label="顾问警告">
-            <h2>警告</h2>
-            <ul>
-              {warnings.map((warning) => (
-                <li key={warning.id}>
-                  <strong>{warning.warning_code}</strong>
-                  <span>{warning.message}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+          <LocalPairingPanel apiBaseUrl={apiBaseUrl} />
 
-        <WhatIfAnalysis
-          selectedCandidateId={selectedCandidateId}
-          setSelectedCandidateId={setSelectedCandidateId}
-          scenarioState={scenarioState}
-          setScenarioState={setScenarioState}
-          canUseDownstreamAnalysis={downstreamAnalysisAllowed}
-          sourceLabel={currentImportMode}
-        />
+          <BackupPanel apiBaseUrl={apiBaseUrl} />
 
-        <CourseEligibilityChecker
-          selectedCourseId={selectedCourseId}
-          setSelectedCourseId={setSelectedCourseId}
-          eligibilityState={eligibilityState}
-          setEligibilityState={setEligibilityState}
-          courseStateState={courseStateState}
-          canUseRealEligibility={eligibilityAnalysisAllowed}
-        />
+          <h1>学业进度</h1>
+          <p className="subtle">
+            高风险学业建议需要 advisor / registrar / 学校确认。
+          </p>
 
-        <AcademicPlanner
-          selectedPlannerScopeId={selectedPlannerScopeId}
-          setSelectedPlannerScopeId={setSelectedPlannerScopeId}
-          selectedPlannerStartTermId={selectedPlannerStartTermId}
-          setSelectedPlannerStartTermId={setSelectedPlannerStartTermId}
-          termsToPlan={termsToPlan}
-          setTermsToPlan={setTermsToPlan}
-          minimumCredits={minimumCredits}
-          setMinimumCredits={setMinimumCredits}
-          preferredCredits={preferredCredits}
-          setPreferredCredits={setPreferredCredits}
-          maximumCredits={maximumCredits}
-          setMaximumCredits={setMaximumCredits}
-          plannerState={plannerState}
-          setPlannerState={setPlannerState}
-          canUseDownstreamAnalysis={downstreamAnalysisAllowed}
-          sourceLabel={currentImportMode}
-        />
+          <ProductStatusDashboard
+            auditState={auditState}
+            dataImportState={dataImportState}
+            myProgressPreview={myProgressPreview}
+            dataReviewState={dataReviewState}
+            scenarioState={scenarioState}
+            scheduleState={scheduleState}
+            sectionMonitoringState={sectionMonitoringState}
+          />
 
-        <SemesterScheduleBuilder
-          selectedSchedulePresetId={selectedSchedulePresetId}
-          setSelectedSchedulePresetId={setSelectedSchedulePresetId}
-          scheduleNoFriday={scheduleNoFriday}
-          setScheduleNoFriday={setScheduleNoFriday}
-          scheduleAvoidTuesdayBlock={scheduleAvoidTuesdayBlock}
-          setScheduleAvoidTuesdayBlock={setScheduleAvoidTuesdayBlock}
-          schedulePreferOnline={schedulePreferOnline}
-          setSchedulePreferOnline={setSchedulePreferOnline}
-          schedulePreferCompact={schedulePreferCompact}
-          setSchedulePreferCompact={setSchedulePreferCompact}
-          schedulePreferFewerDays={schedulePreferFewerDays}
-          setSchedulePreferFewerDays={setSchedulePreferFewerDays}
-          schedulePreferNoGaps={schedulePreferNoGaps}
-          setSchedulePreferNoGaps={setSchedulePreferNoGaps}
-          schedulePreferMorning={schedulePreferMorning}
-          setSchedulePreferMorning={setSchedulePreferMorning}
-          schedulePreferAfternoon={schedulePreferAfternoon}
-          setSchedulePreferAfternoon={setSchedulePreferAfternoon}
-          schedulePinnedSectionChoiceId={schedulePinnedSectionChoiceId}
-          setSchedulePinnedSectionChoiceId={setSchedulePinnedSectionChoiceId}
-          scheduleExcludedSectionChoiceId={scheduleExcludedSectionChoiceId}
-          setScheduleExcludedSectionChoiceId={
-            setScheduleExcludedSectionChoiceId
-          }
-          scheduleDiversityMode={scheduleDiversityMode}
-          setScheduleDiversityMode={setScheduleDiversityMode}
-          scheduleAllowPartialOptions={scheduleAllowPartialOptions}
-          setScheduleAllowPartialOptions={setScheduleAllowPartialOptions}
-          scheduleState={scheduleState}
-          setScheduleState={setScheduleState}
-          canUseDownstreamAnalysis={scheduleAnalysisAllowed}
-          sourceLabel={currentImportMode}
-        />
+          {auditState.status === "ready" ? (
+            <DegreeProgress
+              audit={auditState.audit}
+              requirements={auditState.requirements}
+              myProgressPreview={myProgressPreview}
+              courseStateState={courseStateState}
+            />
+          ) : (
+            <AuditFallback state={auditState} health={health} />
+          )}
 
-        <DataImportPreviewPanel
-          selectedDataImportSampleId={selectedDataImportSampleId}
-          setSelectedDataImportSampleId={setSelectedDataImportSampleId}
-          dataImportState={dataImportState}
-          setDataImportState={setDataImportState}
-          dataReviewState={dataReviewState}
-          setDataReviewState={setDataReviewState}
-          courseStateState={courseStateState}
-          setCourseStateState={setCourseStateState}
-        />
+          <CourseStateSnapshotPanel state={courseStateState} />
 
-        <SectionMonitoringPanel state={sectionMonitoringState} />
+          {warnings.length > 0 ? (
+            <section className="warning-panel" aria-label="顾问警告">
+              <h2>警告</h2>
+              <ul>
+                {warnings.map((warning) => (
+                  <li key={warning.id}>
+                    <strong>{warning.warning_code}</strong>
+                    <span>{warning.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          <WhatIfAnalysis
+            selectedCandidateId={selectedCandidateId}
+            setSelectedCandidateId={setSelectedCandidateId}
+            scenarioState={scenarioState}
+            setScenarioState={setScenarioState}
+            canUseDownstreamAnalysis={downstreamAnalysisAllowed}
+            sourceLabel={currentImportMode}
+          />
+
+          <CourseEligibilityChecker
+            selectedCourseId={selectedCourseId}
+            setSelectedCourseId={setSelectedCourseId}
+            eligibilityState={eligibilityState}
+            setEligibilityState={setEligibilityState}
+            courseStateState={courseStateState}
+            canUseRealEligibility={eligibilityAnalysisAllowed}
+          />
+
+          <AcademicPlanner
+            selectedPlannerScopeId={selectedPlannerScopeId}
+            setSelectedPlannerScopeId={setSelectedPlannerScopeId}
+            selectedPlannerStartTermId={selectedPlannerStartTermId}
+            setSelectedPlannerStartTermId={setSelectedPlannerStartTermId}
+            termsToPlan={termsToPlan}
+            setTermsToPlan={setTermsToPlan}
+            minimumCredits={minimumCredits}
+            setMinimumCredits={setMinimumCredits}
+            preferredCredits={preferredCredits}
+            setPreferredCredits={setPreferredCredits}
+            maximumCredits={maximumCredits}
+            setMaximumCredits={setMaximumCredits}
+            plannerState={plannerState}
+            setPlannerState={setPlannerState}
+            canUseDownstreamAnalysis={downstreamAnalysisAllowed}
+            sourceLabel={currentImportMode}
+          />
+
+          <SemesterScheduleBuilder
+            selectedSchedulePresetId={selectedSchedulePresetId}
+            setSelectedSchedulePresetId={setSelectedSchedulePresetId}
+            scheduleNoFriday={scheduleNoFriday}
+            setScheduleNoFriday={setScheduleNoFriday}
+            scheduleAvoidTuesdayBlock={scheduleAvoidTuesdayBlock}
+            setScheduleAvoidTuesdayBlock={setScheduleAvoidTuesdayBlock}
+            schedulePreferOnline={schedulePreferOnline}
+            setSchedulePreferOnline={setSchedulePreferOnline}
+            schedulePreferCompact={schedulePreferCompact}
+            setSchedulePreferCompact={setSchedulePreferCompact}
+            schedulePreferFewerDays={schedulePreferFewerDays}
+            setSchedulePreferFewerDays={setSchedulePreferFewerDays}
+            schedulePreferNoGaps={schedulePreferNoGaps}
+            setSchedulePreferNoGaps={setSchedulePreferNoGaps}
+            schedulePreferMorning={schedulePreferMorning}
+            setSchedulePreferMorning={setSchedulePreferMorning}
+            schedulePreferAfternoon={schedulePreferAfternoon}
+            setSchedulePreferAfternoon={setSchedulePreferAfternoon}
+            schedulePinnedSectionChoiceId={schedulePinnedSectionChoiceId}
+            setSchedulePinnedSectionChoiceId={setSchedulePinnedSectionChoiceId}
+            scheduleExcludedSectionChoiceId={scheduleExcludedSectionChoiceId}
+            setScheduleExcludedSectionChoiceId={
+              setScheduleExcludedSectionChoiceId
+            }
+            scheduleDiversityMode={scheduleDiversityMode}
+            setScheduleDiversityMode={setScheduleDiversityMode}
+            scheduleAllowPartialOptions={scheduleAllowPartialOptions}
+            setScheduleAllowPartialOptions={setScheduleAllowPartialOptions}
+            scheduleState={scheduleState}
+            setScheduleState={setScheduleState}
+            canUseDownstreamAnalysis={scheduleAnalysisAllowed}
+            sourceLabel={currentImportMode}
+          />
+
+          <DataImportPreviewPanel
+            studentId={activeStudentId}
+            selectedDataImportSampleId={selectedDataImportSampleId}
+            setSelectedDataImportSampleId={setSelectedDataImportSampleId}
+            dataImportState={dataImportState}
+            setDataImportState={setDataImportState}
+            setImportedStudentId={setImportedStudentId}
+            dataReviewState={dataReviewState}
+            setDataReviewState={setDataReviewState}
+            courseStateState={courseStateState}
+            setCourseStateState={setCourseStateState}
+          />
+
+          <SectionMonitoringPanel state={sectionMonitoringState} />
         </section>
       </main>
     </WorkflowShell>
+  );
+}
+
+function LocalStudentProfilePanel({
+  apiBaseUrl,
+  state,
+  selectedStudentId,
+  onSelect,
+  onCreated,
+}: {
+  apiBaseUrl: string | undefined;
+  state: LocalProfilesState;
+  selectedStudentId: string | undefined;
+  onSelect: (studentId: string) => void;
+  onCreated: (profile: LocalStudentProfileResponse) => void;
+}) {
+  const [submission, setSubmission] = useState<
+    | { status: "idle" }
+    | { status: "submitting" }
+    | { status: "failed"; message: string }
+  >({ status: "idle" });
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!apiBaseUrl || submission.status === "submitting") {
+      return;
+    }
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const value = (name: string) => String(data.get(name) ?? "").trim();
+    setSubmission({ status: "submitting" });
+    try {
+      const profile = await createLocalStudentProfile(
+        apiBaseUrl,
+        {
+          acknowledge_non_official: true,
+          display_name: value("display_name"),
+          institution_code: value("institution_code"),
+          institution_name: value("institution_name"),
+          campus_code: value("campus_code"),
+          campus_name: value("campus_name"),
+          country: value("country"),
+          timezone: value("timezone"),
+        },
+        { timeoutMs: 5_000 },
+      );
+      setSubmission({ status: "idle" });
+      onCreated(profile);
+    } catch (error: unknown) {
+      setSubmission({
+        status: "failed",
+        message:
+          error instanceof Error ? error.message : "无法创建本地学生档案。",
+      });
+    }
+  }
+
+  return (
+    <section
+      className="state-panel local-profile-panel"
+      aria-label="本地学生档案"
+    >
+      {state.status === "loading" ? (
+        <>
+          <h2>读取本地学生档案</h2>
+          <p className="subtle" role="status">
+            正在检查已有的本地或导入档案。
+          </p>
+        </>
+      ) : null}
+
+      {state.status === "failed" ? (
+        <>
+          <h2>本地学生档案不可用</h2>
+          <p className="notice danger">{state.message}</p>
+        </>
+      ) : null}
+
+      {state.status === "ready" && state.profiles.length > 0 ? (
+        <>
+          <h2>本地学生档案</h2>
+          <label className="local-profile-select">
+            <span>当前档案</span>
+            <select
+              value={selectedStudentId ?? ""}
+              onChange={(event) => onSelect(event.target.value)}
+            >
+              {state.profiles.length > 1 ? (
+                <option value="" disabled>
+                  请选择学生档案
+                </option>
+              ) : null}
+              {state.profiles.map((profile) => (
+                <option key={profile.student.id} value={profile.student.id}>
+                  {profile.student.display_name} · {profile.institution.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="notice compact">
+            档案来源与置信度按保存的来源元数据展示；系统不会提升其官方等级。
+          </p>
+          <p className="subtle">
+            不会创建或猜测专业、Catalog 年份、课程规则或毕业结论；请向学校或
+            advisor 确认高影响决定。
+          </p>
+        </>
+      ) : null}
+
+      {state.status === "ready" && state.profiles.length === 0 ? (
+        <>
+          <h2>建立本地学生档案</h2>
+          <p className="subtle">
+            可使用昵称。这里仅建立本机身份与学生自行提供的学校/校区标签。
+          </p>
+          <p className="notice compact danger">
+            不会创建或猜测专业、Catalog 年份、课程规则或毕业结论；请向学校或
+            advisor 确认高影响决定。
+          </p>
+          <form className="local-profile-form" onSubmit={handleSubmit}>
+            <label>
+              <span>显示名称（可使用昵称）</span>
+              <input
+                name="display_name"
+                required
+                maxLength={120}
+                autoComplete="nickname"
+              />
+            </label>
+            <label>
+              <span>学校代码</span>
+              <input
+                name="institution_code"
+                required
+                maxLength={32}
+                autoCapitalize="characters"
+              />
+            </label>
+            <label>
+              <span>学校名称</span>
+              <input
+                name="institution_name"
+                required
+                maxLength={255}
+                autoComplete="organization"
+              />
+            </label>
+            <label>
+              <span>校区代码</span>
+              <input
+                name="campus_code"
+                required
+                maxLength={32}
+                autoCapitalize="characters"
+              />
+            </label>
+            <label>
+              <span>校区名称</span>
+              <input name="campus_name" required maxLength={255} />
+            </label>
+            <label>
+              <span>国家或地区代码</span>
+              <input
+                name="country"
+                required
+                minLength={2}
+                maxLength={2}
+                autoCapitalize="characters"
+              />
+            </label>
+            <label>
+              <span>IANA 时区</span>
+              <input
+                name="timezone"
+                required
+                maxLength={80}
+                placeholder="Asia/Shanghai"
+              />
+            </label>
+            <label className="local-profile-acknowledgement">
+              <input name="acknowledge_non_official" type="checkbox" required />
+              <span>我知道这些学校与校区信息由我提供，尚未经学校核验。</span>
+            </label>
+            <button
+              type="submit"
+              disabled={!apiBaseUrl || submission.status === "submitting"}
+            >
+              {submission.status === "submitting"
+                ? "正在创建…"
+                : "创建非官方本地档案"}
+            </button>
+          </form>
+          {submission.status === "failed" ? (
+            <p className="notice danger" role="alert">
+              {submission.message}
+            </p>
+          ) : null}
+        </>
+      ) : null}
+    </section>
   );
 }
 
@@ -2915,14 +3294,18 @@ function CourseEligibilityChecker({
     candidateCourses[0];
 
   async function handleRunEligibility(): Promise<void> {
-    if (courseStateState.status === "ready" && !canUseRealEligibility) {
+    if (!canUseRealEligibility) {
       const readiness =
-        courseStateState.detail.snapshot.readiness.course_eligibility;
+        courseStateState.status === "ready"
+          ? courseStateState.detail.snapshot.readiness.course_eligibility
+          : null;
       setEligibilityState({
         status: "empty",
-        message: `真实课程资格已阻止：${readiness.blocking_reasons
-          .map(readinessReasonLabel)
-          .join("；")}`,
+        message: readiness
+          ? `真实课程资格已阻止：${readiness.blocking_reasons
+              .map(readinessReasonLabel)
+              .join("；")}`
+          : "请先建立 active student，或显式启用并准备演示工作流。",
       });
       return;
     }
@@ -2966,6 +3349,13 @@ function CourseEligibilityChecker({
   }
 
   async function handleLoadHistory(): Promise<void> {
+    if (!canUseRealEligibility) {
+      setEligibilityState({
+        status: "empty",
+        message: "请先建立 active student，或显式启用并准备演示工作流。",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setEligibilityState({
         status: "offline",
@@ -4478,19 +4868,23 @@ function ScheduleResultView({
 }
 
 function DataImportPreviewPanel({
+  studentId,
   selectedDataImportSampleId,
   setSelectedDataImportSampleId,
   dataImportState,
   setDataImportState,
+  setImportedStudentId,
   dataReviewState,
   setDataReviewState,
   courseStateState,
   setCourseStateState,
 }: {
+  studentId: string | undefined;
   selectedDataImportSampleId: string;
   setSelectedDataImportSampleId: (value: string) => void;
   dataImportState: DataImportPreviewState;
   setDataImportState: Dispatch<SetStateAction<DataImportPreviewState>>;
+  setImportedStudentId: Dispatch<SetStateAction<string | undefined>>;
   dataReviewState: DataReviewState;
   setDataReviewState: Dispatch<SetStateAction<DataReviewState>>;
   courseStateState: CourseStateState;
@@ -4505,6 +4899,13 @@ function DataImportPreviewPanel({
   );
 
   async function handlePreviewImport(sample = selectedSample): Promise<void> {
+    if (!studentId) {
+      setDataImportState({
+        status: "empty",
+        message: "请先导入真实学生数据，或显式启用演示工作流。",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setDataImportState({
         status: "offline",
@@ -4517,7 +4918,7 @@ function DataImportPreviewPanel({
       const run = await createDataImport(
         apiBaseUrl,
         {
-          student_profile_id: mockStudentId,
+          student_profile_id: studentId,
           import_type: sample.importType,
           file_name: sample.fileName,
           file_mime_type: sample.fileMimeType,
@@ -4533,12 +4934,16 @@ function DataImportPreviewPanel({
       await validateDataImport(apiBaseUrl, run.id, { timeoutMs: 5_000 });
       const savedImports = await fetchStudentDataImports(
         apiBaseUrl,
-        mockStudentId,
+        studentId,
         { timeoutMs: 5_000 },
       );
-      setDataImportState(
-        await loadDataImportPreviewState(apiBaseUrl, run, savedImports),
+      const previewState = await loadDataImportPreviewState(
+        apiBaseUrl,
+        run,
+        savedImports,
       );
+      setImportedStudentId(previewState.run.student_profile_id);
+      setDataImportState(previewState);
     } catch (error: unknown) {
       setDataImportState({
         status:
@@ -4549,6 +4954,13 @@ function DataImportPreviewPanel({
   }
 
   async function handleLoadSavedImports(): Promise<void> {
+    if (!studentId) {
+      setDataImportState({
+        status: "empty",
+        message: "请先导入真实学生数据，或显式启用演示工作流。",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setDataImportState({
         status: "offline",
@@ -4560,7 +4972,7 @@ function DataImportPreviewPanel({
     try {
       const savedImports = await fetchStudentDataImports(
         apiBaseUrl,
-        mockStudentId,
+        studentId,
         { timeoutMs: 5_000 },
       );
       if (savedImports.length === 0) {
@@ -4581,6 +4993,7 @@ function DataImportPreviewPanel({
         });
         return;
       }
+      setImportedStudentId(previewState.run.student_profile_id);
       setDataImportState(previewState);
     } catch (error: unknown) {
       setDataImportState({
@@ -4592,6 +5005,13 @@ function DataImportPreviewPanel({
   }
 
   async function handleSelectSavedImport(runId: string): Promise<void> {
+    if (!studentId) {
+      setDataImportState({
+        status: "empty",
+        message: "请先导入真实学生数据，或显式启用演示工作流。",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setDataImportState({
         status: "offline",
@@ -4613,7 +5033,7 @@ function DataImportPreviewPanel({
     try {
       const savedImports = await fetchStudentDataImports(
         apiBaseUrl,
-        mockStudentId,
+        studentId,
         { timeoutMs: 5_000 },
       );
       const run = savedImports.find((savedRun) => savedRun.id === runId);
@@ -4624,9 +5044,13 @@ function DataImportPreviewPanel({
         });
         return;
       }
-      setDataImportState(
-        await loadDataImportPreviewState(apiBaseUrl, run, savedImports),
+      const previewState = await loadDataImportPreviewState(
+        apiBaseUrl,
+        run,
+        savedImports,
       );
+      setImportedStudentId(previewState.run.student_profile_id);
+      setDataImportState(previewState);
     } catch (error: unknown) {
       setDataImportState({
         status:
@@ -4772,6 +5196,7 @@ function DataImportPreviewPanel({
       ) : null}
 
       <DataReviewPanel
+        studentId={studentId}
         dataImportState={dataImportState}
         dataReviewState={dataReviewState}
         setDataReviewState={setDataReviewState}
@@ -5415,12 +5840,14 @@ function SectionMonitoringPanel({ state }: { state: SectionMonitoringState }) {
 }
 
 function DataReviewPanel({
+  studentId,
   dataImportState,
   dataReviewState,
   setDataReviewState,
   courseStateState,
   setCourseStateState,
 }: {
+  studentId: string | undefined;
   dataImportState: DataImportPreviewState;
   dataReviewState: DataReviewState;
   setDataReviewState: Dispatch<SetStateAction<DataReviewState>>;
@@ -5452,6 +5879,13 @@ function DataReviewPanel({
   const [gradeEdits, setGradeEdits] = useState<Record<string, string>>({});
 
   async function loadActiveCourseStates(): Promise<void> {
+    if (!studentId) {
+      setCourseStateState({
+        status: "empty",
+        message: "请先导入真实学生数据，或显式启用演示工作流。",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setCourseStateState({
         status: "offline",
@@ -5463,7 +5897,7 @@ function DataReviewPanel({
     try {
       const detail = await fetchActiveCourseStateSnapshot(
         apiBaseUrl,
-        mockStudentId,
+        studentId,
         { timeoutMs: 5_000 },
       );
       setCourseStateState({ status: "ready", detail });
@@ -5551,6 +5985,13 @@ function DataReviewPanel({
   }
 
   async function handleLoadLatestReviews(): Promise<void> {
+    if (!studentId) {
+      setDataReviewState({
+        status: "empty",
+        message: "请先导入真实学生数据，或显式启用演示工作流。",
+      });
+      return;
+    }
     if (!apiBaseUrl) {
       setDataReviewState({
         status: "offline",
@@ -5562,7 +6003,7 @@ function DataReviewPanel({
     try {
       const reviews = await fetchStudentDataImportReviews(
         apiBaseUrl,
-        mockStudentId,
+        studentId,
         { timeoutMs: 5_000 },
       );
       if (reviews.length === 0) {
@@ -5806,6 +6247,9 @@ function DataReviewPanel({
                   payloadValue(payload, "source_table_index") ?? "未知表";
                 const rowIndex =
                   payloadValue(payload, "source_row_index") ?? "未知行";
+                const isConfirmed =
+                  recordReview.decision === "CONFIRMED" ||
+                  recordReview.decision === "EDITED_AND_CONFIRMED";
                 return (
                   <div key={recordReview.id} className="comparison-row">
                     <strong>
@@ -5848,6 +6292,7 @@ function DataReviewPanel({
                       </label>
                       <button
                         type="button"
+                        disabled={isConfirmed}
                         onClick={() =>
                           void handleDecision(recordReview, "CONFIRMED")
                         }

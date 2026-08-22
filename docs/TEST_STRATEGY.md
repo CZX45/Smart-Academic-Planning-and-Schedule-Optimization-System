@@ -399,3 +399,59 @@ are excluded in real-snapshot mode, and planner readiness blocks unsafe input.
 PostgreSQL migration/seed idempotency and a browser E2E must verify the same
 active student-scoped readiness and provenance labels without using a real
 student portal page.
+
+## 10. Local Onboarding Verification
+
+The first-profile slice requires deterministic tests for:
+
+- creation on an empty SQLite database with fixed non-official,
+  student-provided provenance;
+- no program declaration, external reference, catalog rule, or guessed degree
+  data;
+- refusal of a second profile and refusal to overwrite a conflicting reviewed
+  institution code;
+- explicit acknowledgement validation, IANA timezone validation, and SERVER
+  mode unavailability;
+- omission of development mock profiles from discovery and from the guard that
+  permits the first non-mock profile;
+- shared-client schema rejection when a create response claims official source
+  status;
+- browser UI creation and active-profile selection without any mock degree-audit
+  POST for the real profile; and
+- Extension worker credential isolation, signed discovery, pairing-required
+  failure, and popup auto-selection only when exactly one profile exists.
+
+Installed acceptance must additionally prove first launch, create, restart,
+profile rediscovery, extension pairing, and synthetic staging import in a
+disposable Windows account. Real portal acceptance remains a participant-owned,
+explicitly authorized manual/computer-assisted step.
+
+## 11. Release Convergence Infrastructure Regressions
+
+PostgreSQL `alembic check` must continue to detect explicit named CHECK
+constraint drift while ignoring only reflected constraints that match a
+SQLAlchemy type-bound enum constraint in the same metadata table. This protects
+the schema Gate from Alembic comparator changes without disabling named CHECK
+constraint comparison.
+
+Windows packaging tests resolve and stage a missing `MSVCP140.dll` from a
+trusted x64 Microsoft runtime location, validate its publisher, signature, PE
+architecture, and copy hash, and then run the existing installer and installed
+runtime assertions. A runner image that cannot provide a verifiable runtime
+must fail closed before NSIS packaging.
+
+Packaged restart acceptance must correlate the reloaded import with the active
+course-state snapshot by `data_import_run_id`. The UI reports a matching durable
+snapshot as reviewed and applied, while a preview without that exact match
+continues to require review.
+
+The packaged fixture contains two sanitized, source-tagged MyProgress course
+rows. Installed acceptance must explicitly confirm both rows, apply them, and
+observe the reviewed-and-applied label before shutdown and again after restart;
+an empty review or a zero-confirmation application does not satisfy persistence
+acceptance.
+
+Desktop shutdown must remove only the runtime manifest whose `instance_id`
+matches the instance launched by that desktop process. Windows cleanup retries
+bounded transient deletion failures after the trusted API process is gone, but
+must preserve a manifest owned by any different instance.

@@ -511,6 +511,19 @@ function Initialize-TestDatabase {
     Assert-True (Test-Path $databasePath -PathType Leaf) "The supported SQLite bootstrap helper did not create the database."
 }
 
+function Get-TestFixtureSummary {
+    $databasePath = Join-Path $appData "sapsos.db"
+    $databaseInspector = "import json,sqlite3,sys; from uuid import UUID; db=sqlite3.connect('file:' + sys.argv[1] + '?mode=ro', uri=True); tables={row[0] for row in db.execute(`"select name from sqlite_master where type='table'`")}; has_table='student_profiles' in tables; count=int(db.execute('select count(*) from student_profiles').fetchone()[0]) if has_table else 0; expected=UUID('74874476-4024-5e2d-807a-fbb4ab620249').hex; storage=db.execute('select typeof(id), length(id) from student_profiles limit 1').fetchone() if has_table and count else None; mock=bool(db.execute('select 1 from student_profiles where id=? limit 1',(expected,)).fetchone()) if has_table else False; seed_count=int(db.execute('select count(*) from dev_seed_records').fetchone()[0]) if 'dev_seed_records' in tables else 0; storage_format='hex32' if storage == ('text',32) else 'hyphenated36' if storage == ('text',36) else 'blob16' if storage == ('blob',16) else 'unknown'; print(json.dumps(dict(student_profiles_count=count,mock_student_exists=mock,dev_seed_record_count=seed_count,uuid_storage_format=storage_format)))"
+    Push-Location (Join-Path $repoRoot "apps\api")
+    try {
+        $output = @(& (Get-Command python -ErrorAction Stop).Source -c $databaseInspector $databasePath)
+        Assert-True ($LASTEXITCODE -eq 0) "The seeded fixture read-only summary failed."
+    } finally {
+        Pop-Location
+    }
+    return (($output -join "`n").Trim() | ConvertFrom-Json)
+}
+
 function Wait-ForRuntimeReady {
     param([string]$DiagnosticName = "tauri_supervised")
     $diagnostic = if ($script:readinessDiagnostics.Contains($DiagnosticName)) { $script:readinessDiagnostics[$DiagnosticName] } else { New-ReadinessDiagnostic "tauri_supervised" }
@@ -564,6 +577,9 @@ function Invoke-FreshBootstrapLaunch {
         $freshManifest = Wait-ForRuntimeReady "fresh_bootstrap"
         Assert-True ($freshManifest.status -eq "ready") "Fresh packaged API runtime manifest did not become ready."
         Wait-Until { $null -ne (Get-MainWindow) } $UiTimeoutSeconds "Fresh packaged WebView2 window was not created."
+        Wait-UiElementContains "尚未导入学生数据"
+        Assert-True ($null -eq (Find-UiElementContains "演示工作流已显式启用")) "Fresh unseeded launch unexpectedly enabled the demo workflow."
+        Write-Phase "fresh_empty_state" "completed" @{ student_profile = "absent"; demo_workflow = "disabled"; ui_marker = "尚未导入学生数据" }
         Assert-True (Test-Path -LiteralPath $databasePath -PathType Leaf) "Packaged API lifespan did not create the fresh LOCAL_DESKTOP database."
         Assert-True (Test-Path -LiteralPath (Join-Path $appData "desktop-startup-diagnostics.json") -PathType Leaf) "Packaged desktop startup diagnostics were not published."
 
@@ -686,6 +702,23 @@ function Wait-UiElement([string]$Name) {
     $result = $null
     Wait-Until { $script:uiElement = Find-UiElement $Name; $null -ne $script:uiElement } $UiTimeoutSeconds "UI marker/control was not found: $Name"
     return $script:uiElement
+}
+
+function Get-UiElementCount([string]$Name) {
+    $window = Get-MainWindow
+    if ($null -eq $window) { return 0 }
+    $condition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::NameProperty, $Name)
+    return $window.FindAll(
+        [System.Windows.Automation.TreeScope]::Descendants,
+        $condition
+    ).Count
+}
+
+function Wait-UiElementCount([string]$Name, [int]$ExpectedCount) {
+    Wait-Until {
+        (Get-UiElementCount $Name) -eq $ExpectedCount
+    } $UiTimeoutSeconds "UI element count did not reach $ExpectedCount for: $Name"
 }
 
 function Wait-UiElementContains([string]$Name) {
@@ -962,7 +995,11 @@ try {
 
     Write-Phase "test_fixture_setup" "starting"
     Initialize-TestDatabase
-    Write-Phase "test_fixture_setup" "completed" @{ database = "SAPSOS/sapsos.db"; fixture = "seeded-mock-student" }
+    $fixtureSummary = Get-TestFixtureSummary
+    Assert-True ([int]$fixtureSummary.student_profiles_count -gt 0) "Seeded fixture did not create a student profile."
+    Assert-True ([bool]$fixtureSummary.mock_student_exists) "Seeded fixture did not create the deterministic mock student."
+    Assert-True ([int]$fixtureSummary.dev_seed_record_count -gt 0) "Seeded fixture did not create a dev seed marker."
+    Write-Phase "test_fixture_setup" "completed" @{ database = "SAPSOS/sapsos.db"; fixture = "seeded-mock-student"; student_profiles_count = [int]$fixtureSummary.student_profiles_count; mock_student_exists = [bool]$fixtureSummary.mock_student_exists; dev_seed_record_count = [int]$fixtureSummary.dev_seed_record_count }
 
     Write-Phase "direct_api_diagnostic" "starting"
     $directDiagnostic = Invoke-DirectPackagedApiDiagnostic
@@ -1027,6 +1064,12 @@ try {
     Capture-Window "first-launch"
     Write-Phase "webview_render" "completed" @{ marker = "智能学业规划"; source = "installed-static-webview" }
 
+    Write-Phase "demo_activation" "starting"
+    Wait-UiElementContains "API 已连接" | Out-Null
+    Invoke-UiButton "启用演示工作流"
+    Wait-UiElementContains "演示工作流已显式启用" | Out-Null
+    Write-Phase "demo_activation" "completed" @{ boundary = "explicit-user-action"; mock_student = "active" }
+
     Write-Phase "synthetic_import" "starting"
     Capture-Window "before-synthetic-import"
     Invoke-UiButton "数据导入"
@@ -1049,10 +1092,20 @@ try {
     Wait-UiElement "数据审核与确认" | Out-Null
     Invoke-UiButton "创建审核"
     Wait-UiElement "数据审核汇总" | Out-Null
+    Invoke-UiButton "确认"
+    Wait-UiElementCount "已确认" 1
+    Invoke-UiButton "确认"
+    Wait-UiElementCount "已确认" 2
     Invoke-UiButton "应用已确认记录"
     Wait-UiElement "应用结果" | Out-Null
+    Wait-UiElement "内部课程状态快照" | Out-Null
+    Wait-UiElementContains "真实导入数据 - 已审核应用" | Out-Null
     Capture-Window "reviewed-synthetic-data"
-    Write-Phase "review_apply" "completed" @{ boundary = "explicit-review-apply" }
+    Write-Phase "review_apply" "completed" @{
+        boundary = "explicit-review-apply"
+        confirmed_course_state_records = 2
+        active_course_state_snapshot = $true
+    }
 
     Write-Phase "persistence_write" "starting"
     Assert-True (Test-Path $appData -PathType Container) "Stable AppData root was not created."
@@ -1131,7 +1184,10 @@ try {
     Assert-True (Test-Path $startupLock -PathType Leaf) "Startup lock marker was not recreated after stale-lock recovery."
     Assert-True ((Get-Content $startupLockDiagnostics -Raw) -match '"acquisition_result":\s*"acquired"') "Stale startup lock recovery was not recorded."
     Wait-UiElement "智能学业规划" | Out-Null
-    Write-Phase "restart" "completed" @{ stale_state = "recovered" }
+    Wait-UiElementContains "API 已连接" | Out-Null
+    Assert-True ($null -eq (Find-UiElementContains "演示工作流已显式启用")) "Restart unexpectedly preserved the in-memory demo workflow activation."
+    Wait-UiElementContains "真实导入数据 - 已审核应用" | Out-Null
+    Write-Phase "restart" "completed" @{ stale_state = "recovered"; demo_workflow = "disabled"; imported_student = "restored" }
 
     Write-Phase "persistence_verify" "starting"
     Assert-True ((Resolve-Path $appData).Path -eq $firstAppData) "AppData root changed across restart."

@@ -15,12 +15,13 @@ export type SectionMonitoringWorkflowState =
       targets: SectionMonitorTarget[];
       alerts: SectionMonitorAlert[];
     }
+  | { status: "empty"; message: string }
   | { status: "offline"; message: string }
   | { status: "failed" | "schema-error"; message: string };
 
 export function useSectionMonitoringWorkflow(
   apiBaseUrl: string | undefined,
-  studentId: string,
+  studentId: string | undefined,
 ): SectionMonitoringWorkflowState {
   const [state, setState] = useState<SectionMonitoringWorkflowState>(() =>
     apiBaseUrl
@@ -33,6 +34,19 @@ export function useSectionMonitoringWorkflow(
     const guard = guardRef.current;
     const requestId = guard.begin();
     if (!apiBaseUrl) {
+      return () => {
+        guard.begin();
+      };
+    }
+    if (!studentId) {
+      queueMicrotask(() => {
+        if (guard.isCurrent(requestId)) {
+          setState({
+            status: "empty",
+            message: "尚未导入学生数据或启用演示工作流。",
+          });
+        }
+      });
       return () => {
         guard.begin();
       };

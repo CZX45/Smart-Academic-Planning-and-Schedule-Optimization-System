@@ -1,1 +1,1 @@
-{"name":"@sapsos/config","version":"0.1.5","private":true,"type":"module","scripts":{"lint":"echo 'shared config package has no lintable sources yet'","test":"echo 'shared config package has no tests yet'","typecheck":"echo 'shared config package has no typecheck yet'"}}
+{"name":"@sapsos/config","version":"0.1.6","private":true,"type":"module","scripts":{"lint":"echo 'shared config package has no lintable sources yet'","test":"echo 'shared config package has no tests yet'","typecheck":"echo 'shared config package has no typecheck yet'"}}

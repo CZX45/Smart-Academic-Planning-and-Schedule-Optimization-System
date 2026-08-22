@@ -7,6 +7,7 @@ type PairingRecord = {
 type Message =
   | { type: "SAPSOS_PAIR_EXTENSION"; apiBaseUrl: string; code: string }
   | { type: "SAPSOS_GET_PAIRING_STATUS"; apiBaseUrl: string }
+  | { type: "SAPSOS_GET_LOCAL_STUDENT_PROFILES"; apiBaseUrl: string }
   | {
       type: "SAPSOS_SUBMIT_IMPORT";
       apiBaseUrl: string;
@@ -40,7 +41,9 @@ type ChromeStorage = {
 
 declare const chrome: { runtime: ChromeRuntime; storage: ChromeStorage };
 
-async function responsePayload(response: Response): Promise<Record<string, unknown>> {
+async function responsePayload(
+  response: Response,
+): Promise<Record<string, unknown>> {
   const payload: unknown = await response.json().catch(() => ({}));
   return typeof payload === "object" && payload !== null
     ? (payload as Record<string, unknown>)
@@ -50,7 +53,9 @@ async function responsePayload(response: Response): Promise<Record<string, unkno
 function extensionRequestHeaders(credential: string): Record<string, string> {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
-  const nonce = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const nonce = Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
   return {
     "content-type": "application/json",
     "X-SAPSOS-Extension-Credential": credential,
@@ -68,13 +73,19 @@ function sendJson(
   });
 }
 
-async function handleMessage(message: Message, sendResponse: (response: unknown) => void): Promise<void> {
+async function handleMessage(
+  message: Message,
+  sendResponse: (response: unknown) => void,
+): Promise<void> {
   if (message.type === "SAPSOS_PAIR_EXTENSION") {
-    const response = await fetch(`${message.apiBaseUrl.replace(/\/+$/, "")}/local/pairing/complete`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code: message.code, protocol_version: 1 }),
-    });
+    const response = await fetch(
+      `${message.apiBaseUrl.replace(/\/+$/, "")}/local/pairing/complete`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: message.code, protocol_version: 1 }),
+      },
+    );
     const payload = await responsePayload(response);
     if (response.ok && typeof payload.credential === "string") {
       chrome.storage.local.set({
@@ -89,21 +100,34 @@ async function handleMessage(message: Message, sendResponse: (response: unknown)
     return;
   }
   if (message.type === "SAPSOS_GET_PAIRING_STATUS") {
-    const response = await fetch(`${message.apiBaseUrl.replace(/\/+$/, "")}/local/pairing/status`);
+    const response = await fetch(
+      `${message.apiBaseUrl.replace(/\/+$/, "")}/local/pairing/status`,
+    );
     await sendJson(sendResponse, response);
     return;
   }
   chrome.storage.local.get(["sapsosPairing"], async (stored) => {
     const pairing = stored.sapsosPairing;
     if (!pairing || pairing.apiBaseUrl !== message.apiBaseUrl) {
-      sendResponse({ ok: false, status: 401, payload: { code: "pairing_required" } });
+      sendResponse({
+        ok: false,
+        status: 401,
+        payload: { code: "pairing_required" },
+      });
       return;
     }
-    const response = await fetch(`${message.apiBaseUrl.replace(/\/+$/, "")}/api/v1/data-imports`, {
-      method: "POST",
-      headers: extensionRequestHeaders(pairing.credential),
-      body: JSON.stringify(message.request),
-    });
+    const baseUrl = message.apiBaseUrl.replace(/\/+$/, "");
+    const response =
+      message.type === "SAPSOS_GET_LOCAL_STUDENT_PROFILES"
+        ? await fetch(`${baseUrl}/api/v1/local-onboarding/student-profiles`, {
+            method: "GET",
+            headers: extensionRequestHeaders(pairing.credential),
+          })
+        : await fetch(`${baseUrl}/api/v1/data-imports`, {
+            method: "POST",
+            headers: extensionRequestHeaders(pairing.credential),
+            body: JSON.stringify(message.request),
+          });
     await sendJson(sendResponse, response);
   });
 }
@@ -111,11 +135,19 @@ async function handleMessage(message: Message, sendResponse: (response: unknown)
 chrome.runtime.onInstalled.addListener(() => undefined);
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== undefined && sender.id !== chrome.runtime.id) {
-    sendResponse({ ok: false, status: 403, payload: { code: "invalid_sender" } });
+    sendResponse({
+      ok: false,
+      status: 403,
+      payload: { code: "invalid_sender" },
+    });
     return false;
   }
   void handleMessage(message, sendResponse).catch(() => {
-    sendResponse({ ok: false, status: 503, payload: { code: "local_api_unavailable" } });
+    sendResponse({
+      ok: false,
+      status: 503,
+      payload: { code: "local_api_unavailable" },
+    });
   });
   return true;
 });

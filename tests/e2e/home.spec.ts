@@ -411,7 +411,8 @@ const mockScheduleOptimization = {
   planning_mode: "CUSTOM_COURSE_SET",
   section_data_mode: "REVIEWED_IMPORTED",
   source_age_max_minutes: 1440,
-  input_snapshot_hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  input_snapshot_hash:
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   source_readiness: {
     status: "READY_WITH_WARNINGS",
     section_data_mode: "REVIEWED_IMPORTED",
@@ -2218,6 +2219,15 @@ test.beforeEach(async ({ page }) => {
     });
   });
   await page.route(
+    "http://localhost:8000/api/v1/local-onboarding/student-profiles",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    },
+  );
+  await page.route(
     "http://localhost:8000/api/v1/students/*/course-state-snapshots/active",
     async (route) => {
       await route.fulfill({
@@ -2262,6 +2272,176 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
+test("fresh local user creates an unverified profile without borrowing mock rules", async ({
+  page,
+}) => {
+  const studentId = "33333333-3333-4333-8333-333333333333";
+  const source = {
+    source_type: "STUDENT_PROVIDED",
+    is_official: false,
+    source_reference: "Local onboarding form",
+    source_retrieved_at: "2026-08-22T00:00:00Z",
+    source_confidence: "student-provided-unverified",
+  };
+  const profile = {
+    institution: {
+      id: "11111111-1111-4111-8111-111111111111",
+      code: "LOCAL-U",
+      name: "Student-provided university",
+      country: "US",
+      timezone: "America/New_York",
+      source,
+    },
+    campus: {
+      id: "22222222-2222-4222-8222-222222222222",
+      institution_id: "11111111-1111-4111-8111-111111111111",
+      code: "MAIN",
+      name: "Main campus",
+      location: null,
+      source,
+    },
+    student: {
+      id: studentId,
+      home_institution_id: "11111111-1111-4111-8111-111111111111",
+      home_campus_id: "22222222-2222-4222-8222-222222222222",
+      expected_graduation_term_id: null,
+      external_ref: null,
+      display_name: "Local learner",
+      class_standing: null,
+      programs: [],
+      source,
+    },
+    reason_codes: ["STUDENT_PROVIDED_PROFILE_CREATED"],
+    warnings: [
+      "This profile and its school details are student-provided and unverified. Confirm high-impact academic decisions with the school or an advisor.",
+    ],
+    assumptions: [
+      "Institution and campus details were entered by the local user and were not verified.",
+    ],
+    source_references: ["Local onboarding form"],
+  };
+  let profiles = [] as (typeof profile)[];
+  let auditCreateRequests = 0;
+  const requestedAuditStudentIds: string[] = [];
+
+  await page.unroute(
+    "http://localhost:8000/api/v1/local-onboarding/student-profiles",
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/local-onboarding/student-profiles",
+    async (route) => {
+      if (route.request().method() === "POST") {
+        profiles = [profile];
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify(profile),
+        });
+        return;
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(profiles),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/students/*/degree-audits/latest",
+    async (route) => {
+      const segments = new URL(route.request().url()).pathname.split("/");
+      const requestedStudentId = segments[4] ?? "";
+      requestedAuditStudentIds.push(requestedStudentId);
+      if (requestedStudentId === mockAuditRun.student_profile_id) {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify(mockAuditRun),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: { code: "not_found" } }),
+      });
+    },
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/degree-audits",
+    async (route) => {
+      auditCreateRequests += 1;
+      await route.fulfill({ status: 500 });
+    },
+  );
+
+  await page.goto("/");
+  await waitForClientReady(page);
+  await expect(
+    page.getByRole("heading", { name: "建立本地学生档案" }),
+  ).toBeVisible();
+
+  await page.getByLabel("显示名称（可使用昵称）").fill("Local learner");
+  await page.getByLabel("学校代码").fill("LOCAL-U");
+  await page.getByLabel("学校名称").fill("Student-provided university");
+  await page.getByLabel("校区代码").fill("MAIN");
+  await page.getByLabel("校区名称").fill("Main campus");
+  await page.getByLabel("国家或地区代码").fill("US");
+  await page.getByLabel("IANA 时区").fill("America/New_York");
+  await page
+    .getByLabel("我知道这些学校与校区信息由我提供，尚未经学校核验。")
+    .check();
+  await page.getByRole("button", { name: "创建非官方本地档案" }).click();
+
+  await expect(page.getByText("当前学生：Local learner")).toBeVisible();
+  await expect(page.getByLabel("本地学生档案")).toContainText(
+    "不会创建或猜测专业、Catalog 年份、课程规则或毕业结论",
+  );
+  await expect(page.getByLabel("本地学生档案")).toContainText(
+    "请向学校或 advisor 确认高影响决定",
+  );
+  await expect.poll(() => auditCreateRequests).toBe(0);
+
+  await page.getByRole("button", { name: "启用演示工作流" }).click();
+  await expect(page.getByText("当前学生：演示学生")).toBeVisible();
+  await expect
+    .poll(() => requestedAuditStudentIds.includes(mockAuditRun.student_profile_id))
+    .toBe(true);
+});
+
+test("home page treats a missing legacy local student as an empty first run", async ({
+  page,
+}) => {
+  await page.unroute("http://localhost:8000/api/v1/students/*/data-imports");
+  await page.route(
+    "http://localhost:8000/api/v1/students/*/data-imports",
+    async (route) => {
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: {
+            code: "not_found",
+            message: "StudentProfile was not found.",
+          },
+        }),
+      });
+    },
+  );
+
+  await page.goto("/");
+  await waitForClientReady(page);
+
+  await expect(page.getByLabel("数据导入空状态")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "数据导入不可用" }),
+  ).toHaveCount(0);
+});
+
+async function activateDemoWorkflow(page: Page): Promise<void> {
+  await waitForClientReady(page);
+  await page.getByRole("button", { name: "启用演示工作流" }).click();
+  await expect(page.getByText("演示工作流已显式启用")).toBeVisible();
+}
+
 test("home page shows degree progress shell and required mock warnings", async ({
   page,
 }) => {
@@ -2269,6 +2449,7 @@ test("home page shows degree progress shell and required mock warnings", async (
   await mockNoSavedDataImports(page);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   await expect(page.getByRole("heading", { name: /学业进度/ })).toBeVisible();
   await expect(page.getByText("API 已连接")).toBeVisible();
@@ -2289,6 +2470,7 @@ test("home page clearly marks the degree dashboard as demo data when no MyProgre
   await mockNoSavedDataImports(page);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   const auditSummary = page.getByLabel("学业审核汇总");
   await expect(auditSummary.getByText("演示 / 模拟数据")).toBeVisible();
@@ -2307,9 +2489,9 @@ test("home page clearly marks the degree dashboard as demo data when no MyProgre
   await expect(auditSummary.getByText("22.50%")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: /创建假设方案/ }),
-  ).toBeDisabled();
-  await expect(page.getByRole("button", { name: /创建规划/ })).toBeDisabled();
-  await expect(page.getByRole("button", { name: /生成课表/ })).toBeDisabled();
+  ).toBeEnabled();
+  await expect(page.getByRole("button", { name: /创建规划/ })).toBeEnabled();
+  await expect(page.getByRole("button", { name: /生成课表/ })).toBeEnabled();
   await expect(page.getByLabel("本地诊断")).toContainText("导入来源状态");
   await expect(page.getByLabel("本地诊断")).toContainText("演示 / 模拟数据");
 });
@@ -2321,6 +2503,7 @@ test("saved auto-verified MyProgress import overrides mock dashboard values", as
   await mockSavedMyProgressImportApis(page);
 
   await page.goto("/");
+  await waitForClientReady(page);
 
   const auditSummary = page.getByLabel("学业审核汇总");
   await expect(
@@ -2656,6 +2839,9 @@ test("reviewed 85-row MyProgress import drives the active real course-state snap
     name: "已应用课程状态",
     exact: true,
   });
+  await expect(
+    page.getByText("真实导入数据 - 已审核应用").first(),
+  ).toBeVisible();
   await expect(courseStatePanel.getByText("内部课程状态快照")).toBeVisible();
   await expect(courseStatePanel).toContainText("MATH 1044");
   await expect(courseStatePanel).toContainText("ENG 2403");
@@ -2673,6 +2859,7 @@ test("saved MyProgress import with exceptions is marked as requiring review", as
   await mockSavedMyProgressImportApis(page, myProgressRequiresReviewPreview);
 
   await page.goto("/");
+  await waitForClientReady(page);
 
   const auditSummary = page.getByLabel("学业审核汇总");
   await expect(auditSummary.getByText("真实导入数据 - 需要审核")).toBeVisible();
@@ -2696,6 +2883,7 @@ test("home page shows product status cards with advisory labels", async ({
   await mockSuccessfulSectionMonitoringApis(page);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   const dashboard = page.getByLabel("产品状态概览");
   await expect(dashboard).toBeVisible();
@@ -2737,6 +2925,7 @@ test("home page explains empty states with reasons and manual next steps", async
   await mockSuccessfulAuditApis(page);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   await expect(page.getByLabel("数据导入空状态")).toContainText(
     "还没有数据导入",
@@ -2832,6 +3021,7 @@ test("home page reports when degree audit responses fail schema validation", asy
   );
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   await expect(page.getByText("学业审核不可用")).toBeVisible();
   await expect(page.getByText(/意外的学业审核响应结构/)).toBeVisible();
@@ -3077,6 +3267,7 @@ test("home page previews read-only data imports", async ({ page }) => {
   await mockSuccessfulDataImportApis(page);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   await expect(
     page.getByRole("heading", { name: /数据导入预览/ }),
@@ -3142,6 +3333,7 @@ test("home page loads the sanitized MyProgress sample for local verification", a
   await mockSavedMyProgressImportApis(page);
 
   await page.goto("/");
+  await waitForClientReady(page);
 
   await page.getByRole("button", { name: /加载脱敏 MyProgress 示例/ }).click();
 
@@ -3172,6 +3364,7 @@ test("home page shows read-only section monitoring alerts and manual checklist",
   await mockSuccessfulSectionMonitoringApis(page);
 
   await page.goto("/");
+  await activateDemoWorkflow(page);
 
   await expect(
     page
@@ -3210,6 +3403,7 @@ test("home page reviews and applies confirmed data import records", async ({
 
   await page.goto("/");
   await waitForClientReady(page);
+  await activateDemoWorkflow(page);
   await page.getByLabel("示例导入").selectOption("mock-transcript-csv");
   await page.getByRole("button", { name: /预览导入/ }).click();
 
@@ -3233,6 +3427,12 @@ test("home page reviews and applies confirmed data import records", async ({
     .first()
     .click();
   await expect(page.getByLabel("审核记录").getByText("已确认")).toBeVisible();
+  await expect(
+    page
+      .getByLabel("审核记录")
+      .getByRole("button", { name: /^确认$/ })
+      .first(),
+  ).toBeDisabled();
 
   await page.getByRole("button", { name: /^试运行$/ }).click();
   await expect(

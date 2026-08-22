@@ -45,5 +45,8 @@ $artifact = Join-Path $outputPath "sapsos-api\sapsos-api.exe"
 if (-not (Test-Path -LiteralPath $artifact)) {
     throw "Packaged FastAPI artifact was not produced at '$artifact'."
 }
+& (Join-Path $PSScriptRoot "Ensure-Packaged-VCRuntime.ps1") `
+    -RuntimeRoot (Join-Path $outputPath "sapsos-api") `
+    -Python $Python
 & (Join-Path $PSScriptRoot "Validate-FastAPI-Runtime.ps1") -RuntimeRoot (Join-Path $OutputRoot "sapsos-api")
 Write-Output $artifact

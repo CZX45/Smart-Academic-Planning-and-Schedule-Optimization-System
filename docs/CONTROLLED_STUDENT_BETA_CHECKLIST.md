@@ -12,8 +12,16 @@ in the repository. Share only inspected sanitized evidence.
 
 ## B — Extension pairing
 
+- [ ] Before portal capture, use the first-run product form to create the
+      participant's pseudonymous local profile. Confirm institution/campus are
+      labeled `STUDENT_PROVIDED`, non-official, and unverified; confirm no
+      program/catalog/rule was guessed. Never use the development seed or direct
+      database editing as a substitute.
 - [ ] Verify local pairing success, invalid pairing, retry, expired pairing,
       desktop-unavailable behavior, and no remote student-data connection.
+- [ ] Confirm the paired Extension automatically displays the single local
+      profile without asking the participant to copy its UUID, and that multiple
+      profiles are not selected silently.
 - [ ] Confirm no credential is collected.
 
 ## C — MyProgress computer-assisted flow

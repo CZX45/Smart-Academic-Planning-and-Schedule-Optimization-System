@@ -6,9 +6,8 @@ from datetime import UTC, datetime
 
 from sqlalchemy.engine import Engine
 
-from app.config import Settings, settings
+from app.config import APPLICATION_VERSION, Settings, settings
 from app.services.diagnostics.collectors import (
-    APPLICATION_VERSION,
     collect_api,
     collect_database,
     collect_migration,

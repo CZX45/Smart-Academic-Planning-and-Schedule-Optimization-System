@@ -385,3 +385,30 @@ Safety/boundary notes:
   submission, registration automation, add/drop/swap/waitlist automation, seat
   reservation, seat-taking automation, browser-store publishing, official-source
   ingestion, or real student data.
+
+## Release Convergence - Local First-Profile Onboarding
+
+What was added:
+
+- A `LOCAL_DESKTOP`-only list/create API for the first non-mock student profile.
+- A pseudonymous web form and profile selector that preserve student-provided,
+  non-official source metadata and do not invent program or catalog rules.
+- Signed Extension profile discovery that auto-selects exactly one profile
+  without exposing the pairing credential or requiring a copied UUID.
+
+User value:
+
+- A fresh local participant can establish an explicitly unverified identity and
+  reach the reviewed import flow without seed data or direct database editing.
+
+Verification coverage:
+
+- API provenance/conflict tests, shared response-schema tests, Extension worker
+  and popup tests, and Playwright first-run/demo-isolation coverage.
+
+Safety/boundary notes:
+
+- Mock profiles neither appear in local discovery nor block the first non-mock
+  creation. The workflow creates no program, catalog year, course rule, degree
+  conclusion, or official school claim. Installed lifecycle and authorized
+  real-source acceptance remain separate release gates.

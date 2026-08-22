@@ -16,7 +16,7 @@ from fastapi import UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.engine import Engine, make_url
 
-from app.config import APP_ID, settings
+from app.config import APP_ID, APPLICATION_VERSION, settings
 from app.db.bootstrap import LOCAL_SCHEMA_VERSION
 
 BACKUP_FORMAT = "sapsos-backup"
@@ -477,7 +477,7 @@ def create_backup_archive(engine: Engine) -> tuple[Path, BackupManifest]:
                 backup_id=uuid4(),
                 created_at=datetime.now(UTC),
                 source_product_mode=settings.product_mode,
-                source_application_version="0.1.0",
+                source_application_version=APPLICATION_VERSION,
                 schema_name="LOCAL_DESKTOP",
                 schema_version=LOCAL_SCHEMA_VERSION,
                 database_payload_filename=DATABASE_PAYLOAD_NAME,

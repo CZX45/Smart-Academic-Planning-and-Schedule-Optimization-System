@@ -169,3 +169,19 @@ Application is confined to the internal database. It must not submit school
 forms, register, add/drop/swap, join a waitlist, reserve a seat, poll the portal,
 or modify an official academic record. Raw personal portal pages and screenshots
 must not be committed to the repository or CI artifacts.
+
+## 12. Local Onboarding and Extension Profile Discovery
+
+The first-profile endpoint is available only in `LOCAL_DESKTOP`, behind the
+loopback Host/Origin request boundary. `SERVER` returns 404 and continues to use
+bearer, tenant, user, and student-grant authorization. The onboarding request
+cannot set official status, source type, confidence, program, catalog, rule, or
+external student identifiers. User-entered school labels are explicitly
+unverified and must not be treated as school policy.
+
+After pairing, only the Extension background worker can attach the local pairing
+credential, nonce, and timestamp to profile discovery. The popup receives the
+sanitized profile response but not the credential. The request is sent only to
+an explicit localhost API base URL, never to the active school page. A missing
+pairing record fails closed without contacting the API, and multiple profiles
+are not automatically selected.

@@ -815,6 +815,14 @@ under its package-relative directory, and keep runtime-directory/DLL lookup
 environment aligned with the installed layout. Lifecycle fixtures must be real,
 valid LOCAL_DESKTOP SQLite fixtures.
 
+Hosted-runner image changes must not silently remove the x64 Microsoft VC
+runtime from that layout. When PyInstaller does not copy `MSVCP140.dll`, the
+build resolves it only from the 64-bit Windows, Python, or installed Visual
+Studio redistributable roots, then verifies Microsoft publisher metadata,
+Authenticode status, PE architecture, and the staged hash. Missing or
+unverifiable runtime files fail the build; the installer/runtime assertions are
+not downgraded.
+
 The installer remains an unsigned development artifact and may trigger
 SmartScreen. Code signing, automatic updates, GitHub/public release
 distribution, Store/MSIX packaging, and production publishing are not done.
@@ -949,4 +957,40 @@ imply a live owner; successful mutex acquisition safely replaces it. The local
 `startup-lock-diagnostics.json` file records only lock-path, build/version,
 acquisition, ownership, recovery, and outcome metadata; it contains no student
 data, credentials, portal data, or session material.
+
+## ADR-0035: Bootstrap one unverified local student identity without guessing academic rules
+
+Status: Accepted for controlled-beta candidate validation.
+
+### Context
+
+A fresh local database had no student profile, while every import is student
+scoped. The web could recover a known persisted import but could not create the
+first identity, and the Extension required the user to copy a raw profile UUID.
+Using the deterministic development seed or inventing a program/catalog mapping
+would make synthetic or guessed data look real.
+
+### Decision
+
+Add a `LOCAL_DESKTOP`-only first-profile API and web form. Creation is allowed
+only when no non-mock student profile exists and creates existing `Institution`,
+`Campus`, and `StudentProfile` records with server-fixed
+`STUDENT_PROVIDED`, non-official, unverified provenance. It creates no program,
+catalog, course rule, audit, or optimizer data. Conflicting codes return 409 and
+never update stored data. Mock profiles are excluded from discovery and do not
+block creation of the first non-mock profile.
+
+Real profiles do not borrow the demo program when an audit is missing; the UI
+shows an evidence-missing state. After pairing, the Extension worker signs a
+local profile-list request with the credential it already owns. The popup
+auto-selects only one returned profile and never receives the credential.
+SERVER authorization and non-local bearer-token behavior are unchanged.
+
+### Consequences
+
+Fresh local participants can establish a pseudonymous, explicitly unverified
+identity without direct database editing or a copied UUID. Academic conclusions
+remain blocked until reviewed program/catalog and participant evidence exist.
+Multiple-profile onboarding, authoritative institution lookup, and real-source
+acceptance remain separate reviewed work.
 
