@@ -1159,7 +1159,7 @@ try {
     Wait-UiElement "智能学业规划" | Out-Null
     Wait-UiElementContains "API 已连接" | Out-Null
     Assert-True ($null -eq (Find-UiElementContains "演示工作流已显式启用")) "Restart unexpectedly preserved the in-memory demo workflow activation."
-    Wait-UiElementContains "真实导入数据 - 已自动验证" | Out-Null
+    Wait-UiElementContains "真实导入数据 - 已审核应用" | Out-Null
     Write-Phase "restart" "completed" @{ stale_state = "recovered"; demo_workflow = "disabled"; imported_student = "restored" }
 
     Write-Phase "persistence_verify" "starting"

@@ -94,9 +94,11 @@ import {
 } from "react";
 import { parsePublicEnv, parseRuntimeApiBaseUrl } from "../lib/env";
 import {
+  importSourceStateLabel,
   isUsableMyProgressPreviewSummary,
   savedImportOptionFromRun,
   selectPreferredLoadedDataImport,
+  type ImportSourceStateLabel,
 } from "../lib/data-import-preview";
 import {
   formatZhCnBeforeAfterValue,
@@ -224,12 +226,6 @@ type ReadyDataImportPreviewState = Extract<
   DataImportPreviewState,
   { status: "ready" }
 >;
-type ImportSourceStateLabel =
-  | "真实导入数据 - 已自动验证"
-  | "真实导入数据 - 需要审核"
-  | "真实导入数据 - 等待审核"
-  | "演示 / 模拟数据"
-  | "尚未加载导入";
 type DataReviewState =
   | { status: "idle" }
   | { status: "loading" }
@@ -1016,26 +1012,21 @@ async function loadPreferredDataImportPreviewState(
 
 function importModeLabel(
   display: MyProgressPreviewDisplay | null,
+  dataImportRunId?: string,
+  activeSnapshotDataImportRunId?: string,
 ): ImportSourceStateLabel {
-  if (!display) {
-    return "演示 / 模拟数据";
-  }
-  if (
-    display.realImportStatus === "REAL_IMPORTED_DATA_AUTO_VERIFIED" &&
-    display.downstreamAnalysisAllowed &&
-    display.canApplyVerifiedImport &&
-    display.exceptions.length === 0
-  ) {
-    return "真实导入数据 - 已自动验证";
-  }
-  if (
-    display.exceptions.length > 0 ||
-    !display.downstreamAnalysisAllowed ||
-    !display.canApplyVerifiedImport
-  ) {
-    return "真实导入数据 - 需要审核";
-  }
-  return "真实导入数据 - 等待审核";
+  return importSourceStateLabel(
+    display
+      ? {
+          realImportStatus: display.realImportStatus,
+          downstreamAnalysisAllowed: display.downstreamAnalysisAllowed,
+          canApplyVerifiedImport: display.canApplyVerifiedImport,
+          exceptionCount: display.exceptions.length,
+        }
+      : null,
+    dataImportRunId,
+    activeSnapshotDataImportRunId,
+  );
 }
 
 function dashboardSourceLabel(
@@ -1043,9 +1034,14 @@ function dashboardSourceLabel(
   reviewState: DataReviewState,
   auditState: AuditState,
   dataImportState: DataImportPreviewState,
+  activeSnapshotDataImportRunId?: string,
 ): ImportSourceStateLabel {
   if (display) {
-    return importModeLabel(display);
+    return importModeLabel(
+      display,
+      dataImportState.status === "ready" ? dataImportState.run.id : undefined,
+      activeSnapshotDataImportRunId,
+    );
   }
   if (
     dataImportState.status === "failed" ||
@@ -1505,6 +1501,9 @@ export default function Home() {
     dataReviewState,
     auditState,
     dataImportState,
+    courseStateState.status === "ready"
+      ? courseStateState.detail.snapshot.data_import_run_id
+      : undefined,
   );
   const longTermReadiness =
     courseStateState.status === "ready"

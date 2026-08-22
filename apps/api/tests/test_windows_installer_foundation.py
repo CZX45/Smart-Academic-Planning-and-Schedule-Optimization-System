@@ -107,7 +107,7 @@ def test_packaged_restart_restores_imported_student_without_reenabling_demo() ->
 
     assert client_ready_position < restart_position < persistence_position
     restart_segment = script[client_ready_position:persistence_position]
-    assert 'Wait-UiElementContains "真实导入数据 - 已自动验证"' in restart_segment
+    assert 'Wait-UiElementContains "真实导入数据 - 已审核应用"' in restart_segment
     assert 'Invoke-UiButton "启用演示工作流"' not in restart_segment
     assert 'imported_student = "restored"' in restart_segment
 

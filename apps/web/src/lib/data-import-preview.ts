@@ -18,6 +18,53 @@ export type LoadedDataImportPreview = {
   preview: ImportPreviewSummary;
 };
 
+export type ImportSourceStateLabel =
+  | "真实导入数据 - 已审核应用"
+  | "真实导入数据 - 已自动验证"
+  | "真实导入数据 - 需要审核"
+  | "真实导入数据 - 等待审核"
+  | "演示 / 模拟数据"
+  | "尚未加载导入";
+
+export type ImportedDataSourceDisplay = {
+  realImportStatus: string;
+  downstreamAnalysisAllowed: boolean;
+  canApplyVerifiedImport: boolean;
+  exceptionCount: number;
+};
+
+export function importSourceStateLabel(
+  display: ImportedDataSourceDisplay | null,
+  dataImportRunId?: string,
+  activeSnapshotDataImportRunId?: string,
+): ImportSourceStateLabel {
+  if (!display) {
+    return "演示 / 模拟数据";
+  }
+  if (
+    dataImportRunId !== undefined &&
+    activeSnapshotDataImportRunId === dataImportRunId
+  ) {
+    return "真实导入数据 - 已审核应用";
+  }
+  if (
+    display.realImportStatus === "REAL_IMPORTED_DATA_AUTO_VERIFIED" &&
+    display.downstreamAnalysisAllowed &&
+    display.canApplyVerifiedImport &&
+    display.exceptionCount === 0
+  ) {
+    return "真实导入数据 - 已自动验证";
+  }
+  if (
+    display.exceptionCount > 0 ||
+    !display.downstreamAnalysisAllowed ||
+    !display.canApplyVerifiedImport
+  ) {
+    return "真实导入数据 - 需要审核";
+  }
+  return "真实导入数据 - 等待审核";
+}
+
 function numberFromUnknown(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;

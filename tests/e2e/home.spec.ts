@@ -2839,6 +2839,9 @@ test("reviewed 85-row MyProgress import drives the active real course-state snap
     name: "已应用课程状态",
     exact: true,
   });
+  await expect(
+    page.getByText("真实导入数据 - 已审核应用").first(),
+  ).toBeVisible();
   await expect(courseStatePanel.getByText("内部课程状态快照")).toBeVisible();
   await expect(courseStatePanel).toContainText("MATH 1044");
   await expect(courseStatePanel).toContainText("ENG 2403");

@@ -439,3 +439,8 @@ trusted x64 Microsoft runtime location, validate its publisher, signature, PE
 architecture, and copy hash, and then run the existing installer and installed
 runtime assertions. A runner image that cannot provide a verifiable runtime
 must fail closed before NSIS packaging.
+
+Packaged restart acceptance must correlate the reloaded import with the active
+course-state snapshot by `data_import_run_id`. The UI reports a matching durable
+snapshot as reviewed and applied, while a preview without that exact match
+continues to require review.
