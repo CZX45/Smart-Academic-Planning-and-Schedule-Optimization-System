@@ -604,6 +604,7 @@ test("persists the reviewed preparation checkpoint before one MAIN-world search 
   await page.evaluate(() => {
     const target = window as Window & {
       capturedCatalogAction?: object;
+      catalogCheckpointEvents: string[];
       catalogSearchResultsView?: string;
       chrome?: {
         runtime?: {
@@ -617,11 +618,14 @@ test("persists the reviewed preparation checkpoint before one MAIN-world search 
       ko?: { contextFor: (element: Element) => object | null };
     };
     target.catalogSearchResultsView = "SectionListing";
+    target.catalogCheckpointEvents = [];
     target.ko = { contextFor: () => ({}) };
     target.chrome = {
       runtime: {
         sendMessage: (message, callback) => {
-          target.capturedCatalogAction = message as object;
+          if (message && typeof message === "object" && "signal" in message) {
+            target.catalogCheckpointEvents.push(String(message.signal));
+          }
           callback?.({ ok: true });
         },
       },
@@ -634,6 +638,7 @@ test("persists the reviewed preparation checkpoint before one MAIN-world search 
     document
       .querySelector("#submit-search-form")
       ?.addEventListener("click", () => {
+        target.catalogCheckpointEvents.push("SEARCH_SUBMITTED");
         target.capturedCatalogAction = {
           submittedSubject:
             document.querySelector<HTMLSelectElement>("#subject-0")?.value,
@@ -688,6 +693,24 @@ test("persists the reviewed preparation checkpoint before one MAIN-world search 
     ],
     providerActionsWritten: "NO",
   });
+  // The fixture intentionally has no result list. A later navigation timeout
+  // must not overwrite the independently observed search click.
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (
+          window as Window & { catalogCheckpointEvents: string[] }
+        ).catalogCheckpointEvents.includes("TIMEOUT"),
+      ),
+    )
+    .toBe(true);
+  expect(
+    await page.evaluate(() =>
+      (
+        window as Window & { catalogCheckpointEvents: string[] }
+      ).catalogCheckpointEvents.filter((event) => event !== "TIMEOUT"),
+    ),
+  ).toEqual(["PREPARATION_VERIFIED", "SEARCH_SUBMITTED"]);
   await expect
     .poll(() =>
       page.evaluate(
