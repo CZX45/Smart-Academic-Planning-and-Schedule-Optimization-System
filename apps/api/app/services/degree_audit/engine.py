@@ -56,6 +56,7 @@ from app.services.degree_audit.result import (
 from app.services.reviewed_rules.resolution import (
     RuleResolutionState,
     resolve_for_program_version,
+    resolve_for_student,
     reviewed_requirement_view,
 )
 
@@ -694,15 +695,19 @@ class DegreeAuditEngine:
                 select(Course).where(Course.institution_id == program_version.institution_id)
             ).all()
         )
-        resolution = resolve_for_program_version(self._db, program_version_id)
+        student = self._db.get(StudentProfile, student_profile_id)
+        real_student = student is not None and student.source_type is not SourceType.MOCK
+        resolution = (
+            resolve_for_student(self._db, student_profile_id, program_version_id)
+            if real_student
+            else resolve_for_program_version(self._db, program_version_id)
+        )
         resolution_warnings: list[str] = []
         if resolution.state is RuleResolutionState.ACTIVE and resolution.rule_set is not None:
             nodes, options, resolution_warnings = reviewed_requirement_view(
                 resolution.rule_set, nodes, options, courses
             )
         active_snapshot = active_course_state_snapshot(self._db, student_profile_id)
-        student = self._db.get(StudentProfile, student_profile_id)
-        real_student = student is not None and student.source_type is not SourceType.MOCK
         attempts = effective_student_course_attempts(self._db, student_profile_id)
         transfer_statement = select(TransferCredit).where(
             TransferCredit.student_profile_id == student_profile_id
@@ -774,7 +779,8 @@ class DegreeAuditEngine:
             rule_resolution_explanation=resolution.explanation,
             requires_rule_review=real_student
             and (
-                resolution.state is not RuleResolutionState.ACTIVE
+                program_version.source_type is SourceType.MOCK
+                or resolution.state is not RuleResolutionState.ACTIVE
                 or bool(resolution_warnings)
                 or active_snapshot is None
                 or active_snapshot.program_mapping_state != "EXACT"

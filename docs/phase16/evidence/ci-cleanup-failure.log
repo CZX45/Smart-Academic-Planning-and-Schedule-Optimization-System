@@ -1,0 +1,63 @@
+FAILURES ===================================
+2026-10-18T07:02:56.6065108Z __ test_safe_build_cleanup_allows_child_output_and_rejects_dangerous_targets ___
+2026-10-18T07:02:56.6065620Z 
+2026-10-18T07:02:56.6065998Z     def test_safe_build_cleanup_allows_child_output_and_rejects_dangerous_targets() -> None:
+2026-10-18T07:02:56.6066688Z         helper = ROOT / "scripts/windows/Invoke-SafeBuildCleanup.ps1"
+2026-10-18T07:02:56.6067333Z         # Windows tempfile retries PermissionError in system-owned Temp for a very
+2026-10-18T07:02:56.6068329Z         # long time. Build tests must stay in their checkout's disposable outputs.
+2026-10-18T07:02:56.6068879Z         temp_parent = ROOT / ".cache" / "cleanup-contract"
+2026-10-18T07:02:56.6069350Z         temp_parent.mkdir(parents=True, exist_ok=True)
+2026-10-18T07:02:56.6069874Z         with tempfile.TemporaryDirectory(dir=temp_parent) as temporary:
+2026-10-18T07:02:56.6070375Z             build_root = Path(temporary) / "dist"
+2026-10-18T07:02:56.6071154Z             child = build_root / "stale-output"
+2026-10-18T07:02:56.6071536Z             child.mkdir(parents=True)
+2026-10-18T07:02:56.6071965Z             (child / "old.txt").write_text("stale", encoding="utf-8")
+2026-10-18T07:02:56.6072394Z             valid = subprocess.run(
+2026-10-18T07:02:56.6072689Z                 [
+2026-10-18T07:02:56.6072928Z                     "pwsh",
+2026-10-18T07:02:56.6073228Z                     "-NoProfile",
+2026-10-18T07:02:56.6073543Z                     "-File",
+2026-10-18T07:02:56.6073843Z                     str(helper),
+2026-10-18T07:02:56.6074161Z                     "-TargetPath",
+2026-10-18T07:02:56.6074475Z                     str(child),
+2026-10-18T07:02:56.6074787Z                     "-AllowedBuildRoot",
+2026-10-18T07:02:56.6075408Z                     str(build_root),
+2026-10-18T07:02:56.6075691Z                 ],
+2026-10-18T07:02:56.6075938Z                 capture_output=True,
+2026-10-18T07:02:56.6076210Z                 text=True,
+2026-10-18T07:02:56.6076476Z                 encoding="utf-8",
+2026-10-18T07:02:56.6076790Z                 errors="replace",
+2026-10-18T07:02:56.6077049Z                 check=False,
+2026-10-18T07:02:56.6077293Z                 timeout=30,
+2026-10-18T07:02:56.6077531Z             )
+2026-10-18T07:02:56.6077839Z >           assert valid.returncode == 0, valid.stderr
+2026-10-18T07:02:56.6079493Z E           AssertionError: Exception: <REPO>/scripts/windows/Invoke-SafeBuildCleanup.ps1:42
+2026-10-18T07:02:56.6080955Z E             Line |
+2026-10-18T07:02:56.6081752Z E               42 |          throw "Refusing to clean a user or AppData path: $target"
+2026-10-18T07:02:56.6082643Z E                  |          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2026-10-18T07:02:56.6083524Z E                  | Refusing to clean a user or AppData path:
+2026-10-18T07:02:56.6085306Z E                  | <REPO>/.cache/cleanup-contract/tmprd7y2hc3/dist/stale-output
+2026-10-18T07:02:56.6086425Z E             
+2026-10-18T07:02:56.6086651Z E           assert 1 == 0
+2026-10-18T07:02:56.6088085Z E            +  where 1 = CompletedProcess(args=['pwsh', '-NoProfile', '-File', '/home/runner/work/Smart-Academic-Planning-and-Schedule-Optimiza...art-Academic-Planning-and-Schedule-Optimization-System/.cache/cleanup-contract/tmprd7y2hc3/dist/stale-output\x1b[0m\n').returncode
+2026-10-18T07:02:56.6089187Z 
+2026-10-18T07:02:56.6089452Z tests/test_windows_installer_foundation.py:375: AssertionError
+2026-10-18T07:02:56.6089965Z =============================== warnings summary ===============================
+2026-10-18T07:02:56.6090961Z ../../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/testclient.py:1
+2026-10-18T07:02:56.6092219Z   /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+2026-10-18T07:02:56.6093424Z     from starlette.testclient import TestClient as TestClient  # noqa
+2026-10-18T07:02:56.6093736Z 
+2026-10-18T07:02:56.6094041Z -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2026-10-18T07:02:56.6094613Z =========================== short test summary info ============================
+2026-10-18T07:02:56.6096783Z FAILED tests/test_windows_installer_foundation.py::test_safe_build_cleanup_allows_child_output_and_rejects_dangerous_targets - AssertionError: Exception: <REPO>/scripts/windows/Invoke-SafeBuildCleanup.ps1:42
+2026-10-18T07:02:56.6098342Z   Line |
+2026-10-18T07:02:56.6098916Z     42 |          throw "Refusing to clean a user or AppData path: $target"
+2026-10-18T07:02:56.6099680Z        |          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2026-10-18T07:02:56.6100434Z        | Refusing to clean a user or AppData path:
+2026-10-18T07:02:56.6102936Z        | <REPO>/.cache/cleanup-contract/tmprd7y2hc3/dist/stale-output
+2026-10-18T07:02:56.6104058Z   
+2026-10-18T07:02:56.6104258Z assert 1 == 0
+2026-10-18T07:02:56.6105511Z  +  where 1 = CompletedProcess(args=['pwsh', '-NoProfile', '-File', '/home/runner/work/Smart-Academic-Planning-and-Schedule-Optimiza...art-Academic-Planning-and-Schedule-Optimization-System/.cache/cleanup-contract/tmprd7y2hc3/dist/stale-output\x1b[0m\n').returncode
+2026-10-18T07:02:56.6106886Z ======= 1 failed, 351 passed, 15 skipped, 1 warning in 77.19s (0:01:17) ========
+2026-10-18T07:03:00.5150304Z ##[error]Process completed with exit code 1.
+2026-10-18T07:03:00.5268634Z 

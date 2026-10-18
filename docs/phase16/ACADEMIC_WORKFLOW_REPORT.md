@@ -27,3 +27,5 @@ Completed 是已修读证据中的实际贡献；In-progress 与 Planned 是潜�
 新增 API 测试实际执行 Review→Apply→候选查询→真实审核保存读回，另测程序冲突降级、恶意/损坏规则 payload、课程星号引用、未 Apply 不可用、学生隔离、重复应用、取消班次、重复/等价/排他组学分。E2E 验证真实 ID 提交、档案恢复、无 Mock 候选、导航零写入和 Apply 后旧响应隔离。此前课程必修/任选、高年级、最低成绩、转学、替代、在修、计划、先修、What-if 和排课的整个既有套件继续运行。
 
 真实 MyProgress、Catalog、Sections、degree audit、eligibility、planner、optimizer 均 **UNVERIFIED**；不得用合成夹具声称验收完成。
+
+真实学生的规则解析同时验证专业绑定来源与 ProgramVersion 机构/校园；真实 ProgramVersion 仅接受 OFFICIAL、IMPORTED、BROWSER_EXTENSION 规则来源。Mock、学生自拟或未知规则来源不能因 ACTIVE 标签变成确定性学校规则。合成测试使用明确 fixture 来源证据模拟导入类别，不包含学校真实规则。

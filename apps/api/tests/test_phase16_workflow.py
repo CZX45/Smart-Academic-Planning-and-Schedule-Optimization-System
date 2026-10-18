@@ -33,6 +33,7 @@ from app.services.degree_audit.engine import (
 from app.services.reviewed_rules.contracts import CourseDefinition, RequirementRule
 from app.services.reviewed_rules.resolution import (
     resolve_for_program_version,
+    resolve_for_student,
     reviewed_requirement_view,
 )
 from tests.test_data_reviews import create_catalog_import, create_section_import
@@ -148,6 +149,7 @@ def test_program_requires_exact_active_reviewed_rules(session: Session) -> None:
     session.commit()
     assert academic_workflow(session, student).programs == []
     payload = deepcopy(record.payload)
+    payload["source"]["source_type"] = "BROWSER_EXTENSION"
     payload["requirements"] = [
         RequirementRule(
             rule_id="synthetic",
@@ -163,6 +165,13 @@ def test_program_requires_exact_active_reviewed_rules(session: Session) -> None:
     session.commit()
     assert academic_workflow(session, student).programs == []
     assert resolve_for_program_version(session, version.id).state.value == "MISSING"
+    record.reviewer_confirmed = True
+    payload = deepcopy(record.payload)
+    payload["source"]["source_type"] = "MOCK"
+    record.payload = payload
+    session.commit()
+    assert resolve_for_program_version(session, version.id).state.value == "MISSING"
+    assert academic_workflow(session, student).programs == []
 
 
 def test_rule_payload_catalog_tampering_is_not_active(session: Session) -> None:
@@ -192,6 +201,7 @@ def test_real_audit_without_complete_history_or_reviewed_rules_requires_review(
     assert audit.completed_credits == Decimal("0")
     assert audit.in_progress_credits == Decimal("0")
     assert audit.planned_credits == Decimal("0")
+    assert resolve_for_student(session, student.id).state.value == "MISSING"
 
 
 def test_reviewed_course_reference_normalizes_asterisk(session: Session) -> None:
@@ -378,6 +388,9 @@ def test_real_review_apply_candidates_and_audit_round_trip(session: Session) -> 
             )
         ],
     )
+    payload = deepcopy(record.payload)
+    payload["source"]["source_type"] = "BROWSER_EXTENSION"
+    record.payload = payload
     session.add(record)
     session.commit()
     apply_import(

@@ -4,6 +4,10 @@
     "sha256": "ff3287c732ca7b43a2be6d0db0c7166e1cfde359b5d51dea7a8d735c97b7dbda"
   },
   {
+    "file": "ci-cleanup-failure.log",
+    "sha256": "62034709d3e1d60c301d8fa8901e967cf3d8a9d7a135f63f45d6704ed4a5093e"
+  },
+  {
     "file": "e2e-final.log",
     "sha256": "faa47eb48986c17a5c0171270d0bda3e08989f812e8bf0e84949bea00169d7f3"
   },
@@ -46,6 +50,10 @@
   {
     "file": "reviewed-planner.log",
     "sha256": "faa81508dc9f424343287779b56c8385412a5f09e4126cc6881ab29352a9af15"
+  },
+  {
+    "file": "rule-source.log",
+    "sha256": "88a231c5413e52feb446d35b6f0eba8989442f8bfee0ed462d8778afeafc1145"
   },
   {
     "file": "typecheck-final.log",

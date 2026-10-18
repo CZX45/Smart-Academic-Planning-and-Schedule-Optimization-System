@@ -17,8 +17,10 @@ from app.models.academic import (
     RequirementCourseOption,
     RequirementNode,
     RequirementType,
+    SourceType,
     StudentAcademicProgram,
     StudentAcademicProgramStatus,
+    StudentProfile,
     StudentProgramType,
 )
 from app.models.reviewed_rules import ReviewedRuleSetRecord
@@ -184,6 +186,11 @@ def resolve_for_program_version(db: Session, program_version_id: UUID) -> RuleRe
         or not rule_set.reviewer_confirmed
         or rule_set.reviewed_at is None
         or rule_set.lifecycle is not RuleLifecycle.ACTIVE
+        or (
+            program_version.source_type is not SourceType.MOCK
+            and rule_set.source.source_type.strip().upper()
+            not in {"OFFICIAL", "IMPORTED", "BROWSER_EXTENSION"}
+        )
         or rule_set.source.institution_id != institution.code
         or rule_set.source.program_id != program.code
         or rule_set.source.catalog_year != program_version.catalog_year
@@ -215,12 +222,21 @@ def resolve_for_student(
     student_id: UUID,
     program_version_id: UUID | None = None,
 ) -> RuleResolution:
-    active_programs = db.scalars(
-        select(StudentAcademicProgram).where(
-            StudentAcademicProgram.student_profile_id == student_id,
-            StudentAcademicProgram.status == StudentAcademicProgramStatus.ACTIVE,
+    statement = select(StudentAcademicProgram).where(
+        StudentAcademicProgram.student_profile_id == student_id,
+        StudentAcademicProgram.status == StudentAcademicProgramStatus.ACTIVE,
+    )
+    student = db.get(StudentProfile, student_id)
+    if student is not None and student.source_type is not SourceType.MOCK:
+        reviewed_sources = [SourceType.OFFICIAL, SourceType.IMPORTED, SourceType.BROWSER_EXTENSION]
+        statement = statement.join(ProgramVersion).where(
+            StudentAcademicProgram.source_type.in_(reviewed_sources),
+            ProgramVersion.source_type.in_(reviewed_sources),
+            ProgramVersion.institution_id == student.home_institution_id,
         )
-    ).all()
+        if student.home_campus_id is not None:
+            statement = statement.where(ProgramVersion.campus_id == student.home_campus_id)
+    active_programs = db.scalars(statement).all()
     if program_version_id is not None:
         selected = next(
             (

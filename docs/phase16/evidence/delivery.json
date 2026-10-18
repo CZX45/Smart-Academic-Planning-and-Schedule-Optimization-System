@@ -5,8 +5,8 @@
   "main_before": "8e055994e3e4435043c66e9362d9d0ede2365ec3",
   "provider_actions_written": 0,
   "full_116_unlocked": false,
-  "ci_status": "FIRST_RUN_CHECKS_FAILED_CLEANUP_TEST_FIXED_PENDING_RERUN",
-  "source_commit": "c25faca6ff39fa61fcb9e56edfd7b3feb0c143ca",
+  "ci_status": "RUNNING",
+  "source_commit": "544da8e52662bae9310443460767cac22373a62b",
   "local_tests": {
     "passed": 681,
     "skipped_windows_specific": 15,
@@ -14,5 +14,11 @@
     "inventory": 721
   },
   "main_after": "8e055994e3e4435043c66e9362d9d0ede2365ec3",
-  "draft_pr_url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/88"
+  "draft_pr_url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/88",
+  "ci_runs": {
+    "ci": 39106470680,
+    "windows_foundation": 39106470665,
+    "windows_lifecycle": 39106470700,
+    "windows_packaged_e2e": 39106470714
+  }
 }
