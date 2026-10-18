@@ -1,6 +1,6 @@
 # 下一轮源码交接
 
-- 分支：`codex/comprehensive-repair-20261018`（本次授权的唯一发布分支）。这是独立根脱敏快照；原修复分支和完整历史保留在本机。最终远端 HEAD 以同步报告和 `git rev-parse HEAD` 为准。
+- 分支：`comprehensive-repair-20261018-safe-sync`（Owner 在命名冲突后明确授权的新发布分支）。这是独立根脱敏快照；原修复分支和完整历史保留在本机。最终远端 HEAD 以同步报告和 `git rev-parse HEAD` 为准。
 - 起点：`066dd9c57294bec704df61ad2a5b1db3f5d03f08`。本报告由修复提交维护；最终交付提交另在交付记录中列出，避免自引用 SHA。
 - 不覆盖原 main，不整合旧 PR #28。PR #87 的实现已包含在修复源码中；脱敏发布分支不继承原私密历史，不能按原提交祖先关系推断。
 - 差异：见 FIXES_AND_IMPROVEMENTS 的 F01–F20 和 MODIFIED_FILES；所有新增样本均 synthetic/mock。

@@ -1,10 +1,13 @@
 # GitHub safe-sync provenance — 2026-10-18
 
-The authorized publication branch is `codex/comprehensive-repair-20261018`.
+The authorized publication branch is `comprehensive-repair-20261018-safe-sync`.
 This is an independent-root public snapshot of local source commit
 `62c2bff06d8f169cb65af3f1c033bf59d745791c`; the original repository, branch,
 full history, private evidence, and generated packages remain intact locally.
 Use this branch and its verified remote HEAD for subsequent cloud work.
+The owner explicitly authorized this replacement name after GitHub rejected
+the original slash-delimited name because the existing `codex` branch occupies
+its namespace. That existing branch is retained unchanged.
 The public snapshot has no shared ancestry with `main`; do not merge histories
 or force-push to resolve that difference.
 
