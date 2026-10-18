@@ -29,3 +29,9 @@ Docker 受管网络使用可选 BuildKit CA secret，证书不写入镜像；Nod
 [run 39106070735](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39106070735) 的双 Python mypy、E2E 与 Docker 均 PASS；pytest 暴露既有 cleanup 测试依赖 checkout 不在 UserProfile 的假设。Ubuntu runner checkout 在 `/home/runner/work`，生产清理保护拒绝删除是正确行为。POSIX 测试改用系统临时目录，Windows 仍保留 checkout 临时目录以避免上一轮 system Temp 权限重试问题。保留全部原断言，另加主目录拒绝测试；生产清理脚本没有改动。
 
 锁文件单独更新也会触发 Windows foundation/lifecycle 门禁（补齐 path filters）。
+
+## Windows 安装态门禁修复
+
+[首轮 packaged E2E run 39106070775](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39106070775) 实际安装、空库启动和优雅退出成功，随后 schema verifier 将当前 schema 2 当成不支持的 schema 1。verifier 现读取产品 `LOCAL_SCHEMA_VERSION`，要求唯一精确匹配标记，以只读 URI 打开且正确编码特殊路径；旧版、未来版本、重复、错名和缺文件继续拒绝，测试验证文件哈希不变。报告中的数据库 schema 取自实际验证 JSON，未修改证据文件自身的 schema_version=1。
+
+“Build one current installer” 工作流不再覆盖为旧 0.1.6，改按 desktop-identity.json 的当前 0.1.8 artifact 名称执行。专门的升级生命周期 0.1.5→0.1.6 测试版本仍保留。

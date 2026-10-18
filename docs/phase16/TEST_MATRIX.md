@@ -4,11 +4,11 @@
 
 | 门禁 / 命令 | 数量 | 状态 | 证据/说明 |
 |---|---:|---|---|
-| `pnpm test`（含 pytest / Vitest / Node） | 620 PASS / 15 SKIP | PASS | unit-final.log；API Windows 专属项单列跳过 |
+| `pnpm test`（含 pytest / Vitest / Node） | 626 PASS / 15 SKIP | PASS | unit-final.log；API Windows 专属项单列跳过 |
 | `pnpm e2e` | 61 | PASS | e2e-final.log；58 既有 + 3 新增 |
 | `pnpm lint` | 全包 | PASS | lint-final.log（含 Ruff、ESLint） |
 | `pnpm typecheck` | 全包 | PASS | typecheck-final.log（含 strict mypy、TypeScript） |
-| Python 3.14 `python -m mypy .` | 163 文件 | PASS | mypy314-final.log |
+| Python 3.14 `python -m mypy .` | 164 文件 | PASS | mypy314-final.log |
 | `pnpm format` | 全包 | PASS | format-check-final.log（Ruff/Prettier） |
 | `pnpm build` | 全包 | PASS | build-final.log |
 | `pnpm openapi:check` | 两份契约 | PASS | openapi-check.log；生成后无漂移 |
@@ -27,7 +27,7 @@ Web 单元：student-selection 中的持久化/API 地址隔离和不可用 stor
 
 E2E：`real workflow submits scoped reviewed identities and never writes on navigation`；`real profile selection survives reload and clears the previous course`；`apply invalidates real candidates and ignores a stale response`。
 
-原 699 = 616 单元/集成 + 58 E2E + 25 Rust。新增 17 API + 2 Web + 3 E2E = 22，计划库存 721；不能把库存或重复运行算成实际通过。Linux 的 Windows 平台 skip 与 Rust 未运行必须单独列出。
+原 699 = 616 单元/集成 + 58 E2E + 25 Rust。新增 23 API + 2 Web + 3 E2E = 28，计划库存 727；不能把库存或重复运行算成实际通过。Linux 的 Windows 平台 skip 与 Rust 未运行必须单独列出。
 
 ## 失败与修复记录
 
@@ -37,8 +37,12 @@ E2E：`real workflow submits scoped reviewed identities and never writes on navi
 - Docker 初次 Corepack 未使用代理；仅在可选 CA secret 存在时采用环境代理，保留 TLS 后通过。
 - 格式门禁初次发现新增代码未格式化，已使用包内 Prettier 修正。
 
-本地实际合计 **681 PASS、15 Windows 平台 SKIP、25 Rust NOT_RUN**；不重复累计定向或重跑测试。API 354 PASS / 15 SKIP（369），扩展 173、Shared 66、Web 25、Node 2，E2E 61。日志文件与 SHA-256 见 `evidence/log-index.json`。
+本地实际合计 **687 PASS、15 Windows 平台 SKIP、25 Rust NOT_RUN**；不重复累计定向或重跑测试。API 360 PASS / 15 SKIP（375），扩展 173、Shared 66、Web 25、Node 2，E2E 61。日志文件与 SHA-256 见 `evidence/log-index.json`。
 
 15 项跳过详见 `evidence/pytest-final.log`，包括 Windows junction、Windows PowerShell/VC runtime、进程检查和安装 payload；没有删除或新增 skip。完整 pytest nodeid 库存见 `evidence/pytest-inventory.log`。
 
 补充测试：`test_planner_consumes_reviewed_options_and_preserves_zero_credit_override`、`test_safe_build_cleanup_keeps_user_profile_protected`。GitHub 首轮 cleanup 失败原因与修复见 CI_REPAIR_REPORT；未放宽生产删除保护。
+
+新增 schema 验证器 6 项：当前唯一标记通过；旧版、未来版、错名、重复标记拒绝；缺文件不创建数据库。所有现有文件验证前后 SHA-256 不变。详见 `test_packaged_schema_verifier.py` 与 packaged-schema.log。
+
+最终本地 Chrome 155 回归中曾有两次 table-heavy DOM 的有界文本提取返回空值（60/61）；该扩展代码未修改，保留失败日志，并以单 worker 重跑相同断言核实资源竞争影响。GitHub pinned Chromium 同组 E2E 已通过；最终复跑结果单列，不修改提取预算或断言。

@@ -5,7 +5,7 @@
   },
   {
     "file": "ci-cleanup-failure.log",
-    "sha256": "62034709d3e1d60c301d8fa8901e967cf3d8a9d7a135f63f45d6704ed4a5093e"
+    "sha256": "94bb86d39829640ac5a6b9c3d8183e4bf272f28914fe9aa2adf3ba0ecc5df979"
   },
   {
     "file": "e2e-final.log",
@@ -30,6 +30,10 @@
   {
     "file": "openapi-generation.log",
     "sha256": "d76a639302c539ab6b90a1c0f08c8f05258c8b97ff68c0e30834d00ef9899e3d"
+  },
+  {
+    "file": "packaged-schema.log",
+    "sha256": "01f2b13bdf9b29693241be3b67800b4ebb7d47e20fa7759a993ce91694060267"
   },
   {
     "file": "positive-real.log",

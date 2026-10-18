@@ -602,8 +602,9 @@ function Invoke-FreshBootstrapLaunch {
                 }
             }
             Assert-True ($schemaExitCode -eq 0) "Fresh database schema verification failed (exit=$schemaExitCode, stdout=$schemaJson, stderr=$schemaError)."
+            $verifiedSchema = $schemaJson | ConvertFrom-Json
         } finally { Pop-Location }
-        Write-Phase "fresh_first_launch" "completed" @{ database = "SAPSOS/sapsos.db"; schema = "LOCAL_DESKTOP/1"; webview = "created" }
+        Write-Phase "fresh_first_launch" "completed" @{ database = "SAPSOS/sapsos.db"; schema = "$($verifiedSchema.schema_name)/$($verifiedSchema.schema_version)"; webview = "created" }
     } finally {
         $freshApiPid = $script:apiPid
         $gracefulCloseRequested = $false
