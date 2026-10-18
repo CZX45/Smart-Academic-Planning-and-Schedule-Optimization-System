@@ -11,7 +11,7 @@
 | Python 3.14 `python -m mypy .` | 163 文件 | PASS | mypy314-final.log |
 | `pnpm format` | 全包 | PASS | format-check-final.log（Ruff/Prettier） |
 | `pnpm build` | 全包 | PASS | build-final.log |
-| `pnpm openapi:check` | 两份契约 | PENDING | 提交生成结果后运行 |
+| `pnpm openapi:check` | 两份契约 | PASS | openapi-check.log；生成后无漂移 |
 | `alembic upgrade head` + seed 两次 + `alembic check` | PostgreSQL 16 | PASS | 独立合成数据库，当前迁移 20260824_0021 |
 | Docker Compose build/up/health/ready/web/seed×2 | 3 容器 | PASS | 独立 project phase16-ci；mock-institution 计数为 1 |
 | Windows installer foundation / lifecycle / packaged E2E | GitHub Windows runners | PENDING | Draft PR 后获取最终 run |
@@ -38,3 +38,5 @@ E2E：`real workflow submits scoped reviewed identities and never writes on navi
 - 格式门禁初次发现新增代码未格式化，已使用包内 Prettier 修正。
 
 本地实际合计 **679 PASS、15 Windows 平台 SKIP、25 Rust NOT_RUN**；不重复累计定向或重跑测试。API 352 PASS / 15 SKIP（367），扩展 173、Shared 66、Web 25、Node 2，E2E 61。日志文件与 SHA-256 见 `evidence/log-index.json`。
+
+15 项跳过详见 `evidence/pytest-final.log`，包括 Windows junction、Windows PowerShell/VC runtime、进程检查和安装 payload；没有删除或新增 skip。完整 pytest nodeid 库存见 `evidence/pytest-inventory.log`。

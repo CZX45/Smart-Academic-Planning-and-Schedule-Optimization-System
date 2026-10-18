@@ -1,16 +1,17 @@
 {
   "baseline": "4e037fe2ea436bb94bbd53b162dc58d27a8f85a7",
-  "branch": "codex/phase16-academic-workflow-stabilization-20261018",
+  "branch": "codex-phase16-academic-workflow-stabilization-20261018",
   "status": "PARTIAL",
   "main_before": "8e055994e3e4435043c66e9362d9d0ede2365ec3",
   "provider_actions_written": 0,
   "full_116_unlocked": false,
   "ci_status": "PENDING_PR",
-  "source_commit": "pending initial delivery commit",
+  "source_commit": "c25faca6ff39fa61fcb9e56edfd7b3feb0c143ca",
   "local_tests": {
     "passed": 679,
     "skipped_windows_specific": 15,
     "rust_not_run": 25,
     "inventory": 719
-  }
+  },
+  "main_after": "8e055994e3e4435043c66e9362d9d0ede2365ec3"
 }

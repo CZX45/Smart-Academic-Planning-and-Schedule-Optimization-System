@@ -1,35 +1,27 @@
 [
   {
-    "file": "unit-final.log",
-    "sha256": "2bb2fe79562b63d51f678675f8769abeeef4b3d44c7b9ace93fd0f198a174c7e"
+    "file": "build-final.log",
+    "sha256": "ff3287c732ca7b43a2be6d0db0c7166e1cfde359b5d51dea7a8d735c97b7dbda"
   },
   {
     "file": "e2e-final.log",
     "sha256": "faa47eb48986c17a5c0171270d0bda3e08989f812e8bf0e84949bea00169d7f3"
   },
   {
-    "file": "lint-final.log",
-    "sha256": "dd1bbd735ed103336f4cc9567007b70776b249084d2950022d36058dc6e6a7cf"
-  },
-  {
-    "file": "typecheck-final.log",
-    "sha256": "0c835a85fbc57f44713e7458cd703ed26b0680a1cca4dac468de5909d053cb51"
-  },
-  {
     "file": "format-check-final.log",
     "sha256": "fe22169454af51372fc89b518b2ae66a04c4116204ef70d82e37b8e5827234c7"
+  },
+  {
+    "file": "lint-final.log",
+    "sha256": "dd1bbd735ed103336f4cc9567007b70776b249084d2950022d36058dc6e6a7cf"
   },
   {
     "file": "mypy314-final.log",
     "sha256": "4a29223023d333fe0950b4b8b105dc3d2ea41799963254db70beea140ddc29ec"
   },
   {
-    "file": "build-final.log",
-    "sha256": "ff3287c732ca7b43a2be6d0db0c7166e1cfde359b5d51dea7a8d735c97b7dbda"
-  },
-  {
-    "file": "postgres-migration.log",
-    "sha256": "484031b3217df3cdeb7886974d62ed4da27899fa7811cbecd7ab0fe0a57cee4d"
+    "file": "openapi-check.log",
+    "sha256": "75e80ee6d1ed99a11834951f92158d4d13b4947e0f208c5ae655ba87b5cef0da"
   },
   {
     "file": "openapi-generation.log",
@@ -38,5 +30,29 @@
   {
     "file": "positive-real.log",
     "sha256": "bd31a0a8b0614014247b39b4908d1ff0f68c24c27b9db91cf9961e989b89b5b7"
+  },
+  {
+    "file": "postgres-migration.log",
+    "sha256": "484031b3217df3cdeb7886974d62ed4da27899fa7811cbecd7ab0fe0a57cee4d"
+  },
+  {
+    "file": "pytest-final.log",
+    "sha256": "32dd68743b9460b8fb83f00d1bee7bb4d936166269af524322303798315b6b06"
+  },
+  {
+    "file": "pytest-inventory.log",
+    "sha256": "52ddc55edbd8b2676c1d91b67990f626aae3bbe56084326d3e409b4bf2aea61d"
+  },
+  {
+    "file": "typecheck-final.log",
+    "sha256": "0c835a85fbc57f44713e7458cd703ed26b0680a1cca4dac468de5909d053cb51"
+  },
+  {
+    "file": "unit-final.log",
+    "sha256": "2bb2fe79562b63d51f678675f8769abeeef4b3d44c7b9ace93fd0f198a174c7e"
+  },
+  {
+    "file": "web-typecheck.log",
+    "sha256": "1abe341e93ff1c1116b4f49ef0c5f4d5c3d95bba313d9d880582354b1b2a0147"
   }
 ]

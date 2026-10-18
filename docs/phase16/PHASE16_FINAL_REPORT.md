@@ -5,7 +5,8 @@
 ## 基线与提交
 
 - 起点：`comprehensive-repair-20261018-safe-sync`，`4e037fe2ea436bb94bbd53b162dc58d27a8f85a7`。
-- 开发分支：`codex/phase16-academic-workflow-stabilization-20261018`。
+- 开发分支：`codex-phase16-academic-workflow-stabilization-20261018`。
+- 远端已有 `codex` 分支，斜杠分支名触发 Git directory/file conflict；保留该分支，使用连字符开发分支名。
 - 产品身份仍为 SAPSOS Local Desktop **0.1.8**；本轮源码需要重建候选安装包。
 - 最终代码提交和文档提交以本目录 `evidence/delivery.json` 及 Draft PR 的提交链为准。文档不自引用其自身尚未生成的 Git SHA。
 - 初始工作区是旧 main（0.1.5）；已明确识别差异，随后从指定安全提交创建分支。安全同步历史是独立根，不能与旧 main 直接比较，因此 Draft PR 目标为上述安全同步分支。
