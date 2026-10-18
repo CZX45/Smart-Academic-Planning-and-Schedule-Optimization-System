@@ -1252,6 +1252,7 @@ test("keeps changing Catalog identities not ready until the bounded timeout", as
 }) => {
   const resultUrl = await openCatalogPaginationFixture(page);
   await installCatalogSignalCapture(page);
+  await page.clock.install();
   await page.evaluate(() => {
     const list = document.querySelector<HTMLElement>("#course-resultul");
     if (!list) throw new Error("Missing Catalog result list");
@@ -1275,6 +1276,7 @@ test("keeps changing Catalog identities not ready until the bounded timeout", as
     timeoutMs: 180,
     settleMs: 80,
   });
+  await page.clock.runFor(180);
   const signal = await waitForCatalogSignal(page);
 
   expect(signal).toMatchObject({
@@ -1296,6 +1298,8 @@ test("requires one connected result container for the full content stability win
 }) => {
   const resultUrl = await openCatalogPaginationFixture(page);
   await installCatalogSignalCapture(page);
+  // Drive replacement and readiness timers deterministically under CPU load.
+  await page.clock.install();
   await page.evaluate(() => {
     const results = document.querySelector<HTMLElement>("#course-results");
     if (!results) throw new Error("Missing Catalog result surface");
@@ -1318,6 +1322,7 @@ test("requires one connected result container for the full content stability win
     timeoutMs: 220,
     settleMs: 90,
   });
+  await page.clock.runFor(220);
   const signal = await waitForCatalogSignal(page);
 
   expect(signal).toMatchObject({
