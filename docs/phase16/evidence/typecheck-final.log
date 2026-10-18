@@ -3,13 +3,13 @@
 > pnpm -r --if-present typecheck
 
 Scope: 5 of 6 workspace projects
-apps/api typecheck$ python -m mypy .
 apps/extension typecheck$ tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit
 packages/config typecheck$ echo 'shared config package has no typecheck yet'
 packages/shared typecheck$ tsc -p tsconfig.json --noEmit
+apps/api typecheck$ python -m mypy .
 packages/config typecheck: shared config package has no typecheck yet
 packages/config typecheck: Done
-apps/api typecheck: Success: no issues found in 163 source files
+apps/api typecheck: Success: no issues found in 164 source files
 apps/api typecheck: Done
 packages/shared typecheck: Done
 apps/extension typecheck: Done

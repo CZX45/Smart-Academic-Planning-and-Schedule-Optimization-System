@@ -1,0 +1,145 @@
+
+> smart-academic-planning@ e2e <REPO>
+> node scripts/run-e2e.mjs
+
+[WebServer] INFO:     Started server process [45096]
+[WebServer] INFO:     Waiting for application startup.
+[WebServer] INFO:     Application startup complete.
+[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+[WebServer] (node:45314) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45327) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 62 tests using 2 workers
+
+(node:45515) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45514) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   2 [chromium] › tests/e2e/extension-snapshot.spec.ts:142:5 › preserves MyProgress summary evidence on a table-heavy nested DOM (11.3s)
+  ✓   3 [chromium] › tests/e2e/extension-snapshot.spec.ts:169:5 › captures and parses sanitized Kean catalog cards without portal actions (2.6s)
+  ✓   4 [chromium] › tests/e2e/extension-snapshot.spec.ts:215:5 › captures and parses responsive Kean sections without schedule actions (4.0s)
+  ✓   5 [chromium] › tests/e2e/extension-snapshot.spec.ts:291:5 › discovers public Catalog subjects and starts only the visible read-only Catalog search (7.1s)
+  ✓   1 [chromium] › tests/e2e/home.spec.ts:2304:5 › fresh local user creates an unverified profile without borrowing mock rules (29.4s)
+  ✓   6 [chromium] › tests/e2e/extension-snapshot.spec.ts:415:5 › waits for delayed Kean Knockout bindings before preparing the Catalog search (3.2s)
+  ✓   8 [chromium] › tests/e2e/extension-snapshot.spec.ts:481:5 › reacquires Catalog controls rebuilt after selecting the next subject (1.6s)
+  ✓   7 [chromium] › tests/e2e/home.spec.ts:2441:5 › home page treats a missing legacy local student as an empty first run (3.2s)
+  ✓  10 [chromium] › tests/e2e/home.spec.ts:2476:5 › home page shows degree progress shell and required mock warnings (3.7s)
+  ✘   9 [chromium] › tests/e2e/extension-snapshot.spec.ts:592:5 › persists the reviewed preparation checkpoint before one MAIN-world search click (5.8s)
+(node:46556) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  11 [chromium] › tests/e2e/home.spec.ts:2497:5 › home page clearly marks the degree dashboard as demo data when no MyProgress import exists (4.2s)
+  ✓  12 [chromium] › tests/e2e/extension-snapshot.spec.ts:702:5 › does not click Search when the preparation checkpoint is not acknowledged (1.3s)
+  ✓  14 [chromium] › tests/e2e/extension-snapshot.spec.ts:752:5 › emits a revisioned timeout when subject navigation remains on the Catalog landing page (843ms)
+  ✓  15 [chromium] › tests/e2e/extension-snapshot.spec.ts:833:5 › inspects and advances only explicit Catalog result pagination (873ms)
+  ✓  16 [chromium] › tests/e2e/extension-snapshot.spec.ts:918:5 › accepts a stable first Catalog page when Kean omits the current-page input (2.4s)
+  ✓  17 [chromium] › tests/e2e/extension-snapshot.spec.ts:977:5 › uses the one visible Catalog result tree when a hidden duplicate is stale (1.7s)
+  ✓  18 [chromium] › tests/e2e/extension-snapshot.spec.ts:1028:5 › rejects a stable Catalog page-number mismatch with a specific signal (825ms)
+  ✓  19 [chromium] › tests/e2e/extension-snapshot.spec.ts:1062:5 › accepts 30 stable page-1 cards without a page-world Knockout context or visible subject marker (760ms)
+  ✓  13 [chromium] › tests/e2e/home.spec.ts:2530:5 › saved auto-verified MyProgress import overrides mock dashboard values (8.4s)
+  ✓  20 [chromium] › tests/e2e/extension-snapshot.spec.ts:1137:5 › keeps rendered Catalog markers without a parseable course identity not ready (906ms)
+  ✓  22 [chromium] › tests/e2e/extension-snapshot.spec.ts:1178:5 › keeps an empty Catalog result payload not ready even when its spinner is visible (2.1s)
+  ✓  23 [chromium] › tests/e2e/extension-snapshot.spec.ts:1227:5 › keeps changing Catalog identities not ready until the bounded timeout (1.2s)
+  ✓  24 [chromium] › tests/e2e/extension-snapshot.spec.ts:1271:5 › requires one connected result container for the full content stability window (1.0s)
+  ✓  25 [chromium] › tests/e2e/extension-snapshot.spec.ts:1313:5 › emits a provider-error signal instead of capturing an error page (632ms)
+  ✓  26 [chromium] › tests/e2e/extension-snapshot.spec.ts:1350:7 › waits for a stable same-URL Catalog transition when active_page_first updates (625ms)
+  ✓  27 [chromium] › tests/e2e/extension-snapshot.spec.ts:1350:7 › waits for a stable same-URL Catalog transition when cards_first updates (557ms)
+  ✓  28 [chromium] › tests/e2e/extension-snapshot.spec.ts:1411:5 › accepts a stable next page when the first card stays the same but the remaining set changes (699ms)
+  ✓  21 [chromium] › tests/e2e/home.spec.ts:2614:5 › home page reviews and applies confirmed MyProgress import summaries (9.0s)
+  ✓  29 [chromium] › tests/e2e/extension-snapshot.spec.ts:1455:5 › does not emit a ready checkpoint while the result-level loading surface is visible (938ms)
+  ✓  31 [chromium] › tests/e2e/extension-snapshot.spec.ts:1504:5 › accepts a stable next page while a class-only Catalog spinner remains visible (762ms)
+  ✓  32 [chromium] › tests/e2e/extension-snapshot.spec.ts:1560:7 › keeps page 2 not ready when its current-page marker is missing (721ms)
+  ✓  33 [chromium] › tests/e2e/extension-snapshot.spec.ts:1560:7 › keeps page 2 not ready when its current-page marker is mismatched (904ms)
+  ✓  34 [chromium] › tests/e2e/extension-snapshot.spec.ts:1611:5 › does not treat a reordered page-1 identity set as a new Catalog page (625ms)
+  ✓  35 [chromium] › tests/e2e/extension-snapshot.spec.ts:1656:5 › stops with a bounded timeout when the visible page remains stale page 1 (569ms)
+  ✓  36 [chromium] › tests/e2e/extension-snapshot.spec.ts:1678:5 › snapshot visibility cache is per capture and never exposes blocked content (516ms)
+  ✓  30 [chromium] › tests/e2e/home.spec.ts:2677:5 › reviewed 85-row MyProgress import drives the active real course-state snapshot (8.7s)
+  ✓  38 [chromium] › tests/e2e/home.spec.ts:2898:5 › saved MyProgress import with exceptions is marked as requiring review (3.9s)
+  ✓  37 [chromium] › tests/e2e/real-academic-workflow.spec.ts:130:5 › real workflow submits scoped reviewed identities and never writes on navigation (8.5s)
+  ✓  39 [chromium] › tests/e2e/home.spec.ts:2944:5 › home page shows product status cards with advisory labels (9.3s)
+  ✓  40 [chromium] › tests/e2e/real-academic-workflow.spec.ts:182:5 › real profile selection survives reload and clears the previous course (17.3s)
+  ✓  41 [chromium] › tests/e2e/home.spec.ts:2988:5 › home page explains empty states with reasons and manual next steps (10.9s)
+  ✓  42 [chromium] › tests/e2e/real-academic-workflow.spec.ts:211:5 › apply invalidates real candidates and ignores a stale response (7.3s)
+  ✓  43 [chromium] › tests/e2e/home.spec.ts:3026:5 › home page avoids misleading registration and availability wording (5.5s)
+  ✓  44 [chromium] › tests/e2e/workflow-shell.spec.ts:3:5 › workflow shell exposes implemented workflows and keyboard hash navigation (4.7s)
+  ✓  45 [chromium] › tests/e2e/home.spec.ts:3049:5 › home page reports when the API health request is unavailable (5.8s)
+  ✓  46 [chromium] › tests/e2e/home.spec.ts:3076:5 › home page reports when degree audit responses fail schema validation (4.9s)
+  ✓  47 [chromium] › tests/e2e/home.spec.ts:3096:5 › switching out of demo clears existing student scenario results (6.3s)
+  ✓  48 [chromium] › tests/e2e/home.spec.ts:3109:5 › student scope rejects a delayed scenario response after demo closes (4.0s)
+  ✓  49 [chromium] › tests/e2e/home.spec.ts:3146:5 › home page creates and compares what-if academic scenarios (6.4s)
+  ✓  50 [chromium] › tests/e2e/home.spec.ts:3179:5 › home page reports what-if API and schema failures (6.3s)
+  ✓  51 [chromium] › tests/e2e/home.spec.ts:3200:5 › home page checks course eligibility without recalculating section seats (7.4s)
+  ✓  52 [chromium] › tests/e2e/home.spec.ts:3228:5 › home page reports course eligibility schema failures (3.2s)
+  ✓  53 [chromium] › tests/e2e/home.spec.ts:3251:5 › home page creates and compares long-term academic plans (6.5s)
+  ✓  54 [chromium] › tests/e2e/home.spec.ts:3298:5 › home page reports academic planner schema failures (7.7s)
+  ✓  55 [chromium] › tests/e2e/home.spec.ts:3319:5 › home page builds and compares semester schedules (9.5s)
+  ✓  56 [chromium] › tests/e2e/home.spec.ts:3382:5 › home page previews read-only data imports (4.3s)
+  ✓  57 [chromium] › tests/e2e/home.spec.ts:3446:5 › home page loads the sanitized MyProgress sample for local verification (2.9s)
+  ✓  58 [chromium] › tests/e2e/home.spec.ts:3477:5 › home page shows read-only section monitoring alerts and manual checklist (2.6s)
+  ✓  59 [chromium] › tests/e2e/home.spec.ts:3515:5 › home page reviews and applies confirmed data import records (4.4s)
+  ✓  60 [chromium] › tests/e2e/home.spec.ts:3570:5 › home page reports schedule optimizer schema failures (2.5s)
+  ✓  61 [chromium] › tests/e2e/home.spec.ts:3595:5 › real student readiness never enables mock academic candidates (1.7s)
+  ✓  62 [chromium] › tests/e2e/home.spec.ts:3764:5 › changing schedule preferences invalidates the displayed result (2.7s)
+
+
+  1) [chromium] › tests/e2e/extension-snapshot.spec.ts:592:5 › persists the reviewed preparation checkpoint before one MAIN-world search click
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  2
+    + Received  + 22
+
+      Object {
+    -   "resultView": "CatalogListing",
+    -   "submittedSubject": "FIN",
+    +   "batchId": "bounded-main-world-checkpoint",
+    +   "currentPath": "/Student/Courses",
+    +   "diagnostics": Object {
+    +     "catalogListingChecked": true,
+    +     "catalogListingControlPresent": true,
+    +     "courseCardCount": 0,
+    +     "documentReady": true,
+    +     "expectedSubjectSelected": true,
+    +     "preparationSignalObserved": true,
+    +     "resultListPresent": false,
+    +     "resultSurfacePresent": false,
+    +     "sectionResultPresent": false,
+    +     "subjectControlPresent": true,
+    +     "submitControlEnabled": true,
+    +     "submitControlPresent": true,
+    +     "validCourseIdentityCount": 0,
+    +   },
+    +   "navigationRevision": 7,
+    +   "providerActionsWritten": "NO",
+    +   "signal": "TIMEOUT",
+    +   "subjectCode": "FIN",
+    +   "type": "SAPSOS_CATALOG_SUBJECT_NAVIGATION_SIGNAL",
+      }
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      697 |       ),
+      698 |     )
+    > 699 |     .toEqual({ submittedSubject: "FIN", resultView: "CatalogListing" });
+          |      ^
+      700 | });
+      701 |
+      702 | test("does not click Search when the preparation checkpoint is not acknowledged", async ({
+        at <REPO>/tests/e2e/extension-snapshot.spec.ts:699:6
+
+    Error Context: .cache/e2e/synthetic-DA9AK5/results/extension-snapshot-persist-1ac68-one-MAIN-world-search-click-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    .cache/e2e/synthetic-DA9AK5/results/extension-snapshot-persist-1ac68-one-MAIN-world-search-click-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace .cache/e2e/synthetic-DA9AK5/results/extension-snapshot-persist-1ac68-one-MAIN-world-search-click-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › tests/e2e/extension-snapshot.spec.ts:592:5 › persists the reviewed preparation checkpoint before one MAIN-world search click
+  61 passed (3.5m)
+ ELIFECYCLE  Command failed with exit code 1.

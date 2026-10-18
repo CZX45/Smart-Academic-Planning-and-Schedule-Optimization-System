@@ -1,0 +1,17 @@
+[WebServer] INFO:     Started server process [44602]
+[WebServer] INFO:     Waiting for application startup.
+[WebServer] INFO:     Application startup complete.
+[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+[WebServer] (node:44609) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:44621) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:44681) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › tests/e2e/extension-snapshot.spec.ts:142:5 › preserves MyProgress summary evidence on a table-heavy nested DOM (1.4s)
+  ✓  2 [chromium] › tests/e2e/extension-snapshot.spec.ts:1678:5 › snapshot visibility cache is per capture and never exposes blocked content (498ms)
+
+  2 passed (10.8s)

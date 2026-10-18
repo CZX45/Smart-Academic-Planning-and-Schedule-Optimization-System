@@ -1,24 +1,38 @@
 {
   "baseline": "4e037fe2ea436bb94bbd53b162dc58d27a8f85a7",
   "branch": "codex-phase16-academic-workflow-stabilization-20261018",
-  "status": "PARTIAL",
+  "status": "CLOUD_DEVELOPMENT_COMPLETE",
   "main_before": "8e055994e3e4435043c66e9362d9d0ede2365ec3",
   "provider_actions_written": 0,
   "full_116_unlocked": false,
-  "ci_status": "WINDOWS_SCHEMA_VERIFIER_FIXED_PENDING_RERUN",
-  "source_commit": "bdfea69c54d0ab58cbd7407b3bf4b189a9b62e60",
+  "ci_status": "ALL_FOUR_CODE_WORKFLOWS_PASSED",
+  "source_commit": "ea32a382c6ad1bf328e670f555fb1d97ad839935",
   "local_tests": {
-    "passed": 687,
+    "passed": 688,
     "skipped_windows_specific": 15,
-    "rust_not_run": 25,
-    "inventory": 727
+    "rust_not_run_locally": 25,
+    "inventory": 728,
+    "rust_passed_in_windows_ci": 25
   },
   "main_after": "8e055994e3e4435043c66e9362d9d0ede2365ec3",
   "draft_pr_url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/88",
   "ci_runs": {
-    "ci": 39106470680,
-    "windows_foundation": 39106470665,
-    "windows_lifecycle": 39106470700,
-    "windows_packaged_e2e": 39106470714
+    "ci": 39108207842,
+    "windows_foundation": 39108207847,
+    "windows_lifecycle": 39108207846,
+    "windows_packaged_e2e": 39108207845
+  },
+  "evidence_scope": {
+    "unit_test_code_commit": "792278c35c715cc9430b83f1e71f7de4d0729bfa",
+    "e2e_and_build_commit": "ea32a382c6ad1bf328e670f555fb1d97ad839935",
+    "later_test_fixture_only_change": "ea32a38 isolates navigation notifications; no domain code changes",
+    "earlier_logs": "pytest-earlier-skip-reasons, positive-real, reviewed-planner and rule-source are intermediate diagnostic evidence; not additional test counts"
+  },
+  "documentation_delivery": "Only docs/phase16 changes follow source_commit; final delivery HEAD and its checks are recorded on Draft PR #88.",
+  "real_acceptance_status": "NOT_RUN; FULL_116_SUBJECT_BATCH remains BLOCKED",
+  "artifact_evidence": {
+    "installer": "windows-installer-final.json",
+    "packaged_e2e": "windows-packaged-final.json",
+    "ci": "ci-final.json"
   }
 }

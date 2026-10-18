@@ -1,19 +1,51 @@
 [
   {
     "file": "build-final.log",
-    "sha256": "ff3287c732ca7b43a2be6d0db0c7166e1cfde359b5d51dea7a8d735c97b7dbda"
+    "sha256": "e1915ee0476d7191c0da85bab00aabd00063d86f396d32e65391b6dbcb9f26d3"
+  },
+  {
+    "file": "checkpoint-focused.log",
+    "sha256": "91e03dfa0f8a48f38c88692f5f4a188d7712458379aeffa82a15c54ef20296e6"
   },
   {
     "file": "ci-cleanup-failure.log",
     "sha256": "94bb86d39829640ac5a6b9c3d8183e4bf272f28914fe9aa2adf3ba0ecc5df979"
   },
   {
+    "file": "ci-final.json",
+    "sha256": "bdfb105248a06a3c9b3de58023eea3c10e277daac32b4506e09e7158a5257869"
+  },
+  {
+    "file": "compose-health.log",
+    "sha256": "cdfc5e3a8d4143a15c512e4f6952f1fbb660bcbf8845cb4abfbfe3ca7bc7c7fb"
+  },
+  {
+    "file": "compose-seed1.log",
+    "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  {
+    "file": "compose-seed2.log",
+    "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  {
+    "file": "delivery.json",
+    "sha256": "6cb277dffdf82a024e7b34ba131536267c1d96710cc8eb9f1f8967d56aafa3dc"
+  },
+  {
+    "file": "e2e-checkpoint-fixture-failure.log",
+    "sha256": "c183e394a84456b01a0e68cfe9d1ca636bbe09de6fbfafcd23e88bd83a14d385"
+  },
+  {
+    "file": "e2e-concurrent-failure.log",
+    "sha256": "a075b482726b3d72ca88a7a7a7702cb9eb6efb6af070b8f17749ee967cac289b"
+  },
+  {
     "file": "e2e-final.log",
-    "sha256": "faa47eb48986c17a5c0171270d0bda3e08989f812e8bf0e84949bea00169d7f3"
+    "sha256": "b44c89b07bfb32ca8be4e1e82072519aafab7002fb483ba817eb6df2182d2554"
   },
   {
     "file": "format-check-final.log",
-    "sha256": "fe22169454af51372fc89b518b2ae66a04c4116204ef70d82e37b8e5827234c7"
+    "sha256": "7452383d253131027fc5509b159afbd5e364485958846e5c7e09555406806060"
   },
   {
     "file": "lint-final.log",
@@ -21,7 +53,7 @@
   },
   {
     "file": "mypy314-final.log",
-    "sha256": "4a29223023d333fe0950b4b8b105dc3d2ea41799963254db70beea140ddc29ec"
+    "sha256": "f138cf06100e66e55f4bcf8cbba332c4127550f9408a44cc8a8b6687bd6f6ac1"
   },
   {
     "file": "openapi-check.log",
@@ -44,12 +76,16 @@
     "sha256": "484031b3217df3cdeb7886974d62ed4da27899fa7811cbecd7ab0fe0a57cee4d"
   },
   {
-    "file": "pytest-final.log",
+    "file": "pytest-earlier-skip-reasons.log",
     "sha256": "32dd68743b9460b8fb83f00d1bee7bb4d936166269af524322303798315b6b06"
   },
   {
+    "file": "pytest-final.log",
+    "sha256": "4ef611f2a9f20e55f82a77ec01ef80f1b72860d0bea280280beed73215ee7c6a"
+  },
+  {
     "file": "pytest-inventory.log",
-    "sha256": "47edb4dcc4f40a9307e8828266d65a6e94f684eec4711321e2888aa8cb8d5451"
+    "sha256": "38b0e7b0de3ffb8e1009853b55cd65dbe8fd75b41ffee729d9da67ea47f0400f"
   },
   {
     "file": "reviewed-planner.log",
@@ -60,15 +96,43 @@
     "sha256": "88a231c5413e52feb446d35b6f0eba8989442f8bfee0ed462d8778afeafc1145"
   },
   {
+    "file": "rust-test-names.log",
+    "sha256": "f0683a3660998c73ce706b2991ec417aca3b7369765106480b73b7b293124c25"
+  },
+  {
+    "file": "snapshot-focused.log",
+    "sha256": "10dd5eee7ac90c9c22851cf4c4e11ad76fde0af28fdb71979d59e5985df83667"
+  },
+  {
+    "file": "snapshot-probe.json",
+    "sha256": "78f8b0701b1553830fde856ac75089de7e88a8153fb092d4e4e1d6f91b60f869"
+  },
+  {
     "file": "typecheck-final.log",
-    "sha256": "0c835a85fbc57f44713e7458cd703ed26b0680a1cca4dac468de5909d053cb51"
+    "sha256": "a3aa87959a3a1b94ad6ab9e8e56ef6b7acba16e654288d5c664e4e633ff542d4"
+  },
+  {
+    "file": "typescript-test-names.json",
+    "sha256": "be76cd5d191b57034498533b30137af577fdf46169d562389662e9aac1ab4a72"
   },
   {
     "file": "unit-final.log",
-    "sha256": "de3c4871a40ad5ffe663c1f23a1ecca5d105faf1bdd3a6df340b9773c429464f"
+    "sha256": "dfe65264c1c5878f2a3603a5dbb38c6f380cc0915a8e9bf482f3da883d52b7ae"
   },
   {
     "file": "web-typecheck.log",
     "sha256": "1abe341e93ff1c1116b4f49ef0c5f4d5c3d95bba313d9d880582354b1b2a0147"
+  },
+  {
+    "file": "windows-installer-final.json",
+    "sha256": "71fe19e4b7bc20c70ab087d62d8c89750fc892810692df270789bbb0a998482c"
+  },
+  {
+    "file": "windows-packaged-final.json",
+    "sha256": "10e0b095660a6a730ca08471104e32dcc9b6aecae0e31281e8c15c20748e298b"
+  },
+  {
+    "file": "windows-schema-fix.json",
+    "sha256": "844a4f7de56df731500daa5135a2a42efffb12e23f317802aafa3d83dc9007f4"
   }
 ]

@@ -35,3 +35,20 @@ Docker 受管网络使用可选 BuildKit CA secret，证书不写入镜像；Nod
 [首轮 packaged E2E run 39106070775](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39106070775) 实际安装、空库启动和优雅退出成功，随后 schema verifier 将当前 schema 2 当成不支持的 schema 1。verifier 现读取产品 `LOCAL_SCHEMA_VERSION`，要求唯一精确匹配标记，以只读 URI 打开且正确编码特殊路径；旧版、未来版本、重复、错名和缺文件继续拒绝，测试验证文件哈希不变。报告中的数据库 schema 取自实际验证 JSON，未修改证据文件自身的 schema_version=1。
 
 “Build one current installer” 工作流不再覆盖为旧 0.1.6，改按 desktop-identity.json 的当前 0.1.8 artifact 名称执行。专门的升级生命周期 0.1.5→0.1.6 测试版本仍保留。
+
+## 本地浏览器回归暴露的有界采集超时
+
+Chrome 155 在大型嵌套表格上重复触发原有 1 秒预算，留下空摘要。单次同步采集缓存祖先的可见性与阻止状态，减少重复 computed-style 查询；不跨采集保留缓存，不改预算或学校访问行为。大型夹具与新增隐私/可见性变化测试通过，完整数量见 TEST_MATRIX。GitHub 仍使用 pinned Chromium。
+
+## 最终代码 CI 结果
+
+以下均绑定 `ea32a382c6ad1bf328e670f555fb1d97ad839935`，四个工作流、八个 job 全部成功；完整 job/step 结论见 evidence/ci-final.json。后续文档提交不改变这些受测代码，交付 HEAD 的检查结果见 [Draft PR #88](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/88/checks)。
+
+| 工作流 | 结果 | 运行 |
+|---|---|---|
+| CI（checks、E2E、Docker、Python 3.12/3.14） | PASS | [39108207842](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39108207842) |
+| Windows installer foundation | PASS | [39108207847](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39108207847) |
+| Windows installer lifecycle | PASS | [39108207846](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39108207846) |
+| Windows packaged desktop E2E | PASS | [39108207845](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39108207845) |
+
+已下载并只读核验源码对应的候选安装包归档：manifest 的 source_head_sha 为上述代码 SHA，版本 0.1.8，安装程序 SHA-256 与 manifest 完全一致。安装态证据确认 LOCAL_DESKTOP/2 唯一标记和 18 个阶段 completed。精简证据见 windows-installer-final.json、windows-packaged-final.json；不将 runner 上合成数据的结果计为真实学校或用户电脑验收。

@@ -2,7 +2,7 @@
 
 本轮未安装、覆盖或启动用户电脑上的软件，也未访问真实 SQLite。以下是后续独立本地任务的操作流程，不是已执行记录。
 
-1. **隔离候选安装**：取本 Draft PR 最终源码对应 CI artifact；核对 manifest 的 source SHA、0.1.8 身份、包 SHA-256。历史 0.1.8 安装包不含本轮改动，必须重建。使用独立 Windows VM/测试账户和新数据目录，不覆盖现有安装或正式数据库。没有匹配 artifact 时停止安装步骤并重建。
+1. **隔离候选安装**：取本 Draft PR 最终源码对应 CI artifact；核对 manifest 的 `provenance.source_head_sha`、0.1.8 身份、包 SHA-256。`workflow_sha` / `build_commit` 可能是 GitHub 的 PR merge-ref SHA，不等于开发分支 SHA，也不表示已经合并 main。历史 0.1.8 安装包不含本轮改动，必须重建。使用独立 Windows VM/测试账户和新数据目录，不覆盖现有安装或正式数据库。没有匹配 artifact 时停止安装步骤并重建。
 2. **原生 GUI**：核对启动、WebView2、本地 API 健康、键盘焦点/Tab、125%/150%/200% 缩放与窄窗口；记录截图时脱敏。浏览器 headless 成功不替代此项。
 3. **学生建档**：从空合成库验证创建/切换/重启/删除隔离；随后只在明确授权的本地数据目录创建真实档案，确认非 Demo；无来源时应显示缺失说明。
 4. **扩展配对**：核对安装版 manifest 0.1.8 和 revision v9；人工发起本地配对，检查来源域/本地地址及重启恢复。不导出 Cookie、Session、学校 Token、MFA 或密码。

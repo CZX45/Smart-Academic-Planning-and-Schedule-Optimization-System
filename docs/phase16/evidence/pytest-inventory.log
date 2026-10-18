@@ -240,6 +240,12 @@ tests/test_migration_contract.py::test_default_contract_uses_registered_local_mi
 tests/test_migration_contract.py::test_execute_binds_backup_to_attempt_and_runs_test_only_registry
 tests/test_migration_contract.py::test_server_mode_is_fail_closed
 tests/test_orm_native_typing.py::test_native_orm_typing_rejects_invalid_column_values
+tests/test_packaged_schema_verifier.py::test_packaged_schema_gate_accepts_only_current_unique_marker_without_writes[rows0-0]
+tests/test_packaged_schema_verifier.py::test_packaged_schema_gate_accepts_only_current_unique_marker_without_writes[rows1-1]
+tests/test_packaged_schema_verifier.py::test_packaged_schema_gate_accepts_only_current_unique_marker_without_writes[rows2-1]
+tests/test_packaged_schema_verifier.py::test_packaged_schema_gate_accepts_only_current_unique_marker_without_writes[rows3-1]
+tests/test_packaged_schema_verifier.py::test_packaged_schema_gate_accepts_only_current_unique_marker_without_writes[rows4-1]
+tests/test_packaged_schema_verifier.py::test_packaged_schema_gate_does_not_create_a_missing_database
 tests/test_packaging_contract.py::test_pyinstaller_contract_is_one_folder_and_local_desktop_only
 tests/test_packaging_contract.py::test_build_script_has_reproducible_output_and_actionable_failures
 tests/test_packaging_contract.py::test_desktop_shell_requires_explicit_packaged_artifact_when_selected
@@ -374,4 +380,4 @@ tests/test_windows_installer_runtime_payload.py::test_partial_install_recovers_w
     from starlette.testclient import TestClient as TestClient  # noqa
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-369 tests collected in 1.20s
+375 tests collected in 18.23s
