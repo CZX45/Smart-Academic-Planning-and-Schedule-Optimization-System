@@ -1,0 +1,14 @@
+
+> smart-academic-planning@ openapi:generate <REPO>
+> pnpm --filter @sapsos/api openapi && pnpm --filter @sapsos/shared generate
+
+
+> @sapsos/api@0.1.8 openapi <REPO>/apps/api
+> python -m app.openapi_export
+
+Wrote <REPO>/apps/api/openapi.json
+
+> @sapsos/shared@0.1.8 generate <REPO>/packages/shared
+> node scripts/generate-openapi-types.mjs
+
+Copied <REPO>/apps/api/openapi.json to <REPO>/packages/shared/src/generated/openapi.json

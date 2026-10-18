@@ -1176,6 +1176,12 @@ const courseStateReadinessLabels: Record<string, string> = {
   semester_schedule: "学期课表",
 };
 
+import { RealAcademicWorkflow } from "../components/real-academic-workflow";
+import {
+  readSelectedStudent,
+  saveSelectedStudent,
+} from "../lib/student-selection";
+
 export default function Home() {
   const activeWorkflow = useActiveWorkflow();
   const apiBaseUrl = useSyncExternalStore(
@@ -1201,11 +1207,22 @@ export default function Home() {
   const activeStudentId = demoModeEnabled
     ? mockStudentId
     : (selectedLocalStudentId ?? importedStudentId);
+  const [appliedRevision, setAppliedRevision] = useState(0);
+  useEffect(() => {
+    const refresh = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail === activeStudentId) {
+        setAppliedRevision((value) => value + 1);
+      }
+    };
+    window.addEventListener("sapsos-data-applied", refresh);
+    return () => window.removeEventListener("sapsos-data-applied", refresh);
+  }, [activeStudentId]);
   const workflowScope = JSON.stringify([
     apiBaseUrl,
     activeStudentId,
     demoModeEnabled,
   ]);
+  const analysisScope = JSON.stringify([workflowScope, appliedRevision]);
   const [health, setHealth] = useState<HealthState>(() =>
     apiBaseUrl
       ? { status: "loading" }
@@ -1215,7 +1232,7 @@ export default function Home() {
         },
   );
   const [auditState, setAuditState] = useScopedWorkflowState<AuditState>(
-    workflowScope,
+    analysisScope,
     () =>
       apiBaseUrl
         ? { status: "loading" }
@@ -1360,6 +1377,7 @@ export default function Home() {
   const [courseStateState, setCourseStateState] = useCourseStateWorkflow(
     apiBaseUrl,
     activeStudentId,
+    appliedRevision,
   );
 
   useEffect(() => {
@@ -1409,6 +1427,7 @@ export default function Home() {
         }
         setLocalProfilesState({ status: "ready", profiles });
         setSelectedLocalStudentId((current) => {
+          current ??= readSelectedStudent(apiBaseUrl);
           if (
             current &&
             profiles.some((profile) => profile.student.id === current)
@@ -1695,11 +1714,14 @@ export default function Home() {
             selectedStudentId={selectedLocalStudentId}
             onSelect={(studentId) => {
               setSelectedLocalStudentId(studentId);
+              if (apiBaseUrl) saveSelectedStudent(apiBaseUrl, studentId);
               setDemoModeEnabled(false);
             }}
             onCreated={(profile) => {
               setLocalProfilesState({ status: "ready", profiles: [profile] });
               setSelectedLocalStudentId(profile.student.id);
+              if (apiBaseUrl)
+                saveSelectedStudent(apiBaseUrl, profile.student.id);
               setImportedStudentId(undefined);
               setDemoModeEnabled(false);
             }}
@@ -1733,8 +1755,14 @@ export default function Home() {
             sectionMonitoringState={sectionMonitoringState}
           />
 
+          {auditState.status === "ready" && !demoModeEnabled ? (
+            <p role="status">
+              以下为已保存的历史审核，可能早于最近的数据应用。请在下方重新计算真实学业审核后核对最新结果。
+            </p>
+          ) : null}
           {auditState.status === "ready" ? (
             <DegreeProgress
+              historical={!demoModeEnabled}
               audit={auditState.audit}
               requirements={auditState.requirements}
               myProgressPreview={myProgressPreview}
@@ -1746,10 +1774,13 @@ export default function Home() {
 
           <CourseStateSnapshotPanel state={courseStateState} />
 
-          {activeStudentId && !demoModeEnabled ? (
-            <p className="notice" role="status">
-              当前候选专业、课程和学期仅供演示；真实档案需接入经过审核的候选数据后才能计算。
-            </p>
+          {activeStudentId && !demoModeEnabled && apiBaseUrl ? (
+            <RealAcademicWorkflow
+              key={`${apiBaseUrl}:${activeStudentId}`}
+              apiBaseUrl={apiBaseUrl}
+              studentId={activeStudentId}
+              refreshKey={String(appliedRevision)}
+            />
           ) : null}
 
           {warnings.length > 0 ? (
@@ -1766,79 +1797,88 @@ export default function Home() {
             </section>
           ) : null}
 
-          <WhatIfAnalysis
-            selectedCandidateId={selectedCandidateId}
-            setSelectedCandidateId={setSelectedCandidateId}
-            scenarioState={scenarioState}
-            setScenarioState={setScenarioState}
-            canUseDownstreamAnalysis={downstreamAnalysisAllowed}
-            sourceLabel={currentImportMode}
-          />
+          {!activeStudentId || demoModeEnabled ? (
+            <>
+              <WhatIfAnalysis
+                selectedCandidateId={selectedCandidateId}
+                setSelectedCandidateId={setSelectedCandidateId}
+                scenarioState={scenarioState}
+                setScenarioState={setScenarioState}
+                canUseDownstreamAnalysis={downstreamAnalysisAllowed}
+                sourceLabel={currentImportMode}
+              />
 
-          <CourseEligibilityChecker
-            selectedCourseId={selectedCourseId}
-            setSelectedCourseId={setSelectedCourseId}
-            eligibilityState={eligibilityState}
-            setEligibilityState={setEligibilityState}
-            courseStateState={courseStateState}
-            canUseRealEligibility={eligibilityAnalysisAllowed}
-          />
+              <CourseEligibilityChecker
+                selectedCourseId={selectedCourseId}
+                setSelectedCourseId={setSelectedCourseId}
+                eligibilityState={eligibilityState}
+                setEligibilityState={setEligibilityState}
+                courseStateState={courseStateState}
+                canUseRealEligibility={eligibilityAnalysisAllowed}
+              />
 
-          <AcademicPlanner
-            selectedPlannerScopeId={selectedPlannerScopeId}
-            setSelectedPlannerScopeId={setSelectedPlannerScopeId}
-            selectedPlannerStartTermId={selectedPlannerStartTermId}
-            setSelectedPlannerStartTermId={setSelectedPlannerStartTermId}
-            termsToPlan={termsToPlan}
-            setTermsToPlan={setTermsToPlan}
-            minimumCredits={minimumCredits}
-            setMinimumCredits={setMinimumCredits}
-            preferredCredits={preferredCredits}
-            setPreferredCredits={setPreferredCredits}
-            maximumCredits={maximumCredits}
-            setMaximumCredits={setMaximumCredits}
-            plannerState={plannerState}
-            setPlannerState={setPlannerState}
-            canUseDownstreamAnalysis={downstreamAnalysisAllowed}
-            sourceLabel={currentImportMode}
-          />
+              <AcademicPlanner
+                selectedPlannerScopeId={selectedPlannerScopeId}
+                setSelectedPlannerScopeId={setSelectedPlannerScopeId}
+                selectedPlannerStartTermId={selectedPlannerStartTermId}
+                setSelectedPlannerStartTermId={setSelectedPlannerStartTermId}
+                termsToPlan={termsToPlan}
+                setTermsToPlan={setTermsToPlan}
+                minimumCredits={minimumCredits}
+                setMinimumCredits={setMinimumCredits}
+                preferredCredits={preferredCredits}
+                setPreferredCredits={setPreferredCredits}
+                maximumCredits={maximumCredits}
+                setMaximumCredits={setMaximumCredits}
+                plannerState={plannerState}
+                setPlannerState={setPlannerState}
+                canUseDownstreamAnalysis={downstreamAnalysisAllowed}
+                sourceLabel={currentImportMode}
+              />
 
-          <SemesterScheduleBuilder
-            selectedSchedulePresetId={selectedSchedulePresetId}
-            setSelectedSchedulePresetId={setSelectedSchedulePresetId}
-            scheduleNoFriday={scheduleNoFriday}
-            setScheduleNoFriday={setScheduleNoFriday}
-            scheduleAvoidTuesdayBlock={scheduleAvoidTuesdayBlock}
-            setScheduleAvoidTuesdayBlock={setScheduleAvoidTuesdayBlock}
-            schedulePreferOnline={schedulePreferOnline}
-            setSchedulePreferOnline={setSchedulePreferOnline}
-            schedulePreferCompact={schedulePreferCompact}
-            setSchedulePreferCompact={setSchedulePreferCompact}
-            schedulePreferFewerDays={schedulePreferFewerDays}
-            setSchedulePreferFewerDays={setSchedulePreferFewerDays}
-            schedulePreferNoGaps={schedulePreferNoGaps}
-            setSchedulePreferNoGaps={setSchedulePreferNoGaps}
-            schedulePreferMorning={schedulePreferMorning}
-            setSchedulePreferMorning={setSchedulePreferMorning}
-            schedulePreferAfternoon={schedulePreferAfternoon}
-            setSchedulePreferAfternoon={setSchedulePreferAfternoon}
-            schedulePinnedSectionChoiceId={schedulePinnedSectionChoiceId}
-            setSchedulePinnedSectionChoiceId={setSchedulePinnedSectionChoiceId}
-            scheduleExcludedSectionChoiceId={scheduleExcludedSectionChoiceId}
-            setScheduleExcludedSectionChoiceId={
-              setScheduleExcludedSectionChoiceId
-            }
-            scheduleDiversityMode={scheduleDiversityMode}
-            setScheduleDiversityMode={setScheduleDiversityMode}
-            scheduleAllowPartialOptions={scheduleAllowPartialOptions}
-            setScheduleAllowPartialOptions={setScheduleAllowPartialOptions}
-            scheduleState={scheduleState}
-            setScheduleState={setScheduleState}
-            canUseDownstreamAnalysis={scheduleAnalysisAllowed}
-            sourceLabel={currentImportMode}
-          />
+              <SemesterScheduleBuilder
+                selectedSchedulePresetId={selectedSchedulePresetId}
+                setSelectedSchedulePresetId={setSelectedSchedulePresetId}
+                scheduleNoFriday={scheduleNoFriday}
+                setScheduleNoFriday={setScheduleNoFriday}
+                scheduleAvoidTuesdayBlock={scheduleAvoidTuesdayBlock}
+                setScheduleAvoidTuesdayBlock={setScheduleAvoidTuesdayBlock}
+                schedulePreferOnline={schedulePreferOnline}
+                setSchedulePreferOnline={setSchedulePreferOnline}
+                schedulePreferCompact={schedulePreferCompact}
+                setSchedulePreferCompact={setSchedulePreferCompact}
+                schedulePreferFewerDays={schedulePreferFewerDays}
+                setSchedulePreferFewerDays={setSchedulePreferFewerDays}
+                schedulePreferNoGaps={schedulePreferNoGaps}
+                setSchedulePreferNoGaps={setSchedulePreferNoGaps}
+                schedulePreferMorning={schedulePreferMorning}
+                setSchedulePreferMorning={setSchedulePreferMorning}
+                schedulePreferAfternoon={schedulePreferAfternoon}
+                setSchedulePreferAfternoon={setSchedulePreferAfternoon}
+                schedulePinnedSectionChoiceId={schedulePinnedSectionChoiceId}
+                setSchedulePinnedSectionChoiceId={
+                  setSchedulePinnedSectionChoiceId
+                }
+                scheduleExcludedSectionChoiceId={
+                  scheduleExcludedSectionChoiceId
+                }
+                setScheduleExcludedSectionChoiceId={
+                  setScheduleExcludedSectionChoiceId
+                }
+                scheduleDiversityMode={scheduleDiversityMode}
+                setScheduleDiversityMode={setScheduleDiversityMode}
+                scheduleAllowPartialOptions={scheduleAllowPartialOptions}
+                setScheduleAllowPartialOptions={setScheduleAllowPartialOptions}
+                scheduleState={scheduleState}
+                setScheduleState={setScheduleState}
+                canUseDownstreamAnalysis={scheduleAnalysisAllowed}
+                sourceLabel={currentImportMode}
+              />
+            </>
+          ) : null}
 
           <DataImportPreviewPanel
+            key={workflowScope}
             studentId={activeStudentId}
             selectedDataImportSampleId={selectedDataImportSampleId}
             setSelectedDataImportSampleId={setSelectedDataImportSampleId}
@@ -2627,11 +2667,13 @@ function AuditFallback({
 }
 
 function DegreeProgress({
+  historical,
   audit,
   requirements,
   myProgressPreview,
   courseStateState,
 }: {
+  historical: boolean;
   audit: DegreeAuditRun;
   requirements: RequirementEvaluation[];
   myProgressPreview: MyProgressPreviewDisplay | null;
@@ -2670,7 +2712,7 @@ function DegreeProgress({
     <>
       <section
         className="summary-grid"
-        id="degree-audit"
+        id={historical ? "historical-degree-audit" : "degree-audit"}
         aria-label="学业审核汇总"
       >
         <SummaryMetric
@@ -6103,7 +6145,7 @@ function DataReviewPanel({
         apiBaseUrl,
         {
           data_import_run_id: dataImportState.run.id,
-          reviewer_label: "Mock student self-review",
+          reviewer_label: "学生自助审核",
         },
         { timeoutMs: 5_000 },
       );
@@ -6142,7 +6184,7 @@ function DataReviewPanel({
       if (reviews.length === 0) {
         setDataReviewState({
           status: "empty",
-          message: "当前模拟学生没有可用的数据导入审核。",
+          message: "当前学生没有可用的数据导入审核。",
         });
         return;
       }
@@ -6213,6 +6255,11 @@ function DataReviewPanel({
         { dry_run: dryRun, allow_advisor_review_records: false },
         { timeoutMs: 8_000 },
       );
+      if (!dryRun) {
+        window.dispatchEvent(
+          new CustomEvent("sapsos-data-applied", { detail: studentId }),
+        );
+      }
       await loadReviewDetail(result.review_session, result);
       if (!dryRun && result.course_state_snapshot) {
         await loadActiveCourseStates();

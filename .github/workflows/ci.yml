@@ -27,7 +27,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - run: pnpm install --frozen-lockfile
-      - run: python -m pip install -e "apps/api[dev]"
+      - run: python -m pip install -c apps/api/requirements-ci.txt -e "apps/api[dev]"
       - run: cd apps/api && python -m alembic upgrade head
         env:
           DATABASE_URL: postgresql+psycopg://sapsos:sapsos_dev_password@localhost:5432/sapsos
@@ -58,6 +58,18 @@ jobs:
       - run: pnpm build
       - run: pnpm openapi:check
       - run: git diff --check
+  python-type-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.12", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -c apps/api/requirements-ci.txt -e "apps/api[dev]"
+      - run: cd apps/api && python -m mypy .
   e2e:
     runs-on: ubuntu-latest
     services:
@@ -82,7 +94,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - run: pnpm install --frozen-lockfile
-      - run: python -m pip install -e "apps/api[dev]"
+      - run: python -m pip install -c apps/api/requirements-ci.txt -e "apps/api[dev]"
       - run: pnpm exec playwright install --with-deps
       - run: pnpm seed
         env:

@@ -2901,6 +2901,25 @@ test("saved MyProgress import with exceptions is marked as requiring review", as
   await mockSuccessfulAuditApis(page);
   await mockSavedMyProgressImportApis(page, myProgressRequiresReviewPreview);
 
+  await page.route("**/academic-workflow", (route) =>
+    route.fulfill({
+      json: {
+        student_profile_id: mockAuditRun.student_profile_id,
+        revision: "needs-review",
+        programs: [],
+        courses: [],
+        terms: [],
+        section_ids: [],
+        issues: [
+          {
+            reason_code: "COURSE_HISTORY_REVIEW_REQUIRED",
+            message: "修读历史有异常，请先完成审核。",
+            evidence_reference: null,
+          },
+        ],
+      },
+    }),
+  );
   await page.goto("/");
   await waitForClientReady(page);
 
@@ -2912,10 +2931,14 @@ test("saved MyProgress import with exceptions is marked as requiring review", as
       .getByText("LOW_CONFIDENCE_REQUIREMENT_GROUP"),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /创建假设方案/ }),
+    page.getByRole("button", { name: "保存真实假设方案" }),
   ).toBeDisabled();
-  await expect(page.getByRole("button", { name: /创建规划/ })).toBeDisabled();
-  await expect(page.getByRole("button", { name: /生成课表/ })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "生成真实长期规划" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "优化真实课表" }),
+  ).toBeDisabled();
 });
 
 test("home page shows product status cards with advisory labels", async ({
@@ -3693,18 +3716,48 @@ test("real student readiness never enables mock academic candidates", async ({
       });
     },
   );
+  await page.route("**/api/v1/students/*/academic-workflow", (route) =>
+    route.fulfill({
+      json: {
+        student_profile_id: studentId,
+        revision: "empty-real-source",
+        programs: [],
+        courses: [],
+        terms: [],
+        section_ids: [],
+        issues: [
+          {
+            reason_code: "REVIEWED_PROGRAM_MISSING",
+            message: "尚无已审核的真实培养方案，请完成导入和审核。",
+            evidence_reference: null,
+          },
+        ],
+      },
+    }),
+  );
   await page.goto("/");
   await waitForClientReady(page);
   await expect(page.getByText("当前学生：Local learner")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /创建假设方案/ }),
+    page.getByRole("button", { name: "保存真实假设方案" }),
   ).toBeDisabled();
-  await expect(page.getByRole("button", { name: /创建规划/ })).toBeDisabled();
-  await expect(page.getByRole("button", { name: /生成课表/ })).toBeDisabled();
   await expect(
-    page.getByText(
-      "当前候选专业、课程和学期仅供演示；真实档案需接入经过审核的候选数据后才能计算。",
-    ),
+    page.getByRole("button", { name: "生成真实长期规划" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "优化真实课表" }),
+  ).toBeDisabled();
+  await expect(page.getByRole("button", { name: /创建假设方案/ })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("button", { name: /生成课表/ })).toHaveCount(0);
+  await expect(
+    page.getByLabel("已审核专业与 Catalog 年份").locator("option"),
+  ).toHaveCount(1);
+  await expect(
+    page.getByText("尚无已审核的真实培养方案，请完成导入和审核。", {
+      exact: true,
+    }),
   ).toBeVisible();
 });
 

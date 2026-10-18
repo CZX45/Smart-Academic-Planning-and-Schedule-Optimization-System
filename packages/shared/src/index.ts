@@ -639,6 +639,11 @@ export const DegreeAuditRunSchema = z.object({
   remaining_credits: DecimalValueSchema,
   completion_percentage: DecimalValueSchema,
   source_snapshot_hash: z.string(),
+  reviewed_rule_set_id: UuidSchema.nullable().default(null),
+  rule_resolution_state: z.string().default("MISSING"),
+  rule_source_reference: z.string().nullable().default(null),
+  rule_catalog_year: z.string().nullable().default(null),
+  rule_resolution_explanation: z.string().default("缺少已审核规则"),
   created_at: DateTimeSchema,
   updated_at: DateTimeSchema,
 });
@@ -688,6 +693,10 @@ export type AuditCourseApplication = z.infer<
 >;
 
 export const RequirementEvaluationSchema = z.object({
+  requirement_source: z.string().nullable().default(null),
+  catalog_version: z.string().nullable().default(null),
+  reason_code: z.string().default("REVIEW_REQUIRED"),
+  verification_state: z.string().default("REVIEW_REQUIRED"),
   id: UuidSchema,
   degree_audit_run_id: UuidSchema,
   requirement_node_id: UuidSchema,
@@ -3781,6 +3790,73 @@ export async function fetchActiveCourseStateSnapshot(
   if (!parsed.success) {
     throw new ApiResponseSchemaError(
       "Active course-state snapshot response did not match the expected schema",
+    );
+  }
+  return parsed.data;
+}
+
+export const AcademicWorkflowSchema = z.object({
+  student_profile_id: UuidSchema,
+  revision: z.string(),
+  programs: z.array(
+    z.object({
+      id: UuidSchema,
+      name: z.string(),
+      catalog_year: z.string(),
+      relationship_type: z.enum([
+        "PRIMARY_MAJOR",
+        "SECOND_MAJOR",
+        "MINOR",
+        "CERTIFICATE",
+      ]),
+      reviewed_rule_set_id: UuidSchema,
+      source: SourceMetadataSchema,
+    }),
+  ),
+  courses: z.array(
+    z.object({
+      id: UuidSchema,
+      code: z.string(),
+      title: z.string(),
+      credits: DecimalValueSchema,
+      source: SourceMetadataSchema,
+    }),
+  ),
+  terms: z.array(
+    z.object({
+      id: UuidSchema,
+      code: z.string(),
+      starts_on: z.string(),
+      ends_on: z.string(),
+      source: SourceMetadataSchema,
+    }),
+  ),
+  section_ids: z.array(UuidSchema),
+  issues: z.array(
+    z.object({
+      reason_code: z.string(),
+      message: z.string(),
+      evidence_reference: z.string().nullable(),
+    }),
+  ),
+});
+export type AcademicWorkflow = z.infer<typeof AcademicWorkflowSchema>;
+
+export async function fetchAcademicWorkflow(
+  apiBaseUrl: string,
+  studentId: string,
+  options: FetchHealthOptions = {},
+): Promise<AcademicWorkflow> {
+  const parsed = AcademicWorkflowSchema.safeParse(
+    await fetchJson(
+      apiBaseUrl,
+      `/api/v1/students/${studentId}/academic-workflow`,
+      options,
+    ),
+  );
+  if (!parsed.success || parsed.data.student_profile_id !== studentId) {
+    throw new ApiResponseSchemaError(
+      "当前学生的已审核候选数据校验失败，请重新加载。",
     );
   }
   return parsed.data;

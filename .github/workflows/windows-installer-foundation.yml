@@ -47,7 +47,7 @@ jobs:
         with: { python-version: "3.12" }
       - uses: dtolnay/rust-toolchain@stable
       - run: pnpm install --frozen-lockfile
-      - run: python -m pip install -e "apps/api[dev]"
+      - run: python -m pip install -c apps/api/requirements-ci.txt -e "apps/api[dev]"
       - run: cargo install tauri-cli --version 2.11.4 --locked
       - run: python -m pytest apps/api/tests/test_windows_installer_preflight.py -q
       - run: python -m pytest apps/api/tests/test_windows_installer_runtime_payload.py -q

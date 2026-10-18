@@ -1,0 +1,102 @@
+
+> smart-academic-planning@ test <REPO>
+> pnpm test:tooling && pnpm -r --if-present test
+
+
+> smart-academic-planning@ test:tooling <REPO>
+> node --test scripts/tests/*.test.mjs
+
+✔ E2E ignores inherited database settings and allocates distinct synthetic roots (2.079582ms)
+✔ both E2E entrypoints prohibit service reuse and have finite deadlines (0.788403ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 104.902551
+Scope: 5 of 6 workspace projects
+apps/api test$ python -m pytest
+apps/extension test$ vitest run
+packages/config test$ echo 'shared config package has no tests yet'
+packages/shared test$ vitest run
+packages/config test: shared config package has no tests yet
+packages/config test: Done
+packages/shared test:  RUN  v4.1.9 <REPO>/packages/shared
+apps/extension test:  RUN  v4.1.9 <REPO>/apps/extension
+packages/shared test:  Test Files  4 passed (4)
+packages/shared test:       Tests  66 passed (66)
+packages/shared test:    Start at  06:55:20
+packages/shared test:    Duration  2.66s (transform 1.48s, setup 0ms, import 3.24s, tests 844ms, environment 1ms)
+packages/shared test: Done
+apps/api test: ============================= test session starts ==============================
+apps/api test: platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0
+apps/api test: rootdir: <REPO>/apps/api
+apps/api test: configfile: pyproject.toml
+apps/api test: testpaths: tests
+apps/api test: plugins: anyio-4.15.1
+apps/api test: collected 367 items
+apps/extension test:  Test Files  13 passed (13)
+apps/extension test:       Tests  173 passed (173)
+apps/extension test:    Start at  06:55:20
+apps/extension test:    Duration  3.36s (transform 2.36s, setup 0ms, import 2.34s, tests 2.86s, environment 2ms)
+apps/extension test: Done
+apps/api test: tests/test_academic_api.py ......                                        [  1%]
+apps/api test: tests/test_academic_models.py .....................                      [  7%]
+apps/api test: tests/test_academic_planner.py .......                                   [  9%]
+apps/api test: tests/test_academic_scenarios.py .......                                 [ 11%]
+apps/api test: tests/test_academic_value_boundaries.py ..............                   [ 14%]
+apps/api test: tests/test_alembic_autogenerate.py ..                                    [ 15%]
+apps/api test: tests/test_auth_authorization.py ...........                             [ 18%]
+apps/api test: tests/test_config.py .........................                           [ 25%]
+apps/api test: tests/test_course_eligibility.py .................                       [ 29%]
+apps/api test: tests/test_data_imports.py ..............                                [ 33%]
+apps/api test: tests/test_data_reviews.py ......................................        [ 44%]
+apps/api test: tests/test_degree_audit_policy.py ...                                    [ 44%]
+apps/api test: tests/test_final_handoff_docs.py .                                       [ 45%]
+apps/api test: tests/test_health.py ...                                                 [ 46%]
+apps/api test: tests/test_import_summary_quality.py ..........                          [ 48%]
+apps/api test: tests/test_local_backup.py .....                                         [ 50%]
+apps/api test: tests/test_local_data_removal.py ...s...                                 [ 52%]
+apps/api test: tests/test_local_database.py ...                                         [ 52%]
+apps/api test: tests/test_local_diagnostics.py ..............                           [ 56%]
+apps/api test: tests/test_local_migrations.py ..........                                [ 59%]
+apps/api test: tests/test_local_onboarding.py ......                                    [ 61%]
+apps/api test: tests/test_local_request_security.py .......                             [ 62%]
+apps/api test: tests/test_local_restore.py ..                                           [ 63%]
+apps/api test: tests/test_local_runnable_package_docs.py ....                           [ 64%]
+apps/api test: tests/test_migration_contract.py ....                                    [ 65%]
+apps/api test: tests/test_orm_native_typing.py .                                        [ 65%]
+apps/api test: tests/test_packaging_contract.py ....                                    [ 67%]
+apps/api test: tests/test_pairing.py ...........                                        [ 70%]
+apps/api test: tests/test_phase16_workflow.py .............                             [ 73%]
+apps/api test: tests/test_production_safety_policy.py ..                                [ 74%]
+apps/api test: tests/test_reviewed_rules.py .....                                       [ 75%]
+apps/api test: tests/test_reviewed_rules_api.py .                                       [ 75%]
+apps/api test: tests/test_reviewed_rules_integration.py ........                        [ 77%]
+apps/api test: tests/test_runtime_discovery.py ........                                 [ 80%]
+apps/api test: tests/test_runtime_supervisor.py .....                                   [ 81%]
+apps/api test: tests/test_schedule_optimizer.py ...............                         [ 85%]
+apps/api test: tests/test_section_monitoring.py ......                                  [ 87%]
+apps/api test: tests/test_security_headers.py ...                                       [ 88%]
+apps/api test: tests/test_seed_dev.py ...........                                       [ 91%]
+apps/api test: tests/test_sqlite_compatibility.py ...                                   [ 91%]
+apps/api test: tests/test_vc_runtime_discovery.py ...ssss                               [ 93%]
+apps/api test: tests/test_windows_installer_foundation.py ...........                   [ 96%]
+apps/api test: tests/test_windows_installer_preflight.py ..s                            [ 97%]
+apps/api test: tests/test_windows_installer_runtime_payload.py sssssssss                [100%]
+apps/api test: =============================== warnings summary ===============================
+apps/api test: ../../../phase16-venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+apps/api test:   <PYTHON_ENV>/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+apps/api test:     from starlette.testclient import TestClient as TestClient  # noqa
+apps/api test: -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+apps/api test: ============ 352 passed, 15 skipped, 1 warning in 68.65s (0:01:08) =============
+apps/api test: Done
+apps/web test$ vitest run
+apps/web test:  RUN  v4.1.9 <REPO>/apps/web
+apps/web test:  Test Files  6 passed (6)
+apps/web test:       Tests  25 passed (25)
+apps/web test:    Start at  06:56:36
+apps/web test:    Duration  576ms (transform 174ms, setup 0ms, import 294ms, tests 44ms, environment 1ms)
+apps/web test: Done

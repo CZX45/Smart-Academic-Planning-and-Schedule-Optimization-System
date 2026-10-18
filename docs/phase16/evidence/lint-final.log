@@ -1,0 +1,17 @@
+
+> smart-academic-planning@ lint <REPO>
+> pnpm -r --if-present lint
+
+Scope: 5 of 6 workspace projects
+apps/api lint$ python -m ruff check .
+apps/extension lint$ eslint .
+packages/config lint$ echo 'shared config package has no lintable sources yet'
+packages/shared lint$ eslint .
+packages/config lint: shared config package has no lintable sources yet
+packages/config lint: Done
+apps/api lint: All checks passed!
+apps/api lint: Done
+packages/shared lint: Done
+apps/extension lint: Done
+apps/web lint$ eslint .
+apps/web lint: Done

@@ -56,7 +56,7 @@ jobs:
         run: |
           corepack enable
           corepack pnpm install --frozen-lockfile
-          python -m pip install -e "apps/api[dev]"
+          python -m pip install -c apps/api/requirements-ci.txt -e "apps/api[dev]"
           cargo install tauri-cli --version 2.11.4 --locked
 
       - name: Build one current installer

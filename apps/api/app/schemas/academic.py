@@ -526,6 +526,10 @@ class AuditCourseApplicationResponse(BaseModel):
 
 
 class RequirementEvaluationResponse(BaseModel):
+    requirement_source: str | None = None
+    catalog_version: str | None = None
+    reason_code: str
+    verification_state: str
     id: UUID
     degree_audit_run_id: UUID
     requirement_node_id: UUID

@@ -177,6 +177,7 @@ from app.schemas.academic import (
     StudentCourseAttemptResponse,
     StudentProfileResponse,
 )
+from app.schemas.academic_workflow import AcademicWorkflowResponse
 from app.schemas.reviewed_rules import (
     ReviewedRuleSetRecordResponse,
     ReviewedRuleSetResponse,
@@ -188,6 +189,7 @@ from app.services.academic_planner.exceptions import AcademicPlannerValidationEr
 from app.services.academic_scenarios.engine import AcademicScenarioApplicationService
 from app.services.academic_scenarios.exceptions import AcademicScenarioValidationError
 from app.services.academic_scenarios.result import ScenarioProgramInput
+from app.services.academic_workflow import academic_workflow
 from app.services.course_eligibility.engine import CourseEligibilityApplicationService
 from app.services.course_eligibility.exceptions import CourseEligibilityValidationError
 from app.services.course_state.engine import effective_student_course_attempts
@@ -220,6 +222,14 @@ router = APIRouter(
 )
 not_found_response = {"model": ErrorResponse}
 DatabaseSession = Annotated[Session, Depends(get_db)]
+
+
+@router.get("/students/{student_id}/academic-workflow", response_model=AcademicWorkflowResponse)
+def get_academic_workflow(student_id: UUID, db: DatabaseSession) -> AcademicWorkflowResponse:
+    student = db.get(StudentProfile, student_id)
+    if student is None:
+        raise not_found("StudentProfile", student_id)
+    return academic_workflow(db, student)
 
 
 def reviewed_rule_set_record_response(
@@ -608,8 +618,17 @@ def requirement_evaluation_response(
     requirement: RequirementNode,
     applications: list[AuditCourseApplicationResponse],
     warnings: list[DegreeAuditWarningResponse],
+    audit: DegreeAuditRun,
 ) -> RequirementEvaluationResponse:
     return RequirementEvaluationResponse(
+        requirement_source=audit.rule_source_reference or requirement.source_reference,
+        catalog_version=audit.rule_catalog_year,
+        reason_code=warnings[0].warning_code if warnings else evaluation.status.value,
+        verification_state=(
+            "REVIEW_REQUIRED"
+            if evaluation.status.value == "MANUAL_REVIEW_REQUIRED"
+            else audit.rule_resolution_state
+        ),
         id=evaluation.id,
         degree_audit_run_id=evaluation.degree_audit_run_id,
         requirement_node_id=evaluation.requirement_node_id,
@@ -2433,7 +2452,8 @@ def get_degree_audit_requirements(
     audit_id: UUID,
     db: DatabaseSession,
 ) -> list[RequirementEvaluationResponse]:
-    if db.get(DegreeAuditRun, audit_id) is None:
+    audit = db.get(DegreeAuditRun, audit_id)
+    if audit is None:
         raise not_found("DegreeAuditRun", audit_id)
 
     rows = db.execute(
@@ -2475,6 +2495,7 @@ def get_degree_audit_requirements(
             requirement,
             applications_by_evaluation[evaluation.id],
             warnings_by_evaluation[evaluation.id],
+            audit,
         )
         for evaluation, requirement in rows
     ]

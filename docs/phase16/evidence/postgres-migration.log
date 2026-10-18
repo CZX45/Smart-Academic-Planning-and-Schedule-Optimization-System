@@ -1,0 +1,23 @@
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 20260622_0001, create dev seed records
+INFO  [alembic.runtime.migration] Running upgrade 20260622_0001 -> 20260622_0002, create academic domain
+INFO  [alembic.runtime.migration] Running upgrade 20260622_0002 -> 20260623_0003, create course rules and sections
+INFO  [alembic.runtime.migration] Running upgrade 20260623_0003 -> 20260623_0004, create degree audit core
+INFO  [alembic.runtime.migration] Running upgrade 20260623_0004 -> 20260623_0005, create academic scenario what-if tables
+INFO  [alembic.runtime.migration] Running upgrade 20260623_0005 -> 20260624_0006, create course eligibility check tables
+INFO  [alembic.runtime.migration] Running upgrade 20260624_0006 -> 20260629_0007, create academic planner snapshot tables
+INFO  [alembic.runtime.migration] Running upgrade 20260629_0007 -> 20260629_0008, create semester schedule optimizer snapshot tables
+INFO  [alembic.runtime.migration] Running upgrade 20260629_0008 -> 20260630_0009, add phase 6b schedule optimization scoring and repair snapshots
+INFO  [alembic.runtime.migration] Running upgrade 20260630_0009 -> 20260630_0010, create phase 7a read-only data import staging tables
+INFO  [alembic.runtime.migration] Running upgrade 20260630_0010 -> 20260630_0011, create phase 7b data review and application tables
+INFO  [alembic.runtime.migration] Running upgrade 20260630_0011 -> 20260701_0012, allow browser extension source type for staged imports
+INFO  [alembic.runtime.migration] Running upgrade 20260701_0012 -> 20260701_0013, create read-only section monitoring tables
+INFO  [alembic.runtime.migration] Running upgrade 20260701_0013 -> 20260711_0014, add reviewed MyProgress course-state snapshots
+INFO  [alembic.runtime.migration] Running upgrade 20260711_0014 -> 20260712_0015, add auth tenants users tokens and student access grants
+INFO  [alembic.runtime.migration] Running upgrade 20260712_0015 -> 20260714_0016, add staged reviewed Program/Catalog rule sets
+INFO  [alembic.runtime.migration] Running upgrade 20260714_0016 -> 20260714_0017, add reviewed rule provenance to audit and eligibility snapshots
+INFO  [alembic.runtime.migration] Running upgrade 20260714_0017 -> 20260714_0018, allow advisory UNKNOWN eligibility results and persist reviewed corequisites
+INFO  [alembic.runtime.migration] Running upgrade 20260714_0018 -> 20260715_0019, persist real-section optimizer input boundary evidence
+INFO  [alembic.runtime.migration] Running upgrade 20260715_0019 -> 20260715_0020, persist selected Section provenance and drift snapshots
+INFO  [alembic.runtime.migration] Running upgrade 20260715_0020 -> 20260824_0021, track whether source evidence proves optional Course fields

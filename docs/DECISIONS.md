@@ -1570,3 +1570,10 @@ Apply, and fail-closed boundaries remain in force.
 The local desktop repair keeps existing domain/API contracts and the v9 Catalog gate. Each workflow owns a generation scoped to API, student, demo state and relevant calculation inputs. A scope change clears rendered results synchronously and invalidates earlier async setters, including A-to-B-to-A transitions. The currently hardcoded mock candidates are usable only in explicit demo mode; real candidate selection is a documented follow-up, never a silent fallback.
 
 Both Playwright entrypoints create fresh synthetic SQLite roots, seed mock data explicitly, and refuse existing server reuse. A caller DATABASE_URL cannot select participant data. Tests are headless and bounded. AUTO_VERIFIED remains a backward-compatible parser enum meaning structure-only; field/source review and internal Apply remain separate stages. No schema change or production activation is part of this repair.
+
+
+## 2026-10-18: reproducible typing and real academic inputs
+
+Use SQLAlchemy native `Mapped` annotations with SQLAlchemy 2.0.51 and strict mypy 2.4.0; the removed legacy plugin must not control ORM typing. CI and packaging share a universal dependency constraint file and verify Python 3.12/3.14. Negative ORM assignment tests preserve useful type protection.
+
+Real academic controls consume a student-scoped read model of reviewed/applied records and exact active program rules. Missing or conflicting rule/history evidence fails closed; mock inputs remain exclusive to explicit demo mode. Repeated/equivalent academic credit uses a shared course identity for exclusive requirement allocation. These checks are advisory and do not certify graduation or register courses. See [Phase 16 report](phase16/PHASE16_FINAL_REPORT.md) for capabilities and remaining gaps.

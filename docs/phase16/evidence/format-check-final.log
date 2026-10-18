@@ -1,0 +1,20 @@
+
+> smart-academic-planning@ format <REPO>
+> pnpm -r --if-present format
+
+Scope: 5 of 6 workspace projects
+apps/api format$ python -m ruff format --check .
+packages/shared format$ prettier --check "src/**/*.ts" "scripts/**/*.mjs" eslint.config.js package.json tsconfig.json
+apps/extension format$ prettier --check manifest.json package.json tsconfig.json tsconfig.test.json eslint.config.js "src/**/*.ts" "tests/**/*.ts" "tests/fixtures/*.html"
+apps/api format: 163 files already formatted
+apps/api format: Done
+packages/shared format: Checking formatting...
+apps/extension format: Checking formatting...
+packages/shared format: All matched files use Prettier code style!
+packages/shared format: Done
+apps/extension format: All matched files use Prettier code style!
+apps/extension format: Done
+apps/web format$ prettier --check eslint.config.mjs next-env.d.ts next.config.ts package.json tsconfig.json "src/**/*.{ts,tsx,css}"
+apps/web format: Checking formatting...
+apps/web format: All matched files use Prettier code style!
+apps/web format: Done

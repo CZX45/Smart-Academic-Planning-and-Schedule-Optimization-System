@@ -277,3 +277,18 @@ def test_malformed_body_uuid_list_returns_validation_error_not_server_error(
     )
 
     assert response.status_code == 422
+
+
+def test_academic_workflow_candidates_obey_student_authorization(auth_client: TestClient) -> None:
+    student_id = str(seed_uuid("student-profile:mock-student"))
+    denied = auth_client.get(
+        f"/api/v1/students/{student_id}/academic-workflow", headers=auth_header(DENIED_TOKEN)
+    )
+    assert denied.status_code == 404
+    assert denied.json()["detail"]["code"] == "not_found"
+    allowed = auth_client.get(
+        f"/api/v1/students/{student_id}/academic-workflow", headers=auth_header(ALLOWED_TOKEN)
+    )
+    assert allowed.status_code == 200
+    assert allowed.json()["student_profile_id"] == student_id
+    assert allowed.json()["courses"] == []  # Explicit demo profile is never a real source.

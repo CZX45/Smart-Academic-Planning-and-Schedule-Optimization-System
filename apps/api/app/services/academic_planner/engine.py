@@ -97,7 +97,11 @@ class PlannerCandidate:
 
     @property
     def credits(self) -> Decimal:
-        return self.course_option.credits_override or self.course.credits_min
+        return (
+            self.course_option.credits_override
+            if self.course_option.credits_override is not None
+            else self.course.credits_min
+        )
 
 
 @dataclass
@@ -409,6 +413,16 @@ class AcademicPlannerApplicationService:
                 select(AcademicTerm)
                 .where(
                     AcademicTerm.institution_id == program_version.institution_id,
+                    AcademicTerm.campus_id == program_version.campus_id,
+                    AcademicTerm.source_type.in_(
+                        [SourceType.MOCK]
+                        if program_version.source_type is SourceType.MOCK
+                        else [
+                            SourceType.OFFICIAL,
+                            SourceType.IMPORTED,
+                            SourceType.BROWSER_EXTENSION,
+                        ]
+                    ),
                     AcademicTerm.starts_on >= start_term.starts_on,
                 )
                 .order_by(AcademicTerm.starts_on, AcademicTerm.term_code, AcademicTerm.id)
@@ -487,6 +501,16 @@ class AcademicPlannerApplicationService:
         candidates: list[PlannerCandidate] = []
         for requirement in audit.requirements:
             if requirement.status in SATISFIED_REQUIREMENT_STATUSES:
+                continue
+            if requirement.status is RequirementEvaluationStatus.MANUAL_REVIEW_REQUIRED:
+                warnings.append(
+                    WarningDraft(
+                        warning_code="REQUIREMENT_REVIEW_REQUIRED",
+                        severity=AuditWarningSeverity.WARNING,
+                        message=f"{requirement.requirement_name} 需要审核，不能据此确定安排课程。",
+                        requires_advisor_confirmation=True,
+                    )
+                )
                 continue
             node = nodes_by_id[requirement.requirement_node_id]
             if not node.is_required:
@@ -955,9 +979,18 @@ class AcademicPlannerApplicationService:
         term: AcademicTerm,
         plan_course_id: UUID,
     ) -> list[WarningDraft]:
+        sources = (
+            [SourceType.MOCK]
+            if course.source_type is SourceType.MOCK
+            else [SourceType.OFFICIAL, SourceType.IMPORTED, SourceType.BROWSER_EXTENSION]
+        )
         sections = self._db.scalars(
             select(Section)
-            .where(Section.course_id == course.id, Section.term_id == term.id)
+            .where(
+                Section.course_id == course.id,
+                Section.term_id == term.id,
+                Section.source_type.in_(sources),
+            )
             .order_by(Section.status, Section.section_code, Section.id)
         ).all()
         if sections:
@@ -971,7 +1004,7 @@ class AcademicPlannerApplicationService:
                         severity=AuditWarningSeverity.WARNING,
                         message=(
                             f"{course.subject_code} {course.course_number} has only closed or "
-                            "cancelled mock sections in this term; long-term planning treats "
+                            "cancelled sections in this term; long-term planning treats "
                             "that as a warning, not seat monitoring."
                         ),
                         requires_advisor_confirmation=True,
@@ -984,6 +1017,7 @@ class AcademicPlannerApplicationService:
         matching_pattern = self._db.scalar(
             select(CourseOfferingPattern).where(
                 CourseOfferingPattern.course_id == course.id,
+                CourseOfferingPattern.source_type.in_(sources),
                 CourseOfferingPattern.campus_id == term.campus_id,
                 CourseOfferingPattern.term_type == term_type,
             )
@@ -996,6 +1030,7 @@ class AcademicPlannerApplicationService:
         any_pattern = self._db.scalar(
             select(CourseOfferingPattern).where(
                 CourseOfferingPattern.course_id == course.id,
+                CourseOfferingPattern.source_type.in_(sources),
                 CourseOfferingPattern.campus_id == term.campus_id,
             )
         )
@@ -1005,7 +1040,7 @@ class AcademicPlannerApplicationService:
                     warning_code="COURSE_OFFERING_PATTERN_UNKNOWN",
                     severity=AuditWarningSeverity.WARNING,
                     message=(
-                        f"No mock offering pattern or section is stored for "
+                        f"No verified offering pattern or section is stored for "
                         f"{course.subject_code} {course.course_number} in {term.term_code}."
                     ),
                     requires_advisor_confirmation=True,
@@ -1017,7 +1052,7 @@ class AcademicPlannerApplicationService:
                 warning_code="COURSE_NOT_LIKELY_OFFERED",
                 severity=AuditWarningSeverity.WARNING,
                 message=(
-                    f"Stored mock offering patterns do not indicate "
+                    f"Stored offering patterns do not indicate "
                     f"{course.subject_code} {course.course_number} is likely in {term.term_code}."
                 ),
                 requires_advisor_confirmation=True,

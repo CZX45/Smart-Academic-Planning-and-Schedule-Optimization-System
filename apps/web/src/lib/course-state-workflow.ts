@@ -20,12 +20,13 @@ export type CourseStateWorkflowState =
 export function useCourseStateWorkflow(
   apiBaseUrl: string | undefined,
   studentId: string | undefined,
+  revision = 0,
 ): readonly [
   CourseStateWorkflowState,
   Dispatch<SetStateAction<CourseStateWorkflowState>>,
 ] {
   const [state, setState] = useScopedWorkflowState<CourseStateWorkflowState>(
-    JSON.stringify([apiBaseUrl, studentId]),
+    JSON.stringify([apiBaseUrl, studentId, revision]),
     () =>
       apiBaseUrl
         ? { status: "loading" }

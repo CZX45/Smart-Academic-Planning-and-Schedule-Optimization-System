@@ -1,0 +1,17 @@
+
+> smart-academic-planning@ typecheck <REPO>
+> pnpm -r --if-present typecheck
+
+Scope: 5 of 6 workspace projects
+apps/api typecheck$ python -m mypy .
+apps/extension typecheck$ tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit
+packages/config typecheck$ echo 'shared config package has no typecheck yet'
+packages/shared typecheck$ tsc -p tsconfig.json --noEmit
+packages/config typecheck: shared config package has no typecheck yet
+packages/config typecheck: Done
+apps/api typecheck: Success: no issues found in 163 source files
+apps/api typecheck: Done
+packages/shared typecheck: Done
+apps/extension typecheck: Done
+apps/web typecheck$ tsc -p tsconfig.json --noEmit
+apps/web typecheck: Done
