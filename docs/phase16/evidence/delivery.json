@@ -8,11 +8,14 @@
   "ci_status": "ALL_FOUR_CODE_WORKFLOWS_PASSED",
   "source_commit": "0547e861ea81cf004ca9c4bc1a050674f8007879",
   "local_tests": {
-    "passed": 690,
+    "passed": 657,
     "skipped_windows_specific": 15,
     "rust_not_run_locally": 25,
-    "inventory": 730,
-    "rust_passed_in_windows_ci": 25
+    "inventory": 697,
+    "rust_passed_in_windows_ci": 25,
+    "raw_pass_events_including_generated_duplicates": 690,
+    "duplicate_generated_tests_excluded": 33,
+    "unique_unit_and_integration_passed": 594
   },
   "main_after": "8e055994e3e4435043c66e9362d9d0ede2365ec3",
   "draft_pr_url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/88",
@@ -34,5 +37,11 @@
     "packaged_e2e": "windows-packaged-final.json",
     "ci": "ci-final.json",
     "extension": "extension-package.json"
+  },
+  "baseline_test_count": {
+    "previously_reported": 699,
+    "duplicate_generated_tests": 33,
+    "unique_inventory": 666,
+    "added_unique_tests": 31
   }
 }

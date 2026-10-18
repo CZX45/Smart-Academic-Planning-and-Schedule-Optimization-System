@@ -53,4 +53,4 @@ Chrome 155 在大型嵌套表格上重复触发原有 1 秒预算，留下空摘
 
 已下载并只读核验源码对应的候选安装包归档：manifest 的 source_head_sha 为上述代码 SHA，版本 0.1.8，安装程序 SHA-256 与 manifest 完全一致。安装态证据确认 LOCAL_DESKTOP/2 唯一标记和 18 个阶段 completed。精简证据见 windows-installer-final.json、windows-packaged-final.json；不将 runner 上合成数据的结果计为真实学校或用户电脑验收。
 
-桌面动态端口重启补充修复和两个使用可控时钟的稳定性夹具均包含在上述最终代码提交中。新本地结果为 690 PASS / 15 平台 SKIP；Windows Rust 25 PASS。生产稳定性预算、超时和原因码断言没有放宽。
+桌面动态端口重启补充修复和两个使用可控时钟的稳定性夹具均包含在上述最终代码提交中。去除 33 个 Shared 构建副本后，本地独立结果为 657 PASS / 15 平台 SKIP；Windows Rust 25 PASS。生产稳定性预算、超时和原因码断言没有放宽。

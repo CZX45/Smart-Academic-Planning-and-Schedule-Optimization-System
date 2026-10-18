@@ -33,7 +33,7 @@
   },
   {
     "file": "delivery.json",
-    "sha256": "5c2faa887dd4b86f419bd3373b1358e03d1cb6030a9f13176e829947ce8f50fe"
+    "sha256": "4aa734382c1b912bb3e48b78457e49b2f923803cfef28ba6c17d27df8c4a293b"
   },
   {
     "file": "e2e-checkpoint-fixture-failure.log",
@@ -120,6 +120,10 @@
     "sha256": "0ac9da4a0c7418b5dc88d5ba46dc315ecc5583cb7f4afda11662f73db680dca8"
   },
   {
+    "file": "shared-source-tests.log",
+    "sha256": "e06adbf5e190c895e8486a73658e25ba78d6585952bfd7b4ede67475ccc70305"
+  },
+  {
     "file": "snapshot-focused.log",
     "sha256": "10dd5eee7ac90c9c22851cf4c4e11ad76fde0af28fdb71979d59e5985df83667"
   },
@@ -128,12 +132,16 @@
     "sha256": "78f8b0701b1553830fde856ac75089de7e88a8153fb092d4e4e1d6f91b60f869"
   },
   {
+    "file": "test-count-reconciliation.json",
+    "sha256": "55dafefc7a450efabdb8fdfc5199bd0c6fedbccc67c75be136623a190b8e79e2"
+  },
+  {
     "file": "typecheck-final.log",
     "sha256": "537151ada745ce3c9d8caf179b4cd41bc1adcfdf68b55b29521b021db4dfae54"
   },
   {
     "file": "typescript-test-names.json",
-    "sha256": "43558e4538d8973d16e4f43e0e2b33bd45637d95846ad6be438aa12c423135e9"
+    "sha256": "5509fce545c8ffc68170532a2b4f3423ff3265d595543a4191af382a3fdc40d6"
   },
   {
     "file": "unit-final.log",

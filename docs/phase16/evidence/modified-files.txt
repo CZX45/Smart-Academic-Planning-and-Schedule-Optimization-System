@@ -65,8 +65,10 @@ docs/phase16/evidence/restart-e2e.log
 docs/phase16/evidence/reviewed-planner.log
 docs/phase16/evidence/rule-source.log
 docs/phase16/evidence/rust-test-names.log
+docs/phase16/evidence/shared-source-tests.log
 docs/phase16/evidence/snapshot-focused.log
 docs/phase16/evidence/snapshot-probe.json
+docs/phase16/evidence/test-count-reconciliation.json
 docs/phase16/evidence/typecheck-final.log
 docs/phase16/evidence/typescript-test-names.json
 docs/phase16/evidence/unit-final.log
