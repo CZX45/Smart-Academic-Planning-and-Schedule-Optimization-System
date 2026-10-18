@@ -33,6 +33,7 @@ from app.models.academic import (
     StudentAcademicProgramStatus,
     StudentCourseAttempt,
     StudentCourseAttemptStatus,
+    StudentProfile,
 )
 
 MYPROGRESS_PAGE_TYPE = "KEAN_MY_PROGRESS_PAGE"
@@ -91,6 +92,9 @@ def effective_student_course_attempts(
     statement = select(StudentCourseAttempt).where(
         StudentCourseAttempt.student_profile_id == student_profile_id
     )
+    student = db.get(StudentProfile, student_profile_id)
+    if student is not None and student.source_type is not SourceType.MOCK:
+        statement = statement.where(StudentCourseAttempt.source_type != SourceType.MOCK)
     if snapshot is not None:
         statement = statement.where(
             or_(
@@ -745,7 +749,10 @@ class CourseStateApplicationService:
             return "PROGRAM_IDENTITY_UNMATCHED"
         if not source_catalog:
             return "PROGRAM_IDENTITY_VERIFIED_CATALOG_VERSION_UNKNOWN"
-        if any(version.catalog_year == source_catalog for version in matching_versions):
+        exact = [version for version in matching_versions if version.catalog_year == source_catalog]
+        if len(exact) > 1:
+            return "PROGRAM_IDENTITY_CONFLICT"
+        if len(exact) == 1:
             return "EXACT"
         return "PROGRAM_IDENTITY_VERIFIED_CATALOG_VERSION_UNMATCHED"
 

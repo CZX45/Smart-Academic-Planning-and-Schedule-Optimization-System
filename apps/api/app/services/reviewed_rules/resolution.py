@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from uuid import UUID
 
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,11 +17,14 @@ from app.models.academic import (
     RequirementCourseOption,
     RequirementNode,
     RequirementType,
+    SourceType,
     StudentAcademicProgram,
     StudentAcademicProgramStatus,
+    StudentProfile,
     StudentProgramType,
 )
 from app.models.reviewed_rules import ReviewedRuleSetRecord
+from app.services.data_imports.normalizers import normalize_course_code
 from app.services.reviewed_rules.contracts import CatalogRuleSet, RuleLifecycle
 
 
@@ -86,7 +90,9 @@ def reviewed_requirement_view(
         for course_identifier in rule.course_ids:
             matched_course = courses_by_identifier.get(course_identifier)
             if matched_course is None:
-                matched_course = courses_by_identifier.get(course_identifier.upper())
+                matched_course = courses_by_identifier.get(
+                    normalize_course_code(course_identifier) or ""
+                )
             if matched_course is None:
                 definition = next(
                     (
@@ -97,7 +103,9 @@ def reviewed_requirement_view(
                     None,
                 )
                 if definition is not None:
-                    matched_course = courses_by_identifier.get(definition.code.upper())
+                    matched_course = courses_by_identifier.get(
+                        normalize_course_code(definition.code) or ""
+                    )
                     if matched_course is None:
                         matched_course = courses_by_identifier.get(
                             definition.code.replace(" ", "").upper()
@@ -161,10 +169,42 @@ def resolve_for_program_version(db: Session, program_version_id: UUID) -> RuleRe
             "and catalog year.",
         )
     record = records[0]
+    try:
+        rule_set = CatalogRuleSet.model_validate(record.payload)
+    except ValidationError:
+        return RuleResolution(
+            RuleResolutionState.MISSING,
+            None,
+            None,
+            "Active rule payload is invalid; source review is required.",
+        )
+    if (
+        not record.reviewer_confirmed
+        or record.reviewed_at is None
+        or record.validation_state != "VALID"
+        or record.validation_errors
+        or not rule_set.reviewer_confirmed
+        or rule_set.reviewed_at is None
+        or rule_set.lifecycle is not RuleLifecycle.ACTIVE
+        or (
+            program_version.source_type is not SourceType.MOCK
+            and rule_set.source.source_type.strip().upper()
+            not in {"OFFICIAL", "IMPORTED", "BROWSER_EXTENSION"}
+        )
+        or rule_set.source.institution_id != institution.code
+        or rule_set.source.program_id != program.code
+        or rule_set.source.catalog_year != program_version.catalog_year
+    ):
+        return RuleResolution(
+            RuleResolutionState.MISSING,
+            None,
+            None,
+            "Active rule metadata and reviewed source evidence do not agree; review is required.",
+        )
     return RuleResolution(
         RuleResolutionState.ACTIVE,
         record,
-        CatalogRuleSet.model_validate(record.payload),
+        rule_set,
         "Exact active reviewed rule set selected by institution, program, and catalog year.",
     )
 
@@ -182,12 +222,21 @@ def resolve_for_student(
     student_id: UUID,
     program_version_id: UUID | None = None,
 ) -> RuleResolution:
-    active_programs = db.scalars(
-        select(StudentAcademicProgram).where(
-            StudentAcademicProgram.student_profile_id == student_id,
-            StudentAcademicProgram.status == StudentAcademicProgramStatus.ACTIVE,
+    statement = select(StudentAcademicProgram).where(
+        StudentAcademicProgram.student_profile_id == student_id,
+        StudentAcademicProgram.status == StudentAcademicProgramStatus.ACTIVE,
+    )
+    student = db.get(StudentProfile, student_id)
+    if student is not None and student.source_type is not SourceType.MOCK:
+        reviewed_sources = [SourceType.OFFICIAL, SourceType.IMPORTED, SourceType.BROWSER_EXTENSION]
+        statement = statement.join(ProgramVersion).where(
+            StudentAcademicProgram.source_type.in_(reviewed_sources),
+            ProgramVersion.source_type.in_(reviewed_sources),
+            ProgramVersion.institution_id == student.home_institution_id,
         )
-    ).all()
+        if student.home_campus_id is not None:
+            statement = statement.where(ProgramVersion.campus_id == student.home_campus_id)
+    active_programs = db.scalars(statement).all()
     if program_version_id is not None:
         selected = next(
             (

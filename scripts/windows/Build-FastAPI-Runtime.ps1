@@ -17,7 +17,7 @@ if (-not (Get-Command $Python -ErrorAction SilentlyContinue)) {
 }
 
 if (-not $SkipInstall) {
-    & $Python -m pip install --requirement (Join-Path $apiRoot "packaging\requirements.txt")
+    & $Python -m pip install --constraint (Join-Path $apiRoot "requirements-ci.txt") --requirement (Join-Path $apiRoot "packaging\requirements.txt")
     if ($LASTEXITCODE -ne 0) { throw "Could not install the pinned PyInstaller build dependency." }
 }
 

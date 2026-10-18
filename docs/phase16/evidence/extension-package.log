@@ -1,0 +1,18 @@
+
+> smart-academic-planning@ extension:package <REPO>
+> pnpm --filter @sapsos/extension build && node scripts/package-extension.mjs
+
+
+> @sapsos/extension@0.1.8 build <REPO>/apps/extension
+> tsc -p tsconfig.json
+
+Browser extension package is ready.
+
+Generated extension build folder: <REPO>/dist/extension-unpacked
+
+Manual load instructions:
+1. Open Chrome or Edge.
+2. Go to chrome://extensions or edge://extensions.
+3. Enable Developer Mode.
+4. Click Load unpacked.
+5. Select the generated extension build folder.

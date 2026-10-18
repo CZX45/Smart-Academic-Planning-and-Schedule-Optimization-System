@@ -25,13 +25,14 @@ from app.models.academic import (
     RequirementType,
     SourceType,
     StudentCourseAttemptStatus,
+    StudentProfile,
     TransferCredit,
 )
 from app.services.course_state.engine import (
     active_course_state_snapshot,
     effective_student_course_attempts,
 )
-from app.services.degree_audit.allocator import AuditAllocator
+from app.services.degree_audit.allocator import AuditAllocator, SourceKey
 from app.services.degree_audit.context import (
     ZERO,
     AuditContext,
@@ -55,6 +56,7 @@ from app.services.degree_audit.result import (
 from app.services.reviewed_rules.resolution import (
     RuleResolutionState,
     resolve_for_program_version,
+    resolve_for_student,
     reviewed_requirement_view,
 )
 
@@ -302,15 +304,15 @@ class ChooseNEvaluator(BaseEvaluator):
             )
 
         selected: list[CourseCandidate] = []
-        seen_courses: set[UUID] = set()
+        seen_courses: set[SourceKey] = set()
         for candidate in sorted(candidates, key=candidate_sort_key):
-            if candidate.course_id is not None and candidate.course_id in seen_courses:
+            if candidate.source_key in seen_courses:
                 continue
             if not allocator.is_available(candidate.source_key, allows_overlap=node.allows_overlap):
                 continue
             selected.append(candidate)
             if candidate.course_id is not None:
-                seen_courses.add(candidate.course_id)
+                seen_courses.add(candidate.source_key)
             if len(selected) >= node.choose_n:
                 break
 
@@ -607,7 +609,15 @@ class DegreeAuditEngine:
             existing = evaluated.get(node.id)
             if existing is not None:
                 return existing
-            result = self._registry.for_node(node).evaluate(node, context, evaluate_node, allocator)
+            result = (
+                BaseEvaluator().manual_review(
+                    node,
+                    "学校规则、课程映射或课程历史不完整，需要审核后才能确认要求满足情况。",
+                    warning_code="ACADEMIC_EVIDENCE_REVIEW_REQUIRED",
+                )
+                if context.requires_rule_review
+                else self._registry.for_node(node).evaluate(node, context, evaluate_node, allocator)
+            )
             evaluated[node.id] = result
             return result
 
@@ -685,7 +695,13 @@ class DegreeAuditEngine:
                 select(Course).where(Course.institution_id == program_version.institution_id)
             ).all()
         )
-        resolution = resolve_for_program_version(self._db, program_version_id)
+        student = self._db.get(StudentProfile, student_profile_id)
+        real_student = student is not None and student.source_type is not SourceType.MOCK
+        resolution = (
+            resolve_for_student(self._db, student_profile_id, program_version_id)
+            if real_student
+            else resolve_for_program_version(self._db, program_version_id)
+        )
         resolution_warnings: list[str] = []
         if resolution.state is RuleResolutionState.ACTIVE and resolution.rule_set is not None:
             nodes, options, resolution_warnings = reviewed_requirement_view(
@@ -696,7 +712,7 @@ class DegreeAuditEngine:
         transfer_statement = select(TransferCredit).where(
             TransferCredit.student_profile_id == student_profile_id
         )
-        if active_snapshot is not None:
+        if active_snapshot is not None or real_student:
             transfer_statement = transfer_statement.where(
                 TransferCredit.source_type != SourceType.MOCK
             )
@@ -705,14 +721,14 @@ class DegreeAuditEngine:
             CourseWaiver.student_profile_id == student_profile_id,
             CourseWaiver.program_version_id == program_version_id,
         )
-        if active_snapshot is not None:
+        if active_snapshot is not None or real_student:
             waiver_statement = waiver_statement.where(CourseWaiver.source_type != SourceType.MOCK)
         waivers = list(self._db.scalars(waiver_statement).all())
         substitution_statement = select(CourseSubstitution).where(
             CourseSubstitution.student_profile_id == student_profile_id,
             CourseSubstitution.program_version_id == program_version_id,
         )
-        if active_snapshot is not None:
+        if active_snapshot is not None or real_student:
             substitution_statement = substitution_statement.where(
                 CourseSubstitution.source_type != SourceType.MOCK
             )
@@ -724,6 +740,16 @@ class DegreeAuditEngine:
                 )
             ).all()
         )
+        if real_student:
+            equivalencies = [
+                item
+                for item in equivalencies
+                if item.source_type is SourceType.OFFICIAL
+                or (
+                    item.source_type in {SourceType.IMPORTED, SourceType.BROWSER_EXTENSION}
+                    and item.source_confidence == "reviewed_import"
+                )
+            ]
         context = AuditContext(
             student_profile_id=student_profile_id,
             program_version_id=program_version_id,
@@ -751,6 +777,18 @@ class DegreeAuditEngine:
                 resolution.rule_set.source.catalog_year if resolution.rule_set is not None else None
             ),
             rule_resolution_explanation=resolution.explanation,
+            requires_rule_review=real_student
+            and (
+                program_version.source_type is SourceType.MOCK
+                or resolution.state is not RuleResolutionState.ACTIVE
+                or bool(resolution_warnings)
+                or active_snapshot is None
+                or active_snapshot.program_mapping_state != "EXACT"
+                or active_snapshot.extraction_bounded
+                or active_snapshot.extraction_truncated
+                or active_snapshot.unmatched_count > 0
+                or active_snapshot.exception_count > 0
+            ),
         )
         for message in resolution_warnings:
             context.warnings.append(
@@ -914,7 +952,11 @@ def evaluate_credit_pool(
             for candidate in candidates
             if candidate.course_level is not None and candidate.course_level >= minimum_course_level
         ]
-    selected = select_distinct_candidates(candidates, allocator, allows_overlap=True)
+    selected = select_distinct_candidates(
+        candidates,
+        allocator,
+        allows_overlap=node.allows_overlap if reserve_sources else True,
+    )
     completed = sum((candidate.credits for candidate in selected if candidate.is_completed), ZERO)
     in_progress = sum(
         (candidate.credits for candidate in selected if candidate.is_in_progress), ZERO
@@ -955,15 +997,15 @@ def select_distinct_candidates(
     allows_overlap: bool,
 ) -> list[CourseCandidate]:
     selected: list[CourseCandidate] = []
-    seen_courses: set[UUID] = set()
+    seen_courses: set[SourceKey] = set()
     for candidate in sorted(candidates, key=candidate_sort_key):
-        if candidate.course_id is not None and candidate.course_id in seen_courses:
+        if candidate.source_key in seen_courses:
             continue
         if not allocator.is_available(candidate.source_key, allows_overlap=allows_overlap):
             continue
         selected.append(candidate)
         if candidate.course_id is not None:
-            seen_courses.add(candidate.course_id)
+            seen_courses.add(candidate.source_key)
     return selected
 
 

@@ -73,6 +73,22 @@ class AuditContext:
     rule_source_reference: str | None = None
     rule_catalog_year: str | None = None
     rule_resolution_explanation: str = "No reviewed rule set was selected."
+    requires_rule_review: bool = False
+
+    def credit_identity(self, course_id: UUID) -> SourceKey:
+        # Reviewed equivalencies share one credit identity. A different attempt,
+        # transfer, or substitution must not spend the same course twice.
+        related = {course_id}
+        edges = [edge for group in self.equivalencies_by_equivalent.values() for edge in group]
+        changed = True
+        while changed:
+            changed = False
+            for edge in edges:
+                if edge.source_course_id in related or edge.equivalent_course_id in related:
+                    before = len(related)
+                    related.update((edge.source_course_id, edge.equivalent_course_id))
+                    changed = changed or len(related) != before
+        return ("course", min(related, key=str))
 
     def waiver_candidates(self, node: RequirementNode) -> list[CourseCandidate]:
         candidates: list[CourseCandidate] = []
@@ -124,7 +140,7 @@ class AuditContext:
         completed = ZERO
         in_progress = ZERO
         planned = ZERO
-        seen_courses: set[UUID] = set()
+        seen_courses: set[SourceKey] = set()
         for candidate in self.all_course_candidates(
             RequirementNode(
                 id=UUID("00000000-0000-0000-0000-000000000000"),
@@ -138,9 +154,9 @@ class AuditContext:
             ),
             None,
         ):
-            if candidate.course_id is None or candidate.course_id in seen_courses:
+            if candidate.course_id is None or candidate.source_key in seen_courses:
                 continue
-            seen_courses.add(candidate.course_id)
+            seen_courses.add(candidate.source_key)
             if candidate.is_completed:
                 completed += candidate.credits
             elif candidate.is_in_progress:
@@ -209,7 +225,6 @@ class AuditContext:
                     minimum_grade,
                     application_type=AuditApplicationType.SUBSTITUTION,
                     course_substitution_id=substitution.id,
-                    source_key=("substitution", substitution.id),
                     explanation_prefix="Approved substitution applies",
                 )
                 if candidate is not None:
@@ -244,7 +259,7 @@ class AuditContext:
             if not grade_result.is_satisfied:
                 return None
             return CourseCandidate(
-                source_key=source_key or ("attempt", attempt.id),
+                source_key=source_key or self.credit_identity(attempt.course_id),
                 course_id=applied_course_id,
                 application_type=application_type,
                 credits=attempt.credits_earned,
@@ -263,7 +278,7 @@ class AuditContext:
             )
         if attempt.status is StudentCourseAttemptStatus.IN_PROGRESS:
             return CourseCandidate(
-                source_key=source_key or ("attempt", attempt.id),
+                source_key=source_key or self.credit_identity(attempt.course_id),
                 course_id=applied_course_id,
                 application_type=application_type,
                 credits=attempt.credits_attempted,
@@ -282,7 +297,7 @@ class AuditContext:
             )
         if attempt.status is StudentCourseAttemptStatus.PLANNED:
             return CourseCandidate(
-                source_key=source_key or ("attempt", attempt.id),
+                source_key=source_key or self.credit_identity(attempt.course_id),
                 course_id=applied_course_id,
                 application_type=application_type,
                 credits=attempt.credits_attempted,
@@ -346,7 +361,7 @@ class AuditContext:
                 return None
         course = self.courses_by_id[transfer.equivalent_course_id]
         return CourseCandidate(
-            source_key=("transfer", transfer.id),
+            source_key=self.credit_identity(transfer.equivalent_course_id),
             course_id=transfer.equivalent_course_id,
             application_type=AuditApplicationType.TRANSFER_CREDIT,
             credits=transfer.credits_earned,

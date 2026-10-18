@@ -56,15 +56,12 @@ jobs:
         run: |
           corepack enable
           corepack pnpm install --frozen-lockfile
-          python -m pip install -e "apps/api[dev]"
+          python -m pip install -c apps/api/requirements-ci.txt -e "apps/api[dev]"
           cargo install tauri-cli --version 2.11.4 --locked
 
       - name: Build one current installer
         timeout-minutes: 35
-        run: >-
-          pwsh -NoProfile -File scripts/windows/Build-Windows-Installer.ps1
-          -TestVersionOverride 0.1.6
-          -AllowTestVersionOverride
+        run: pwsh -NoProfile -File scripts/windows/Build-Windows-Installer.ps1
 
       - name: Validate installer and installed runtime
         run: >-
@@ -73,10 +70,11 @@ jobs:
 
       - name: Run installed packaged desktop E2E
         timeout-minutes: 25
-        run: >-
-          pwsh -NoProfile -File scripts/windows/Invoke-Packaged-Desktop-E2E.ps1
-          -InstallerPath dist/windows-installer/SAPSOS-Local-Desktop-0.1.6-x64-setup.exe
-          -TestRoot "$env:RUNNER_TEMP\sapsos-packaged-desktop-e2e"
+        run: |
+          $identity = Get-Content desktop-shell/desktop-identity.json -Raw | ConvertFrom-Json
+          $artifactName = $identity.installer_artifact_name.Replace("{version}", $identity.version)
+          $installerPath = Join-Path "dist/windows-installer" $artifactName
+          pwsh -NoProfile -File scripts/windows/Invoke-Packaged-Desktop-E2E.ps1 -InstallerPath $installerPath -TestRoot "$env:RUNNER_TEMP\sapsos-packaged-desktop-e2e"
 
       - name: Upload sanitized packaged desktop E2E evidence
         if: always()

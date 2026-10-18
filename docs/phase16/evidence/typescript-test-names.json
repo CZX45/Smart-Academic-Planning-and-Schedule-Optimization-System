@@ -1,0 +1,936 @@
+{
+  "web": [
+    {
+      "name": "web public environment validation > accepts an explicit HTTP API base URL for local development",
+      "file": "apps/web/src/lib/env.test.ts"
+    },
+    {
+      "name": "web public environment validation > accepts an explicit HTTPS API base URL for production deployments",
+      "file": "apps/web/src/lib/env.test.ts"
+    },
+    {
+      "name": "web public environment validation > fails safely when the public API base URL is missing",
+      "file": "apps/web/src/lib/env.test.ts"
+    },
+    {
+      "name": "web public environment validation > fails safely when the public API base URL is malformed",
+      "file": "apps/web/src/lib/env.test.ts"
+    },
+    {
+      "name": "web public environment validation > reads the dynamic API base URL from the desktop runtime query bridge",
+      "file": "apps/web/src/lib/env.test.ts"
+    },
+    {
+      "name": "web public environment validation > does not invent an API endpoint when the runtime bridge is absent",
+      "file": "apps/web/src/lib/env.test.ts"
+    },
+    {
+      "name": "saved data import preview helpers > describes parser verification without claiming school or user verification",
+      "file": "apps/web/src/lib/data-import-preview.test.ts"
+    },
+    {
+      "name": "saved data import preview helpers > labels a reloaded preview as reviewed and applied only when its active snapshot matches",
+      "file": "apps/web/src/lib/data-import-preview.test.ts"
+    },
+    {
+      "name": "saved data import preview helpers > formats saved import selector metadata with timestamp, source, counts, validation, and confidence",
+      "file": "apps/web/src/lib/data-import-preview.test.ts"
+    },
+    {
+      "name": "saved data import preview helpers > treats an empty MyProgress payload as unusable even when it is newest",
+      "file": "apps/web/src/lib/data-import-preview.test.ts"
+    },
+    {
+      "name": "saved data import preview helpers > prefers the latest usable MyProgress import over a newer broken one",
+      "file": "apps/web/src/lib/data-import-preview.test.ts"
+    },
+    {
+      "name": "workflow module isolation guards > ignores stale reads after a newer request starts",
+      "file": "apps/web/src/lib/workflow-state-isolation.test.ts"
+    },
+    {
+      "name": "workflow module isolation guards > does not replay a mutation while the original is running",
+      "file": "apps/web/src/lib/workflow-state-isolation.test.ts"
+    },
+    {
+      "name": "workflow module isolation guards > keeps review, eligibility, What-If, and reviewed Section state scoped",
+      "file": "apps/web/src/lib/workflow-state-isolation.test.ts"
+    },
+    {
+      "name": "workflow module isolation guards > shows unavailable CRN only when the reviewed source explicitly omitted it",
+      "file": "apps/web/src/lib/workflow-state-isolation.test.ts"
+    },
+    {
+      "name": "workflow module isolation guards > derives the loaded review display from its records instead of an unrelated staging preview",
+      "file": "apps/web/src/lib/workflow-state-isolation.test.ts"
+    },
+    {
+      "name": "workflow navigation > exposes only implemented workflows",
+      "file": "apps/web/src/lib/workflow-navigation.test.ts"
+    },
+    {
+      "name": "workflow navigation > resolves hashes without requiring a server route",
+      "file": "apps/web/src/lib/workflow-navigation.test.ts"
+    },
+    {
+      "name": "restores only the selected local identity within the same API context",
+      "file": "apps/web/src/lib/student-selection.test.ts"
+    },
+    {
+      "name": "remains usable when browser storage is unavailable",
+      "file": "apps/web/src/lib/student-selection.test.ts"
+    },
+    {
+      "name": "restores desktop selection across dynamic ports while isolating other API contexts",
+      "file": "apps/web/src/lib/student-selection.test.ts"
+    },
+    {
+      "name": "Simplified Chinese web UI copy helpers > localizes status and source values without changing the raw enum values",
+      "file": "apps/web/src/lib/zh-cn.test.ts"
+    },
+    {
+      "name": "Simplified Chinese web UI copy helpers > localizes dashboard status badges",
+      "file": "apps/web/src/lib/zh-cn.test.ts"
+    },
+    {
+      "name": "Simplified Chinese web UI copy helpers > keeps safety boundaries explicit in advisory labels and empty states",
+      "file": "apps/web/src/lib/zh-cn.test.ts"
+    },
+    {
+      "name": "Simplified Chinese web UI copy helpers > localizes before-after values for section monitoring",
+      "file": "apps/web/src/lib/zh-cn.test.ts"
+    },
+    {
+      "name": "Simplified Chinese web UI copy helpers > localizes demo option labels while preserving unknown data labels",
+      "file": "apps/web/src/lib/zh-cn.test.ts"
+    }
+  ],
+  "extension": [
+    {
+      "name": "service worker event-driven Course Catalog batch > completes the bounded run after handing discovery off from the popup",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > preinstalls a revisioned navigation watchdog before starting ACCT in the page main world",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > maps a synchronous MAIN-world executeScript failure to the exact startup operation",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > does not fail when navigation replaces the MAIN-world result with null",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > keeps preparation durable when the unified MAIN-world result is null",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > never downgrades a loading checkpoint that wins the race with a null result",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > persists semantic diagnostics for an empty submit injection result",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > isolates an archived v4 run from a fresh v8 116-subject startup",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > ignores stale subject-navigation timeouts and pauses the current stalled revision",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > keeps a current-revision 116-subject full run explicitly locked",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > keeps full capture locked when only a legacy unversioned acceptance flag exists",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > ignores another tab becoming active or completing navigation",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > pauses fail-closed when the authorized tab closes",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > restores a run without a same-session lease as paused without touching the portal",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > supersedes a legacy paused run with progress while preserving its local evidence",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > supersedes a failed run from an older revision",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > preserves and supersedes the exact failed real v5 run when v8 loads",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > archives the exact failed real v6 null-result run before v8 starts",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > archives the exact failed real v7 preparation null-result run before v8 starts",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > supersedes the paused v4 real run when the v8 worker loads",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > keeps a same-revision paused run resumable",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > preserves completed evidence before a fresh bounded run obtains a new id",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > never evicts immutable completed evidence when transient archive history is bounded",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > pauses a running checkpoint after worker restart even when a stale session lease remains",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > archives the exact paused real v8 split-injection run before v9 starts",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > fails closed when the initial durable Catalog navigation is rejected",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > pauses on a page-ready timeout and never sends local imports",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > falls back to an extension-owned monitor tab when Side Panel open fails",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "service worker event-driven Course Catalog batch > returns the actual Side Panel and fallback errors when neither can open",
+      "file": "apps/extension/tests/service-worker-catalog-batch.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > renders persisted full-Catalog progress without exposing portal session data",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > reopens on a running SearchResult checkpoint without mutating the batch",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > keeps bounded start disabled for a same-revision zero-progress pause",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > explains why a progress-bearing paused acceptance disables a fresh start",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > enables a fresh bounded start after an older acceptance was archived",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > keeps full Catalog capture locked after bounded acceptance completes",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > records that a bounded start reached discovery and received a worker response",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > fails before dispatch on a Catalog result tab and preserves the exact path diagnosis",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > opens the persistent monitor before any asynchronous bounded-run preflight",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > persists the worker's exact bounded-start rejection code",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > opens the monitor from the popup gesture and falls back without erasing the batch diagnosis",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > auto-selects the only local student profile after pairing",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > clears a stale profile id when pairing has no real local profiles",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > clears a stale profile id when multiple local profiles are ambiguous",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > posts confirmed extracted rows and shows import id with row count",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > refuses to send academic imports to a non-local API",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > shows API error details when the local API rejects confirmation",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > submits the same 85 MyProgress rows that were shown in preview",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > disables confirmation and ignores rapid repeat clicks while submitting",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "popup staging import confirmation > does not show success when the API accepts fewer rows than were submitted",
+      "file": "apps/extension/tests/popup-confirm-import.test.ts"
+    },
+    {
+      "name": "service worker local profile discovery > reports pairing success only after the new credential is persisted",
+      "file": "apps/extension/tests/service-worker-profile-discovery.test.ts"
+    },
+    {
+      "name": "service worker local profile discovery > identifies the Extension when Chromium omits Origin on a GET",
+      "file": "apps/extension/tests/service-worker-profile-discovery.test.ts"
+    },
+    {
+      "name": "service worker local profile discovery > keeps the pairing credential in the worker and signs the local GET",
+      "file": "apps/extension/tests/service-worker-profile-discovery.test.ts"
+    },
+    {
+      "name": "service worker local profile discovery > does not contact the API when no pairing credential exists",
+      "file": "apps/extension/tests/service-worker-profile-discovery.test.ts"
+    },
+    {
+      "name": "service worker local profile discovery > rejects a non-local pairing destination before any network request",
+      "file": "apps/extension/tests/service-worker-profile-discovery.test.ts"
+    },
+    {
+      "name": "service worker local profile discovery > reports local API unavailability without exposing request details",
+      "file": "apps/extension/tests/service-worker-profile-discovery.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > starts ACCT from a fresh 116-subject v7 run and records the startup checkpoint",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > persists the exact safe diagnostic when first-subject startup throws an unexpected Error",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > maps a startup storage write failure without losing the last durable checkpoint",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > starts the first subject after discovery without depending on the popup",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > continues from a tab-load event after the popup response lifecycle ended",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > ignores a duplicate SearchResult completion event for the same revision",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > records the authorized tab loading revision without changing the lifecycle transition",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > persists a current-revision preparation checkpoint before navigation is allowed",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > pauses when the current revision remains on the landing page until the navigation watchdog expires",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > ignores a stale navigation timeout revision",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > ignores a tab switch or unrelated tab update",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > keeps the authorized SearchResult tab valid while a running batch waits for page 2",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > pauses safely for manual reauthentication when the authorized tab reaches login",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > pauses when the authorized tab leaves the reviewed Catalog scope",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > fails closed when SearchResult belongs to a different subject",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > attributes an unexpected page capture exception to the capture operation",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > fails closed when the visible page number mismatches the checkpoint",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > ignores a stale page-ready signal from an older navigation revision",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > captures a stable checkpoint-bound page before requesting page 2",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > advances a multi-page subject, deduplicates overlap, then starts the next subject",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > captures all four pages once and confirms the final page before completing",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > completes the bounded two-subject acceptance before unlocking full capture",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > pauses on a bounded navigation timeout",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > pauses when the authorized tab closes and retains resumable progress",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > fails closed on a school rate-limit signal",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > stops safely on a school provider-error signal",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > resumes by returning the same authorized tab to the landing page",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > fails checkpoint validation before resuming an older runner revision",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "event-driven Catalog batch controller > fails checkpoint validation before resuming accepted pages without fingerprints",
+      "file": "apps/extension/tests/catalog-batch-controller.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > extracts transcript tables into Phase 7A-compatible unofficial transcript content",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > extracts degree audit tables with requirements and manual-review warnings",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > extracts course catalog tables",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > extracts section search tables",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > groups repeated section rows into multiple meetings with provenance",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > returns a no-data result for unknown pages and empty tables",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > warns instead of crashing on malformed rows and unknown columns",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > produces deterministic output for the same visible page",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > does not extract password field values",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > builds a confirmed browser-extension handoff request for the existing import API",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > detects Kean transcript pages under the Student portal prefix",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > detects Kean MyProgress, catalog, section search, planning, and schedule pages",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > prefers the MyProgress route over unrelated navigation text",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > parses sanitized Kean MyProgress row-like blocks without real tables",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > extracts the sanitized Kean Finance MyProgress summary, progress bar, and provenance",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > rejects page-wide navigation and requirement prose as authoritative program fields",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > parses colon-delimited GPA fields without guessing a missing catalog year",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > keeps a summary-only MyProgress extraction eligible for staging",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > retains bounded evidence for malformed MyProgress rows",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > retains duplicate rows and requires exception review",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > extracts sanitized Kean MyProgress course rows across visible requirement tables",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > warns when MyProgress table parsing is partial while preserving bounded diagnostics",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > blocks a MyProgress handoff if preview rows are missing from submitted content",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > preserves direct snapshot diagnostics when MyProgress parsing finds no course rows",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > creates confirmed guided Kean import requests without cookies or session data",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > does not scan Kean host pages outside the Student portal prefix",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > ignores Kean login, hidden, personal, financial, and action-only data",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > keeps diagnostic metadata free of credentials, cookies, tokens, and row payloads",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "browser extension academic table extractors > preserves bounded extraction warnings in diagnostics",
+      "file": "apps/extension/tests/extractors.test.ts"
+    },
+    {
+      "name": "persistent Catalog monitor page > reconnects from the persisted local checkpoint when the worker message is unavailable",
+      "file": "apps/extension/tests/catalog-monitor-page.test.ts"
+    },
+    {
+      "name": "persistent Catalog monitor page > renders semantic injection-result failure diagnostics",
+      "file": "apps/extension/tests/catalog-monitor-page.test.ts"
+    },
+    {
+      "name": "persistent Catalog monitor page > renders placeholders for omitted failure fields without mutating runner state",
+      "file": "apps/extension/tests/catalog-monitor-page.test.ts"
+    },
+    {
+      "name": "persistent Catalog monitor page > shows a superseded archived run when no active batch owns the monitor",
+      "file": "apps/extension/tests/catalog-monitor-page.test.ts"
+    },
+    {
+      "name": "Course Catalog batch runner > serially iterates subjects and pages, deduplicates overlap, and applies locally",
+      "file": "apps/extension/tests/catalog-batch-runner.test.ts"
+    },
+    {
+      "name": "Course Catalog batch runner > stops before the next page when the user pauses",
+      "file": "apps/extension/tests/catalog-batch-runner.test.ts"
+    },
+    {
+      "name": "Course Catalog batch runner > records a completed local subject but stays paused when pause arrives during local processing",
+      "file": "apps/extension/tests/catalog-batch-runner.test.ts"
+    },
+    {
+      "name": "Course Catalog batch runner > restarts a partial subject safely and ignores the already accepted page",
+      "file": "apps/extension/tests/catalog-batch-runner.test.ts"
+    },
+    {
+      "name": "Course Catalog batch runner > fails closed if a previously accepted page changes before resume",
+      "file": "apps/extension/tests/catalog-batch-runner.test.ts"
+    },
+    {
+      "name": "Course Catalog batch runner > fails closed immediately on a provider rate-limit signal",
+      "file": "apps/extension/tests/catalog-batch-runner.test.ts"
+    },
+    {
+      "name": "browser extension safety policy > uses Manifest V3 with minimal permissions and local API host permissions only",
+      "file": "apps/extension/tests/manifest-policy.test.ts"
+    },
+    {
+      "name": "browser extension safety policy > keeps extraction user-triggered and confirmation-gated",
+      "file": "apps/extension/tests/manifest-policy.test.ts"
+    },
+    {
+      "name": "browser extension safety policy > uses direct active-tab script execution instead of a content-script receiver for popup extraction",
+      "file": "apps/extension/tests/manifest-policy.test.ts"
+    },
+    {
+      "name": "browser extension safety policy > does not include credential capture, portal submission, or registration automation code",
+      "file": "apps/extension/tests/manifest-policy.test.ts"
+    },
+    {
+      "name": "browser extension safety policy > shows required Kean import boundary copy in the popup",
+      "file": "apps/extension/tests/manifest-policy.test.ts"
+    },
+    {
+      "name": "browser extension safety policy > does not expose credential-like extraction fields or background polling primitives",
+      "file": "apps/extension/tests/manifest-policy.test.ts"
+    },
+    {
+      "name": "browser extension safety policy > limits batch page actions to reviewed Catalog search and pagination controls",
+      "file": "apps/extension/tests/manifest-policy.test.ts"
+    },
+    {
+      "name": "browser extension safety policy > ships a persistent monitor with the complete reconnectable batch state",
+      "file": "apps/extension/tests/manifest-policy.test.ts"
+    },
+    {
+      "name": "browser extension safety policy > keeps the injected content script standalone for programmatic injection",
+      "file": "apps/extension/tests/manifest-policy.test.ts"
+    },
+    {
+      "name": "browser extension safety policy > keeps content-script DOM scanning message-triggered and idempotent",
+      "file": "apps/extension/tests/manifest-policy.test.ts"
+    },
+    {
+      "name": "MyProgress summary field boundaries > does not silently select the first of conflicting program labels",
+      "file": "apps/extension/tests/summary-boundaries.test.ts"
+    },
+    {
+      "name": "MyProgress summary field boundaries > accepts compact colon labels and repeated identical fields",
+      "file": "apps/extension/tests/summary-boundaries.test.ts"
+    },
+    {
+      "name": "MyProgress summary field boundaries > rejects short navigation and announcement text in degree fields",
+      "file": "apps/extension/tests/summary-boundaries.test.ts"
+    },
+    {
+      "name": "MyProgress summary field boundaries > keeps extracted summary values unreviewed with field-specific locations",
+      "file": "apps/extension/tests/summary-boundaries.test.ts"
+    },
+    {
+      "name": "popup browser actions > captures the active tab id and URL",
+      "file": "apps/extension/tests/popup-browser-actions.test.ts"
+    },
+    {
+      "name": "popup browser actions > allows extraction attempts for Kean Student portal hash routes",
+      "file": "apps/extension/tests/popup-browser-actions.test.ts"
+    },
+    {
+      "name": "popup browser actions > does not attempt extraction on Kean host pages outside the Student portal",
+      "file": "apps/extension/tests/popup-browser-actions.test.ts"
+    },
+    {
+      "name": "popup browser actions > reports missing active tab URL as a permission problem",
+      "file": "apps/extension/tests/popup-browser-actions.test.ts"
+    },
+    {
+      "name": "popup browser actions > reports script injection runtime errors",
+      "file": "apps/extension/tests/popup-browser-actions.test.ts"
+    },
+    {
+      "name": "popup browser actions > rejects extraction before injection outside the Kean Student portal",
+      "file": "apps/extension/tests/popup-browser-actions.test.ts"
+    },
+    {
+      "name": "popup browser actions > runs a direct page snapshot function without content-script messaging",
+      "file": "apps/extension/tests/popup-browser-actions.test.ts"
+    },
+    {
+      "name": "popup browser actions > extracts diagnostics from content-script snapshots",
+      "file": "apps/extension/tests/popup-browser-actions.test.ts"
+    },
+    {
+      "name": "popup browser actions > caps oversized content-script snapshots before parsing",
+      "file": "apps/extension/tests/popup-browser-actions.test.ts"
+    },
+    {
+      "name": "popup browser actions > truncates very long cell text before parsing",
+      "file": "apps/extension/tests/popup-browser-actions.test.ts"
+    },
+    {
+      "name": "popup browser actions > keeps visible page text diagnostics beyond the per-cell limit",
+      "file": "apps/extension/tests/popup-browser-actions.test.ts"
+    },
+    {
+      "name": "popup browser actions > keeps a captured URL in diagnostics when no extraction result exists",
+      "file": "apps/extension/tests/popup-browser-actions.test.ts"
+    },
+    {
+      "name": "popup browser actions > keeps diagnostics URL visible when extraction returns zero rows",
+      "file": "apps/extension/tests/popup-browser-actions.test.ts"
+    },
+    {
+      "name": "read-only Course Catalog batch state > redacts authentication secrets from persisted failure diagnostics",
+      "file": "apps/extension/tests/catalog-batch.test.ts"
+    },
+    {
+      "name": "read-only Course Catalog batch state > classifies an invalid stored payload as an exact state-schema failure",
+      "file": "apps/extension/tests/catalog-batch.test.ts"
+    },
+    {
+      "name": "read-only Course Catalog batch state > iterates discovered subjects and deduplicates overlapping pagination by normalized identity",
+      "file": "apps/extension/tests/catalog-batch.test.ts"
+    },
+    {
+      "name": "read-only Course Catalog batch state > fails closed when duplicate search results disagree",
+      "file": "apps/extension/tests/catalog-batch.test.ts"
+    },
+    {
+      "name": "read-only Course Catalog batch state > fails closed for 'bounded page'",
+      "file": "apps/extension/tests/catalog-batch.test.ts"
+    },
+    {
+      "name": "read-only Course Catalog batch state > fails closed for 'rate limit'",
+      "file": "apps/extension/tests/catalog-batch.test.ts"
+    },
+    {
+      "name": "read-only Course Catalog batch state > fails closed for 'parser drift'",
+      "file": "apps/extension/tests/catalog-batch.test.ts"
+    },
+    {
+      "name": "read-only Course Catalog batch state > rejects malformed courses while allowing explicit missing optional fields",
+      "file": "apps/extension/tests/catalog-batch.test.ts"
+    },
+    {
+      "name": "read-only Course Catalog batch state > serializes restart-safe progress and supports explicit pause, resume, and cancellation",
+      "file": "apps/extension/tests/catalog-batch.test.ts"
+    },
+    {
+      "name": "read-only Course Catalog batch state > defaults omitted v6 diagnostics and round-trips a fresh state without schema contamination",
+      "file": "apps/extension/tests/catalog-batch.test.ts"
+    },
+    {
+      "name": "read-only Course Catalog batch state > re-redacts valid diagnostics restored from extension storage",
+      "file": "apps/extension/tests/catalog-batch.test.ts"
+    },
+    {
+      "name": "read-only Course Catalog batch state > drops invalid v6 diagnostic enum values when restoring stored state",
+      "file": "apps/extension/tests/catalog-batch.test.ts"
+    },
+    {
+      "name": "read-only Course Catalog batch state > records local-only apply counts and advances each discovered subject deterministically",
+      "file": "apps/extension/tests/catalog-batch.test.ts"
+    },
+    {
+      "name": "read-only Course Catalog batch state > restores an interrupted running batch as paused instead of resuming secretly",
+      "file": "apps/extension/tests/catalog-batch.test.ts"
+    },
+    {
+      "name": "Catalog batch lifecycle checkpoints > persists the exact current page and last transition for monitor reconnect",
+      "file": "apps/extension/tests/catalog-batch-lifecycle.test.ts"
+    },
+    {
+      "name": "Catalog batch lifecycle checkpoints > pauses fail-closed when the authorized tab closes",
+      "file": "apps/extension/tests/catalog-batch-lifecycle.test.ts"
+    },
+    {
+      "name": "Catalog batch lifecycle checkpoints > restores an interrupted worker as paused with every checkpoint retained",
+      "file": "apps/extension/tests/catalog-batch-lifecycle.test.ts"
+    },
+    {
+      "name": "Catalog batch lifecycle checkpoints > keeps full-catalog execution locked until bounded acceptance completes",
+      "file": "apps/extension/tests/catalog-batch-lifecycle.test.ts"
+    },
+    {
+      "name": "Catalog batch lifecycle checkpoints > invalidates an unversioned legacy bounded-acceptance flag on restore",
+      "file": "apps/extension/tests/catalog-batch-lifecycle.test.ts"
+    },
+    {
+      "name": "Catalog batch lifecycle checkpoints > marks a stored run without a runner revision as legacy evidence",
+      "file": "apps/extension/tests/catalog-batch-lifecycle.test.ts"
+    },
+    {
+      "name": "persistent Catalog monitor opener > opens Side Panel directly inside the popup user gesture",
+      "file": "apps/extension/tests/catalog-monitor.test.ts"
+    },
+    {
+      "name": "persistent Catalog monitor opener > falls back to one extension-owned monitor tab and retains the real Side Panel error",
+      "file": "apps/extension/tests/catalog-monitor.test.ts"
+    },
+    {
+      "name": "persistent Catalog monitor opener > returns both real errors when Side Panel and the monitor tab fail",
+      "file": "apps/extension/tests/catalog-monitor.test.ts"
+    }
+  ],
+  "shared": [
+    {
+      "name": "HealthResponseSchema > validates API health payloads",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "DiagnosticsSnapshotSchema > rejects unknown top-level fields",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "local diagnostics export client > uses the local export endpoint and reads its safe filename",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "ReadinessResponseSchema > validates API readiness payloads",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "academic UI helpers > normalizes status badges for dashboard and panel states",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "academic UI helpers > returns consistent advisory labels for non-official workflows",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "academic UI helpers > formats timestamps and before-after values for imported snapshots",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "academic UI helpers > provides empty-state copy with reasons and next manual actions",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "fetchHealth > returns parsed health payloads",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "fetchHealth > reports non-2xx health responses",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "fetchHealth > reports invalid health response schemas",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "degree audit schemas > validates audit run summaries",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "degree audit schemas > validates requirement evaluations with applications and warnings",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "data import schemas > validates staging-only import runs, mappings, warnings, and previews",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "data import schemas > creates data import previews through the typed helper",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "data import schemas > supports browser-extension import handoff requests as staging-only data",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "data import schemas > adds a bearer token to typed API helper requests when configured",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "data import schemas > validates review sessions, record decisions, warnings, and dry-run results",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "data import schemas > validates applied non-official course-state snapshots and provenance",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "data import schemas > uses typed helpers for review creation, decisions, and dry-run apply",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "section monitoring schemas > validates advisory targets, non-official snapshots, and manual-review alerts",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "section monitoring schemas > bounds section monitor raw payloads and compare request size",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "section monitoring schemas > uses typed helpers for advisory target and alert workflows",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "academic scenario schemas > validates scenario snapshots, allocations, warnings, and comparison summaries",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "course eligibility schemas > validates eligibility check snapshots with expression evidence",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "course eligibility schemas > rejects malformed course eligibility API payloads",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "academic plan schemas > validates academic plan snapshots with terms, courses, coverage, and warnings",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "academic plan schemas > rejects malformed academic plan API payloads",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "schedule optimizer schemas > validates schedule optimizer snapshots with options, conflicts, and warnings",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "schedule optimizer schemas > rejects malformed schedule optimizer API payloads",
+      "file": "packages/shared/src/index.test.ts"
+    },
+    {
+      "name": "local onboarding client > lists persisted local profiles through the local-only endpoint",
+      "file": "packages/shared/src/local-onboarding.test.ts"
+    },
+    {
+      "name": "local onboarding client > creates an explicitly unverified profile with a typed request",
+      "file": "packages/shared/src/local-onboarding.test.ts"
+    },
+    {
+      "name": "local onboarding client > rejects an onboarding payload that claims official source status",
+      "file": "packages/shared/src/local-onboarding.test.ts"
+    }
+  ]
+}

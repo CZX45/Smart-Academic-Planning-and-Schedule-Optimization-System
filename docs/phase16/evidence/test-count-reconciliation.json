@@ -1,0 +1,198 @@
+{
+  "code_commit": "0547e861ea81cf004ca9c4bc1a050674f8007879",
+  "verification_commit": "d0393d240d6f7ddfe45d671ae2a02f85639c2730",
+  "cause": "TypeScript build emits shared test files into ignored dist/. Vitest without a source filter collects both src/*.test.ts and generated dist/*.test.js locally. Fresh CI collects only the 33 source tests.",
+  "baseline_reported_inventory": 699,
+  "baseline_duplicate_generated_tests": 33,
+  "baseline_unique_inventory": 666,
+  "added_unique_tests": 31,
+  "current_unique_inventory": 697,
+  "raw_local_pass_events": 690,
+  "duplicate_generated_pass_events": 33,
+  "unique_local_passes": 657,
+  "windows_specific_skips": 15,
+  "rust_tests_passed_in_windows_ci": 25,
+  "unique_counts": {
+    "api_inventory": 375,
+    "api_passed": 360,
+    "extension": 173,
+    "shared": 33,
+    "web": 26,
+    "node": 2,
+    "e2e": 63,
+    "rust": 25
+  },
+  "ci_checks_job": 117631902923,
+  "shared_source_run": "shared-source-tests.log",
+  "source_tests_and_config_unchanged_from_baseline": true,
+  "duplicates": [
+    {
+      "name": "local onboarding client > lists persisted local profiles through the local-only endpoint",
+      "source": "packages/shared/src/local-onboarding.test.ts",
+      "generated": "packages/shared/dist/local-onboarding.test.js"
+    },
+    {
+      "name": "local onboarding client > creates an explicitly unverified profile with a typed request",
+      "source": "packages/shared/src/local-onboarding.test.ts",
+      "generated": "packages/shared/dist/local-onboarding.test.js"
+    },
+    {
+      "name": "local onboarding client > rejects an onboarding payload that claims official source status",
+      "source": "packages/shared/src/local-onboarding.test.ts",
+      "generated": "packages/shared/dist/local-onboarding.test.js"
+    },
+    {
+      "name": "HealthResponseSchema > validates API health payloads",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "DiagnosticsSnapshotSchema > rejects unknown top-level fields",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "local diagnostics export client > uses the local export endpoint and reads its safe filename",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "ReadinessResponseSchema > validates API readiness payloads",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "academic UI helpers > normalizes status badges for dashboard and panel states",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "academic UI helpers > returns consistent advisory labels for non-official workflows",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "academic UI helpers > formats timestamps and before-after values for imported snapshots",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "academic UI helpers > provides empty-state copy with reasons and next manual actions",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "fetchHealth > returns parsed health payloads",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "fetchHealth > reports non-2xx health responses",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "fetchHealth > reports invalid health response schemas",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "degree audit schemas > validates audit run summaries",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "degree audit schemas > validates requirement evaluations with applications and warnings",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "data import schemas > validates staging-only import runs, mappings, warnings, and previews",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "data import schemas > creates data import previews through the typed helper",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "data import schemas > supports browser-extension import handoff requests as staging-only data",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "data import schemas > adds a bearer token to typed API helper requests when configured",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "data import schemas > validates review sessions, record decisions, warnings, and dry-run results",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "data import schemas > validates applied non-official course-state snapshots and provenance",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "data import schemas > uses typed helpers for review creation, decisions, and dry-run apply",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "section monitoring schemas > validates advisory targets, non-official snapshots, and manual-review alerts",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "section monitoring schemas > bounds section monitor raw payloads and compare request size",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "section monitoring schemas > uses typed helpers for advisory target and alert workflows",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "academic scenario schemas > validates scenario snapshots, allocations, warnings, and comparison summaries",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "course eligibility schemas > validates eligibility check snapshots with expression evidence",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "course eligibility schemas > rejects malformed course eligibility API payloads",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "academic plan schemas > validates academic plan snapshots with terms, courses, coverage, and warnings",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "academic plan schemas > rejects malformed academic plan API payloads",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "schedule optimizer schemas > validates schedule optimizer snapshots with options, conflicts, and warnings",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    },
+    {
+      "name": "schedule optimizer schemas > rejects malformed schedule optimizer API payloads",
+      "source": "packages/shared/src/index.test.ts",
+      "generated": "packages/shared/dist/index.test.js"
+    }
+  ],
+  "test_deletions": 0,
+  "test_config_changes": 0,
+  "assertion_changes_for_count_correction": 0
+}

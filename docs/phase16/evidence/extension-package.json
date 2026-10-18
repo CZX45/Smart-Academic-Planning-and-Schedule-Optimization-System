@@ -1,0 +1,11 @@
+{
+  "source_commit": "0547e861ea81cf004ca9c4bc1a050674f8007879",
+  "package_kind": "unpacked_directory",
+  "path": "dist/extension-unpacked",
+  "file_count": 41,
+  "manifest_version": "0.1.8",
+  "manifest_sha256": "2068a61f46804e8224d2434b8189e47200ed692eaefcd982a280c95a23db4ec3",
+  "browser_actions_sha256": "4b021389beb76bf341833aa9506a1f30389ccaf32c5d410c290d291720500411",
+  "full_116_unlocked": false,
+  "installed_in_browser": false
+}

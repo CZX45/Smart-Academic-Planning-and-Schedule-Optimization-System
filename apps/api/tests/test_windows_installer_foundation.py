@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -345,9 +346,14 @@ def test_packaging_staging_validator_records_files_and_rejects_forbidden_files()
 
 def test_safe_build_cleanup_allows_child_output_and_rejects_dangerous_targets() -> None:
     helper = ROOT / "scripts/windows/Invoke-SafeBuildCleanup.ps1"
-    # Windows tempfile retries PermissionError in system-owned Temp for a very
-    # long time. Build tests must stay in their checkout's disposable outputs.
-    temp_parent = ROOT / ".cache" / "cleanup-contract"
+    # Windows system Temp may retry PermissionError for a long time; its checkout
+    # is on a build drive. POSIX CI checkouts can be inside UserProfile, which the
+    # production cleanup guard correctly protects, so use a disposable /tmp path.
+    temp_parent = (
+        ROOT / ".cache" / "cleanup-contract"
+        if os.name == "nt"
+        else Path(tempfile.gettempdir()) / "sapsos-cleanup-contract"
+    )
     temp_parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=temp_parent) as temporary:
         build_root = Path(temporary) / "dist"
@@ -396,3 +402,28 @@ def test_safe_build_cleanup_allows_child_output_and_rejects_dangerous_targets() 
         )
         assert invalid.returncode != 0
         assert build_root.exists()
+
+
+def test_safe_build_cleanup_keeps_user_profile_protected() -> None:
+    helper = ROOT / "scripts/windows/Invoke-SafeBuildCleanup.ps1"
+    protected = Path.home() / "sapsos-cleanup-must-not-touch"
+    result = subprocess.run(
+        [
+            "pwsh",
+            "-NoProfile",
+            "-File",
+            str(helper),
+            "-TargetPath",
+            str(protected),
+            "-AllowedBuildRoot",
+            str(Path.home()),
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+        timeout=30,
+    )
+    assert result.returncode != 0
+    assert "Refusing to clean a user or AppData path" in result.stderr

@@ -1,0 +1,170 @@
+[
+  {
+    "file": "build-final.log",
+    "sha256": "e87b70c6c7ffe1d1878e13ae98644356e20040d7fad323246157ea564dd57679"
+  },
+  {
+    "file": "checkpoint-focused.log",
+    "sha256": "91e03dfa0f8a48f38c88692f5f4a188d7712458379aeffa82a15c54ef20296e6"
+  },
+  {
+    "file": "ci-cleanup-failure.log",
+    "sha256": "94bb86d39829640ac5a6b9c3d8183e4bf272f28914fe9aa2adf3ba0ecc5df979"
+  },
+  {
+    "file": "ci-final.json",
+    "sha256": "38990a4f2eb0436a60d62b0b792bbe30f72d0b85a0280ca2a464528ab0386776"
+  },
+  {
+    "file": "compose-health.log",
+    "sha256": "cdfc5e3a8d4143a15c512e4f6952f1fbb660bcbf8845cb4abfbfe3ca7bc7c7fb"
+  },
+  {
+    "file": "compose-seed1.log",
+    "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  {
+    "file": "compose-seed2.log",
+    "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  {
+    "file": "container-clock.log",
+    "sha256": "0f60b6fe20dc7c10f829139c88a9a32ebdfe0896b77ba68289c5d2182f6a85ef"
+  },
+  {
+    "file": "delivery.json",
+    "sha256": "4aa734382c1b912bb3e48b78457e49b2f923803cfef28ba6c17d27df8c4a293b"
+  },
+  {
+    "file": "e2e-checkpoint-fixture-failure.log",
+    "sha256": "c183e394a84456b01a0e68cfe9d1ca636bbe09de6fbfafcd23e88bd83a14d385"
+  },
+  {
+    "file": "e2e-concurrent-failure.log",
+    "sha256": "a075b482726b3d72ca88a7a7a7702cb9eb6efb6af070b8f17749ee967cac289b"
+  },
+  {
+    "file": "e2e-container-timer-failure.log",
+    "sha256": "e68dea7d8a0870562212b46560e7dd20cac1ac7634932ba0281c2060da5afa2b"
+  },
+  {
+    "file": "e2e-final.log",
+    "sha256": "64a961563f65608a8a1a89a6b500c7bf8029b46ffd304617c652abccff624e6d"
+  },
+  {
+    "file": "extension-package.json",
+    "sha256": "8181088d67853315fb7c0c76e1f25cd886e7f250fb701ad7194653dd05756c6f"
+  },
+  {
+    "file": "extension-package.log",
+    "sha256": "876e92e03435be4bfb03df29bb42d250bad82f99ad664b23622d33c64ad3d7fb"
+  },
+  {
+    "file": "format-check-final.log",
+    "sha256": "7452383d253131027fc5509b159afbd5e364485958846e5c7e09555406806060"
+  },
+  {
+    "file": "lint-final.log",
+    "sha256": "dd1bbd735ed103336f4cc9567007b70776b249084d2950022d36058dc6e6a7cf"
+  },
+  {
+    "file": "mypy314-final.log",
+    "sha256": "f138cf06100e66e55f4bcf8cbba332c4127550f9408a44cc8a8b6687bd6f6ac1"
+  },
+  {
+    "file": "openapi-check.log",
+    "sha256": "75e80ee6d1ed99a11834951f92158d4d13b4947e0f208c5ae655ba87b5cef0da"
+  },
+  {
+    "file": "openapi-generation.log",
+    "sha256": "d76a639302c539ab6b90a1c0f08c8f05258c8b97ff68c0e30834d00ef9899e3d"
+  },
+  {
+    "file": "packaged-schema.log",
+    "sha256": "01f2b13bdf9b29693241be3b67800b4ebb7d47e20fa7759a993ce91694060267"
+  },
+  {
+    "file": "positive-real.log",
+    "sha256": "bd31a0a8b0614014247b39b4908d1ff0f68c24c27b9db91cf9961e989b89b5b7"
+  },
+  {
+    "file": "postgres-migration.log",
+    "sha256": "484031b3217df3cdeb7886974d62ed4da27899fa7811cbecd7ab0fe0a57cee4d"
+  },
+  {
+    "file": "pytest-earlier-skip-reasons.log",
+    "sha256": "32dd68743b9460b8fb83f00d1bee7bb4d936166269af524322303798315b6b06"
+  },
+  {
+    "file": "pytest-final.log",
+    "sha256": "94a79c006ceda77e98fd2d0f9b5f906e14f0e4cb009dae599adde3a8f5890550"
+  },
+  {
+    "file": "pytest-inventory.log",
+    "sha256": "38b0e7b0de3ffb8e1009853b55cd65dbe8fd75b41ffee729d9da67ea47f0400f"
+  },
+  {
+    "file": "restart-e2e.log",
+    "sha256": "4755c3178cfbcef5ce56b836ab0d0a740dbdd040b29b0f1079828d5d7a67dfc8"
+  },
+  {
+    "file": "reviewed-planner.log",
+    "sha256": "faa81508dc9f424343287779b56c8385412a5f09e4126cc6881ab29352a9af15"
+  },
+  {
+    "file": "rule-source.log",
+    "sha256": "88a231c5413e52feb446d35b6f0eba8989442f8bfee0ed462d8778afeafc1145"
+  },
+  {
+    "file": "rust-test-names.log",
+    "sha256": "0ac9da4a0c7418b5dc88d5ba46dc315ecc5583cb7f4afda11662f73db680dca8"
+  },
+  {
+    "file": "shared-source-tests.log",
+    "sha256": "e06adbf5e190c895e8486a73658e25ba78d6585952bfd7b4ede67475ccc70305"
+  },
+  {
+    "file": "snapshot-focused.log",
+    "sha256": "10dd5eee7ac90c9c22851cf4c4e11ad76fde0af28fdb71979d59e5985df83667"
+  },
+  {
+    "file": "snapshot-probe.json",
+    "sha256": "78f8b0701b1553830fde856ac75089de7e88a8153fb092d4e4e1d6f91b60f869"
+  },
+  {
+    "file": "test-count-reconciliation.json",
+    "sha256": "55dafefc7a450efabdb8fdfc5199bd0c6fedbccc67c75be136623a190b8e79e2"
+  },
+  {
+    "file": "typecheck-final.log",
+    "sha256": "537151ada745ce3c9d8caf179b4cd41bc1adcfdf68b55b29521b021db4dfae54"
+  },
+  {
+    "file": "typescript-test-names.json",
+    "sha256": "5509fce545c8ffc68170532a2b4f3423ff3265d595543a4191af382a3fdc40d6"
+  },
+  {
+    "file": "unit-final.log",
+    "sha256": "a0a6c0ac052c4980e7fc56862485ceef8120bd94805df398e2c2aaaee765beef"
+  },
+  {
+    "file": "web-restart-tests.log",
+    "sha256": "ddc5b2cf547f5894697d21b362dfeebbedcf40292f1d39114e1d35d812b7322a"
+  },
+  {
+    "file": "web-typecheck.log",
+    "sha256": "1abe341e93ff1c1116b4f49ef0c5f4d5c3d95bba313d9d880582354b1b2a0147"
+  },
+  {
+    "file": "windows-installer-final.json",
+    "sha256": "eeaf1cba60331a5a8800d5cc9a254bc143f9d914fe547faf0bdb26eabc922dfd"
+  },
+  {
+    "file": "windows-packaged-final.json",
+    "sha256": "523a61c6dc9febdf45e6cf898567fdd1f81963404c05f9f19291aa2e76d1aa87"
+  },
+  {
+    "file": "windows-schema-fix.json",
+    "sha256": "844a4f7de56df731500daa5135a2a42efffb12e23f317802aafa3d83dc9007f4"
+  }
+]

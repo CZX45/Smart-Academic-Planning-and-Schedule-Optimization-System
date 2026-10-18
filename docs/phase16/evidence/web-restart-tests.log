@@ -1,0 +1,12 @@
+
+> @sapsos/web@0.1.8 test <REPO>/apps/web
+> vitest run
+
+
+ RUN  v4.1.9 <REPO>/apps/web
+
+
+ Test Files  6 passed (6)
+      Tests  26 passed (26)
+   Start at  08:10:11
+   Duration  570ms (transform 262ms, setup 0ms, import 389ms, tests 43ms, environment 1ms)

@@ -6,6 +6,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from app.db.bootstrap import LOCAL_SCHEMA_VERSION
+
 
 def verify(database_path: Path) -> tuple[dict[str, Any], int]:
     result: dict[str, Any] = {
@@ -23,7 +25,7 @@ def verify(database_path: Path) -> tuple[dict[str, Any], int]:
         return result, 2
 
     try:
-        uri = f"file:{database_path.as_posix()}?mode=ro"
+        uri = f"{database_path.resolve().as_uri()}?mode=ro"
         with sqlite3.connect(uri, uri=True) as connection:
             table = connection.execute(
                 "SELECT 1 FROM sqlite_master "
@@ -41,7 +43,7 @@ def verify(database_path: Path) -> tuple[dict[str, Any], int]:
             result["schema_version_values"] = [row[1] for row in rows]
             if len(rows) == 1:
                 result["schema_name"], result["schema_version"] = rows[0]
-            result["valid"] = rows == [("LOCAL_DESKTOP", 1)]
+            result["valid"] = rows == [("LOCAL_DESKTOP", LOCAL_SCHEMA_VERSION)]
             if not result["valid"]:
                 result["error"] = "unsupported_local_desktop_schema_marker"
                 return result, 1

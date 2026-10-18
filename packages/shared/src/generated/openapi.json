@@ -5,6 +5,54 @@
     "version": "0.1.8"
   },
   "paths": {
+    "/api/v1/students/{student_id}/academic-workflow": {
+      "get": {
+        "tags": [
+          "academic"
+        ],
+        "summary": "Get Academic Workflow",
+        "operationId": "get_academic_workflow_api_v1_students__student_id__academic_workflow_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcademicWorkflowResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reviewed-rule-sets": {
       "post": {
         "tags": [
@@ -5632,7 +5680,6 @@
           },
           "total_planned_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Planned Credits"
           },
           "term_count": {
@@ -5745,7 +5792,6 @@
           },
           "credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Credits"
           },
           "eligibility_result": {
@@ -5855,8 +5901,7 @@
                 "minimum": 0.0
               },
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               }
             ],
             "title": "Minimum Credits Per Term"
@@ -5868,8 +5913,7 @@
                 "minimum": 0.0
               },
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               }
             ],
             "title": "Maximum Credits Per Term"
@@ -5881,8 +5925,7 @@
                 "minimum": 0.0
               },
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               }
             ],
             "title": "Preferred Credits Per Term"
@@ -5965,17 +6008,14 @@
           },
           "minimum_credits_per_term": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Minimum Credits Per Term"
           },
           "maximum_credits_per_term": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Maximum Credits Per Term"
           },
           "preferred_credits_per_term": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Preferred Credits Per Term"
           },
           "completed_at": {
@@ -6090,7 +6130,6 @@
           },
           "credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Credits"
           },
           "created_at": {
@@ -6176,17 +6215,14 @@
           },
           "minimum_credits_per_term": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Minimum Credits Per Term"
           },
           "maximum_credits_per_term": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Maximum Credits Per Term"
           },
           "preferred_credits_per_term": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Preferred Credits Per Term"
           },
           "completed_at": {
@@ -6257,7 +6293,6 @@
           },
           "planned_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Planned Credits"
           },
           "status": {
@@ -6567,6 +6602,61 @@
           "updated_at"
         ],
         "title": "AcademicScenarioResponse"
+      },
+      "AcademicWorkflowResponse": {
+        "properties": {
+          "student_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Student Profile Id"
+          },
+          "revision": {
+            "type": "string",
+            "title": "Revision"
+          },
+          "programs": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowProgram"
+            },
+            "type": "array",
+            "title": "Programs"
+          },
+          "courses": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowCourse"
+            },
+            "type": "array",
+            "title": "Courses"
+          },
+          "terms": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowTerm"
+            },
+            "type": "array",
+            "title": "Terms"
+          },
+          "section_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Section Ids"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowIssue"
+            },
+            "type": "array",
+            "title": "Issues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "student_profile_id",
+          "revision"
+        ],
+        "title": "AcademicWorkflowResponse"
       },
       "ApiHealth": {
         "properties": {
@@ -6900,7 +6990,6 @@
           },
           "credit_amount": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Credit Amount"
           },
           "grade": {
@@ -7330,8 +7419,7 @@
                 "exclusiveMinimum": 0.0
               },
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               }
             ],
             "title": "Credits Min"
@@ -7343,8 +7431,7 @@
                 "exclusiveMinimum": 0.0
               },
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               }
             ],
             "title": "Credits Max"
@@ -7394,12 +7481,10 @@
           },
           "credits_min": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Credits Min"
           },
           "credits_max": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Credits Max"
           },
           "prerequisite_ids": {
@@ -7839,7 +7924,6 @@
           },
           "confidence_level": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Confidence Level"
           },
           "notes": {
@@ -7908,12 +7992,10 @@
           },
           "credits_min": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Credits Min"
           },
           "credits_max": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Credits Max"
           },
           "course_level": {
@@ -8010,8 +8092,7 @@
           "minimum_completed_credits": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -8353,8 +8434,7 @@
           "credits": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -8417,7 +8497,6 @@
           },
           "confidence_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Confidence Score"
           },
           "validation_state": {
@@ -9589,32 +9668,26 @@
           },
           "total_required_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Required Credits"
           },
           "completed_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Completed Credits"
           },
           "in_progress_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "In Progress Credits"
           },
           "planned_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Planned Credits"
           },
           "remaining_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Remaining Credits"
           },
           "completion_percentage": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Completion Percentage"
           },
           "source_snapshot_hash": {
@@ -10201,7 +10274,6 @@
           },
           "confidence_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Confidence Score"
           },
           "is_selected": {
@@ -10428,7 +10500,6 @@
           },
           "confidence_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Confidence Score"
           },
           "created_at": {
@@ -11285,7 +11356,6 @@
           },
           "total_credits_required": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Credits Required"
           },
           "effective_term_id": {
@@ -11368,7 +11438,6 @@
           },
           "total_credits_required": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Credits Required"
           },
           "source": {
@@ -11528,8 +11597,7 @@
           "credits_override": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -11555,6 +11623,36 @@
       },
       "RequirementEvaluationResponse": {
         "properties": {
+          "requirement_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Source"
+          },
+          "catalog_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Version"
+          },
+          "reason_code": {
+            "type": "string",
+            "title": "Reason Code"
+          },
+          "verification_state": {
+            "type": "string",
+            "title": "Verification State"
+          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -11599,8 +11697,7 @@
           "required_credits": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -11610,12 +11707,10 @@
           },
           "satisfied_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Satisfied Credits"
           },
           "remaining_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Remaining Credits"
           },
           "required_courses": {
@@ -11673,6 +11768,8 @@
         },
         "type": "object",
         "required": [
+          "reason_code",
+          "verification_state",
           "id",
           "degree_audit_run_id",
           "requirement_node_id",
@@ -11729,8 +11826,7 @@
           "minimum_credits": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -11785,8 +11881,7 @@
           "minimum_residency_credits": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -11870,8 +11965,7 @@
                 "exclusiveMinimum": 0.0
               },
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -11939,8 +12033,7 @@
           "minimum_credits": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -12938,37 +13031,30 @@
           },
           "completed_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Completed Credits"
           },
           "in_progress_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "In Progress Credits"
           },
           "planned_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Planned Credits"
           },
           "remaining_requirement_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Remaining Requirement Credits"
           },
           "shared_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Shared Credits"
           },
           "unique_secondary_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Unique Secondary Credits"
           },
           "estimated_additional_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Estimated Additional Credits"
           },
           "unresolved_requirements": {
@@ -12981,7 +13067,6 @@
           },
           "completion_percentage": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Completion Percentage"
           },
           "is_estimate": {
@@ -13154,7 +13239,6 @@
           },
           "credit_amount": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Credit Amount"
           },
           "is_shared": {
@@ -13799,8 +13883,7 @@
           "best_score": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -13811,8 +13894,7 @@
           "best_total_credits": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -13911,8 +13993,7 @@
                 "minimum": 0.0
               },
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               }
             ],
             "title": "Minimum Credits"
@@ -13924,8 +14005,7 @@
                 "minimum": 0.0
               },
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               }
             ],
             "title": "Maximum Credits"
@@ -13937,8 +14017,7 @@
                 "minimum": 0.0
               },
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               }
             ],
             "title": "Preferred Credits"
@@ -14138,8 +14217,7 @@
                   "type": "number"
                 },
                 {
-                  "type": "string",
-                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                  "type": "string"
                 }
               ]
             },
@@ -14153,8 +14231,7 @@
                   "type": "number"
                 },
                 {
-                  "type": "string",
-                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                  "type": "string"
                 }
               ]
             },
@@ -14171,8 +14248,7 @@
                   "type": "number"
                 },
                 {
-                  "type": "string",
-                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                  "type": "string"
                 }
               ]
             },
@@ -14320,17 +14396,14 @@
           },
           "minimum_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Minimum Credits"
           },
           "maximum_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Maximum Credits"
           },
           "preferred_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Preferred Credits"
           },
           "requested_option_count": {
@@ -14529,17 +14602,14 @@
           },
           "minimum_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Minimum Credits"
           },
           "maximum_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Maximum Credits"
           },
           "preferred_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Preferred Credits"
           },
           "requested_option_count": {
@@ -14616,7 +14686,6 @@
           },
           "total_credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Credits"
           },
           "class_days_count": {
@@ -14651,52 +14720,42 @@
           },
           "score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Score"
           },
           "total_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Score"
           },
           "credit_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Credit Score"
           },
           "compactness_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Compactness Score"
           },
           "days_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Days Score"
           },
           "gap_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Gap Score"
           },
           "modality_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Modality Score"
           },
           "time_preference_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Time Preference Score"
           },
           "priority_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Priority Score"
           },
           "penalty_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Penalty Score"
           },
           "score_explanation": {
@@ -14813,7 +14872,6 @@
           },
           "credits": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Credits"
           },
           "eligibility_result": {
@@ -14993,47 +15051,38 @@
         "properties": {
           "total_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Score"
           },
           "credit_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Credit Score"
           },
           "compactness_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Compactness Score"
           },
           "days_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Days Score"
           },
           "gap_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Gap Score"
           },
           "modality_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Modality Score"
           },
           "time_preference_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Time Preference Score"
           },
           "priority_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Priority Score"
           },
           "penalty_score": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Penalty Score"
           },
           "score_explanation": {
@@ -16156,8 +16205,7 @@
           "credits": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -16532,12 +16580,10 @@
           },
           "credits_attempted": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Credits Attempted"
           },
           "credits_earned": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Credits Earned"
           },
           "is_repeat": {
@@ -16721,6 +16767,148 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WorkflowCourse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "credits": {
+            "type": "string",
+            "title": "Credits"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "title",
+          "credits",
+          "source"
+        ],
+        "title": "WorkflowCourse"
+      },
+      "WorkflowIssue": {
+        "properties": {
+          "reason_code": {
+            "type": "string",
+            "title": "Reason Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "evidence_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Reference"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason_code",
+          "message"
+        ],
+        "title": "WorkflowIssue"
+      },
+      "WorkflowProgram": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "catalog_year": {
+            "type": "string",
+            "title": "Catalog Year"
+          },
+          "relationship_type": {
+            "type": "string",
+            "enum": [
+              "PRIMARY_MAJOR",
+              "SECOND_MAJOR",
+              "MINOR",
+              "CERTIFICATE"
+            ],
+            "title": "Relationship Type"
+          },
+          "reviewed_rule_set_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reviewed Rule Set Id"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "catalog_year",
+          "relationship_type",
+          "reviewed_rule_set_id",
+          "source"
+        ],
+        "title": "WorkflowProgram"
+      },
+      "WorkflowTerm": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Starts On"
+          },
+          "ends_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Ends On"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceMetadataResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "starts_on",
+          "ends_on",
+          "source"
+        ],
+        "title": "WorkflowTerm"
       }
     },
     "securitySchemes": {

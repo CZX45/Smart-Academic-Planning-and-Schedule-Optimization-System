@@ -1,0 +1,39 @@
+{
+  "containers": [
+    {
+      "Name": "phase16-ci-api-1",
+      "Service": "api",
+      "State": "running",
+      "Health": "healthy",
+      "ExitCode": 0
+    },
+    {
+      "Name": "phase16-ci-db-1",
+      "Service": "db",
+      "State": "running",
+      "Health": "healthy",
+      "ExitCode": 0
+    },
+    {
+      "Name": "phase16-ci-web-1",
+      "Service": "web",
+      "State": "running",
+      "Health": "",
+      "ExitCode": 0
+    }
+  ],
+  "http_checks": [
+    {
+      "url": "http://127.0.0.1:18000/health",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18000/ready",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:13000",
+      "status": 200
+    }
+  ]
+}

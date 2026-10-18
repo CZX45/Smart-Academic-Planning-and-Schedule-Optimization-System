@@ -1,0 +1,47 @@
+{
+  "baseline": "4e037fe2ea436bb94bbd53b162dc58d27a8f85a7",
+  "branch": "codex-phase16-academic-workflow-stabilization-20261018",
+  "status": "CLOUD_DEVELOPMENT_COMPLETE",
+  "main_before": "8e055994e3e4435043c66e9362d9d0ede2365ec3",
+  "provider_actions_written": 0,
+  "full_116_unlocked": false,
+  "ci_status": "ALL_FOUR_CODE_WORKFLOWS_PASSED",
+  "source_commit": "0547e861ea81cf004ca9c4bc1a050674f8007879",
+  "local_tests": {
+    "passed": 657,
+    "skipped_windows_specific": 15,
+    "rust_not_run_locally": 25,
+    "inventory": 697,
+    "rust_passed_in_windows_ci": 25,
+    "raw_pass_events_including_generated_duplicates": 690,
+    "duplicate_generated_tests_excluded": 33,
+    "unique_unit_and_integration_passed": 594
+  },
+  "main_after": "8e055994e3e4435043c66e9362d9d0ede2365ec3",
+  "draft_pr_url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/88",
+  "ci_runs": {
+    "ci": 39110775370,
+    "windows_foundation": 39110775375,
+    "windows_lifecycle": 39110775371,
+    "windows_packaged_e2e": 39110775376
+  },
+  "evidence_scope": {
+    "unit_test_code_commit": "0547e861ea81cf004ca9c4bc1a050674f8007879",
+    "e2e_and_build_commit": "0547e861ea81cf004ca9c4bc1a050674f8007879",
+    "earlier_logs": "Focused and failure logs are intermediate diagnostic evidence, not additional test counts. Final unit/E2E/build logs correspond to source_commit; Python sources are unchanged since a2f605e."
+  },
+  "documentation_delivery": "Only docs/phase16 changes follow source_commit; final delivery HEAD and its checks are recorded on Draft PR #88.",
+  "real_acceptance_status": "NOT_RUN; FULL_116_SUBJECT_BATCH remains BLOCKED",
+  "artifact_evidence": {
+    "installer": "windows-installer-final.json",
+    "packaged_e2e": "windows-packaged-final.json",
+    "ci": "ci-final.json",
+    "extension": "extension-package.json"
+  },
+  "baseline_test_count": {
+    "previously_reported": 699,
+    "duplicate_generated_tests": 33,
+    "unique_inventory": 666,
+    "added_unique_tests": 31
+  }
+}

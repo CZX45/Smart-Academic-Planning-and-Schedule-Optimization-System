@@ -604,6 +604,7 @@ test("persists the reviewed preparation checkpoint before one MAIN-world search 
   await page.evaluate(() => {
     const target = window as Window & {
       capturedCatalogAction?: object;
+      catalogCheckpointEvents: string[];
       catalogSearchResultsView?: string;
       chrome?: {
         runtime?: {
@@ -617,11 +618,14 @@ test("persists the reviewed preparation checkpoint before one MAIN-world search 
       ko?: { contextFor: (element: Element) => object | null };
     };
     target.catalogSearchResultsView = "SectionListing";
+    target.catalogCheckpointEvents = [];
     target.ko = { contextFor: () => ({}) };
     target.chrome = {
       runtime: {
         sendMessage: (message, callback) => {
-          target.capturedCatalogAction = message as object;
+          if (message && typeof message === "object" && "signal" in message) {
+            target.catalogCheckpointEvents.push(String(message.signal));
+          }
           callback?.({ ok: true });
         },
       },
@@ -634,6 +638,7 @@ test("persists the reviewed preparation checkpoint before one MAIN-world search 
     document
       .querySelector("#submit-search-form")
       ?.addEventListener("click", () => {
+        target.catalogCheckpointEvents.push("SEARCH_SUBMITTED");
         target.capturedCatalogAction = {
           submittedSubject:
             document.querySelector<HTMLSelectElement>("#subject-0")?.value,
@@ -688,6 +693,24 @@ test("persists the reviewed preparation checkpoint before one MAIN-world search 
     ],
     providerActionsWritten: "NO",
   });
+  // The fixture intentionally has no result list. A later navigation timeout
+  // must not overwrite the independently observed search click.
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (
+          window as Window & { catalogCheckpointEvents: string[] }
+        ).catalogCheckpointEvents.includes("TIMEOUT"),
+      ),
+    )
+    .toBe(true);
+  expect(
+    await page.evaluate(() =>
+      (
+        window as Window & { catalogCheckpointEvents: string[] }
+      ).catalogCheckpointEvents.filter((event) => event !== "TIMEOUT"),
+    ),
+  ).toEqual(["PREPARATION_VERIFIED", "SEARCH_SUBMITTED"]);
   await expect
     .poll(() =>
       page.evaluate(
@@ -1229,6 +1252,7 @@ test("keeps changing Catalog identities not ready until the bounded timeout", as
 }) => {
   const resultUrl = await openCatalogPaginationFixture(page);
   await installCatalogSignalCapture(page);
+  await page.clock.install();
   await page.evaluate(() => {
     const list = document.querySelector<HTMLElement>("#course-resultul");
     if (!list) throw new Error("Missing Catalog result list");
@@ -1252,6 +1276,7 @@ test("keeps changing Catalog identities not ready until the bounded timeout", as
     timeoutMs: 180,
     settleMs: 80,
   });
+  await page.clock.runFor(180);
   const signal = await waitForCatalogSignal(page);
 
   expect(signal).toMatchObject({
@@ -1273,6 +1298,8 @@ test("requires one connected result container for the full content stability win
 }) => {
   const resultUrl = await openCatalogPaginationFixture(page);
   await installCatalogSignalCapture(page);
+  // Drive replacement and readiness timers deterministically under CPU load.
+  await page.clock.install();
   await page.evaluate(() => {
     const results = document.querySelector<HTMLElement>("#course-results");
     if (!results) throw new Error("Missing Catalog result surface");
@@ -1295,6 +1322,7 @@ test("requires one connected result container for the full content stability win
     timeoutMs: 220,
     settleMs: 90,
   });
+  await page.clock.runFor(220);
   const signal = await waitForCatalogSignal(page);
 
   expect(signal).toMatchObject({
@@ -1673,4 +1701,30 @@ test("stops with a bounded timeout when the visible page remains stale page 1", 
     pageNumber: null,
     resultFingerprint: null,
   });
+});
+
+test("snapshot visibility cache is per capture and never exposes blocked content", async ({
+  page,
+}) => {
+  await page.setContent(
+    '<main><p>Visible synthetic evidence</p><section id="hidden" hidden><p>Hidden synthetic evidence</p></section><button>Blocked synthetic action</button><textarea>Private synthetic field</textarea></main>',
+  );
+  const first = await page.evaluate(
+    snapshotVisibleAcademicPage,
+    BOUNDED_EXTRACTION_LIMITS,
+  );
+  expect(first.visibleText).toContain("Visible synthetic evidence");
+  expect(first.visibleText).not.toContain("Hidden synthetic evidence");
+  expect(first.visibleText).not.toContain("Blocked synthetic action");
+  expect(first.visibleText).not.toContain("Private synthetic field");
+  await page.locator("#hidden").evaluate((element) => {
+    (element as HTMLElement).hidden = false;
+  });
+  const second = await page.evaluate(
+    snapshotVisibleAcademicPage,
+    BOUNDED_EXTRACTION_LIMITS,
+  );
+  expect(second.visibleText).toContain("Hidden synthetic evidence");
+  expect(second.visibleText).not.toContain("Blocked synthetic action");
+  expect(second.visibleText).not.toContain("Private synthetic field");
 });

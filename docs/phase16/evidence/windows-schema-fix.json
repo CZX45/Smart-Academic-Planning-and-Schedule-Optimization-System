@@ -1,0 +1,42 @@
+{
+  "source_commit": "a2f605e69242d60b013b1a43faa9af124abb988c",
+  "run_id": 39107529935,
+  "artifact_id": 12129481482,
+  "installer_version": "0.1.8",
+  "app_version": "0.1.8",
+  "product_mode": "LOCAL_DESKTOP",
+  "fresh_schema": {
+    "database_exists": true,
+    "local_schema_versions_table": true,
+    "row_count": 1,
+    "schema_name": "LOCAL_DESKTOP",
+    "schema_name_values": [
+      "LOCAL_DESKTOP"
+    ],
+    "schema_version": 2,
+    "schema_version_values": [
+      2
+    ],
+    "valid": true
+  },
+  "phases": {
+    "install": "completed",
+    "fresh_first_launch": "completed",
+    "fresh_empty_state": "completed",
+    "fresh_graceful_shutdown": "completed",
+    "test_fixture_setup": "completed",
+    "direct_api_diagnostic": "completed",
+    "first_launch": "completed",
+    "api_readiness": "completed",
+    "webview_render": "completed",
+    "demo_activation": "completed",
+    "synthetic_import": "completed",
+    "review_apply": "completed",
+    "persistence_write": "completed",
+    "graceful_shutdown": "completed",
+    "restart": "completed",
+    "persistence_verify": "completed",
+    "diagnostics_smoke": "completed",
+    "cleanup": "completed"
+  }
+}

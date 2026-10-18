@@ -1,0 +1,22 @@
+{
+  "source_commit": "0547e861ea81cf004ca9c4bc1a050674f8007879",
+  "run_id": 39110775375,
+  "artifact_id": 12130951111,
+  "artifact_sha256": "956483ad532c6b6408d8db69b77eeb01b25d2da7cf0831b3a721d76bfc9259c3",
+  "product_mode": "LOCAL_DESKTOP",
+  "version": "0.1.8",
+  "signed": false,
+  "provenance": {
+    "source_head_sha": "0547e861ea81cf004ca9c4bc1a050674f8007879",
+    "workflow_sha": "1a16b86962132eb5541fb8ac025ebbf5cf10b11f",
+    "workflow_ref": "refs/pull/88/merge",
+    "merge_ref_sha": "1a16b86962132eb5541fb8ac025ebbf5cf10b11f",
+    "build_commit": "1a16b86962132eb5541fb8ac025ebbf5cf10b11f"
+  },
+  "installer": {
+    "path": "SAPSOS-Local-Desktop-0.1.8-x64-setup.exe",
+    "bytes": 33209732,
+    "sha256": "59e1801e852ffc5d7b1765c6ce46f40c076a4b358ca2aa64d984edbfbf655cc1"
+  },
+  "installer_hash_verified": true
+}
