@@ -157,6 +157,9 @@ export function snapshotVisibleAcademicPage(
   let limited = false;
   let visitedNodeCount = 0;
   const visitedNodes = new WeakSet<Node>();
+  // The synchronous snapshot never mutates the DOM. Reuse ancestor checks only
+  // within this capture; subsequent captures must observe visibility changes.
+  const blockedAncestorCache = new WeakMap<Element, boolean>();
   let totalRows = 0;
   let totalTextLength = 0;
 
@@ -255,13 +258,23 @@ export function snapshotVisibleAcademicPage(
 
   function hasBlockedOrHiddenAncestor(element: Element | null): boolean {
     let current = element;
+    const path: Element[] = [];
+    let blocked = false;
     while (current) {
+      const cached = blockedAncestorCache.get(current);
+      if (cached !== undefined) {
+        blocked = cached;
+        break;
+      }
+      path.push(current);
       if (isBlockedElement(current) || !isVisibleElement(current)) {
-        return true;
+        blocked = true;
+        break;
       }
       current = current.parentElement;
     }
-    return false;
+    for (const ancestor of path) blockedAncestorCache.set(ancestor, blocked);
+    return blocked;
   }
 
   function visibleTextUnder(root: Element, maxLength: number): string {

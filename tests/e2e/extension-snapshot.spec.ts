@@ -1674,3 +1674,29 @@ test("stops with a bounded timeout when the visible page remains stale page 1", 
     resultFingerprint: null,
   });
 });
+
+test("snapshot visibility cache is per capture and never exposes blocked content", async ({
+  page,
+}) => {
+  await page.setContent(
+    '<main><p>Visible synthetic evidence</p><section id="hidden" hidden><p>Hidden synthetic evidence</p></section><button>Blocked synthetic action</button><textarea>Private synthetic field</textarea></main>',
+  );
+  const first = await page.evaluate(
+    snapshotVisibleAcademicPage,
+    BOUNDED_EXTRACTION_LIMITS,
+  );
+  expect(first.visibleText).toContain("Visible synthetic evidence");
+  expect(first.visibleText).not.toContain("Hidden synthetic evidence");
+  expect(first.visibleText).not.toContain("Blocked synthetic action");
+  expect(first.visibleText).not.toContain("Private synthetic field");
+  await page.locator("#hidden").evaluate((element) => {
+    (element as HTMLElement).hidden = false;
+  });
+  const second = await page.evaluate(
+    snapshotVisibleAcademicPage,
+    BOUNDED_EXTRACTION_LIMITS,
+  );
+  expect(second.visibleText).toContain("Hidden synthetic evidence");
+  expect(second.visibleText).not.toContain("Blocked synthetic action");
+  expect(second.visibleText).not.toContain("Private synthetic field");
+});
