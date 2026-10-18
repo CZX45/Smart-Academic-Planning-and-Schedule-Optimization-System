@@ -1070,8 +1070,9 @@ guessed value. Preserve `ATTEMPTED` as source evidence, normalize it to
 
 ### Consequences
 
-The controlled real MyProgress snapshot completes unbounded and retains all a nested multi-table structure (participant-derived counts omitted). Synthetic Chromium coverage reproduces the
-nested/large DOM. The safety ceiling remains finite. Ambiguous attempted rows
+The historical controlled MyProgress run exercised a nested multi-table
+structure. Participant-derived counts are omitted from this public copy.
+Synthetic Chromium coverage reproduces the nested/large DOM. The safety ceiling remains finite. Ambiguous attempted rows
 and duplicate/conflicting representations remain fail-closed, so a parser PASS
 does not imply Degree Audit or Planner readiness without an exact reviewed
 catalog mapping and reliable course history.
