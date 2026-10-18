@@ -30,3 +30,24 @@ it("remains usable when browser storage is unavailable", () => {
   expect(readSelectedStudent("local")).toBeUndefined();
   expect(() => saveSelectedStudent("local", "synthetic-student")).not.toThrow();
 });
+
+it("restores desktop selection across dynamic ports while isolating other API contexts", () => {
+  const values = new Map<string, string>();
+  vi.stubGlobal("window", { __TAURI_INTERNALS__: {} });
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+  });
+  saveSelectedStudent("http://127.0.0.1:43127", "synthetic-student-b");
+  expect(readSelectedStudent("http://127.0.0.1:43128")).toBe(
+    "synthetic-student-b",
+  );
+  expect(
+    readSelectedStudent("http://127.0.0.1:43128/other-api"),
+  ).toBeUndefined();
+  expect(readSelectedStudent("https://api.example.edu")).toBeUndefined();
+  saveSelectedStudent("https://api.example.edu:8443", "synthetic-remote");
+  expect(readSelectedStudent("https://api.example.edu:8444")).toBeUndefined();
+  vi.stubGlobal("window", {});
+  expect(readSelectedStudent("http://127.0.0.1:43128")).toBeUndefined();
+});

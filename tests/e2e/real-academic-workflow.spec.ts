@@ -83,9 +83,13 @@ function candidates(studentId: string, revision = "one") {
     issues: [],
   };
 }
-async function setup(page: Page, multiple = false) {
+async function setup(
+  page: Page,
+  multiple = false,
+  apiBaseUrl = "http://localhost:8000",
+) {
   const posts: Array<{ path: string; body: Record<string, unknown> }> = [];
-  await page.route("http://localhost:8000/**", async (route) => {
+  await page.route(`${apiBaseUrl}/**`, async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (route.request().method() === "POST") {
       posts.push({
@@ -247,4 +251,38 @@ test("apply invalidates real candidates and ignores a stale response", async ({
   await expect(
     page.getByRole("combobox", { name: "已应用课程", exact: true }),
   ).not.toContainText("STALE 1000");
+});
+
+test("desktop restart with a new API port restores only an available real profile", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "__TAURI_INTERNALS__", { value: {} });
+  });
+  const initialApi = "http://127.0.0.1:43127";
+  const restartedApi = "http://127.0.0.1:43128";
+  const emptyReplacementApi = "http://127.0.0.1:43129";
+  const initialPosts = await setup(page, true, initialApi);
+  const restartedPosts = await setup(page, true, restartedApi);
+  await setup(page, false, emptyReplacementApi);
+  await page.goto(`/?api_base_url=${encodeURIComponent(initialApi)}`);
+  await page
+    .getByRole("combobox", { name: "当前档案", exact: true })
+    .selectOption(second);
+  await page.goto(`/?api_base_url=${encodeURIComponent(restartedApi)}`);
+  await expect(
+    page.getByRole("combobox", { name: "当前档案", exact: true }),
+  ).toHaveValue(second);
+  await expect(
+    page.getByRole("combobox", { name: "已应用课程", exact: true }),
+  ).toContainText("PHYS 1001");
+  expect(initialPosts).toHaveLength(0);
+  expect(restartedPosts).toHaveLength(0);
+  await page.goto(`/?api_base_url=${encodeURIComponent(emptyReplacementApi)}`);
+  await expect(
+    page.getByRole("combobox", { name: "当前档案", exact: true }),
+  ).toHaveValue(first);
+  await expect(
+    page.getByRole("combobox", { name: "已应用课程", exact: true }),
+  ).not.toContainText("PHYS 1001");
 });
