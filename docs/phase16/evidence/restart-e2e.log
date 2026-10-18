@@ -1,0 +1,19 @@
+[WebServer] INFO:     Started server process [57959]
+[WebServer] INFO:     Waiting for application startup.
+[WebServer] INFO:     Application startup complete.
+[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+[WebServer] (node:57966) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57978) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 4 tests using 1 worker
+
+(node:57997) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › tests/e2e/real-academic-workflow.spec.ts:134:5 › real workflow submits scoped reviewed identities and never writes on navigation (4.4s)
+  ✓  2 [chromium] › tests/e2e/real-academic-workflow.spec.ts:186:5 › real profile selection survives reload and clears the previous course (2.6s)
+  ✓  3 [chromium] › tests/e2e/real-academic-workflow.spec.ts:215:5 › apply invalidates real candidates and ignores a stale response (1.5s)
+  ✓  4 [chromium] › tests/e2e/real-academic-workflow.spec.ts:256:5 › desktop restart with a new API port restores only an available real profile (3.0s)
+
+  4 passed (18.3s)

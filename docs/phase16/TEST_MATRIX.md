@@ -4,18 +4,19 @@
 
 | 门禁 / 命令 | 数量 | 状态 | 证据/说明 |
 |---|---:|---|---|
-| `pnpm test`（含 pytest / Vitest / Node） | 626 PASS / 15 SKIP | PASS | unit-final.log；API Windows 专属项单列跳过 |
-| `pnpm e2e` | 62 | PASS | e2e-final.log；58 既有 + 4 新增 |
+| `pnpm test`（含 pytest / Vitest / Node） | 627 PASS / 15 SKIP | PASS | unit-final.log；API Windows 专属项单列跳过 |
+| `pnpm e2e` | 63 | PASS | e2e-final.log；58 既有 + 5 新增 |
 | `pnpm lint` | 全包 | PASS | lint-final.log（含 Ruff、ESLint） |
 | `pnpm typecheck` | 全包 | PASS | typecheck-final.log（含 strict mypy、TypeScript） |
 | Python 3.14 `python -m mypy .` | 164 文件 | PASS | mypy314-final.log |
 | `pnpm format` | 全包 | PASS | format-check-final.log（Ruff/Prettier） |
 | `pnpm build` | 全包 | PASS | build-final.log |
+| `pnpm extension:package` | 未安装的扩展目录 | PASS | extension-package.log/json；包含可见性缓存、116=false |
 | `pnpm openapi:check` | 两份契约 | PASS | openapi-check.log；生成后无漂移 |
 | `alembic upgrade head` + seed 两次 + `alembic check` | PostgreSQL 16 | PASS | 独立合成数据库，当前迁移 20260824_0021 |
 | Docker Compose build/up/health/ready/web/seed×2 | 3 容器 | PASS | 独立 project phase16-ci；mock-institution 计数为 1 |
-| Windows installer foundation / lifecycle / packaged E2E | GitHub Windows runners | PASS | ea32a38；三个工作流均成功，见 ci-final.json |
-| Rust desktop tests | 25 | PASS on Windows CI / NOT_RUN locally | ea32a38 foundation；实际执行名称见 rust-test-names.log |
+| Windows installer foundation / lifecycle / packaged E2E | GitHub Windows runners | PASS | 0547e86；三个工作流均成功，见 ci-final.json |
+| Rust desktop tests | 25 | PASS on Windows CI / NOT_RUN locally | 0547e86 foundation；实际执行名称见 rust-test-names.log |
 | 原生 Windows GUI / 真库升级 / 学校真实数据 | 不计入自动化数量 | NOT_RUN | 见本地交接；不以 Ubuntu PASS 替代 |
 | 手工安全差异审查与安全 API 回归 | 变更范围 | PASS | RELEASE_READINESS；正式插件不可调用 |
 
@@ -27,7 +28,7 @@ Web 单元：student-selection 中的持久化/API 地址隔离和不可用 stor
 
 E2E：`snapshot visibility cache is per capture and never exposes blocked content`；`real workflow submits scoped reviewed identities and never writes on navigation`；`real profile selection survives reload and clears the previous course`；`apply invalidates real candidates and ignores a stale response`。
 
-原 699 = 616 单元/集成 + 58 E2E + 25 Rust。新增 23 API + 2 Web + 4 E2E = 29，测试库存 728；不能把库存或重复运行算成实际通过。Linux 的 Windows 平台 skip 与 Rust 未运行必须单独列出。
+原 699 = 616 单元/集成 + 58 E2E + 25 Rust。新增 23 API + 3 Web + 5 E2E = 31，测试库存 730；不能把库存或重复运行算成实际通过。Linux 的 Windows 平台 skip 与 Rust 未运行必须单独列出。
 
 ## 失败与修复记录
 
@@ -37,7 +38,7 @@ E2E：`snapshot visibility cache is per capture and never exposes blocked conten
 - Docker 初次 Corepack 未使用代理；仅在可选 CA secret 存在时采用环境代理，保留 TLS 后通过。
 - 格式门禁初次发现新增代码未格式化，已使用包内 Prettier 修正。
 
-本地实际合计 **688 PASS、15 Windows 平台 SKIP、25 Rust NOT_RUN locally / PASS in Windows CI**；不重复累计定向或重跑测试。API 360 PASS / 15 SKIP（375），扩展 173、Shared 66、Web 25、Node 2，E2E 62。日志文件与 SHA-256 见 `evidence/log-index.json`。
+本地实际合计 **690 PASS、15 Windows 平台 SKIP、25 Rust NOT_RUN locally / PASS in Windows CI**；不重复累计定向或重跑测试。API 360 PASS / 15 SKIP（375），扩展 173、Shared 66、Web 26、Node 2，E2E 63。日志文件与 SHA-256 见 `evidence/log-index.json`。
 
 15 项跳过原因见 `evidence/pytest-earlier-skip-reasons.log`（较早执行的原始原因；最终相同 15 项跳过见 unit-final.log），包括 Windows junction、Windows PowerShell/VC runtime、进程检查和安装 payload；没有删除或新增 skip。完整 pytest nodeid 库存见 `evidence/pytest-inventory.log`。
 
@@ -49,6 +50,10 @@ E2E：`snapshot visibility cache is per capture and never exposes blocked conten
 
 另一次 61/62 失败来自测试夹具把超时通知与搜索点击写入同一变量。现独立记录事件，保留原提交结果断言，并新增 PREPARATION_VERIFIED → 唯一 SEARCH_SUBMITTED 顺序断言，以及超时后点击证据仍保留的验证；未改生产搜索流程或放宽超时。见 e2e-checkpoint-fixture-failure.log 与 checkpoint-focused.log。
 
-完整名称索引：Python 375 项见 pytest-inventory.log；TypeScript 264 项见 typescript-test-names.json；Node 2 项见 unit-final.log；E2E 62 项见 e2e-final.log；Rust 25 项见 rust-test-names.log。名称索引由 collect/list 或实际执行日志生成，不作为重复测试通过次数。Windows foundation 另执行 preflight 3、runtime payload 9、VC runtime 7 项，均与既有库存重叠，不累加为新增测试。
+完整名称索引：Python 375 项见 pytest-inventory.log；TypeScript 265 项见 typescript-test-names.json；Node 2 项见 unit-final.log；E2E 63 项见 e2e-final.log；Rust 25 项见 rust-test-names.log。名称索引由 collect/list 或实际执行日志生成，不作为重复测试通过次数。Windows foundation 另执行 preflight 3、runtime payload 9、VC runtime 7 项，均与既有库存重叠，不累加为新增测试。
 
-最终代码提交 `ea32a382c6ad1bf328e670f555fb1d97ad839935` 的四个 GitHub 工作流、八个 job 全部 PASS，完整步骤快照见 evidence/ci-final.json。后续文档提交的 CI 以 Draft PR 最终 HEAD 检查为准，不能以较早失败运行或重复次数替代当前结果。
+最终代码提交 `0547e861ea81cf004ca9c4bc1a050674f8007879` 的四个 GitHub 工作流、八个 job 全部 PASS，完整步骤快照见 evidence/ci-final.json。后续文档提交的 CI 以 Draft PR 最终 HEAD 检查为准，不能以较早失败运行或重复次数替代当前结果。
+
+桌面重启新增单元测试 `restores desktop selection across dynamic ports while isolating other API contexts`，及 E2E `desktop restart with a new API port restores only an available real profile`。最新本地全套计数为 690 PASS / 15 平台 SKIP；Rust 25 项由 Windows CI 单列。
+
+另一次 62/63 失败证明实时 setInterval 在繁忙浏览器中可能延后，使“持续变更”夹具实际已经稳定。两个内容稳定性夹具现用 Playwright clock 精确驱动 180/220 ms 时间轴；原 TIMEOUT、稳定性原因码与生产门禁均未放宽。失败样本见 e2e-container-timer-failure.log，定向验证见 container-clock.log。

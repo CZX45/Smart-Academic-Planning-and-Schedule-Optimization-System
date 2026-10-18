@@ -45,14 +45,6 @@
       "file": "apps/web/src/lib/data-import-preview.test.ts"
     },
     {
-      "name": "restores only the selected local identity within the same API context",
-      "file": "apps/web/src/lib/student-selection.test.ts"
-    },
-    {
-      "name": "remains usable when browser storage is unavailable",
-      "file": "apps/web/src/lib/student-selection.test.ts"
-    },
-    {
       "name": "workflow module isolation guards > ignores stale reads after a newer request starts",
       "file": "apps/web/src/lib/workflow-state-isolation.test.ts"
     },
@@ -79,6 +71,18 @@
     {
       "name": "workflow navigation > resolves hashes without requiring a server route",
       "file": "apps/web/src/lib/workflow-navigation.test.ts"
+    },
+    {
+      "name": "restores only the selected local identity within the same API context",
+      "file": "apps/web/src/lib/student-selection.test.ts"
+    },
+    {
+      "name": "remains usable when browser storage is unavailable",
+      "file": "apps/web/src/lib/student-selection.test.ts"
+    },
+    {
+      "name": "restores desktop selection across dynamic ports while isolating other API contexts",
+      "file": "apps/web/src/lib/student-selection.test.ts"
     },
     {
       "name": "Simplified Chinese web UI copy helpers > localizes status and source values without changing the raw enum values",

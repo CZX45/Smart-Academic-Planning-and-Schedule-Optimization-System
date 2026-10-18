@@ -1,7 +1,7 @@
 [
   {
     "file": "build-final.log",
-    "sha256": "e1915ee0476d7191c0da85bab00aabd00063d86f396d32e65391b6dbcb9f26d3"
+    "sha256": "e87b70c6c7ffe1d1878e13ae98644356e20040d7fad323246157ea564dd57679"
   },
   {
     "file": "checkpoint-focused.log",
@@ -13,7 +13,7 @@
   },
   {
     "file": "ci-final.json",
-    "sha256": "bdfb105248a06a3c9b3de58023eea3c10e277daac32b4506e09e7158a5257869"
+    "sha256": "38990a4f2eb0436a60d62b0b792bbe30f72d0b85a0280ca2a464528ab0386776"
   },
   {
     "file": "compose-health.log",
@@ -28,8 +28,12 @@
     "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
   },
   {
+    "file": "container-clock.log",
+    "sha256": "0f60b6fe20dc7c10f829139c88a9a32ebdfe0896b77ba68289c5d2182f6a85ef"
+  },
+  {
     "file": "delivery.json",
-    "sha256": "6cb277dffdf82a024e7b34ba131536267c1d96710cc8eb9f1f8967d56aafa3dc"
+    "sha256": "5c2faa887dd4b86f419bd3373b1358e03d1cb6030a9f13176e829947ce8f50fe"
   },
   {
     "file": "e2e-checkpoint-fixture-failure.log",
@@ -40,8 +44,20 @@
     "sha256": "a075b482726b3d72ca88a7a7a7702cb9eb6efb6af070b8f17749ee967cac289b"
   },
   {
+    "file": "e2e-container-timer-failure.log",
+    "sha256": "e68dea7d8a0870562212b46560e7dd20cac1ac7634932ba0281c2060da5afa2b"
+  },
+  {
     "file": "e2e-final.log",
-    "sha256": "b44c89b07bfb32ca8be4e1e82072519aafab7002fb483ba817eb6df2182d2554"
+    "sha256": "64a961563f65608a8a1a89a6b500c7bf8029b46ffd304617c652abccff624e6d"
+  },
+  {
+    "file": "extension-package.json",
+    "sha256": "8181088d67853315fb7c0c76e1f25cd886e7f250fb701ad7194653dd05756c6f"
+  },
+  {
+    "file": "extension-package.log",
+    "sha256": "876e92e03435be4bfb03df29bb42d250bad82f99ad664b23622d33c64ad3d7fb"
   },
   {
     "file": "format-check-final.log",
@@ -81,11 +97,15 @@
   },
   {
     "file": "pytest-final.log",
-    "sha256": "4ef611f2a9f20e55f82a77ec01ef80f1b72860d0bea280280beed73215ee7c6a"
+    "sha256": "94a79c006ceda77e98fd2d0f9b5f906e14f0e4cb009dae599adde3a8f5890550"
   },
   {
     "file": "pytest-inventory.log",
     "sha256": "38b0e7b0de3ffb8e1009853b55cd65dbe8fd75b41ffee729d9da67ea47f0400f"
+  },
+  {
+    "file": "restart-e2e.log",
+    "sha256": "4755c3178cfbcef5ce56b836ab0d0a740dbdd040b29b0f1079828d5d7a67dfc8"
   },
   {
     "file": "reviewed-planner.log",
@@ -97,7 +117,7 @@
   },
   {
     "file": "rust-test-names.log",
-    "sha256": "f0683a3660998c73ce706b2991ec417aca3b7369765106480b73b7b293124c25"
+    "sha256": "0ac9da4a0c7418b5dc88d5ba46dc315ecc5583cb7f4afda11662f73db680dca8"
   },
   {
     "file": "snapshot-focused.log",
@@ -109,15 +129,19 @@
   },
   {
     "file": "typecheck-final.log",
-    "sha256": "a3aa87959a3a1b94ad6ab9e8e56ef6b7acba16e654288d5c664e4e633ff542d4"
+    "sha256": "537151ada745ce3c9d8caf179b4cd41bc1adcfdf68b55b29521b021db4dfae54"
   },
   {
     "file": "typescript-test-names.json",
-    "sha256": "be76cd5d191b57034498533b30137af577fdf46169d562389662e9aac1ab4a72"
+    "sha256": "43558e4538d8973d16e4f43e0e2b33bd45637d95846ad6be438aa12c423135e9"
   },
   {
     "file": "unit-final.log",
-    "sha256": "dfe65264c1c5878f2a3603a5dbb38c6f380cc0915a8e9bf482f3da883d52b7ae"
+    "sha256": "a0a6c0ac052c4980e7fc56862485ceef8120bd94805df398e2c2aaaee765beef"
+  },
+  {
+    "file": "web-restart-tests.log",
+    "sha256": "ddc5b2cf547f5894697d21b362dfeebbedcf40292f1d39114e1d35d812b7322a"
   },
   {
     "file": "web-typecheck.log",
@@ -125,11 +149,11 @@
   },
   {
     "file": "windows-installer-final.json",
-    "sha256": "71fe19e4b7bc20c70ab087d62d8c89750fc892810692df270789bbb0a998482c"
+    "sha256": "eeaf1cba60331a5a8800d5cc9a254bc143f9d914fe547faf0bdb26eabc922dfd"
   },
   {
     "file": "windows-packaged-final.json",
-    "sha256": "10e0b095660a6a730ca08471104e32dcc9b6aecae0e31281e8c15c20748e298b"
+    "sha256": "523a61c6dc9febdf45e6cf898567fdd1f81963404c05f9f19291aa2e76d1aa87"
   },
   {
     "file": "windows-schema-fix.json",

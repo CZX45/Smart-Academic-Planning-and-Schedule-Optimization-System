@@ -6,33 +6,33 @@
   "provider_actions_written": 0,
   "full_116_unlocked": false,
   "ci_status": "ALL_FOUR_CODE_WORKFLOWS_PASSED",
-  "source_commit": "ea32a382c6ad1bf328e670f555fb1d97ad839935",
+  "source_commit": "0547e861ea81cf004ca9c4bc1a050674f8007879",
   "local_tests": {
-    "passed": 688,
+    "passed": 690,
     "skipped_windows_specific": 15,
     "rust_not_run_locally": 25,
-    "inventory": 728,
+    "inventory": 730,
     "rust_passed_in_windows_ci": 25
   },
   "main_after": "8e055994e3e4435043c66e9362d9d0ede2365ec3",
   "draft_pr_url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/88",
   "ci_runs": {
-    "ci": 39108207842,
-    "windows_foundation": 39108207847,
-    "windows_lifecycle": 39108207846,
-    "windows_packaged_e2e": 39108207845
+    "ci": 39110775370,
+    "windows_foundation": 39110775375,
+    "windows_lifecycle": 39110775371,
+    "windows_packaged_e2e": 39110775376
   },
   "evidence_scope": {
-    "unit_test_code_commit": "792278c35c715cc9430b83f1e71f7de4d0729bfa",
-    "e2e_and_build_commit": "ea32a382c6ad1bf328e670f555fb1d97ad839935",
-    "later_test_fixture_only_change": "ea32a38 isolates navigation notifications; no domain code changes",
-    "earlier_logs": "pytest-earlier-skip-reasons, positive-real, reviewed-planner and rule-source are intermediate diagnostic evidence; not additional test counts"
+    "unit_test_code_commit": "0547e861ea81cf004ca9c4bc1a050674f8007879",
+    "e2e_and_build_commit": "0547e861ea81cf004ca9c4bc1a050674f8007879",
+    "earlier_logs": "Focused and failure logs are intermediate diagnostic evidence, not additional test counts. Final unit/E2E/build logs correspond to source_commit; Python sources are unchanged since a2f605e."
   },
   "documentation_delivery": "Only docs/phase16 changes follow source_commit; final delivery HEAD and its checks are recorded on Draft PR #88.",
   "real_acceptance_status": "NOT_RUN; FULL_116_SUBJECT_BATCH remains BLOCKED",
   "artifact_evidence": {
     "installer": "windows-installer-final.json",
     "packaged_e2e": "windows-packaged-final.json",
-    "ci": "ci-final.json"
+    "ci": "ci-final.json",
+    "extension": "extension-package.json"
   }
 }

@@ -1,20 +1,20 @@
 {
-  "source_commit": "ea32a382c6ad1bf328e670f555fb1d97ad839935",
+  "source_commit": "0547e861ea81cf004ca9c4bc1a050674f8007879",
   "all_workflows_passed": true,
   "workflows": [
     {
-      "id": 39108207842,
+      "id": 39110775370,
       "name": "CI",
       "status": "completed",
       "conclusion": "success",
-      "url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39108207842",
+      "url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39110775370",
       "jobs": [
         {
-          "id": 117618532561,
-          "name": "python-type-matrix (3.12)",
+          "id": 117626253457,
+          "name": "python-type-matrix (3.14)",
           "status": "completed",
           "conclusion": "success",
-          "run_id": 39108207842,
+          "run_id": 39110775370,
           "logs_url": null,
           "steps": [
             {
@@ -68,11 +68,11 @@
           ]
         },
         {
-          "id": 117618532759,
+          "id": 117626253576,
           "name": "checks",
           "status": "completed",
           "conclusion": "success",
-          "run_id": 39108207842,
+          "run_id": 39110775370,
           "logs_url": null,
           "steps": [
             {
@@ -246,11 +246,169 @@
           ]
         },
         {
-          "id": 117618532779,
+          "id": 117626253604,
+          "name": "python-type-matrix (3.12)",
+          "status": "completed",
+          "conclusion": "success",
+          "run_id": 39110775370,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Run python -m pip install -c apps/api/requirements-ci.txt -e \"apps/api[dev]\"",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Run cd apps/api && python -m mypy .",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 9
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            }
+          ]
+        },
+        {
+          "id": 117626253652,
+          "name": "docker-compose",
+          "status": "completed",
+          "conclusion": "success",
+          "run_id": 39110775370,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run docker compose config",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Run docker compose up -d --build",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Run timeout 60 bash -c 'until curl --fail --show-error http://localhost:8000/health; do sleep 2; done'",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Run timeout 60 bash -c 'until curl --fail --show-error http://localhost:8000/ready; do sleep 2; done'",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Run timeout 60 bash -c 'until curl --fail --show-error http://localhost:3000; do sleep 2; done'",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Run docker compose exec -T api python -m app.seed_dev",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Run docker compose exec -T api python -m app.seed_dev",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 9
+            },
+            {
+              "name": "Run count=\"$(docker compose exec -T db psql -U sapsos -d sapsos -tAc \"select count(*) from dev_seed_records where seed_key = 'mock-institution';\" | tr -d '[:space:]')\"",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Run docker compose ps",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            },
+            {
+              "name": "Run docker compose logs --no-color --tail=200",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 12
+            },
+            {
+              "name": "Run docker compose down -v",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 13
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 26
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 27
+            }
+          ]
+        },
+        {
+          "id": 117626253681,
           "name": "e2e",
           "status": "completed",
           "conclusion": "success",
-          "run_id": 39108207842,
+          "run_id": 39110775370,
           "logs_url": null,
           "steps": [
             {
@@ -356,180 +514,22 @@
               "number": 23
             }
           ]
-        },
-        {
-          "id": 117618532785,
-          "name": "docker-compose",
-          "status": "completed",
-          "conclusion": "success",
-          "run_id": 39108207842,
-          "logs_url": null,
-          "steps": [
-            {
-              "name": "Set up job",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 1
-            },
-            {
-              "name": "Run actions/checkout@v4",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 2
-            },
-            {
-              "name": "Run docker compose config",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 3
-            },
-            {
-              "name": "Run docker compose up -d --build",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 4
-            },
-            {
-              "name": "Run timeout 60 bash -c 'until curl --fail --show-error http://localhost:8000/health; do sleep 2; done'",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 5
-            },
-            {
-              "name": "Run timeout 60 bash -c 'until curl --fail --show-error http://localhost:8000/ready; do sleep 2; done'",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 6
-            },
-            {
-              "name": "Run timeout 60 bash -c 'until curl --fail --show-error http://localhost:3000; do sleep 2; done'",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 7
-            },
-            {
-              "name": "Run docker compose exec -T api python -m app.seed_dev",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 8
-            },
-            {
-              "name": "Run docker compose exec -T api python -m app.seed_dev",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 9
-            },
-            {
-              "name": "Run count=\"$(docker compose exec -T db psql -U sapsos -d sapsos -tAc \"select count(*) from dev_seed_records where seed_key = 'mock-institution';\" | tr -d '[:space:]')\"",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 10
-            },
-            {
-              "name": "Run docker compose ps",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 11
-            },
-            {
-              "name": "Run docker compose logs --no-color --tail=200",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 12
-            },
-            {
-              "name": "Run docker compose down -v",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 13
-            },
-            {
-              "name": "Post Run actions/checkout@v4",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 26
-            },
-            {
-              "name": "Complete job",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 27
-            }
-          ]
-        },
-        {
-          "id": 117618532811,
-          "name": "python-type-matrix (3.14)",
-          "status": "completed",
-          "conclusion": "success",
-          "run_id": 39108207842,
-          "logs_url": null,
-          "steps": [
-            {
-              "name": "Set up job",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 1
-            },
-            {
-              "name": "Run actions/checkout@v4",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 2
-            },
-            {
-              "name": "Run actions/setup-python@v5",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 3
-            },
-            {
-              "name": "Run python -m pip install -c apps/api/requirements-ci.txt -e \"apps/api[dev]\"",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 4
-            },
-            {
-              "name": "Run cd apps/api && python -m mypy .",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 5
-            },
-            {
-              "name": "Post Run actions/setup-python@v5",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 9
-            },
-            {
-              "name": "Post Run actions/checkout@v4",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 10
-            },
-            {
-              "name": "Complete job",
-              "status": "completed",
-              "conclusion": "success",
-              "number": 11
-            }
-          ]
         }
       ]
     },
     {
-      "id": 39108207847,
+      "id": 39110775375,
       "name": "Windows installer foundation",
       "status": "completed",
       "conclusion": "success",
-      "url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39108207847",
+      "url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39110775375",
       "jobs": [
         {
-          "id": 117618532868,
+          "id": 117626253451,
           "name": "package",
           "status": "completed",
           "conclusion": "success",
-          "run_id": 39108207847,
+          "run_id": 39110775375,
           "logs_url": null,
           "steps": [
             {
@@ -663,18 +663,18 @@
       ]
     },
     {
-      "id": 39108207845,
+      "id": 39110775376,
       "name": "Windows packaged desktop E2E",
       "status": "completed",
       "conclusion": "success",
-      "url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39108207845",
+      "url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39110775376",
       "jobs": [
         {
-          "id": 117618532747,
+          "id": 117626253544,
           "name": "Windows packaged desktop E2E",
           "status": "completed",
           "conclusion": "success",
-          "run_id": 39108207845,
+          "run_id": 39110775376,
           "logs_url": null,
           "steps": [
             {
@@ -784,18 +784,18 @@
       ]
     },
     {
-      "id": 39108207846,
+      "id": 39110775371,
       "name": "Windows installer lifecycle",
       "status": "completed",
       "conclusion": "success",
-      "url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39108207846",
+      "url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39110775371",
       "jobs": [
         {
-          "id": 117618532611,
+          "id": 117626253574,
           "name": "lifecycle",
           "status": "completed",
           "conclusion": "success",
-          "run_id": 39108207846,
+          "run_id": 39110775371,
           "logs_url": null,
           "steps": [
             {

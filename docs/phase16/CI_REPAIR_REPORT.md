@@ -42,13 +42,15 @@ Chrome 155 在大型嵌套表格上重复触发原有 1 秒预算，留下空摘
 
 ## 最终代码 CI 结果
 
-以下均绑定 `ea32a382c6ad1bf328e670f555fb1d97ad839935`，四个工作流、八个 job 全部成功；完整 job/step 结论见 evidence/ci-final.json。后续文档提交不改变这些受测代码，交付 HEAD 的检查结果见 [Draft PR #88](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/88/checks)。
+以下均绑定 `0547e861ea81cf004ca9c4bc1a050674f8007879`，四个工作流、八个 job 全部成功；完整 job/step 结论见 evidence/ci-final.json。后续文档提交不改变这些受测代码，交付 HEAD 的检查结果见 [Draft PR #88](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/88/checks)。
 
 | 工作流 | 结果 | 运行 |
 |---|---|---|
-| CI（checks、E2E、Docker、Python 3.12/3.14） | PASS | [39108207842](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39108207842) |
-| Windows installer foundation | PASS | [39108207847](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39108207847) |
-| Windows installer lifecycle | PASS | [39108207846](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39108207846) |
-| Windows packaged desktop E2E | PASS | [39108207845](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39108207845) |
+| CI（checks、E2E、Docker、Python 3.12/3.14） | PASS | [39110775370](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39110775370) |
+| Windows installer foundation | PASS | [39110775375](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39110775375) |
+| Windows installer lifecycle | PASS | [39110775371](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39110775371) |
+| Windows packaged desktop E2E | PASS | [39110775376](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39110775376) |
 
 已下载并只读核验源码对应的候选安装包归档：manifest 的 source_head_sha 为上述代码 SHA，版本 0.1.8，安装程序 SHA-256 与 manifest 完全一致。安装态证据确认 LOCAL_DESKTOP/2 唯一标记和 18 个阶段 completed。精简证据见 windows-installer-final.json、windows-packaged-final.json；不将 runner 上合成数据的结果计为真实学校或用户电脑验收。
+
+桌面动态端口重启补充修复和两个使用可控时钟的稳定性夹具均包含在上述最终代码提交中。新本地结果为 690 PASS / 15 平台 SKIP；Windows Rust 25 PASS。生产稳定性预算、超时和原因码断言没有放宽。

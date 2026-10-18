@@ -40,10 +40,14 @@ docs/phase16/evidence/ci-final.json
 docs/phase16/evidence/compose-health.log
 docs/phase16/evidence/compose-seed1.log
 docs/phase16/evidence/compose-seed2.log
+docs/phase16/evidence/container-clock.log
 docs/phase16/evidence/delivery.json
 docs/phase16/evidence/e2e-checkpoint-fixture-failure.log
 docs/phase16/evidence/e2e-concurrent-failure.log
+docs/phase16/evidence/e2e-container-timer-failure.log
 docs/phase16/evidence/e2e-final.log
+docs/phase16/evidence/extension-package.json
+docs/phase16/evidence/extension-package.log
 docs/phase16/evidence/format-check-final.log
 docs/phase16/evidence/lint-final.log
 docs/phase16/evidence/log-index.json
@@ -57,6 +61,7 @@ docs/phase16/evidence/postgres-migration.log
 docs/phase16/evidence/pytest-earlier-skip-reasons.log
 docs/phase16/evidence/pytest-final.log
 docs/phase16/evidence/pytest-inventory.log
+docs/phase16/evidence/restart-e2e.log
 docs/phase16/evidence/reviewed-planner.log
 docs/phase16/evidence/rule-source.log
 docs/phase16/evidence/rust-test-names.log
@@ -65,6 +70,7 @@ docs/phase16/evidence/snapshot-probe.json
 docs/phase16/evidence/typecheck-final.log
 docs/phase16/evidence/typescript-test-names.json
 docs/phase16/evidence/unit-final.log
+docs/phase16/evidence/web-restart-tests.log
 docs/phase16/evidence/web-typecheck.log
 docs/phase16/evidence/windows-installer-final.json
 docs/phase16/evidence/windows-packaged-final.json

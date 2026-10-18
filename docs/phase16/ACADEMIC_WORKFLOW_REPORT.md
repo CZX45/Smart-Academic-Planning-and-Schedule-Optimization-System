@@ -4,7 +4,7 @@
 
 | 模块 | 当前实现 | 尚需核实/限制 |
 |---|---|---|
-| Student Profile | 本地学生 ID 按 API 地址持久化，恢复时校验档案存在；Demo 与真实组件分开 | 原生重启、不同安装目录隔离待验收 |
+| Student Profile | 桌面 loopback 的学生选择跨动态端口持久化，普通浏览器/远程 API 按完整地址隔离；恢复时校验档案存在；Demo 与真实组件分开 | 原生重启、不同安装目录隔离待验收 |
 | Program / Catalog | 仅当前学生有效绑定、机构/校园一致、精确 Catalog、唯一有效且已确认规则集的非 Mock 候选 | 缺实体/规则不伪造；完整建模向导待补 |
 | Course Catalog | 当前学生成功 Review→Apply 的课程，或有可靠修读/课节证据；列出代码、标题、学分、来源时间 | 相似标题不自动等价；跨来源冲突保持人工审核 |
 | Course State | 原有幂等应用、快照替换与映射复用保留；无快照真实学生也排除 Mock 修读 | 部分/截断/异常课程历史不能用于确认毕业 |
@@ -29,3 +29,5 @@ Completed 是已修读证据中的实际贡献；In-progress 与 Planned 是潜�
 真实 MyProgress、Catalog、Sections、degree audit、eligibility、planner、optimizer 均 **UNVERIFIED**；不得用合成夹具声称验收完成。
 
 真实学生的规则解析同时验证专业绑定来源与 ProgramVersion 机构/校园；真实 ProgramVersion 仅接受 OFFICIAL、IMPORTED、BROWSER_EXTENSION 规则来源。Mock、学生自拟或未知规则来源不能因 ACTIVE 标签变成确定性学校规则。合成测试使用明确 fixture 来源证据模拟导入类别，不包含学校真实规则。
+
+桌面重启补充回归使用两个合成档案，更换 API 端口后仍恢复所选档案；新 API 缺少该 ID 时不恢复旧身份。稳定键仅用于选择偏好，请求、分析结果和迟到响应仍按完整 API 地址与学生 ID 隔离。
