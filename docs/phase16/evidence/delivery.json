@@ -5,13 +5,14 @@
   "main_before": "8e055994e3e4435043c66e9362d9d0ede2365ec3",
   "provider_actions_written": 0,
   "full_116_unlocked": false,
-  "ci_status": "PENDING_PR",
+  "ci_status": "FIRST_RUN_CHECKS_FAILED_CLEANUP_TEST_FIXED_PENDING_RERUN",
   "source_commit": "c25faca6ff39fa61fcb9e56edfd7b3feb0c143ca",
   "local_tests": {
-    "passed": 679,
+    "passed": 681,
     "skipped_windows_specific": 15,
     "rust_not_run": 25,
-    "inventory": 719
+    "inventory": 721
   },
-  "main_after": "8e055994e3e4435043c66e9362d9d0ede2365ec3"
+  "main_after": "8e055994e3e4435043c66e9362d9d0ede2365ec3",
+  "draft_pr_url": "https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/pull/88"
 }

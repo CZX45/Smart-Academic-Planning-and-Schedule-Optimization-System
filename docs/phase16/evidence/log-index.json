@@ -41,7 +41,11 @@
   },
   {
     "file": "pytest-inventory.log",
-    "sha256": "52ddc55edbd8b2676c1d91b67990f626aae3bbe56084326d3e409b4bf2aea61d"
+    "sha256": "47edb4dcc4f40a9307e8828266d65a6e94f684eec4711321e2888aa8cb8d5451"
+  },
+  {
+    "file": "reviewed-planner.log",
+    "sha256": "faa81508dc9f424343287779b56c8385412a5f09e4126cc6881ab29352a9af15"
   },
   {
     "file": "typecheck-final.log",
@@ -49,7 +53,7 @@
   },
   {
     "file": "unit-final.log",
-    "sha256": "2bb2fe79562b63d51f678675f8769abeeef4b3d44c7b9ace93fd0f198a174c7e"
+    "sha256": "de3c4871a40ad5ffe663c1f23a1ecca5d105faf1bdd3a6df340b9773c429464f"
   },
   {
     "file": "web-typecheck.log",

@@ -421,3 +421,67 @@ def test_real_review_apply_candidates_and_audit_round_trip(session: Session) -> 
         item.status is RequirementEvaluationStatus.MANUAL_REVIEW_REQUIRED
         for item in blocked.requirements
     )
+
+
+def test_planner_consumes_reviewed_options_and_preserves_zero_credit_override(
+    session: Session,
+) -> None:
+    from app.models.academic import AcademicPlanningMode
+    from app.services.academic_planner.engine import AcademicPlannerApplicationService
+
+    institution, program, version = _catalog_context(session)
+    node = session.scalar(
+        select(RequirementNode).where(
+            RequirementNode.program_version_id == version.id,
+            RequirementNode.parent_id.is_(None),
+        )
+    )
+    assert node is not None
+    wanted, excluded = seed_uuid("course:FIN-450"), seed_uuid("course:FIN-400")
+    for index, course_id in enumerate([wanted, excluded]):
+        session.add(
+            RequirementCourseOption(
+                id=uuid4(),
+                institution_id=institution.id,
+                program_version_id=version.id,
+                requirement_node_id=node.id,
+                course_id=course_id,
+                display_order=index,
+                credits_override=None,
+                source_type=SourceType.MOCK,
+                is_official=False,
+                source_reference="fixture://synthetic-reviewed-options",
+            )
+        )
+    record, _ = _rule_set(
+        institution,
+        program,
+        version,
+        courses=[],
+        requirements=[
+            RequirementRule(
+                rule_id=node.code,
+                name="Reviewed one-course choice",
+                operator="CHOOSE_N",
+                choose_n=1,
+                course_ids=[str(wanted)],
+            )
+        ],
+    )
+    session.add(record)
+    session.commit()
+    audit = DegreeAuditEngine(session).evaluate(
+        seed_uuid("student-profile:mock-student"), version.id, AuditMode.CURRENT
+    )
+    candidates, _ = AcademicPlannerApplicationService(session)._planner_candidates(
+        audit, version, AcademicPlanningMode.CURRENT_PROGRAM
+    )
+    assert [item.course.id for item in candidates] == [wanted]
+    assert candidates[0].requirement_node.choose_n == 1
+    # Zero is a valid advisory value even though persisted options currently require > 0.
+    from dataclasses import replace
+
+    advisory = replace(
+        candidates[0], course_option=RequirementCourseOption(credits_override=Decimal("0"))
+    )
+    assert advisory.credits == Decimal("0")

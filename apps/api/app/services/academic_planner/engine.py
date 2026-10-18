@@ -469,33 +469,17 @@ class AcademicPlannerApplicationService:
         program_version: ProgramVersion,
         planning_mode: AcademicPlanningMode,
     ) -> tuple[list[PlannerCandidate], list[WarningDraft]]:
-        requirement_ids = [requirement.requirement_node_id for requirement in audit.requirements]
-        nodes_by_id = {
-            node.id: node
-            for node in self._db.scalars(
-                select(RequirementNode).where(RequirementNode.id.in_(requirement_ids))
-            ).all()
-        }
-        options_by_requirement: dict[UUID, list[RequirementCourseOption]] = {}
-        if requirement_ids:
-            options = self._db.scalars(
-                select(RequirementCourseOption)
-                .where(RequirementCourseOption.requirement_node_id.in_(requirement_ids))
-                .order_by(
-                    RequirementCourseOption.requirement_node_id,
-                    RequirementCourseOption.display_order,
-                    RequirementCourseOption.id,
-                )
-            ).all()
-            for option in options:
-                options_by_requirement.setdefault(option.requirement_node_id, []).append(option)
-        courses_by_id = {
-            course.id: course
-            for course in self._db.scalars(
-                select(Course).where(Course.institution_id == program_version.institution_id)
-            ).all()
-        }
+        # Use the same reviewed node/option overlay and credit identities as the audit.
+        context = DegreeAuditEngine(self._db)._load_context(
+            audit.student_profile_id, program_version.id, AuditMode.CURRENT
+        )
+        nodes_by_id = context.nodes_by_id
+        options_by_requirement = context.options_by_node
+        courses_by_id = context.courses_by_id
         occupied_course_ids = self._occupied_course_ids(audit.student_profile_id)
+        occupied_identities = {
+            context.credit_identity(course_id) for course_id in occupied_course_ids
+        }
         unlock_values = self._unlock_values(program_version.institution_id)
         warnings: list[WarningDraft] = []
         candidates: list[PlannerCandidate] = []
@@ -542,7 +526,7 @@ class AcademicPlannerApplicationService:
             if node.requirement_type not in COURSE_OPTION_REQUIREMENT_TYPES:
                 continue
             for option in options:
-                if option.course_id in occupied_course_ids:
+                if context.credit_identity(option.course_id) in occupied_identities:
                     continue
                 course = courses_by_id[option.course_id]
                 candidates.append(

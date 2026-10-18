@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - "apps/api/requirements-ci.txt"
       - ".github/workflows/windows-installer-lifecycle.yml"
       - "desktop-shell/**"
       - "scripts/windows/**"

@@ -23,3 +23,9 @@ OpenAPI 的 Decimal 字段 schema 变更来自锁定的 Pydantic 2.14.1（移除
 Docker 受管网络使用可选 BuildKit CA secret，证书不写入镜像；Node 24 仅在提供该 secret 时启用环境代理。没有禁用 TLS 或改写代理凭证。Playwright 本地使用官方已安装 Chrome 155；CI 仍使用锁文件对应 Playwright 浏览器。受管网络拒绝下载 pinned Chromium 的结果保留为环境差异，不冒充本地 pinned-browser 测试。
 
 最终门禁结果、提交与日志见 [TEST_MATRIX](TEST_MATRIX.md) 和 `evidence/delivery.json`。
+
+## 修复后首轮 CI 的第二处故障
+
+[run 39106070735](https://github.com/CZX45/Smart-Academic-Planning-and-Schedule-Optimization-System/actions/runs/39106070735) 的双 Python mypy、E2E 与 Docker 均 PASS；pytest 暴露既有 cleanup 测试依赖 checkout 不在 UserProfile 的假设。Ubuntu runner checkout 在 `/home/runner/work`，生产清理保护拒绝删除是正确行为。POSIX 测试改用系统临时目录，Windows 仍保留 checkout 临时目录以避免上一轮 system Temp 权限重试问题。保留全部原断言，另加主目录拒绝测试；生产清理脚本没有改动。
+
+锁文件单独更新也会触发 Windows foundation/lifecycle 门禁（补齐 path filters）。
