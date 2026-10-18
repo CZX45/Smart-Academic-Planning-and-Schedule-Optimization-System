@@ -1,0 +1,28 @@
+{
+  "status": "PASS",
+  "artifact": "<SOURCE_WORKTREE>\\dist\\windows-installer\\SAPSOS-Local-Desktop-0.1.8-x64-setup.exe",
+  "version": "0.1.8",
+  "sha256": "f8b6976a930dc40e3b8e56c789a2cb646e298eeab6036ef779b63005f164b240",
+  "bytes": 30442132,
+  "source_commit": "7b0ea63e906409205f071b048fe29161f05f6e6a",
+  "signed": false,
+  "installed": false,
+  "desktop_launched": false,
+  "packaged_api_smoke": {
+    "status": "PASS",
+    "scope": "packaged API only; synthetic empty database",
+    "checks": [
+      "health",
+      "empty profiles",
+      "create unverified profile",
+      "process restart readback",
+      "schema 2"
+    ],
+    "shutdown": "test process termination; not native desktop lifecycle acceptance",
+    "run_root": "<SOURCE_WORKTREE>\\.cache\\packaged-smoke-b1220c1cedec48cca70f81c7e9393c74",
+    "schema": 2,
+    "desktop_started": false
+  },
+  "native_acceptance": "UNVERIFIED",
+  "packaging_manifest_sha256": "0505ce1ca30ecfad58ec8da1d003f887a6cbd5fef97f07676961c30328695fd3"
+}

@@ -1,0 +1,60 @@
+{
+  "verified_at_utc": "2026-10-18T04:15:50.400125+00:00",
+  "status": "PASS",
+  "scope": "six protected files and two absent SQLite sidecars; not a census of all existing worktrees",
+  "baseline_timing": "after early synthetic checks, before full regression and package builds",
+  "entries": [
+    {
+      "asset": "protected-local-asset-1",
+      "unchanged": true,
+      "private_details": "retained only in original local evidence"
+    },
+    {
+      "asset": "protected-local-asset-2",
+      "unchanged": true,
+      "private_details": "retained only in original local evidence"
+    },
+    {
+      "asset": "protected-local-asset-3",
+      "unchanged": true,
+      "private_details": "retained only in original local evidence"
+    },
+    {
+      "asset": "protected-local-asset-4",
+      "unchanged": true,
+      "private_details": "retained only in original local evidence"
+    },
+    {
+      "asset": "protected-local-asset-5",
+      "unchanged": true,
+      "private_details": "retained only in original local evidence"
+    },
+    {
+      "asset": "protected-local-asset-6",
+      "unchanged": true,
+      "private_details": "retained only in original local evidence"
+    },
+    {
+      "asset": "protected-local-asset-7",
+      "unchanged": true,
+      "private_details": "retained only in original local evidence"
+    },
+    {
+      "asset": "protected-local-asset-8",
+      "unchanged": true,
+      "private_details": "retained only in original local evidence"
+    }
+  ],
+  "unchanged_local_refs": [
+    "bce82aea587017435b4ec7741d95e11bae138335",
+    "066dd9c57294bec704df61ad2a5b1db3f5d03f08"
+  ],
+  "remote_refs_rechecked_unchanged": {
+    "main": "8e055994e3e4435043c66e9362d9d0ede2365ec3",
+    "PR28": "0fc2f0fbbae94d4439547a8d542d06e90e8956e3",
+    "PR87": "18515a26640309d3ff94ffedb31c5b554f6f5fa7"
+  },
+  "installed_schema_read_only": 1,
+  "installed_version": "0.1.5",
+  "public_copy": "Sensitive local asset paths, hashes, sizes, and timestamps withheld; original evidence retained privately."
+}

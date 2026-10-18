@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>My Progress</title>
+  </head>
+  <body>
+    <main>
+      <h1>My Progress</h1>
+      <section aria-label="At a Glance">
+        <h2>Mock Finance, BS</h2>
+        <p>
+          Program Mock Finance, BS Degree Bachelor of Science Major Mock Finance
+          Catalog Year 2024 Cumulative GPA 3.50 Institution GPA 3.50 Total
+          Credits 30 of 120 Completed 21 In Progress 6 Planned 3
+        </p>
+      </section>
+      <section id="mock-requirements" aria-label="Requirements"></section>
+    </main>
+    <script>
+      const statuses = ["Completed", "Registered", "Planned", "Not Started"];
+      const requirements = document.querySelector("#mock-requirements");
+      for (let groupIndex = 0; groupIndex < 17; groupIndex += 1) {
+        const outer = document.createElement("section");
+        outer.className = "requirement-group requirement-group-level-1";
+        let inner = outer;
+        for (let depth = 2; depth <= 12; depth += 1) {
+          const nestedGroup = document.createElement("div");
+          nestedGroup.className = `requirement-group requirement-group-level-${depth}`;
+          inner.append(nestedGroup);
+          inner = nestedGroup;
+        }
+        const heading = document.createElement("h3");
+        heading.textContent = `Mock Requirement ${groupIndex + 1}`;
+        const status = document.createElement("p");
+        status.textContent = groupIndex % 3 === 0 ? "Complete" : "Not Complete";
+        const table = document.createElement("table");
+        table.innerHTML =
+          "<thead><tr><th>Status</th><th>Course</th><th>Title</th><th>Grade</th><th>Term</th><th>Credits</th></tr></thead><tbody></tbody>";
+        const body = table.querySelector("tbody");
+        const rowCount = groupIndex === 0 ? 6 : 5;
+        for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+          const absoluteIndex = groupIndex * 5 + rowIndex;
+          const row = document.createElement("tr");
+          const values = [
+            statuses[absoluteIndex % statuses.length],
+            `MOCK ${1000 + absoluteIndex}`,
+            `Synthetic Course ${absoluteIndex + 1}`,
+            absoluteIndex % 4 === 0 ? "A" : "",
+            absoluteIndex % 4 === 0 ? "2024FA" : "",
+            "3",
+          ];
+          for (const value of values) {
+            const cell = document.createElement("td");
+            let parent = cell;
+            for (let depth = 0; depth < 10; depth += 1) {
+              const wrapper = document.createElement("span");
+              wrapper.className =
+                "course-row-field requirement-group-value nested-value";
+              parent.append(wrapper);
+              parent = wrapper;
+            }
+            parent.textContent = value;
+            row.append(cell);
+          }
+          body.append(row);
+        }
+        inner.append(heading, status, table);
+        requirements.append(outer);
+      }
+
+      const nonTableRegion = document.createElement("section");
+      nonTableRegion.setAttribute("aria-label", "Synthetic row-like evidence");
+      let nonTableParent = nonTableRegion;
+      for (let depth = 0; depth < 20; depth += 1) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "requirement-group row-like-wrapper";
+        nonTableParent.append(wrapper);
+        nonTableParent = wrapper;
+      }
+      for (let index = 0; index < 300; index += 1) {
+        nonTableParent.append(document.createTextNode(" "));
+      }
+      const syntheticRow = document.createElement("p");
+      syntheticRow.textContent =
+        "Completed MOCK 1999 Synthetic Capstone A 2024FA 3";
+      nonTableParent.append(syntheticRow);
+      document.querySelector("main").append(nonTableRegion);
+
+      const hiddenDuplicate = document.createElement("div");
+      hiddenDuplicate.hidden = true;
+      hiddenDuplicate.setAttribute("aria-hidden", "true");
+      for (let index = 0; index < 6000; index += 1) {
+        hiddenDuplicate.append(document.createTextNode(" "));
+      }
+      document.body.prepend(hiddenDuplicate);
+
+      const visibleComponentSpacing = document.createElement("div");
+      visibleComponentSpacing.setAttribute(
+        "aria-label",
+        "Synthetic visible component spacing",
+      );
+      for (let index = 0; index < 5500; index += 1) {
+        visibleComponentSpacing.append(document.createTextNode(" "));
+      }
+      document.body.prepend(visibleComponentSpacing);
+    </script>
+  </body>
+</html>

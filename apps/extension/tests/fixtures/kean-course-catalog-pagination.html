@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Sanitized Course Catalog Results</title>
+  </head>
+  <body>
+    <main>
+      <h1>Course Catalog</h1>
+      <section id="course-results">
+        <ul id="course-resultul">
+          <li><span id="course-FIN-1300">FIN*1300</span></li>
+          <li><span id="course-FIN-1400">FIN*1400</span></li>
+        </ul>
+        <label class="offScreen" for="course-results-current-page">
+          Current Page Number
+        </label>
+        <input
+          id="course-results-current-page"
+          class="esg-form__input"
+          type="text"
+          value="1"
+          readonly
+        />
+        <span>of 2</span>
+        <button type="button" aria-label="Link to results page 2">2</button>
+      </section>
+      <button id="add-course" type="button">Add Course to Plan</button>
+    </main>
+  </body>
+</html>

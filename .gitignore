@@ -1,0 +1,24 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.pnpm-store/
+.next/
+dist/
+__pycache__/
+.pytest_cache/
+.cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+*.egg-info/
+
+# Next.js static export is a generated local build artifact.
+/apps/web/out/
+
+# Local wheel build intermediate output.
+/apps/api/build/

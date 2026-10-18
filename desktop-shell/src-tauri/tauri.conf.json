@@ -1,0 +1,38 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SAPSOS Local Desktop",
+  "version": "0.1.8",
+  "identifier": "com.sapsos.smart-academic-planner",
+  "build": {
+    "devUrl": "http://127.0.0.1:3000",
+    "frontendDist": "../../dist/installer-stage/web"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "SAPSOS Project",
+    "shortDescription": "Local academic planning desktop application",
+    "longDescription": "A local, advisory Smart Academic Planning and Schedule Optimization System.",
+    "category": "Education",
+    "icon": ["icons/icon.ico"],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English"],
+        "startMenuFolder": "SAPSOS Local Desktop",
+        "displayLanguageSelector": false,
+        "installerHooks": "windows/installer-hooks.nsh"
+      }
+    }
+  }
+}

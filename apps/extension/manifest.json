@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "SAPSOS Read-only Import Assistant",
+  "version": "0.1.8",
+  "description": "User-triggered visible-page extraction into staging imports.",
+  "action": {
+    "default_title": "SAPSOS Import",
+    "default_popup": "src/popup/index.html"
+  },
+  "side_panel": {
+    "default_path": "src/monitor/index.html"
+  },
+  "background": {
+    "service_worker": "dist/background/service-worker.js",
+    "type": "module"
+  },
+  "permissions": ["activeTab", "sidePanel", "scripting", "storage"],
+  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
+  "optional_host_permissions": ["https://kean-ss.colleague.elluciancloud.com/*"]
+}

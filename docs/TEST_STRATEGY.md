@@ -1,0 +1,610 @@
+# Test Strategy
+
+## 1. Testing Goals
+
+Testing must prove that academic rules are correct, explainable, versioned, and safe. The most important tests are deterministic domain tests for degree audit, eligibility, planning, and schedule optimization.
+
+## 2. Test Pyramid
+
+### Unit Tests
+
+Python `pytest` tests for:
+
+- Requirement rule node evaluation.
+- Course allocation decisions.
+- Prerequisite and restriction expression evaluation.
+- GPA, credit, upper-level, and residency calculations.
+- Academic plan constraints.
+- Schedule conflict detection and preference scoring.
+
+TypeScript `Vitest` tests for:
+
+- Shared type guards and API client helpers.
+- UI utility logic.
+- Extension parser helpers when implemented.
+
+### Integration Tests
+
+- API endpoint tests using FastAPI test client.
+- Database repository tests against PostgreSQL in Docker.
+- Fixture loading and migration tests.
+- OpenAPI contract tests between backend and generated frontend client.
+
+Phase 2A adds SQLite-backed constraint tests for the SQLAlchemy metadata, deterministic mock seed idempotency tests, and FastAPI read-only `/api/v1` endpoint tests. PostgreSQL migration execution and Docker-based seed double-run remain part of CI when local Docker is unavailable.
+
+Phase 2B extends those tests to course offering patterns, course rules, rule expression trees, sections, and section meetings. SQLite-backed tests cover model constraints and tree-shape validation; CI remains responsible for PostgreSQL Alembic execution, Docker Compose startup, and double-run seed idempotency against PostgreSQL.
+
+Phase 3A adds deterministic Degree Audit coverage:
+
+- Pure policy tests for grade ordering, pass/fail handling, unknown grades, and incomplete attempts.
+- SQLite-backed model tests for audit snapshot constraints, one evaluation per requirement node, application source constraints, and nonnegative credit summaries.
+- Seed tests for completed, in-progress, planned, low-grade, approved/pending transfer, approved/pending waiver, approved/rejected substitution, retake, upper-level, residency, total-credit, and manual-review fixtures.
+- FastAPI tests for audit creation, retrieval, requirements, warnings, latest audit, invalid modes, 404s, and response schema shape.
+- Shared TypeScript schema tests for audit run, requirement, application, and warning responses.
+- Playwright tests for the Degree Progress UI shell, mock-policy warning, API failure, empty/error states, and schema-error handling.
+
+Phase 3B adds deterministic what-if scenario coverage:
+
+- Scenario lifecycle tests for creation, multiple scenarios per student, failure safety, and no mutation of `StudentAcademicProgram`.
+- Program-combination tests for exactly one primary major, duplicate program rejection, institution scope, change-major candidates, and missing directional policy warnings.
+- Combination-rule tests for maximum shared credits, minimum unique credits, directional policy, nonnegative values, same-program rejection, and mock/non-official metadata.
+- Allocation tests proving global search can beat a local greedy choice, overlap requires both requirement and combination policy, shared credits do not double earned credits, unique secondary credits are tracked, deterministic tie-breakers are stable, and search limits warn.
+- API tests for scenario creation, retrieval, programs, audits, allocations, warnings, comparison, student scenario list, compare endpoint, 404, invalid combinations, and schema validation.
+- Shared TypeScript schema tests for scenario, scenario program, allocation, warning, and comparison responses.
+- Playwright tests for selecting a mock candidate program, creating a scenario, displaying shared/unique/additional credits, warnings, mock-policy disclaimers, comparing saved scenarios, API failure, and schema-error handling.
+
+Phase 4 adds deterministic course eligibility coverage:
+
+- SQLite-backed model tests for eligibility check runs, rule evaluations, expression evaluations, warnings, uniqueness, and course/section consistency.
+- Engine tests for completed prerequisite pass, hard missing prerequisite failure, later completions excluded from earlier target terms, same-term prerequisite evidence excluded, prior-term projected and registration conditional evidence, exact-target concurrent corequisites, section-level permission rules, no stored restrictions, and section availability separation.
+- API tests for single check creation, detail, rules, warnings, student check list, batch checks, invalid section/course pairs, batch limits, 404s, and schema validation.
+- Shared TypeScript schema tests for eligibility check, rule, expression, reason, warning, corequisite, availability, and schema-error responses.
+- Playwright tests for Course Eligibility UI success, mock disclaimers, API offline/failure/empty/schema-error states, permission-required display, and seat availability separation.
+
+Phase 5A adds deterministic long-term academic planner coverage:
+
+- SQLite-backed model tests for plan runs, terms, planned courses, requirement coverage, warnings, uniqueness, credit constraints, and what-if scenario requirements.
+- Engine tests for current-program planning, what-if planning without official declaration mutation, prerequisite-unlock ordering, corequisite pairing, maximum-credit enforcement, minimum-credit warnings, horizon shortfalls, unknown offering patterns, and closed/cancelled section warnings.
+- API tests for plan creation, detail, terms, courses, warnings, student plan list, compare endpoint, invalid credit settings, 404s, and schema validation.
+- Seed tests for mock planner source markers and cases covering prerequisite, corequisite, closed section, no offering pattern, and what-if candidate data.
+- Shared TypeScript schema tests for academic plan run, term, course, coverage, warning, detail, comparison, and schema-error responses.
+- Playwright tests for Long-Term Academic Planner UI success, required disclaimers, term-by-term output, requirement coverage, warnings, saved-plan comparison, API offline/failure/empty/schema-error states, and the absence of registration or weekly-conflict claims.
+
+Phase 6A adds deterministic semester schedule optimizer coverage:
+
+- SQLite-backed model tests for schedule runs, constraint sets, options, option sections, conflicts, warnings, uniqueness, credit constraints, and snapshot persistence.
+- Engine tests for no-Friday constraints, unavailable blocks, time-overlap conflicts, online/in-person preference scoring, minimum-credit partial results, maximum-credit hard limits, permission-required blocking, and advisor-confirmation warnings.
+- API tests for schedule creation, detail, options, conflicts, warnings, student schedule list, compare endpoint, invalid credit settings, 404s, and schema validation.
+- Seed tests for mock section cases covering overlapping meetings, Friday exclusion, online alternatives, permission-required sections, and conditional eligibility.
+- Shared TypeScript schema tests for schedule run, constraint set, option, selected section, meeting, conflict, warning, detail, comparison, and schema-error responses.
+- Playwright tests for Semester Schedule Builder UI success, required disclaimers, ranked options, conflicts, warnings, saved-schedule comparison, API offline/failure/empty/schema-error states, and the absence of registration or waitlist actions.
+
+Phase 6B extends deterministic semester schedule optimizer coverage:
+
+- Engine tests for preference weights, course priorities, section priorities, no-gap scoring, morning/afternoon scoring, high-diversity option selection, required/excluded section validation, partial-option behavior, and repair suggestions.
+- API tests for persisted advanced constraint fields, score breakdowns, diversity metadata, hard-constraint summaries, soft-preference summaries, repair suggestions, and invalid weight/search-bound validation.
+- Seed tests for mock near-duplicate sections, morning versus afternoon options, online versus in-person alternatives, required/excluded section examples, infeasible hard-constraint cases, and partial repair demonstrations.
+- Shared TypeScript schema tests for advanced schedule request fields, score breakdowns, repair suggestions, hard-constraint summaries, and soft-preference summaries.
+- Playwright tests for advanced schedule controls, mock-data disclaimers, score breakdown rendering, option comparison, diversity metadata, repair suggestions, and the absence of registration, add/drop, or waitlist actions.
+
+Phase 7A adds read-only data import preview coverage:
+
+- SQLite-backed model tests for data import runs, files, imported records, mapping candidates, validation warnings, preview summaries, nonnegative counts, confidence ranges, unique row numbers, explanations, and official-source rejection.
+- Service tests for bounded CSV/JSON parsing, course-code normalization, exact mock catalog matching, unmatched-course warnings, staging-only disclaimers, and no mutation of `StudentCourseAttempt`, `Course`, `Section`, requirement, seat, waitlist, or registration tables.
+- API tests for import creation, detail, records, mapping candidates, warnings, preview, validation, student import list, 404s, official-source rejection, and schema validation.
+- Seed tests for mock data import staging rows, warnings, preview summary, source metadata, non-official flags, and idempotency.
+- Shared TypeScript schema tests for import run, imported record, mapping candidate, warning, preview, and create helper responses.
+- Playwright tests for the Data Import Preview panel, required non-official disclaimers, staged records, mapping candidates, warnings, saved import loading, API failure, and schema-error states.
+
+Phase 7B adds data review and confirmation coverage:
+
+- Service/API tests for review creation, per-record decisions, dry-run application without domain writes, explicit apply into non-official internal course attempts, duplicate skips, warnings, and student review/application indexes.
+- Seed tests for review sessions, edited-and-confirmed records, advisor-review skips, duplicate application logs, unsupported-grade warnings, non-official status, and idempotency.
+- Shared TypeScript schema tests for review sessions, record reviews, application runs, applied-record logs, warnings, dry-run results, decision patching, and apply helpers.
+- Playwright tests for the Data Review and Confirmation panel, create review, confirm/reject/defer/advisor-review controls, simple grade edit, dry-run output, explicit apply output, warnings, and application logs.
+
+Phase 8A adds read-only browser extension import coverage:
+
+- TypeScript extractor tests for transcript tables, degree-audit tables, course-catalog tables, section-search tables, unknown pages, empty tables, malformed rows, unknown columns, deterministic output, and password-field exclusion.
+- Extension policy tests for Manifest V3, minimal permissions, no broad host permissions, no credential capture, no portal form submission, no background scraping, and confirmation-gated import sending.
+- Backend/API tests proving `source_type = BROWSER_EXTENSION` imports stay non-official, keep `official_application_ready = false`, preserve source metadata, and enter Phase 7A staging.
+- Shared TypeScript tests for browser-extension import handoff requests.
+- Playwright coverage that Browser Extension Import appears in the web UI with staging-only, review-required, and no-registration messaging.
+
+Phase 11B adds Kean Student Portal import coverage:
+
+- Kean/Ellucian-style fake fixtures for transcript, degree audit/MyProgress,
+  course catalog, section search, student planning, schedule, unknown Kean
+  pages, login pages, hidden fields, unrelated personal/financial columns,
+  action controls, malformed rows, and missing fields.
+- Extension extractor tests proving only supported
+  `https://kean-ss.colleague.elluciancloud.com/Student/*` pages are read, page
+  definitions are whitelisted, academic fields are extracted, unsupported fields
+  are ignored, and guided import requests contain no cookie/session/token
+  payloads.
+- Extension manifest policy tests proving baseline permissions remain
+  `activeTab`, `scripting`, and `storage`, the Kean host permission is optional,
+  `<all_urls>` and broad hosts are absent, and no polling, form submission, or
+  enrollment automation code exists.
+- Popup copy tests proving Kean import explains manual login, no password
+  collection, authorized academic-planning reads only, non-official import
+  status, manual review, local app/API status, and the no-registration boundary.
+- Backend/API tests proving Kean imports are labeled `KEAN_STUDENT_PORTAL`,
+  remain `BROWSER_EXTENSION`, `is_official = false`, and
+  `official_application_ready = false`, and can only proceed through Phase 7B
+  review.
+
+Phase 15B adds event-driven full-Catalog batch coverage:
+
+- Extension state tests cover exact persisted transition/page fields, explicit
+  pause after every worker restart even when a stale session lease remains,
+  authorized-tab closure, bounded acceptance locking, and sanitized monitor
+  state.
+- Persistent-monitor tests require the popup's direct user gesture to request
+  the side panel before any worker round trip, verify an extension-owned tab
+  fallback, reload from persisted state when the worker is unavailable, render
+  superseded evidence, and prove popup closure does not stop controller events.
+- Popup tests require a worker-restarted zero-progress pause to re-enable only
+  bounded acceptance, show an explicit disabled reason for same-revision
+  progress-bearing pauses, and show a fresh-start notice after an older run is
+  archived.
+- Worker lifecycle tests require old/unversioned `PAUSED` and `FAILED` runs to
+  preserve sanitized progress evidence, release active ownership and leases,
+  avoid provider calls, retain same-revision Resume behavior, assign a fresh run
+  ID, and never evict immutable `COMPLETED` summaries when transient history is
+  bounded.
+- Controller and worker tests cover popup-close continuation, unrelated tab
+  switching, first-subject start after discovery, landing/result navigation,
+  multi-page advancement, final-page-to-next-subject advancement, page timeout,
+  provider/rate-limit safe stop, cross-page deduplication, and no provider
+  writes.
+- Subject-start fixtures delay Kean's Knockout bindings, require a stable
+  content-ready checkpoint in the page main world, verify that the revisioned
+  watchdog is installed first in the isolated world, and prove current
+  landing-page timeouts pause while stale revisions are ignored.
+- Cross-subject fixtures replace the subject, Catalog Listing radio, and Search
+  button after the subject input event, then delay the replacement Knockout
+  bindings. They require the runner to reject stale references, reacquire the
+  connected controls, stabilize the exact next-subject value, increment the
+  navigation revision, ignore an old landing event, and match the visible
+  SearchResult subject before capture. A valid progress-bearing pause resumes
+  the same next subject at the following revision without recapturing the
+  completed subject.
+- The v9 preparation bridge fixture preinstalls the ISOLATED-world watcher,
+  proves that the exact ordered preparation checkpoint is accepted by the
+  service worker before one MAIN-world Search click, and rejects a missing or
+  stale acknowledgment without clicking. Worker coverage preserves a loading
+  checkpoint that races the optional null injection result, archives the exact
+  paused real v8 run, and keeps a no-navigation landing timeout fail-closed with
+  sanitized control/result diagnostics.
+- Playwright fixtures model Kean's Knockout `checked: searchResultsView`
+  behavior so changing only the radio DOM property cannot falsely pass. The
+  fixture also distinguishes Catalog cards from Section Listing results and
+  verifies explicit pagination.
+- Pagination fixtures mirror the real label-for page input and unchanged
+  `SearchResult` URL. They cover active-page-before-cards,
+  cards-before-active-page, delayed property-only updates, a stable settle
+  window, result-level loading, same-first-card/different-remainder pages, and
+  bounded timeout on stale page 1. A separate fixture removes the page-number
+  input from page 1 and accepts it only when subject identity, nonempty cards,
+  explicit later-page targets, full fingerprint, hidden spinner, and bounded
+  DOM stability agree. A hidden stale duplicate result tree is ignored only
+  when exactly one result tree is rendered; a stable wrong page emits the
+  specific page-number mismatch classification. Controller coverage requires the page-2
+  fingerprint to reach capture, increment records, complete the final page, and
+  advance to the next bounded subject without invalidating the authorized
+  `SearchResult` tab.
+- Manifest/monitor tests require a Side Panel plus extension-tab fallback,
+  reconnect through persisted state, Pause/Resume/Cancel, and the absence of
+  alarms, service-worker timers, scheduled school polling, cookies, or broad
+  host permissions.
+- Popup/worker monitor regressions require direct user-gesture Side Panel open,
+  an extension-owned monitor-tab fallback with the real sanitized error, and a
+  separate monitor status that cannot erase the bounded-start diagnosis.
+  Reconnect tests also require the packaged monitor to render the persisted
+  local batch checkpoint when runtime messaging is temporarily unavailable.
+- Start-boundary tests distinguish the exact Catalog landing route from a
+  `SearchResult` or non-Catalog tab, prove that rejection occurs before worker
+  dispatch, and prove that a valid bounded start reaches subject discovery with
+  a non-zero discovered-subject count. Worker regressions require discovery to
+  persist `LANDING_NAVIGATION_REQUESTED` and issue the authorized-tab navigation
+  before the popup message ends; the later tab-complete event starts subject 1.
+  The worker rejects a 116-subject full request even after current-revision
+  bounded acceptance, because this build requires a separate explicit unlock;
+  an initial bounded navigation rejection pauses fail-closed.
+- Full-capture gating requires the current runner acceptance revision. A legacy
+  unversioned `boundedAcceptancePassed` value is normalized to false during
+  restore and is rejected before discovery or navigation.
+
+Phase 8B adds read-only section monitoring coverage:
+
+- SQLite-backed model tests for advisory monitor targets, non-official snapshots, official-source rejection, duplicate snapshot deduplication, and alert uniqueness.
+- Service tests for opened/closed section alerts, seat count changes, waitlist count changes, meeting-time changes, instructor changes, location changes, unknown raw-payload changes, and manual-verification messages.
+- API tests for target create/list/archive, snapshot comparison, alert listing/acknowledgement, OpenAPI shape, and absence of registration/waitlist/portal-action routes.
+- Shared TypeScript schema/helper tests for section monitor targets, snapshots, alerts, and snapshot comparison responses.
+- Extension extractor and policy tests for section-search availability fields without background polling, broad host permissions, form submission, or registration actions.
+- Playwright coverage for the Section Monitoring panel, advisory disclaimers, monitored-section rows, alerts, and manual registration checklist.
+
+Phase 10A adds release-readiness QA coverage:
+
+- Documentation review for end-to-end user-flow QA, demo scenarios, final release checklist, and final safety boundary audit.
+- Backend safety-policy tests that require Phase 10A release docs and scan demo/release wording for advisory, non-official, manual review required, read-only imported data, and verify in the official portal language.
+- Manual QA confirms the release docs describe data import review, Phase 7B confirmation, Phase 8A browser-extension import, Phase 8B advisory alerts, degree audit/planner status, schedule optimization status, manual action checklist, and official portal verification.
+
+### End-to-End Tests
+
+Playwright tests for:
+
+- Student creates or loads a mock profile.
+- Student views degree progress.
+- Student simulates a minor or added program.
+- Student generates an academic plan.
+- Student generates schedules with preferences.
+- System explains infeasibility when constraints are impossible.
+
+## 3. Golden Fixtures
+
+Maintain versioned fixtures for:
+
+- Mock catalog.
+- Mock BS Finance-like program.
+- Mock GE requirements.
+- Mock transcript with completed, in-progress, planned, failed, transferred, and waived courses.
+- Mock sections with conflicts, full sections, online sections, and campus restrictions.
+- Expected audit outputs and explanations.
+
+Fixtures must clearly indicate `confidence_level: mock` unless based on official reviewed data.
+
+## 4. Domain Test Matrix
+
+| Area               | Examples                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| Requirement status | satisfied, partially satisfied, in_progress, planned, unsatisfied                  |
+| Course status      | completed, in_progress, planned, failed_or_insufficient_grade, transferred, waived |
+| Allocation         | course eligible for major elective and GE; overlap limited by policy               |
+| Prerequisites      | all-of, any-of, min grade, in-progress prereq, missing data                        |
+| Restrictions       | campus, major, class standing, permission required                                 |
+| Planner            | impossible target term, prerequisite chain, credit overload                        |
+| Scheduler          | time conflict, no-Friday, latest end, unavailable block, online preference         |
+| Risk               | missing source data, offering frequency uncertainty, advisor confirmation          |
+
+Phase 2A covers storage-level safety before evaluator behavior exists:
+
+- Institution, campus, course, and program-version uniqueness.
+- Requirement parent/version integrity and no self-parenting.
+- Requirement course option uniqueness.
+- Course equivalency and substitution no-self constraints.
+- Active primary-major uniqueness.
+- Course attempt retake preservation and positive attempt numbers.
+- Transfer/waiver/substitution approval status storage.
+- Mock seed idempotency and non-official source metadata.
+- Basic API success and 404 responses.
+
+Phase 2B covers additional storage and API safety:
+
+- Course offering pattern uniqueness and mock/non-official metadata.
+- Course-level and section-level rule scope constraints.
+- Section rule course/institution consistency.
+- Rule expression single-root, parent-same-rule, no-self-parent, leaf-operand, and tree-shape validation.
+- Section uniqueness by institution, term, course, and section code.
+- Section capacity, available-seat, modality, and cancelled-record storage.
+- Section meeting time/date validity and multiple meetings per section.
+- Seed idempotency for Phase 2A and Phase 2B data together.
+- Read-only API coverage for section filters, section detail, meetings, rules, expression trees, offering patterns, 404, invalid filters, and OpenAPI generation.
+
+Phase 3A covers audit behavior:
+
+- `CURRENT` and `PROJECTED` modes keep completed, in-progress, and planned contributions separate.
+- Grade policy is centralized and warns on pass/fail or unknown cases.
+- Retakes preserve all attempts and use the best valid completed attempt.
+- Approved transfer applies and pending transfer warns.
+- Approved waiver satisfies without adding credits.
+- Approved substitution applies only to the target requirement.
+- Baseline allocation avoids unapproved double counting.
+- Manual-review requirements are not treated as satisfied.
+
+Phase 3B covers scenario behavior:
+
+- Scenario snapshots do not edit official declarations.
+- Per-program audits reuse Phase 3A snapshots.
+- Directional combination rules are required for shared credit.
+- Missing overlap policy is a warning, not a guessed rule.
+- Requirement application, shared credit, and total earned credit remain separate.
+- Estimated additional credits are estimates and never graduation-timing predictions.
+
+Phase 4 covers course eligibility behavior:
+
+- `CURRENT`, `PROJECTED`, and `REGISTRATION` modes are explicit and deterministic.
+- Completed evidence reuses centralized grade policy and status semantics.
+- In-progress, planned, and concurrent corequisite evidence remains conditional.
+- Course-level and section-level rules are combined.
+- Permission-required and manual-review results are traceable to expression evidence.
+- Section status and seat counts are reported separately from academic eligibility.
+- Mock and missing-rule data always carries warnings rather than official-policy certainty.
+
+Phase 5A covers academic planner behavior:
+
+- `CURRENT_PROGRAM` and `WHAT_IF_SCENARIO` modes create snapshots without mutating declarations.
+- Remaining requirement candidates come from Degree Audit results, not duplicated frontend logic.
+- Prerequisite and corequisite decisions reuse Course Eligibility evidence where available.
+- Planned prerequisite evidence stays conditional.
+- Maximum credit limits are hard placement limits; minimum-credit failures become warnings.
+- Offering patterns are assumptions and never official commitments.
+- Planner output remains course-level and does not select sections, inspect weekly conflicts, poll seats, or register.
+
+Phase 6A covers semester schedule optimizer behavior:
+
+- `FROM_DEGREE_AUDIT`, `FROM_LONG_TERM_PLAN`, and `CUSTOM_COURSE_SET` modes create snapshots without mutating declarations, attempts, sections, seats, waitlists, or registration data.
+- Candidate courses can come from an audit, a long-term plan, or an explicit mock course set.
+- Hard constraints reject overlapping meetings, unavailable blocks, excluded days, duplicate course sections, blocked eligibility, and credit overloads.
+- Partial results and infeasibility produce structured conflicts, warnings, and explanations.
+- Preference scoring is deterministic and explainable.
+- Scheduler output remains section-level and does not poll seats, join waitlists, add, drop, swap, or register.
+
+Phase 6B covers advanced schedule optimizer behavior:
+
+- Required sections and excluded sections are hard constraints with institution/term validation.
+- Preference weights, priorities, no-gap, morning, afternoon, modality, compactness, and class-day preferences are soft scoring inputs with persisted explanations.
+- Score breakdowns sum to deterministic ranking inputs and expose penalties separately from positive preference components.
+- High-diversity mode changes returned option selection only through deterministic section-overlap comparison.
+- Repair suggestions explain feasible constraint relaxations without automating registration, seat monitoring, add/drop, swap, or waitlist behavior.
+
+Phase 7A covers read-only data import behavior:
+
+- Import runs are staging-only and never become official academic records.
+- Metadata-only file storage preserves checksum, file name, MIME type, source metadata, parser version, counts, and preview disclaimers.
+- Parsed records preserve row numbers, normalized payloads, record type, status, confidence, and raw labels.
+- Mapping candidates include target type, optional target ID, match type, confidence, selection flag, reason code, and explanation.
+- Validation warnings are emitted for staging-only use and ambiguous/unmatched data.
+- API and UI flows do not perform real school login, browser extension import, scraping, OCR-heavy extraction, registration, seat polling, waitlist handling, or official table writes.
+
+Phase 7B covers reviewed application behavior:
+
+- Dry-run application must not create `student_course_attempts` or application-run rows.
+- Real application must require explicit POST and must audit every applied or skipped record.
+- Confirmed unofficial transcript course attempts may create internal `student_course_attempts` only with `is_official = false` and source metadata.
+- Duplicate, rejected, deferred, unsupported, unknown-course, unsupported-grade, and advisor-review records must be skipped with reason codes and warnings.
+- Reviewed Catalog regression tests stage Section and MyProgress rows before
+  Catalog Apply, prove a dry run has no domain writes, provision exactly one
+  institution-scoped Course, remap both prior sources to that same UUID, apply
+  a null-CRN Section, and prove repeat Catalog Apply is idempotent. They also
+  prove reconciliation appends candidates without mutating prior candidate or
+  review evidence and that conflicting same-code Catalog facts fail closed.
+- The automatic Catalog-batch endpoint reports each completed local gate,
+  staged/review/applied counts, and MyProgress totals before/after exact-Course
+  reconciliation. A focused regression proves the mapping count increases for
+  a prior MyProgress row while the ProgramVersion row count remains unchanged.
+- MyProgress context regressions prove rejected program/requirement evidence
+  cannot become READY, partial confirmed requirements remain usable with an
+  explicit warning, edited reviewed context is consumed, and `MOCK`,
+  `STUDENT_PROVIDED`, or `INFERRED` ProgramVersions cannot verify a real source
+  identity.
+- Missing Catalog course level/repeatability tests require false verification
+  flags and null public values. Degree Audit candidates may use course level
+  only when its flag is true.
+- LOCAL_DESKTOP schema tests migrate version 1 to version 2, preserve existing
+  official values as verified, conservatively mark browser/imported,
+  student-provided, and inferred values unverified, and retain
+  integrity/version checks. PostgreSQL migration drift
+  remains covered by Alembic checks. The runtime-contract regression also
+  proves preflight selects the registered migration, binds a validated safety
+  snapshot to the exact source schema version, advances once, and finishes
+  with SQLite integrity and foreign-key checks.
+
+Phase 8A covers browser-extension import behavior:
+
+- Extraction reads visible table text only after user action and never reads password-field values.
+- Extracted data is deterministic and compatible with existing staging import formats.
+- Browser-extension imports use `source_type = BROWSER_EXTENSION`, `is_official = false`, and `official_application_ready = false`.
+- Unknown or malformed visible page data produces warnings, not crashes.
+- Extension handoff requires preview and explicit user confirmation before sending.
+- Extension code does not include credential storage, SAML/MFA bypass, background scraping, live polling, portal submission, registration automation, add/drop/swap, waitlist automation, or seat-state automation.
+
+Phase 8B covers section monitoring behavior:
+
+- Monitor targets, snapshots, and alerts are advisory, non-official, and student-scoped.
+- Duplicate imported snapshots do not produce duplicate alerts.
+- Status, seat, waitlist, meeting-time, instructor, location, and unknown raw changes produce structured alerts with manual-review messaging.
+- API, shared helpers, web UI, and extension code do not include polling, portal submission, registration, add/drop/swap, waitlist automation, or seat-state automation.
+
+Phase 9A covers product-hardening behavior:
+
+- Shared UI helper tests cover status badge rendering, advisory label rendering, UTC timestamp formatting, before/after value display, and empty-state copy.
+- Playwright tests confirm the dashboard status cards render key workflow states and manual next actions.
+- Playwright tests confirm browser-extension import and section-monitoring workflows use non-official, manual-review, advisory-only, and official-portal verification labels.
+- Playwright tests confirm empty states for missing imports, confirmed imports, monitoring targets, monitoring alerts, schedule plans, and what-if scenarios.
+- Safety assertions scan rendered UI text for misleading registration, seat guarantee, and official-availability claims.
+- Phase 9A does not add registration automation, portal submission, polling, background scraping, credential capture, waitlist automation, or seat-state changes.
+
+Phase 9B covers security and production-readiness hardening:
+
+- API settings tests for allowed environments, PostgreSQL psycopg database URLs, production rejection of local database defaults, explicit CORS origins, wildcard rejection, and production rejection of localhost CORS origins.
+- API integration tests for safe default response headers and explicit CORS behavior.
+- API safety tests for prohibited endpoint/action names in OpenAPI paths and operation metadata.
+- Web Vitest tests for public API base URL validation, missing configuration errors, malformed URL errors, and credential-free URL requirements.
+- Extension policy tests for Manifest V3, minimal permissions, no broad host permissions, no credential-like extraction fields, no polling primitives, and no portal submission or registration automation code.
+- Logging tests proving data-import and section-monitoring comparison logs contain only safe metadata and do not include raw imported content, file names, visible table labels, credentials, or portal-derived row text.
+- Documentation review covers production readiness, data-retention principles, safe logging, no-secrets checks, and manual browser-extension permission verification.
+
+Phase 10A covers release-readiness QA and final product review:
+
+- Release QA docs list the purpose, prerequisites, test steps, expected result, safety boundary confirmation, and automated coverage for each main user journey.
+- Demo scenario docs explain what to show, what users should understand, what not to claim, demo-safe wording, and manual verification reminders.
+- Release checklist docs cover local verification, CI validation, no-secrets review, browser extension permissions, prohibited automation review, documentation review, demo review, and known local limitations.
+- Safety-policy regression tests require Phase 10A docs to exist and avoid misleading demo claims while preserving advisory, non-official, manual-review wording.
+
+Phase 11B covers Kean Student Portal import behavior:
+
+- Current-page import and guided import remain user-triggered and
+  confirmation-gated.
+- The extension rejects or returns no import rows for Kean host pages outside
+  `/Student/` and for unrecognized `/Student/` pages.
+- Extractors ignore password inputs, hidden form values, unrelated personal or
+  financial data, and action-only columns.
+- Kean payloads are source-labeled but still non-official browser-extension
+  staging imports requiring Phase 7B review.
+- Tests guard against background scraping, periodic polling, portal form
+  submission, broad host permissions, browser-store publishing, registration
+  automation, add/drop/swap automation, waitlist automation, seat reservation,
+  and seat grabbing.
+
+## 5. Property and Constraint Tests
+
+For optimizers, add property-like tests:
+
+- No schedule candidate contains overlapping required meetings.
+- No schedule candidate violates hard unavailable blocks.
+- Credit totals are within hard bounds.
+- Academic plans respect prerequisite ordering.
+- Increasing allowed constraints should not reduce feasibility for the same data unless objective changes intentionally.
+
+## 6. Regression Testing
+
+Every official catalog/program version should have:
+
+- Source fixtures.
+- Expected degree audit outputs.
+- Known edge cases.
+- Regression tests for prior defects.
+
+## 7. Manual QA
+
+Manual QA should focus on:
+
+- Explanation clarity.
+- Advisor-confirmation warnings.
+- Mock vs official labeling.
+- Accessibility and mobile usability.
+- Browser extension permission prompts when implemented.
+
+## 8. Quality Gates
+
+Expected commands once tooling is scaffolded:
+
+- `pnpm lint`
+- `pnpm test`
+- `pnpm typecheck`
+- `pytest`
+- `ruff check .`
+- `mypy .`
+- `playwright test`
+
+During the documentation-only phase, basic repository checks are limited to file existence, Markdown review, and Git status.
+
+For Phase 10A, documentation changes are still verified through the full available project commands plus the release-doc wording regression test in `apps/api/tests/test_production_safety_policy.py`.
+
+## 9. Applied Course-State Verification
+
+The course-state slice requires deterministic tests for all five statuses,
+exact and unmatched catalog records, missing term/credit evidence, exception and
+review decisions, conflicting duplicates, repeated application, active snapshot
+replacement, and bounded/truncated sources. Integration tests verify the active
+student-scoped API plus the sanitized 85-row MyProgress fixture.
+
+Downstream regressions assert that imported `PLANNED` does not satisfy a
+prerequisite, `IN_PROGRESS` is conditional only in supported modes, mock attempts
+are excluded in real-snapshot mode, and planner readiness blocks unsafe input.
+PostgreSQL migration/seed idempotency and a browser E2E must verify the same
+active student-scoped readiness and provenance labels without using a real
+student portal page.
+
+## 10. Local Onboarding Verification
+
+The first-profile slice requires deterministic tests for:
+
+- creation on an empty SQLite database with fixed non-official,
+  student-provided provenance;
+- no program declaration, external reference, catalog rule, or guessed degree
+  data;
+- refusal of a second profile and refusal to overwrite a conflicting reviewed
+  institution code;
+- explicit acknowledgement validation, IANA timezone validation, and SERVER
+  mode unavailability;
+- omission of development mock profiles from discovery and from the guard that
+  permits the first non-mock profile;
+- shared-client schema rejection when a create response claims official source
+  status;
+- browser UI creation and active-profile selection without any mock degree-audit
+  POST for the real profile; and
+- Extension worker credential isolation, signed discovery, pairing-required
+  failure, sanitized local-API-unavailable failure, non-local destination
+  rejection before network access, and popup auto-selection only when exactly
+  one profile exists. Zero or multiple profiles must clear stale scope and
+  disable import.
+
+Phase 15 no-login acceptance additionally requires:
+
+- separate fixture and real-source result columns; fixture PASS is never real
+  source PASS;
+- repeat-as-new-import tests for transcript, MyProgress, and Section evidence,
+  proving no effective duplicate credits, attempts, sections, or meetings;
+- three identical optimizer inputs producing the same input snapshot hash,
+  ranked section sets, scores, and explanations;
+- both relational and reviewed-rule eligibility paths enforcing target-term
+  chronology; and
+- a real-source stop gate before login, capture, traffic inspection,
+  participant UX, accessibility, persistence, and downstream acceptance.
+
+Authenticated MyProgress DOM regression coverage must additionally model a
+table-heavy page with deeply nested requirement containers, thousands of
+visible and hidden text nodes, and at least the observed real-page table/row
+population. Node budgets count each inspected DOM node once, ignore hidden
+nodes, and must not classify an outer container that owns a table as a
+row-like record. Route markers take precedence over unrelated navigation text.
+Parser tests must prove colon-delimited summary labels and must prove that
+`ATTEMPTED` never becomes `COMPLETED` without reviewed passing evidence.
+
+Authenticated Catalog and SectionListing regression coverage must additionally
+model the observed card list and responsive table. Catalog tests verify unique
+card-container capture, long-description chunking under the existing 500-byte
+cell limit, raw requisite preservation, explicit prerequisite/corequisite/
+minimum-grade/standing classification, and manual review for natural-language
+rules. Section tests verify query-first SectionListing detection, hidden-header
+recovery from visible `data-role` labels, exclusion of Add/Planned cells,
+combined course/section identity parsing, multiple meeting blocks, online/TBA/
+arranged semantics, duplicate-row warnings, and explicit missing-CRN
+provenance. When term/course/section identity is otherwise valid, missing CRN
+must yield `external_reference = null`, `crn_source_status = NOT_PROVIDED`, and
+must not alone force exception review.
+
+Installed acceptance must additionally prove first launch, create, restart,
+profile rediscovery, extension pairing, and synthetic staging import in a
+disposable Windows account. Real portal acceptance remains a participant-owned,
+explicitly authorized manual/computer-assisted step.
+
+## 11. Release Convergence Infrastructure Regressions
+
+PostgreSQL `alembic check` must continue to detect explicit named CHECK
+constraint drift while ignoring only reflected constraints that match a
+SQLAlchemy type-bound enum constraint in the same metadata table. This protects
+the schema Gate from Alembic comparator changes without disabling named CHECK
+constraint comparison.
+
+Windows packaging tests resolve and stage a missing `MSVCP140.dll` from a
+trusted x64 Microsoft runtime location, validate its publisher, signature, PE
+architecture, and copy hash, and then run the existing installer and installed
+runtime assertions. A runner image that cannot provide a verifiable runtime
+must fail closed before NSIS packaging.
+
+Packaged restart acceptance must correlate the reloaded import with the active
+course-state snapshot by `data_import_run_id`. The UI reports a matching durable
+snapshot as reviewed and applied, while a preview without that exact match
+continues to require review.
+
+The packaged fixture contains two sanitized, source-tagged MyProgress course
+rows. Installed acceptance must explicitly confirm both rows, apply them, and
+observe the reviewed-and-applied label before shutdown and again after restart;
+an empty review or a zero-confirmation application does not satisfy persistence
+acceptance.
+
+Desktop shutdown must remove only the runtime manifest whose `instance_id`
+matches the instance launched by that desktop process. Windows cleanup retries
+bounded transient deletion failures after the trusted API process is gone, but
+must preserve a manifest owned by any different instance.
+
+
+## 2026-10-18 local repair regression
+
+Run `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm format`, `pnpm build`, `pnpm openapi:check`, and `pnpm exec playwright test` using the declared runtime. The Playwright config owns a new synthetic SQLite database and exclusive local services; it never accepts a user DATABASE_URL. Install the headless Chromium test dependency first. `PLAYWRIGHT_WEB_PORT` may select another unused unprivileged web port. Existing services cause startup failure, not reuse. No real portal navigation is part of these fixtures.
+
+Keep external/native installed acceptance separate. See `comprehensive-repair-20261018/TEST_EVIDENCE.md` for the actual Windows run, initial failures, fixed defects and pending gates. New regressions cover summary conflicts/navigation/provenance, non-finite data, zero credits, repeated planned credit, timed online collisions, student/input changes and delayed responses. The cleanup contract uses checkout-local temporary files; Windows junction subprocess output is kept as bytes and has a 30-second timeout.

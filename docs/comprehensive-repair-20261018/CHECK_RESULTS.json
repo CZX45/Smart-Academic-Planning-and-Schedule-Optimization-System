@@ -1,0 +1,1386 @@
+[
+  {
+    "name": "academic-boundaries-green",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_academic_value_boundaries.py"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 0,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 1.61,
+    "log": ".cache\\evidence\\academic-boundaries-green.log",
+    "log_sha256": "910db695039ed83471dc4f84c6e088aca5c0bc3f4f93f9c269576603f7b08cf6"
+  },
+  {
+    "name": "academic-boundaries-red",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_academic_value_boundaries.py"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 1,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 2.27,
+    "log": ".cache\\evidence\\academic-boundaries-red.log",
+    "log_sha256": "1d549a7cd857a8206a69bd3bf4682cfc3dc1bda82635f58b318a4e6c975e6818"
+  },
+  {
+    "name": "api-hang-outside-sandbox",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_course_eligibility.py::test_api_creates_retrieves_lists_and_batches_eligibility_checks"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 0,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 2.35,
+    "log": ".cache\\evidence\\api-hang-outside-sandbox.log",
+    "log_sha256": "73886733cf249a492d114cce3f87e75f4192b72ade9df4cc7a14db2b5d8da888"
+  },
+  {
+    "name": "api-hang-trace",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-v",
+      "-o",
+      "faulthandler_timeout=15",
+      "tests/test_course_eligibility.py::test_api_creates_retrieves_lists_and_batches_eligibility_checks"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 124,
+    "timeout_seconds": 45,
+    "timed_out": true,
+    "duration_seconds": 45.07,
+    "log": ".cache\\evidence\\api-hang-trace.log",
+    "log_sha256": "b41160893da85abfaea7f0a274115b66bc3f8277c20740642cdcddc896037180"
+  },
+  {
+    "name": "browser-dependency",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "install",
+      "chromium"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 240,
+    "timed_out": false,
+    "duration_seconds": 117.46,
+    "log": ".cache\\evidence\\browser-dependency.log",
+    "log_sha256": "0841e8ed146445e39c6b366660cd5f7d448b0b8c39d6bc3c205ec4f96c5a1271"
+  },
+  {
+    "name": "build-align-tested-versions",
+    "command": [
+      ".cache/build-venv/Scripts/python.exe",
+      "-m",
+      "pip",
+      "install",
+      "--no-deps",
+      "-r",
+      ".cache/tested-build-versions.txt"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 240,
+    "timed_out": false,
+    "duration_seconds": 33.84,
+    "log": ".cache\\evidence\\build-align-tested-versions.log",
+    "log_sha256": "4aeceec4c8cf29f43dc21c65bebc8f04dacd637fca3b09439faccdec20b30964"
+  },
+  {
+    "name": "build-complete-tested-dependencies",
+    "command": [
+      ".cache/build-venv/Scripts/python.exe",
+      "-m",
+      "pip",
+      "install",
+      "-r",
+      ".cache/tested-build-versions.txt"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 5.59,
+    "log": ".cache\\evidence\\build-complete-tested-dependencies.log",
+    "log_sha256": "d2a4303e1105ab8c474a03582543e19df0ccfb762637f53238919ae6ecdd4963"
+  },
+  {
+    "name": "build-venv-check-final",
+    "command": [
+      ".cache/build-venv/Scripts/python.exe",
+      "-m",
+      "pip",
+      "check"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 30,
+    "timed_out": false,
+    "duration_seconds": 0.53,
+    "log": ".cache\\evidence\\build-venv-check-final.log",
+    "log_sha256": "672aec65a45bed50e70229c70934a7eebf0462595c459b83023027645d57cccf"
+  },
+  {
+    "name": "build-venv-check",
+    "command": [
+      ".cache/build-venv/Scripts/python.exe",
+      "-m",
+      "pip",
+      "check"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 30,
+    "timed_out": false,
+    "duration_seconds": 0.56,
+    "log": ".cache\\evidence\\build-venv-check.log",
+    "log_sha256": "20e33938ef492c61ca310ebecf53ae9cae802f9f9cd5e5cdc37398f00fcd8041"
+  },
+  {
+    "name": "build-venv-create",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "venv",
+      ".cache/build-venv"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 90,
+    "timed_out": false,
+    "duration_seconds": 3.23,
+    "log": ".cache\\evidence\\build-venv-create.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "build-venv-dependencies",
+    "command": [
+      ".cache/build-venv/Scripts/python.exe",
+      "-m",
+      "pip",
+      "install",
+      "./apps/api",
+      "-r",
+      "apps/api/packaging/requirements.txt"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 240,
+    "timed_out": false,
+    "duration_seconds": 49.17,
+    "log": ".cache\\evidence\\build-venv-dependencies.log",
+    "log_sha256": "77898bbfee58d4d9272a2d9d8eac36f23445db344ecb368fa50262c68f725ba7"
+  },
+  {
+    "name": "cargo-toolchain",
+    "command": [
+      "cargo",
+      "tauri",
+      "--version"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 30,
+    "timed_out": false,
+    "duration_seconds": 0.71,
+    "log": ".cache\\evidence\\cargo-toolchain.log",
+    "log_sha256": "b9ec64853ce4a790a44ba06d46e76479d1f5a9dd34a4e96169f074929d45914a"
+  },
+  {
+    "name": "cleanup-baseline",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-v",
+      "tests/test_windows_installer_foundation.py",
+      "-k",
+      "safe_build_cleanup"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 124,
+    "timeout_seconds": 30,
+    "timed_out": true,
+    "duration_seconds": 30.11,
+    "log": ".cache\\evidence\\cleanup-baseline.log",
+    "log_sha256": "1f68b95e1e8573b40aec3d1199cd49a4f04b668e9afee72faa1d7b59abd68180"
+  },
+  {
+    "name": "cleanup-green",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_windows_installer_foundation.py",
+      "-k",
+      "safe_build_cleanup"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 0,
+    "timeout_seconds": 80,
+    "timed_out": false,
+    "duration_seconds": 2.0,
+    "log": ".cache\\evidence\\cleanup-green.log",
+    "log_sha256": "a76d67262d09d9e14d9ce71da2dfb30346c25272ca29c0b9dce367a7da477552"
+  },
+  {
+    "name": "cleanup-hang-trace",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-v",
+      "-o",
+      "faulthandler_timeout=10",
+      "tests/test_windows_installer_foundation.py",
+      "-k",
+      "safe_build_cleanup"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 124,
+    "timeout_seconds": 25,
+    "timed_out": true,
+    "duration_seconds": 25.08,
+    "log": ".cache\\evidence\\cleanup-hang-trace.log",
+    "log_sha256": "b0a496a0e209e93b054d87a729f0129fa228bf200f623f9cb34194fb4dcf5c2a"
+  },
+  {
+    "name": "core-after-initial-fixes",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_degree_audit_policy.py",
+      "tests/test_course_eligibility.py",
+      "tests/test_academic_planner.py",
+      "tests/test_schedule_optimizer.py",
+      "tests/test_data_imports.py",
+      "tests/test_data_reviews.py",
+      "tests/test_local_onboarding.py"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 0,
+    "timeout_seconds": 300,
+    "timed_out": false,
+    "duration_seconds": 37.13,
+    "log": ".cache\\evidence\\core-after-initial-fixes.log",
+    "log_sha256": "b37199fe85feaf5cb11734c1a345227c5102eafda30356520747f8411f42d301"
+  },
+  {
+    "name": "core-baseline",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_degree_audit_policy.py",
+      "tests/test_course_eligibility.py",
+      "tests/test_academic_planner.py",
+      "tests/test_schedule_optimizer.py",
+      "tests/test_data_imports.py",
+      "tests/test_data_reviews.py",
+      "tests/test_local_onboarding.py"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 124,
+    "timeout_seconds": 300,
+    "timed_out": true,
+    "duration_seconds": 300.07,
+    "log": ".cache\\evidence\\core-baseline.log",
+    "log_sha256": "656362fab7149b791b9940333bce3c500437d55bfa584cc1f50b747288c722b0"
+  },
+  {
+    "name": "credits-repeat-green",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_course_eligibility.py",
+      "-k",
+      "repeated_course"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 0,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 2.72,
+    "log": ".cache\\evidence\\credits-repeat-green.log",
+    "log_sha256": "e2c2c0fedf51f1140d6451a79cd8b1a13d1a152aed41dcac757c3d696937ae5e"
+  },
+  {
+    "name": "credits-repeat-red",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_course_eligibility.py",
+      "-k",
+      "repeated_course"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 1,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 3.18,
+    "log": ".cache\\evidence\\credits-repeat-red.log",
+    "log_sha256": "2f62f2e7b650e8457e80520e6c47129439ef1c9abbef7c35c4c3bbcd183b3be6"
+  },
+  {
+    "name": "desktop-identity-final",
+    "command": [
+      "powershell",
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "scripts/windows/Validate-Desktop-Identity.ps1"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 30,
+    "timed_out": false,
+    "duration_seconds": 0.76,
+    "log": ".cache\\evidence\\desktop-identity-final.log",
+    "log_sha256": "3408bc83e86608b74a656f5b406034c48a92568126144f0e1373f5c814ba442b"
+  },
+  {
+    "name": "e2e-isolation-green",
+    "command": [
+      "node",
+      "--test",
+      "scripts/tests/e2e-isolation.test.mjs"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 30,
+    "timed_out": false,
+    "duration_seconds": 0.16,
+    "log": ".cache\\evidence\\e2e-isolation-green.log",
+    "log_sha256": "61f823f0a7a114a9042e77e4adcb7751180cff11e414cc33bab03b1212157eab"
+  },
+  {
+    "name": "e2e-isolation-red",
+    "command": [
+      "node",
+      "--test",
+      "scripts/tests/e2e-isolation.test.mjs"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 30,
+    "timed_out": false,
+    "duration_seconds": 0.15,
+    "log": ".cache\\evidence\\e2e-isolation-red.log",
+    "log_sha256": "a1487b32d195b85e8a5bf52f16bae9d8da3430bdffacbb2e84ae2a02c624c291"
+  },
+  {
+    "name": "extension-baseline-local-temp",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "--filter",
+      "@sapsos/extension",
+      "test"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 2.59,
+    "log": ".cache\\evidence\\extension-baseline-local-temp.log",
+    "log_sha256": "c7667db17ae4d17c664f824ac2e795850b1d7cf2c0b77b9a49d22252c58f7306"
+  },
+  {
+    "name": "extension-baseline",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "--filter",
+      "@sapsos/extension",
+      "test"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 1.75,
+    "log": ".cache\\evidence\\extension-baseline.log",
+    "log_sha256": "8ead0d15c24c54ae226975e8996f7718ad9ab332222d298df3452fd0b4acb24a"
+  },
+  {
+    "name": "extension-package",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "extension:package"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 90,
+    "timed_out": false,
+    "duration_seconds": 2.97,
+    "log": ".cache\\evidence\\extension-package.log",
+    "log_sha256": "013180fdc4d9545c3f3693e815edca7f7380a1f9f8f4e9bafb74451d71ca646c"
+  },
+  {
+    "name": "final-build",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "build"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 300,
+    "timed_out": false,
+    "duration_seconds": 9.77,
+    "log": ".cache\\evidence\\final-build.log",
+    "log_sha256": "47473ab0942281e7df97ab7ed307edbcb479b3a682171d9d5f616bf2cd9992f7"
+  },
+  {
+    "name": "final-format",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "format"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 3.67,
+    "log": ".cache\\evidence\\final-format.log",
+    "log_sha256": "a7756182e42f8006f513dc4adefca3b81e234faf3190d38d3215ed39254e28c0"
+  },
+  {
+    "name": "final-lint-clean",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "lint"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 13.21,
+    "log": ".cache\\evidence\\final-lint-clean.log",
+    "log_sha256": "e2af3339effed725496fbfe65118cd9af0fac8b1fb569b38d8c448da83014aa3"
+  },
+  {
+    "name": "final-lint",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "lint"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 18.21,
+    "log": ".cache\\evidence\\final-lint.log",
+    "log_sha256": "fc49878fa5022662c5585f1c509f197fdbbf6e9faea5e986a21ffdfd6cee59bc"
+  },
+  {
+    "name": "final-types-clean",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "typecheck"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 8.57,
+    "log": ".cache\\evidence\\final-types-clean.log",
+    "log_sha256": "6ceba4160ea62cee39ce5d90f5b9f70feda3793ec23545804ef706df92712175"
+  },
+  {
+    "name": "final-types",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "typecheck"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 5.57,
+    "log": ".cache\\evidence\\final-types.log",
+    "log_sha256": "b91a03e95e99045c905b71740e26b0a485c86386e55b827f86fee59f67e7d146"
+  },
+  {
+    "name": "format-baseline",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "format"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 0.43,
+    "log": ".cache\\evidence\\format-baseline.log",
+    "log_sha256": "8036a236d94162ffecb476db4fcf855c670e62cb2bb9b5bf3ad429ddf39a0d3c"
+  },
+  {
+    "name": "format-extension-apply",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "--filter",
+      "@sapsos/extension",
+      "exec",
+      "prettier",
+      "--write",
+      "manifest.json",
+      "package.json",
+      "tsconfig.json",
+      "tsconfig.test.json",
+      "eslint.config.js",
+      "src/**/*.ts",
+      "tests/**/*.ts",
+      "tests/fixtures/*.html"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 1.37,
+    "log": ".cache\\evidence\\format-extension-apply.log",
+    "log_sha256": "3df597429a6e65ba46d80cc528a8d0fba804ff071ed78ac5d369e5baa93e5a30"
+  },
+  {
+    "name": "format-inventory",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "format"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 1.19,
+    "log": ".cache\\evidence\\format-inventory.log",
+    "log_sha256": "ed3d0c5c34684f487499fbdbdce59afc942955c2674c27961ed997156eb1e2d5"
+  },
+  {
+    "name": "format-shared-apply",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "--filter",
+      "@sapsos/shared",
+      "exec",
+      "prettier",
+      "--write",
+      "src/**/*.ts",
+      "scripts/**/*.mjs",
+      "eslint.config.js",
+      "package.json",
+      "tsconfig.json"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 0.72,
+    "log": ".cache\\evidence\\format-shared-apply.log",
+    "log_sha256": "9c0ccce76b70ca2bb893d79bb0e031638b430f2d744b9d2be3b960727e635deb"
+  },
+  {
+    "name": "format-web-apply",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "--filter",
+      "@sapsos/web",
+      "exec",
+      "prettier",
+      "--write",
+      "eslint.config.mjs",
+      "next-env.d.ts",
+      "next.config.ts",
+      "package.json",
+      "tsconfig.json",
+      "src/**/*.{ts,tsx,css}"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 0.92,
+    "log": ".cache\\evidence\\format-web-apply.log",
+    "log_sha256": "e9bf83fe7cd37307f733f14cd4645e02d517bde5450884ffdfefe07dbc2ed19e"
+  },
+  {
+    "name": "full-e2e-final",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 660,
+    "timed_out": false,
+    "duration_seconds": 71.4,
+    "log": ".cache\\evidence\\full-e2e-final.log",
+    "log_sha256": "010622523ba7de66a5b061365389946d711844960c827d7fe8cd364f69b6a957"
+  },
+  {
+    "name": "full-e2e",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 660,
+    "timed_out": false,
+    "duration_seconds": 71.88,
+    "log": ".cache\\evidence\\full-e2e.log",
+    "log_sha256": "5c50124c99728f97862699461fcb35fb1a52453a24bded65b6ff3612be396026"
+  },
+  {
+    "name": "full-unit-final",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "test"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 600,
+    "timed_out": false,
+    "duration_seconds": 90.17,
+    "log": ".cache\\evidence\\full-unit-final.log",
+    "log_sha256": "d0998d9db1415ad3daffadbc0eb6aaeacbbaf733109dfcfe18c0e1145161955d"
+  },
+  {
+    "name": "full-unit",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "test"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 600,
+    "timed_out": false,
+    "duration_seconds": 107.55,
+    "log": ".cache\\evidence\\full-unit.log",
+    "log_sha256": "91da3bddf16c443ba45e585c2140c9a5661f57527b9c25c1a5b643061d1a5137"
+  },
+  {
+    "name": "identity-baseline",
+    "command": [
+      "powershell",
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "scripts/windows/Validate-Desktop-Identity.ps1"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 0.91,
+    "log": ".cache\\evidence\\identity-baseline.log",
+    "log_sha256": "b26ff6bc80828b891728ae4cae89cc9aaf270090538b16748094f01ccabb2e2f"
+  },
+  {
+    "name": "identity-green",
+    "command": [
+      "powershell",
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "scripts/windows/Validate-Desktop-Identity.ps1"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 0.7,
+    "log": ".cache\\evidence\\identity-green.log",
+    "log_sha256": "0e516a07651aec1daca4e871a84d5bb4c3e6fdc2b27ee97a26b3971e31998c81"
+  },
+  {
+    "name": "import-label-red",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "--filter",
+      "@sapsos/web",
+      "exec",
+      "vitest",
+      "run",
+      "src/lib/data-import-preview.test.ts"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 90,
+    "timed_out": false,
+    "duration_seconds": 1.51,
+    "log": ".cache\\evidence\\import-label-red.log",
+    "log_sha256": "53cb39af25c3d503a22b828fa9a61bdc6f01ca10d9dd2a66a2edb99744b61192"
+  },
+  {
+    "name": "import-quality-green",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_import_summary_quality.py"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 0,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 1.63,
+    "log": ".cache\\evidence\\import-quality-green.log",
+    "log_sha256": "3d4ac083e1d737035804372f24d8d4fec5a549d7511e3b47dd1ea4d58326ae1d"
+  },
+  {
+    "name": "import-quality-red",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_import_summary_quality.py"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 1,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 1.81,
+    "log": ".cache\\evidence\\import-quality-red.log",
+    "log_sha256": "c44d1864fc20cdf60731c00b1325c4467ff2d94e15b86c6613e103dc90e0a3c8"
+  },
+  {
+    "name": "install",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "install",
+      "--frozen-lockfile",
+      "--ignore-scripts"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 600,
+    "timed_out": false,
+    "duration_seconds": 7.61,
+    "log": ".cache\\evidence\\install.log",
+    "log_sha256": "c248a8c58c3735a4e9576ea3f799138d196cb835e612c14ff45896e1be1952e4"
+  },
+  {
+    "name": "junction-warning-regression",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "tests/test_local_data_removal.py",
+      "-k",
+      "reparse",
+      "-W",
+      "error::pytest.PytestUnhandledThreadExceptionWarning",
+      "-q"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 0,
+    "timeout_seconds": 45,
+    "timed_out": false,
+    "duration_seconds": 1.02,
+    "log": ".cache\\evidence\\junction-warning-regression.log",
+    "log_sha256": "8e32d829e0fe3502d601512517f078901edb90c227e120f8f2dad323bdcf688a"
+  },
+  {
+    "name": "openapi-final",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "openapi:check"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 3.69,
+    "log": ".cache\\evidence\\openapi-final.log",
+    "log_sha256": "9641039d2ee083ff02d20cf0d8976fb7500918161e30db98b16fc8e22c33d251"
+  },
+  {
+    "name": "openapi-generation",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "openapi:generate"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 3.15,
+    "log": ".cache\\evidence\\openapi-generation.log",
+    "log_sha256": "2b35a1257d357c00134578f38504295753558fe7b1333a8c376fe8b1d4002191"
+  },
+  {
+    "name": "packaged-api-smoke",
+    "command": [
+      "<PYTHON_3_14>",
+      "-X",
+      "utf8",
+      ".cache/packaged_smoke.py"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 120,
+    "timed_out": false,
+    "duration_seconds": 7.22,
+    "log": ".cache\\evidence\\packaged-api-smoke.log",
+    "log_sha256": "0b7a0d0fa34a57bed2dd69f69858164128f0077b7b65b10c7b051714203c825a"
+  },
+  {
+    "name": "product-source-parity",
+    "command": [
+      "git",
+      "diff",
+      "--exit-code",
+      "7b0ea63e906409205f071b048fe29161f05f6e6a",
+      "--",
+      "apps",
+      "desktop-shell",
+      "packages",
+      "scripts",
+      "tests",
+      "playwright.config.ts",
+      "package.json"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 30,
+    "timed_out": false,
+    "duration_seconds": 0.12,
+    "log": ".cache\\evidence\\product-source-parity.log",
+    "log_sha256": "fe3cd170f3230302d82e13691d3b1e592ad6cd87b5da28497e1cdcd1373aff13"
+  },
+  {
+    "name": "real-scope-red",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      ".cache/playwright.config.ts",
+      "tests/e2e/home.spec.ts",
+      "--grep",
+      "real student readiness"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 9.45,
+    "log": ".cache\\evidence\\real-scope-red.log",
+    "log_sha256": "b06f5185acd4f4f770598d987a8ac8462ff3e9070e632841fab14fac943c455b"
+  },
+  {
+    "name": "ruff-baseline",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "ruff",
+      "check",
+      "."
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 1,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 0.29,
+    "log": ".cache\\evidence\\ruff-baseline.log",
+    "log_sha256": "394cfd8a1b790b005db8419f56fd4f253a3efe385626e2aa44b88c2c9b909a80"
+  },
+  {
+    "name": "rust-format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--manifest-path",
+      "desktop-shell/src-tauri/Cargo.toml",
+      "--",
+      "--check"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 30,
+    "timed_out": false,
+    "duration_seconds": 0.65,
+    "log": ".cache\\evidence\\rust-format.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "rust-tests",
+    "command": [
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--manifest-path",
+      "desktop-shell/src-tauri/Cargo.toml"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 600,
+    "timed_out": false,
+    "duration_seconds": 16.61,
+    "log": ".cache\\evidence\\rust-tests.log",
+    "log_sha256": "ddcc2384ba21097d702c7c982714dc19eb970ac1696aff036757e851a4d5d0fa"
+  },
+  {
+    "name": "schedule-scope-red-port-fixed",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--grep",
+      "changing schedule preferences"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 15.94,
+    "log": ".cache\\evidence\\schedule-scope-red-port-fixed.log",
+    "log_sha256": "e03d5d5c11d8aaf4fecd27d054e3b2d11b11420aef8ebc9f369377b9323449d2"
+  },
+  {
+    "name": "schedule-scope-red-real-run",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--grep",
+      "changing schedule preferences"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 91.06,
+    "log": ".cache\\evidence\\schedule-scope-red-real-run.log",
+    "log_sha256": "50e84d78a430e1b3102d37231c271ab9dee551558c78d62592dbfd52328f25ab"
+  },
+  {
+    "name": "schedule-scope-red",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      ".cache/playwright.config.ts",
+      "--grep",
+      "changing schedule preferences"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 124,
+    "timeout_seconds": 150,
+    "timed_out": true,
+    "duration_seconds": 150.12,
+    "log": ".cache\\evidence\\schedule-scope-red.log",
+    "log_sha256": "7ba980e8155a0d1176768fd31e1e090f08de4379e581347c0bb959250289dea8"
+  },
+  {
+    "name": "shared-build",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "--filter",
+      "@sapsos/shared",
+      "build"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 90,
+    "timed_out": false,
+    "duration_seconds": 3.03,
+    "log": ".cache\\evidence\\shared-build.log",
+    "log_sha256": "6f897cc300c57a60493e5355877c8c0b8ae1f0c878e598dafdff3be5085e2fa3"
+  },
+  {
+    "name": "student-scope-green",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      ".cache/playwright.config.ts",
+      "tests/e2e/home.spec.ts",
+      "--grep",
+      "switching out of demo|student scope rejects"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 6.31,
+    "log": ".cache\\evidence\\student-scope-green.log",
+    "log_sha256": "ea6747357e7c8017e5f823442d01fa8a0718761a3010eebfd69e4975a3b69745"
+  },
+  {
+    "name": "student-scope-red",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      ".cache/playwright.config.ts",
+      "tests/e2e/home.spec.ts",
+      "--grep",
+      "switching out of demo|student scope rejects"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 21.24,
+    "log": ".cache\\evidence\\student-scope-red.log",
+    "log_sha256": "74c66681714ba2d650987880cb324236d150da835a82b44fa7306e1af681bc2a"
+  },
+  {
+    "name": "summary-green",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "--filter",
+      "@sapsos/extension",
+      "test"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 120,
+    "timed_out": false,
+    "duration_seconds": 2.37,
+    "log": ".cache\\evidence\\summary-green.log",
+    "log_sha256": "541241f80b8f918a6db7f893d873435b179b898ad867edfa088d185c7b53579a"
+  },
+  {
+    "name": "summary-red-corrected",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "--filter",
+      "@sapsos/extension",
+      "exec",
+      "vitest",
+      "run",
+      "tests/summary-boundaries.test.ts"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 120,
+    "timed_out": false,
+    "duration_seconds": 1.17,
+    "log": ".cache\\evidence\\summary-red-corrected.log",
+    "log_sha256": "ed103705a4759f6f6e545ff28f8fa62ae6e8d6aefdd469a2e051ac5f5b2004fb"
+  },
+  {
+    "name": "summary-red",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "--filter",
+      "@sapsos/extension",
+      "exec",
+      "vitest",
+      "run",
+      "tests/summary-boundaries.test.ts"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 120,
+    "timed_out": false,
+    "duration_seconds": 1.33,
+    "log": ".cache\\evidence\\summary-red.log",
+    "log_sha256": "6dccd9b39a361688c083b81281bbae7d337c8c397a516987261b21e3f3d984b1"
+  },
+  {
+    "name": "synchronous-online-green",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_schedule_optimizer.py",
+      "-k",
+      "synchronous_online"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 0,
+    "timeout_seconds": 90,
+    "timed_out": false,
+    "duration_seconds": 2.76,
+    "log": ".cache\\evidence\\synchronous-online-green.log",
+    "log_sha256": "c3e03f60e09a2babe3cf4962826cb3ab0771592427077dc23f3ce7bbec387c2e"
+  },
+  {
+    "name": "synchronous-online-red",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_schedule_optimizer.py",
+      "-k",
+      "synchronous_online"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 1,
+    "timeout_seconds": 90,
+    "timed_out": false,
+    "duration_seconds": 3.38,
+    "log": ".cache\\evidence\\synchronous-online-red.log",
+    "log_sha256": "9868662e58c8cada0409d5382b456022355261ff68c959867ed1d66733e41e7c"
+  },
+  {
+    "name": "types-after-fixes",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "typecheck"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 33.34,
+    "log": ".cache\\evidence\\types-after-fixes.log",
+    "log_sha256": "c04913bc3ced3980dbf7ac988ce3f2b337e6cff8fe2748b69c957582f33fd9c6"
+  },
+  {
+    "name": "types-in-progress",
+    "command": [
+      "node",
+      "<USERPROFILE>/AppData/Local/node/corepack/v1/pnpm/10.28.1/bin/pnpm.cjs",
+      "--filter",
+      "@sapsos/extension",
+      "--filter",
+      "@sapsos/shared",
+      "--filter",
+      "@sapsos/web",
+      "typecheck"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 2,
+    "timeout_seconds": 120,
+    "timed_out": false,
+    "duration_seconds": 2.8,
+    "log": ".cache\\evidence\\types-in-progress.log",
+    "log_sha256": "dbb62a4e1e7d08437f8b6a5f992e221b64453b19bcc430cfdd22fb0829ffeaee"
+  },
+  {
+    "name": "web-scope-fresh-cache",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      ".cache/playwright.config.ts",
+      "tests/e2e/home.spec.ts",
+      "--grep",
+      "real student readiness|switching out of demo|student scope rejects|creates and compares what-if"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 10.21,
+    "log": ".cache\\evidence\\web-scope-fresh-cache.log",
+    "log_sha256": "952ea3820321a27763198f12021b756e634f30e4b43a21f75a139739a302f695"
+  },
+  {
+    "name": "web-scope-regression",
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      ".cache/playwright.config.ts",
+      "tests/e2e/home.spec.ts",
+      "--grep",
+      "real student readiness|switching out of demo|student scope rejects|creates and compares what-if"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 180,
+    "timed_out": false,
+    "duration_seconds": 63.84,
+    "log": ".cache\\evidence\\web-scope-regression.log",
+    "log_sha256": "ba78b58ad40a4b6a613d739956302518b8143921c78e46bc8da7c7bd080156bb"
+  },
+  {
+    "name": "windows-installer-build",
+    "command": [
+      "powershell",
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "scripts/windows/Build-Windows-Installer.ps1"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 900,
+    "timed_out": false,
+    "duration_seconds": 179.4,
+    "log": ".cache\\evidence\\windows-installer-build.log",
+    "log_sha256": "c1c55858028002898e60b67107fb21cc2cbfb1f649416af1cc606539de4f9ee0"
+  },
+  {
+    "name": "windows-installer-final",
+    "command": [
+      "powershell",
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      ".cache/Build-IsolatedCandidate.ps1"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 0,
+    "timeout_seconds": 900,
+    "timed_out": false,
+    "duration_seconds": 272.6,
+    "log": ".cache\\evidence\\windows-installer-final.log",
+    "log_sha256": "5909a1299900887008f86dce2e5fc972a226ac9c6426090060ecc7f2d1c82a29"
+  },
+  {
+    "name": "windows-installer-isolated",
+    "command": [
+      "powershell",
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      ".cache/Build-IsolatedCandidate.ps1"
+    ],
+    "cwd": "<SOURCE_WORKTREE>",
+    "exit_code": 1,
+    "timeout_seconds": 900,
+    "timed_out": false,
+    "duration_seconds": 17.35,
+    "reason": "Build exited with missing greenlet metadata before stop attempt; no process was terminated.",
+    "log": ".cache\\evidence\\windows-installer-isolated.log",
+    "log_sha256": "38353a2737a6854996f8a67dc2680babeff4e00dd9dcbe407758396d0df85a63"
+  },
+  {
+    "name": "zero-section-green",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "tests/test_schedule_optimizer.py",
+      "-k",
+      "zero_credit",
+      "-q"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 0,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 2.53,
+    "log": ".cache\\evidence\\zero-section-green.log",
+    "log_sha256": "cd6f7cc3b1e2bc0ab918e56607fc396a40540006fe6645d27cd42df1fcb61ed6"
+  },
+  {
+    "name": "zero-section-red-actual",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "tests/test_schedule_optimizer.py",
+      "-k",
+      "zero_credit",
+      "-q"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 1,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 3.0,
+    "log": ".cache\\evidence\\zero-section-red-actual.log",
+    "log_sha256": "a88d9acfe5fcea81a5a5574df8dac7be37031e75eba509e0df2d19c612fa474f"
+  },
+  {
+    "name": "zero-section-red-confirmed",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "tests/test_schedule_optimizer.py",
+      "-k",
+      "zero_credit",
+      "-q"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 0,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 2.56,
+    "log": ".cache\\evidence\\zero-section-red-confirmed.log",
+    "log_sha256": "cd6f7cc3b1e2bc0ab918e56607fc396a40540006fe6645d27cd42df1fcb61ed6"
+  },
+  {
+    "name": "zero-section-red",
+    "command": [
+      "<PYTHON_3_14>",
+      "-m",
+      "pytest",
+      "tests/test_schedule_optimizer.py",
+      "-k",
+      "zero_credit",
+      "-q"
+    ],
+    "cwd": "<SOURCE_WORKTREE>\\apps\\api",
+    "exit_code": 1,
+    "timeout_seconds": 60,
+    "timed_out": false,
+    "duration_seconds": 2.88,
+    "log": ".cache\\evidence\\zero-section-red.log",
+    "log_sha256": "d25413c6104c7214ef1bca8c9f2940ec8f646692dbb6741aa96d4686f5935387"
+  }
+]

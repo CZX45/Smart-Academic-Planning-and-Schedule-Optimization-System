@@ -1,0 +1,46 @@
+{
+  "name": "smart-academic-planning",
+  "private": true,
+  "packageManager": "pnpm@10.28.1",
+  "scripts": {
+    "dev": "docker compose up -d db && pnpm --parallel --filter @sapsos/api --filter @sapsos/web dev",
+    "dev:docker": "docker compose up --build",
+    "build": "pnpm -r --if-present build",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm test:tooling && pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "format": "pnpm -r --if-present format",
+    "db:up": "docker compose up -d db",
+    "db:migrate": "pnpm migration",
+    "migration": "cd apps/api && python -m alembic upgrade head",
+    "migration:check": "cd apps/api && python -m alembic check",
+    "seed": "cd apps/api && python -m app.seed_dev",
+    "seed:dev": "pnpm seed",
+    "openapi:generate": "pnpm --filter @sapsos/api openapi && pnpm --filter @sapsos/shared generate",
+    "openapi:check": "pnpm openapi:generate && git diff --exit-code -- apps/api/openapi.json packages/shared/src/generated/openapi.json",
+    "e2e": "node scripts/run-e2e.mjs",
+    "app:check": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Check-Prerequisites.ps1",
+    "app:up": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Start-Smart-Academic-Planner.ps1",
+    "app:down": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Stop-Smart-Academic-Planner.ps1",
+    "app:open": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Open-Local-App.ps1",
+    "app:smoke": "node scripts/smoke-test-local.mjs",
+    "api:package:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Build-FastAPI-Runtime.ps1",
+    "web:package:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Build-Web-UI.ps1",
+    "desktop:identity:check": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Validate-Desktop-Identity.ps1",
+    "desktop:installer:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Build-Windows-Installer.ps1",
+    "desktop:installer:validate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Validate-Windows-Installer-Artifact.ps1",
+    "extension:package": "pnpm --filter @sapsos/extension build && node scripts/package-extension.mjs",
+    "package:local": "pnpm extension:package && pnpm app:smoke",
+    "test:tooling": "node --test scripts/tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "turbo": "^2.6.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "8.5.26",
+      "sharp": "0.35.4"
+    }
+  }
+}

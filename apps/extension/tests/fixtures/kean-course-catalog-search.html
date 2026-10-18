@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Sanitized Course Catalog Search</title>
+  </head>
+  <body>
+    <main>
+      <h1>Search for Courses and Course Sections</h1>
+      <form id="search-form" method="get" action="/Student/Courses/Search">
+        <label>
+          <input
+            id="course-catalog-result-view-type-course"
+            name="course-catalog-result-view-type"
+            type="radio"
+            value="CatalogListing"
+            data-bind="checked: searchResultsView"
+          />
+          Catalog Listing
+        </label>
+        <label>
+          <input
+            id="course-catalog-result-view-type-section"
+            name="course-catalog-result-view-type"
+            type="radio"
+            value="SectionListing"
+            checked
+          />
+          Section Listing
+        </label>
+        <label for="subject-0">Subject</label>
+        <select id="subject-0">
+          <option value="">Subject</option>
+          <option value="ACCT">Accounting</option>
+          <option value="FIN">Finance</option>
+          <option value="MATH">Mathematics</option>
+        </select>
+        <input
+          id="submit-search-form"
+          type="button"
+          value="Search"
+          aria-label="Search catalog"
+          data-bind="click: search"
+        />
+        <button id="registration-action" type="button">Register</button>
+      </form>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,218 @@
+{
+  "version": "0.1.8",
+  "revision": "phase15b-main-world-checkpoint-v9",
+  "full_capture_unlocked": false,
+  "package": "<SOURCE_WORKTREE>\\dist\\extension-unpacked",
+  "file_count": 41,
+  "inventory_equal": true,
+  "all_hashes_equal": true,
+  "browser_loaded": "UNVERIFIED",
+  "files": [
+    {
+      "package_path": "manifest.json",
+      "sha256": "2068a61f46804e8224d2434b8189e47200ed692eaefcd982a280c95a23db4ec3",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "src\\popup\\index.html",
+      "sha256": "e0df1aff76f7478be265178f7a27e3c1a1584c40c468ae6e7f40759c73ab8bff",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "src\\monitor\\index.html",
+      "sha256": "bf6c3416a0e03b869ef802cc2173ce86a43776dcdc6d12d840309181818bcf40",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\background\\catalog-batch-controller.d.ts",
+      "sha256": "2d1dc3f141466e5fda153df455b78acf548e80da0140b94fbda0226e9a5b7699",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\background\\catalog-batch-controller.js",
+      "sha256": "9f8b39268427ac38f73fe446f8cf3c8afdc9339ab53a35f69565d9908daa773d",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\background\\catalog-batch-runner.d.ts",
+      "sha256": "8906d272e9c6cef59c468c1c82be6db411442d82c7ec3d8198d30173a9f5e153",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\background\\catalog-batch-runner.js",
+      "sha256": "3fa0341352b1baa07bd57f8f971f86bf0b2b09e35ede53516e36a5ddf31983a8",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\background\\service-worker.d.ts",
+      "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\background\\service-worker.js",
+      "sha256": "dcc173a0b715d1fd75abc1fbdf5c1b1546a377285b02f53d6167209e4cfc21cb",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\catalog-batch-lifecycle.d.ts",
+      "sha256": "20264bff2cc37fe1aa31d891d9239d95a488f86170ad790485df18bb91fda990",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\catalog-batch-lifecycle.js",
+      "sha256": "3b6b1e8f57f91beedca418b79ee0c5f54dbc84e19caa0e9897d41491addc810c",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\catalog-batch-page.d.ts",
+      "sha256": "ab18dd1107653a777485e55d6224aae7cd5db8cff25d4f19c363841bbf5541ee",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\catalog-batch-page.js",
+      "sha256": "f0ce7baff55188ac720672333f6728e9e372a8e5f35ef0ebac64cc00bdbac6df",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\catalog-batch.d.ts",
+      "sha256": "e36774001e67e9ec526979f586082ecf7f25dd822e5987c8fb9d8ba68bc77356",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\catalog-batch.js",
+      "sha256": "a2576af57a14109cdbc71ebb90bb805e524573494eeeafd938ec8c477abd5fdf",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\content-script.d.ts",
+      "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\content-script.js",
+      "sha256": "3bab7d31fcaea281942ed49b9add8850ee069dc00c558a55a09a56bff8c5ac0c",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\extractors.d.ts",
+      "sha256": "66624d77cac2df5ea811c0f3cd7bc769c114ad0f893c682ceefebf6084de60f8",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\extractors.js",
+      "sha256": "766c2239cb725d747990d28ddc4bfbe9f170e3f600d1aec688ea6c9eb0fae3a9",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\section-import.d.ts",
+      "sha256": "45d93104f51f46fff1e09b5e5df71363a62a1e829fb43aebab829d69ba5e747a",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\section-import.js",
+      "sha256": "b60ee5139d84ab6753b01e3f973eb507b78cc9c579e4f0ef71e6aedba1f6ae69",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\snapshot-limits.d.ts",
+      "sha256": "d52e076b57321713ace72de1985565a4dca78628470cfbf02a80c925fee30dc8",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\snapshot-limits.js",
+      "sha256": "922415d0d683fdad331403144e5306c1eac0ee72bdfe1294dbf83c0abd4adb69",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\table-reader.d.ts",
+      "sha256": "4c66fcda543c319910843da16f08de92df74524fb3828bde98bde14c755365da",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\content\\table-reader.js",
+      "sha256": "fb80f24b1448156a441fa171c33b6857aa2a474ebe87eb651006a650a93b8d76",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\monitor\\monitor.d.ts",
+      "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\monitor\\monitor.js",
+      "sha256": "e06896429b12bed3ca3bd718cc6ee5c16e7f032dffff456b8345d2e81d5e9e61",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\popup\\browser-actions.d.ts",
+      "sha256": "36ee309359e17210da3572c7946dee56acd071cd825690ed059f8e46d1de577a",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\popup\\browser-actions.js",
+      "sha256": "f827cb78e91c5bf8d96dd59f7a3c1e61179cf756ec410468b84a2fcf95a55cb8",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\popup\\popup.d.ts",
+      "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\popup\\popup.js",
+      "sha256": "91c2790b217bcb6c7f9afb3779326bd6feeee4f627805e4b799d91d1b271fcb8",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\shared\\catalog-batch-version.d.ts",
+      "sha256": "b396432ea82a750f96ccae447a658746caa01740af235d50e3de8596a981533c",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\shared\\catalog-batch-version.js",
+      "sha256": "2cfb5821a835a5affda4ba78b30748332ac3c1bb7339b100cdefd13243373df3",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\shared\\catalog-monitor.d.ts",
+      "sha256": "91d36279ec83623431d25cac51f29161580c7ed2f598df77d7be2f070257876b",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\shared\\catalog-monitor.js",
+      "sha256": "de9675af8449d986f6176514d1e704ebf6fed89ce3f21a039ce7510f14fc4f67",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\shared\\kean.d.ts",
+      "sha256": "41999580e7554b7c1d46bd20ab97e28a6720a7d36ca8eba83e847578ef3bc58f",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\shared\\kean.js",
+      "sha256": "e2eed9c6fb96ddad6f513d7573bbaf41568bcc4ee8be32338b986e3deebd130b",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\shared\\local-api.d.ts",
+      "sha256": "3a53eaf0816b431617bb47c1526e416e5956965ca6e5fb47471e74711c9b17f8",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\shared\\local-api.js",
+      "sha256": "e41a47afa914b7e27b800de2f0803813ad644965d6ab3947daaefb8e8a120a1e",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\shared\\types.d.ts",
+      "sha256": "ec5049c625ecb99d014658ac035beddd459a8de30a0560631116606ae42207f0",
+      "matches_build_input": true
+    },
+    {
+      "package_path": "dist\\shared\\types.js",
+      "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+      "matches_build_input": true
+    }
+  ],
+  "product_source_commit": "7b0ea63e906409205f071b048fe29161f05f6e6a"
+}

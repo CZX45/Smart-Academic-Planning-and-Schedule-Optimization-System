@@ -1,0 +1,89 @@
+{
+  "source_head": "62c2bff06d8f169cb65af3f1c033bf59d745791c",
+  "source_files": 389,
+  "documentation_changes": [
+    {
+      "path": "docs/DECISIONS.md",
+      "original_blob": "405f4b1737c8c422459b70d7f63fd6cc3830f117",
+      "original_sha256": "d914956d1587ca1e5a84233bb5f7898c4bc7c3e8379753bf8ce58516df53b0f6",
+      "public_sha256": "fb314873d9265af2a553a4bc95f9aa24e026447b393e748dc95efdab928fcf4b"
+    },
+    {
+      "path": "docs/LOCAL_DESKTOP_EXECUTION_PLAN.md",
+      "original_blob": "9722177caf2dd2a73c0f307df18fd59369c2c668",
+      "original_sha256": "0f032bd93cdc85e6232f5e94153a9eaaa5bc6b8eb76c1d33dabd1c858f6e1bf2",
+      "public_sha256": "5e37fa7c3c9b2748b5bd7369f4e99abf16f4b982a3ffb53ff243121b813a1002"
+    },
+    {
+      "path": "docs/comprehensive-repair-20261018/CHECK_RESULTS.json",
+      "original_blob": "234ae1dd8e465f2c79e1afbcc5b283c6edd96683",
+      "original_sha256": "0f52d9352229493913a702c689b0c8c3729357531643517a8effde64dffb737e",
+      "public_sha256": "298957431095b2860822b331cc566d8f33df21d8d1fe6987b21443027c6b1bcd"
+    },
+    {
+      "path": "docs/comprehensive-repair-20261018/CURRENT_STATE_20261018.md",
+      "original_blob": "6ad23776cbb0279743eaa95f7be5407e53bacdbf",
+      "original_sha256": "e8de4d0a8288c4e0bd7fd8e4ea7224629c8b462c45a8daf78d89b245f88d462d",
+      "public_sha256": "65d37ce2eb91ba700e5c32e587391f7e09e8ef2ab617da1b615197af2c64eef4"
+    },
+    {
+      "path": "docs/comprehensive-repair-20261018/NEXT_CLOUD_HANDOFF.md",
+      "original_blob": "73c52294e97cd5b598f4d4828192907dc077e1a9",
+      "original_sha256": "23aab52f0e7678c6d41975397a024673fe9a9c6e9ac32cc45ba68bc4cf1d478d",
+      "public_sha256": "be0f079dee69e9d77d16da26bd729fc205871c8b99c32ab430ad3ea0fcdc1124"
+    },
+    {
+      "path": "docs/comprehensive-repair-20261018/PACKAGE_EVIDENCE.json",
+      "original_blob": "85ecaf690e1c014c4559767ff86ad58256a814bd",
+      "original_sha256": "2e876ea90e3d4552f6e041105240d3d35b7829fc7b84b61e36774f5fc71f085b",
+      "public_sha256": "f33d77e57e2c92f2954c657105ce461be5bfcd4c700ee464da233f7f573e3b9c"
+    },
+    {
+      "path": "docs/comprehensive-repair-20261018/PROTECTION_EVIDENCE.json",
+      "original_blob": "72d427a4b33cd1aef755c834b911d8fcebc10899",
+      "original_sha256": "f938a14eafaaf7062bf459b75ca5cdd1fdb451631ad4aa0dd4ec62ba01bc084d",
+      "public_sha256": "738193a426b981ec99d0fcc8a6166d581949799673783a86c133889c3dc3db9c"
+    },
+    {
+      "path": "docs/comprehensive-repair-20261018/RELEASE_READINESS.md",
+      "original_blob": "3ab06454dcbfadfae5e3f273cb7350de9d890c16",
+      "original_sha256": "720f034c4eec40469a29f5323742655e229847798feb6ae6fdb122a20a50945a",
+      "public_sha256": "437fb01484a6a9bbaf9bfb03251dfe7d49658fbab4bd8156699b3a8a5bd9ed64"
+    },
+    {
+      "path": "docs/comprehensive-repair-20261018/TEST_EVIDENCE.md",
+      "original_blob": "9c77737785382ed1ce08fb99d1fabb5e9e910b7d",
+      "original_sha256": "7ad8f6f109a32728bea544d1f52ad4451df89e0e8fb999106251d74c49e61ddd",
+      "public_sha256": "3a318880d0b9d42235c07000876d2a02b4d3d8d2eb50bd0c868a1483d631bf7d"
+    },
+    {
+      "path": "docs/comprehensive-repair-20261018/WINDOWS_PACKAGE_EVIDENCE.json",
+      "original_blob": "6acb10a001c7623b3c214adb5e5deefe4af24280",
+      "original_sha256": "b1a6a5735678eca9046ed0e6343d334e452aafed235d0bc655f502c23c2f5fb0",
+      "public_sha256": "393845d07244ee91a7ffeb3dda3fde2dc001543d2cdc015be6291dc90708892d"
+    },
+    {
+      "path": "docs/release-convergence/CAPABILITY_MATRIX.md",
+      "original_blob": "4ac0c2950f012839fe869a9ba5880462f7bb66af",
+      "original_sha256": "dadd561fb76b54e621020cd76347d58fea5cc9c3f7ab758db6d68ce1b247a6fe",
+      "public_sha256": "3eb9eee8e9f0a8e411f82fb166cca5002c2f0ecedb15ba67e5ada294f7c63745"
+    },
+    {
+      "path": "docs/release-convergence/CURRENT_PROJECT_BASELINE.md",
+      "original_blob": "c2dfdfce7f91ad58ab2b0fd1d5bb51f41ebc8dae",
+      "original_sha256": "5c152f9ae83fbb67f3dbf79da8cf5fe47a07f4de8c1045ab9bf5acff9afd1c95",
+      "public_sha256": "842677a5bdd449c9cfa839622e87693c09044326f2d5248e521f4e4723546f63"
+    },
+    {
+      "path": "docs/release-convergence/REAL_SOURCE_VERIFICATION_MATRIX.md",
+      "original_blob": "c95f54add8b7f57fb6787191186bfe60e9ec0577",
+      "original_sha256": "a08342ea121c7562f2fc68985bdcc4b65ac08773cf9069978c4975041d6dbdfb",
+      "public_sha256": "bc968c8dc991f318de2e6ea37a4e5eb929177aa28f8dd76f344c6d27ea49e52f"
+    }
+  ],
+  "unchanged_files": 376,
+  "product_drift": false,
+  "repairs": 20,
+  "historic_test_total": 699,
+  "private_log_hashes_reverified": 77
+}

@@ -1,0 +1,1678 @@
+import json
+from collections.abc import Mapping, Sequence
+from datetime import date, datetime, time
+from decimal import Decimal
+from typing import Any, Literal
+from uuid import UUID
+
+from pydantic import BaseModel, Field, field_validator
+
+MAX_SECTION_MONITOR_SNAPSHOT_COUNT = 50
+MAX_SECTION_MONITOR_RAW_PAYLOAD_BYTES = 8192
+MAX_SECTION_MONITOR_RAW_PAYLOAD_DEPTH = 8
+MAX_SECTION_MONITOR_RAW_PAYLOAD_KEYS = 100
+
+
+def _payload_shape(value: object, *, depth: int = 0) -> tuple[int, int]:
+    if depth > MAX_SECTION_MONITOR_RAW_PAYLOAD_DEPTH:
+        raise ValueError(
+            "Section monitor raw_payload exceeds the maximum nested depth of "
+            f"{MAX_SECTION_MONITOR_RAW_PAYLOAD_DEPTH}."
+        )
+    if isinstance(value, Mapping):
+        keys = len(value)
+        total_keys = keys
+        for child in value.values():
+            child_keys, _ = _payload_shape(child, depth=depth + 1)
+            total_keys += child_keys
+        return total_keys, depth
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
+        max_depth = depth
+        total_keys = 0
+        for child in value:
+            child_keys, child_depth = _payload_shape(child, depth=depth + 1)
+            total_keys += child_keys
+            max_depth = max(max_depth, child_depth)
+        return total_keys, max_depth
+    return 0, depth
+
+
+def _validate_section_monitor_raw_payload(value: dict[str, Any]) -> dict[str, Any]:
+    key_count, _ = _payload_shape(value)
+    if key_count > MAX_SECTION_MONITOR_RAW_PAYLOAD_KEYS:
+        raise ValueError(
+            "Section monitor raw_payload exceeds the maximum key count of "
+            f"{MAX_SECTION_MONITOR_RAW_PAYLOAD_KEYS}."
+        )
+    try:
+        serialized = json.dumps(value, separators=(",", ":"), sort_keys=True)
+    except (TypeError, ValueError) as error:
+        raise ValueError("Section monitor raw_payload must be JSON serializable.") from error
+    if len(serialized.encode("utf-8")) > MAX_SECTION_MONITOR_RAW_PAYLOAD_BYTES:
+        raise ValueError(
+            "Section monitor raw_payload exceeds the maximum serialized size of "
+            f"{MAX_SECTION_MONITOR_RAW_PAYLOAD_BYTES} bytes."
+        )
+    return value
+
+
+class SourceMetadataResponse(BaseModel):
+    source_type: str
+    is_official: bool
+    source_reference: str | None = None
+    source_retrieved_at: datetime | None = None
+    source_confidence: str | None = None
+
+
+class InstitutionResponse(BaseModel):
+    id: UUID
+    code: str
+    name: str
+    country: str
+    timezone: str
+    source: SourceMetadataResponse
+
+
+class CampusResponse(BaseModel):
+    id: UUID
+    institution_id: UUID
+    code: str
+    name: str
+    location: str | None = None
+    source: SourceMetadataResponse
+
+
+class AcademicProgramResponse(BaseModel):
+    id: UUID
+    institution_id: UUID
+    code: str
+    name: str
+    program_type: str
+    degree_level: str
+    source: SourceMetadataResponse
+
+
+class ProgramVersionSummaryResponse(BaseModel):
+    program_version_id: UUID
+    program_id: UUID
+    program_code: str
+    program_name: str
+    program_type: str
+    degree_level: str
+    campus_id: UUID
+    campus_code: str
+    campus_name: str
+    catalog_year: str
+    version_label: str
+    total_credits_required: Decimal
+    source: SourceMetadataResponse
+
+
+class ProgramVersionDetailResponse(BaseModel):
+    id: UUID
+    institution_id: UUID
+    catalog_year: str
+    version_label: str
+    total_credits_required: Decimal
+    effective_term_id: UUID
+    program: AcademicProgramResponse
+    campus: CampusResponse
+    source: SourceMetadataResponse
+
+
+class CourseResponse(BaseModel):
+    id: UUID
+    institution_id: UUID
+    subject_code: str
+    course_number: str
+    title: str
+    description: str | None = None
+    credits_min: Decimal
+    credits_max: Decimal
+    course_level: int | None
+    repeatable: bool | None
+    source: SourceMetadataResponse
+
+
+class RequirementCourseOptionResponse(BaseModel):
+    id: UUID
+    course_id: UUID
+    subject_code: str
+    course_number: str
+    title: str
+    display_order: int
+    minimum_grade: str | None = None
+    credits_override: Decimal | None = None
+    source: SourceMetadataResponse
+
+
+class RequirementNodeResponse(BaseModel):
+    id: UUID
+    parent_id: UUID | None = None
+    code: str
+    name: str
+    requirement_type: str
+    display_order: int
+    minimum_credits: Decimal | None = None
+    minimum_courses: int | None = None
+    choose_n: int | None = None
+    minimum_grade: str | None = None
+    minimum_course_level: int | None = None
+    minimum_residency_credits: Decimal | None = None
+    allows_overlap: bool
+    is_required: bool
+    course_options: list[RequirementCourseOptionResponse]
+    source: SourceMetadataResponse
+
+
+class RequirementTreeResponse(BaseModel):
+    program_version_id: UUID
+    nodes: list[RequirementNodeResponse]
+
+
+class StudentAcademicProgramResponse(BaseModel):
+    id: UUID
+    program_version_id: UUID
+    program_code: str
+    program_name: str
+    program_type: str
+    status: str
+    declared_on: date | None = None
+    source: SourceMetadataResponse
+
+
+class StudentProfileResponse(BaseModel):
+    id: UUID
+    home_institution_id: UUID
+    home_campus_id: UUID
+    expected_graduation_term_id: UUID | None = None
+    external_ref: str | None = None
+    display_name: str
+    class_standing: str | None = None
+    programs: list[StudentAcademicProgramResponse]
+    source: SourceMetadataResponse
+
+
+class StudentCourseAttemptResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    course_id: UUID
+    course_code: str
+    course_title: str
+    term_id: UUID
+    term_code: str
+    attempt_number: int
+    status: str
+    grade: str | None = None
+    credits_attempted: Decimal
+    credits_earned: Decimal
+    is_repeat: bool
+    source: SourceMetadataResponse
+
+
+class CourseOfferingPatternResponse(BaseModel):
+    id: UUID
+    institution_id: UUID
+    course_id: UUID
+    campus_id: UUID
+    term_type: str
+    frequency_type: str
+    effective_term_id: UUID
+    expiration_term_id: UUID | None = None
+    confidence_level: Decimal
+    notes: str | None = None
+    source: SourceMetadataResponse
+
+
+class SectionResponse(BaseModel):
+    id: UUID
+    institution_id: UUID
+    course_id: UUID
+    term_id: UUID
+    campus_id: UUID
+    section_code: str
+    external_reference: str | None = None
+    title_override: str | None = None
+    credits: Decimal | None = None
+    status: str
+    modality: str
+    capacity: int | None = None
+    available_seats: int | None = None
+    waitlist_capacity: int | None = None
+    waitlist_available: int | None = None
+    instructor_display: str | None = None
+    last_synced_at: datetime | None = None
+    source: SourceMetadataResponse
+
+
+class SectionMeetingResponse(BaseModel):
+    id: UUID
+    section_id: UUID
+    meeting_type: str
+    day_of_week: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    building: str | None = None
+    room: str | None = None
+    timezone: str
+    is_arranged: bool
+    is_online: bool
+    display_order: int
+    source: SourceMetadataResponse
+
+
+class CourseRuleResponse(BaseModel):
+    id: UUID
+    institution_id: UUID
+    course_id: UUID
+    section_id: UUID | None = None
+    rule_type: str
+    name: str
+    description: str | None = None
+    effective_term_id: UUID
+    expiration_term_id: UUID | None = None
+    requires_manual_confirmation: bool
+    source: SourceMetadataResponse
+
+
+class CourseRuleExpressionNodeResponse(BaseModel):
+    id: UUID
+    parent_id: UUID | None = None
+    node_type: str
+    display_order: int
+    referenced_course_id: UUID | None = None
+    minimum_grade: str | None = None
+    minimum_completed_credits: Decimal | None = None
+    class_standing: str | None = None
+    referenced_program_id: UUID | None = None
+    referenced_campus_id: UUID | None = None
+    permission_type: str | None = None
+    text_value: str | None = None
+    children: list["CourseRuleExpressionNodeResponse"] = Field(default_factory=list)
+    source: SourceMetadataResponse
+
+
+class CourseRuleExpressionTreeResponse(BaseModel):
+    course_rule_id: UUID
+    root: CourseRuleExpressionNodeResponse | None = None
+
+
+AuditModeValue = Literal["CURRENT", "PROJECTED"]
+AuditRunStatusValue = Literal[
+    "PENDING",
+    "RUNNING",
+    "COMPLETED",
+    "FAILED",
+    "COMPLETED_WITH_WARNINGS",
+]
+RequirementEvaluationStatusValue = Literal[
+    "SATISFIED",
+    "IN_PROGRESS",
+    "PLANNED",
+    "PARTIALLY_SATISFIED",
+    "NOT_SATISFIED",
+    "WAIVED",
+    "MANUAL_REVIEW_REQUIRED",
+    "NOT_APPLICABLE",
+]
+AuditApplicationTypeValue = Literal[
+    "COURSE_ATTEMPT",
+    "TRANSFER_CREDIT",
+    "WAIVER",
+    "SUBSTITUTION",
+    "EQUIVALENCY",
+]
+AuditWarningSeverityValue = Literal["INFO", "WARNING", "ERROR"]
+ScenarioTypeValue = Literal[
+    "ADD_MINOR",
+    "ADD_SECOND_MAJOR",
+    "ADD_CERTIFICATE",
+    "ADD_CONCENTRATION",
+    "CHANGE_PRIMARY_MAJOR",
+    "CUSTOM_COMBINATION",
+]
+AcademicPlanScenarioStatusValue = Literal[
+    "DRAFT",
+    "RUNNING",
+    "COMPLETED",
+    "COMPLETED_WITH_WARNINGS",
+    "FAILED",
+    "ARCHIVED",
+]
+ScenarioRelationshipTypeValue = Literal[
+    "PRIMARY_MAJOR",
+    "MINOR",
+    "SECOND_MAJOR",
+    "CERTIFICATE",
+    "CONCENTRATION",
+]
+ScenarioAllocationTypeValue = Literal[
+    "PRIMARY",
+    "SHARED",
+    "UNIQUE_SECONDARY",
+    "TOTAL_CREDIT_ONLY",
+    "UNALLOCATED",
+]
+AcademicPlanningModeValue = Literal["CURRENT_PROGRAM", "WHAT_IF_SCENARIO"]
+AcademicPlanRunStatusValue = Literal[
+    "PENDING",
+    "RUNNING",
+    "COMPLETED",
+    "COMPLETED_WITH_WARNINGS",
+    "FAILED",
+]
+AcademicPlanTermStatusValue = Literal[
+    "PLANNED",
+    "PARTIAL",
+    "BLOCKED",
+    "MANUAL_REVIEW_REQUIRED",
+]
+AcademicPlanCourseSourceValue = Literal[
+    "DEGREE_AUDIT_REMAINING",
+    "WHAT_IF_REMAINING",
+    "PREREQUISITE_UNLOCK",
+    "COREQUISITE_PAIR",
+    "MANUAL_PLACEHOLDER",
+]
+AcademicPlanCourseStatusValue = Literal[
+    "PLANNED",
+    "CONDITIONALLY_PLANNED",
+    "BLOCKED",
+    "ALTERNATIVE",
+    "MANUAL_REVIEW_REQUIRED",
+]
+AcademicPlanCoverageTypeValue = Literal[
+    "DIRECT_REQUIREMENT",
+    "ELECTIVE_POOL",
+    "TOTAL_CREDITS",
+    "PREREQUISITE_ONLY",
+    "WHAT_IF_REQUIREMENT",
+]
+SchedulePlanningModeValue = Literal[
+    "FROM_DEGREE_AUDIT",
+    "FROM_LONG_TERM_PLAN",
+    "CUSTOM_COURSE_SET",
+]
+SectionDataModeValue = Literal["DEMO_MOCK", "REVIEWED_IMPORTED"]
+ScheduleRunStatusValue = Literal[
+    "PENDING",
+    "RUNNING",
+    "COMPLETED",
+    "COMPLETED_WITH_WARNINGS",
+    "FAILED",
+]
+ScheduleOptionStatusValue = Literal[
+    "FEASIBLE",
+    "FEASIBLE_WITH_WARNINGS",
+    "PARTIAL",
+    "INFEASIBLE",
+]
+ScheduleConflictTypeValue = Literal[
+    "TIME_OVERLAP",
+    "UNAVAILABLE_TIME",
+    "EXCLUDED_DAY",
+    "CREDIT_LIMIT",
+    "DUPLICATE_COURSE",
+    "ELIGIBILITY_BLOCKED",
+    "COREQUISITE_MISSING",
+    "NO_SECTION_AVAILABLE",
+    "MANUAL_REVIEW_REQUIRED",
+]
+ScheduleDiversityModeValue = Literal["STANDARD", "HIGH"]
+DayOfWeekValue = Literal[
+    "MONDAY",
+    "TUESDAY",
+    "WEDNESDAY",
+    "THURSDAY",
+    "FRIDAY",
+    "SATURDAY",
+    "SUNDAY",
+]
+SectionModalityValue = Literal[
+    "IN_PERSON",
+    "ONLINE_SYNCHRONOUS",
+    "ONLINE_ASYNCHRONOUS",
+    "HYBRID",
+    "ARRANGED",
+    "UNKNOWN",
+]
+EligibilityModeValue = Literal["CURRENT", "PROJECTED", "REGISTRATION"]
+EligibilityCheckStatusValue = Literal[
+    "PENDING",
+    "RUNNING",
+    "COMPLETED",
+    "FAILED",
+    "COMPLETED_WITH_WARNINGS",
+]
+EligibilityOverallResultValue = Literal[
+    "ELIGIBLE",
+    "CONDITIONALLY_ELIGIBLE",
+    "NOT_ELIGIBLE",
+    "PERMISSION_REQUIRED",
+    "MANUAL_REVIEW_REQUIRED",
+    "UNKNOWN",
+]
+EligibilityRuleResultValue = Literal[
+    "SATISFIED",
+    "CONDITIONALLY_SATISFIED",
+    "NOT_SATISFIED",
+    "PERMISSION_REQUIRED",
+    "MANUAL_REVIEW_REQUIRED",
+    "NOT_APPLICABLE",
+]
+
+
+class DegreeAuditCreateRequest(BaseModel):
+    student_profile_id: UUID
+    program_version_id: UUID
+    calculation_mode: AuditModeValue
+
+
+class DegreeAuditRunResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    program_version_id: UUID
+    status: AuditRunStatusValue
+    engine_version: str
+    calculation_mode: AuditModeValue
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    total_required_credits: Decimal
+    completed_credits: Decimal
+    in_progress_credits: Decimal
+    planned_credits: Decimal
+    remaining_credits: Decimal
+    completion_percentage: Decimal
+    source_snapshot_hash: str
+    reviewed_rule_set_id: UUID | None = None
+    rule_resolution_state: str
+    rule_source_reference: str | None = None
+    rule_catalog_year: str | None = None
+    rule_resolution_explanation: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class DegreeAuditWarningResponse(BaseModel):
+    id: UUID
+    degree_audit_run_id: UUID
+    requirement_evaluation_id: UUID | None = None
+    warning_code: str
+    severity: AuditWarningSeverityValue
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class AuditCourseApplicationResponse(BaseModel):
+    id: UUID
+    course_id: UUID | None = None
+    course_code: str | None = None
+    course_title: str | None = None
+    student_course_attempt_id: UUID | None = None
+    transfer_credit_id: UUID | None = None
+    course_waiver_id: UUID | None = None
+    course_substitution_id: UUID | None = None
+    application_type: AuditApplicationTypeValue
+    credit_amount: Decimal
+    grade: str | None = None
+    is_completed: bool
+    is_in_progress: bool
+    is_planned: bool
+    is_shared: bool
+    explanation: str
+
+
+class RequirementEvaluationResponse(BaseModel):
+    id: UUID
+    degree_audit_run_id: UUID
+    requirement_node_id: UUID
+    requirement_code: str
+    requirement_name: str
+    requirement_type: str
+    status: RequirementEvaluationStatusValue
+    required_credits: Decimal | None = None
+    satisfied_credits: Decimal
+    remaining_credits: Decimal
+    required_courses: int | None = None
+    satisfied_courses: int
+    remaining_courses: int
+    minimum_grade: str | None = None
+    explanation: str
+    display_order: int
+    applications: list[AuditCourseApplicationResponse]
+    warnings: list[DegreeAuditWarningResponse]
+
+
+class ScenarioProgramInputRequest(BaseModel):
+    program_version_id: UUID
+    relationship_type: ScenarioRelationshipTypeValue
+    priority: int = Field(ge=0)
+
+
+class AcademicScenarioCreateRequest(BaseModel):
+    student_profile_id: UUID
+    scenario_name: str = Field(min_length=1)
+    scenario_type: ScenarioTypeValue
+    calculation_mode: AuditModeValue
+    programs: list[ScenarioProgramInputRequest] = Field(min_length=1)
+
+
+class AcademicScenarioCompareRequest(BaseModel):
+    scenario_ids: list[UUID] = Field(min_length=2)
+
+
+class AcademicScenarioResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    name: str
+    scenario_type: ScenarioTypeValue
+    status: AcademicPlanScenarioStatusValue
+    base_program_version_id: UUID
+    engine_version: str
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None = None
+
+
+class ScenarioProgramResponse(BaseModel):
+    id: UUID
+    academic_plan_scenario_id: UUID
+    program_version_id: UUID
+    relationship_type: ScenarioRelationshipTypeValue
+    is_existing_program: bool
+    is_hypothetical: bool
+    priority: int
+    program_code: str
+    program_name: str
+    source: SourceMetadataResponse
+    created_at: datetime
+
+
+class ScenarioProgramAuditResponse(BaseModel):
+    scenario_program: ScenarioProgramResponse
+    degree_audit_run: DegreeAuditRunResponse
+
+
+class ScenarioCourseAllocationResponse(BaseModel):
+    id: UUID
+    academic_plan_scenario_id: UUID
+    student_course_attempt_id: UUID | None = None
+    transfer_credit_id: UUID | None = None
+    course_waiver_id: UUID | None = None
+    course_substitution_id: UUID | None = None
+    course_id: UUID | None = None
+    course_code: str | None = None
+    course_title: str | None = None
+    program_version_id: UUID | None = None
+    requirement_node_id: UUID | None = None
+    requirement_code: str | None = None
+    allocation_type: ScenarioAllocationTypeValue
+    credit_amount: Decimal
+    is_shared: bool
+    is_unique_to_program: bool
+    allocation_rank: int
+    reason_code: str
+    explanation: str
+    created_at: datetime
+
+
+class ScenarioWarningResponse(BaseModel):
+    id: UUID
+    academic_plan_scenario_id: UUID
+    scenario_program_id: UUID | None = None
+    warning_code: str
+    severity: AuditWarningSeverityValue
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class ScenarioComparisonSnapshotResponse(BaseModel):
+    academic_plan_scenario_id: UUID
+    completed_credits: Decimal
+    in_progress_credits: Decimal
+    planned_credits: Decimal
+    remaining_requirement_credits: Decimal
+    shared_credits: Decimal
+    unique_secondary_credits: Decimal
+    estimated_additional_credits: Decimal
+    unresolved_requirements: int
+    manual_review_count: int
+    completion_percentage: Decimal
+    is_estimate: bool
+    created_at: datetime
+
+
+class CourseEligibilityCreateRequest(BaseModel):
+    student_profile_id: UUID
+    course_id: UUID
+    section_id: UUID | None = None
+    target_term_id: UUID
+    mode: EligibilityModeValue
+    planned_corequisite_course_ids: list[UUID] = Field(default_factory=list)
+
+
+class CourseEligibilityBatchRequest(BaseModel):
+    checks: list[CourseEligibilityCreateRequest] = Field(min_length=1, max_length=50)
+
+
+class EligibilityReasonResponse(BaseModel):
+    reason_code: str
+    explanation: str
+    course_rule_id: UUID | None = None
+    course_rule_expression_id: UUID | None = None
+    referenced_entity_type: str | None = None
+    referenced_entity_id: UUID | None = None
+    expected_value: str | None = None
+    actual_value: str | None = None
+    reviewed_rule_set_id: UUID | None = None
+    rule_source_reference: str | None = None
+    rule_catalog_year: str | None = None
+
+
+class CorequisiteSummaryResponse(BaseModel):
+    required_corequisite_courses: list[UUID]
+    already_completed: list[UUID]
+    currently_in_progress: list[UUID]
+    must_enroll_concurrently: list[UUID]
+
+
+class RegistrationAvailabilityResponse(BaseModel):
+    section_status: str
+    available_seats: int | None = None
+    waitlist_available: int | None = None
+    availability_note: str | None = None
+
+
+class RuleExpressionEvaluationResponse(BaseModel):
+    id: UUID
+    rule_evaluation_id: UUID
+    course_rule_expression_id: UUID
+    node_type: str
+    result: EligibilityRuleResultValue
+    actual_value: str | None = None
+    expected_value: str | None = None
+    matched_course_id: UUID | None = None
+    matched_attempt_id: UUID | None = None
+    reason_code: str
+    explanation: str
+    created_at: datetime
+
+
+class RuleEvaluationResponse(BaseModel):
+    id: UUID
+    eligibility_check_run_id: UUID
+    course_rule_id: UUID
+    result: EligibilityRuleResultValue
+    rule_type: str
+    explanation: str
+    display_order: int
+    expressions: list[RuleExpressionEvaluationResponse]
+    created_at: datetime
+
+
+class EligibilityWarningResponse(BaseModel):
+    id: UUID
+    eligibility_check_run_id: UUID
+    rule_evaluation_id: UUID | None = None
+    warning_code: str
+    severity: AuditWarningSeverityValue
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class CourseEligibilityCheckResponse(BaseModel):
+    id: UUID
+    institution_id: UUID
+    student_profile_id: UUID
+    course_id: UUID
+    section_id: UUID | None = None
+    target_term_id: UUID
+    mode: EligibilityModeValue
+    status: EligibilityCheckStatusValue
+    engine_version: str
+    overall_result: EligibilityOverallResultValue
+    academic_eligibility_result: EligibilityOverallResultValue
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    source_snapshot_hash: str
+    reviewed_rule_set_id: UUID | None = None
+    rule_resolution_state: str
+    rule_source_reference: str | None = None
+    rule_catalog_year: str | None = None
+    rule_resolution_explanation: str
+    rule_evaluations: list[RuleEvaluationResponse]
+    blocking_reasons: list[EligibilityReasonResponse]
+    conditional_reasons: list[EligibilityReasonResponse]
+    permissions_required: list[EligibilityReasonResponse]
+    manual_review_reasons: list[EligibilityReasonResponse]
+    reviewed_rule_reasons: list[EligibilityReasonResponse] = Field(default_factory=list)
+    corequisites_to_add: list[UUID]
+    corequisite_summary: CorequisiteSummaryResponse | None = None
+    registration_availability: RegistrationAvailabilityResponse | None = None
+    warnings: list[EligibilityWarningResponse]
+    created_at: datetime
+    updated_at: datetime
+
+
+class CourseEligibilityBatchResponse(BaseModel):
+    results: list[CourseEligibilityCheckResponse]
+
+
+class AcademicPlanCreateRequest(BaseModel):
+    student_profile_id: UUID
+    program_version_id: UUID
+    academic_plan_scenario_id: UUID | None = None
+    planning_mode: AcademicPlanningModeValue
+    start_term_id: UUID
+    terms_to_plan: int = Field(gt=0, le=16)
+    minimum_credits_per_term: Decimal = Field(ge=0)
+    maximum_credits_per_term: Decimal = Field(ge=0)
+    preferred_credits_per_term: Decimal = Field(ge=0)
+
+
+class AcademicPlanCompareRequest(BaseModel):
+    academic_plan_ids: list[UUID] = Field(min_length=2)
+
+
+class AcademicPlanRunResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    program_version_id: UUID
+    academic_plan_scenario_id: UUID | None = None
+    planning_mode: AcademicPlanningModeValue
+    status: AcademicPlanRunStatusValue
+    engine_version: str
+    start_term_id: UUID
+    target_completion_term_id: UUID
+    minimum_credits_per_term: Decimal
+    maximum_credits_per_term: Decimal
+    preferred_credits_per_term: Decimal
+    completed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AcademicPlanTermResponse(BaseModel):
+    id: UUID
+    academic_plan_run_id: UUID
+    term_id: UUID
+    term_code: str
+    sequence_index: int
+    planned_credits: Decimal
+    status: AcademicPlanTermStatusValue
+    explanation: str
+    created_at: datetime
+
+
+class AcademicPlanCourseResponse(BaseModel):
+    id: UUID
+    academic_plan_term_id: UUID
+    term_id: UUID
+    term_code: str
+    course_id: UUID
+    course_code: str
+    course_title: str
+    requirement_node_id: UUID | None = None
+    requirement_code: str | None = None
+    source: AcademicPlanCourseSourceValue
+    priority_rank: int
+    credits: Decimal
+    eligibility_result: EligibilityOverallResultValue
+    planning_status: AcademicPlanCourseStatusValue
+    reason_code: str
+    explanation: str
+    created_at: datetime
+
+
+class AcademicPlanRequirementCoverageResponse(BaseModel):
+    id: UUID
+    academic_plan_run_id: UUID
+    academic_plan_course_id: UUID
+    requirement_node_id: UUID
+    requirement_code: str
+    coverage_type: AcademicPlanCoverageTypeValue
+    credits: Decimal
+    created_at: datetime
+
+
+class AcademicPlanWarningResponse(BaseModel):
+    id: UUID
+    academic_plan_run_id: UUID
+    academic_plan_term_id: UUID | None = None
+    academic_plan_course_id: UUID | None = None
+    warning_code: str
+    severity: AuditWarningSeverityValue
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class AcademicPlanDetailResponse(AcademicPlanRunResponse):
+    terms: list[AcademicPlanTermResponse]
+    planned_courses: list[AcademicPlanCourseResponse]
+    requirement_coverage: list[AcademicPlanRequirementCoverageResponse]
+    warnings: list[AcademicPlanWarningResponse]
+
+
+class AcademicPlanComparisonResponse(BaseModel):
+    academic_plan_run_id: UUID
+    status: AcademicPlanRunStatusValue
+    total_planned_credits: Decimal
+    term_count: int
+    planned_course_count: int
+    warning_count: int
+    completed_at: datetime | None = None
+
+
+class ScheduleUnavailableTimeBlockRequest(BaseModel):
+    day_of_week: DayOfWeekValue
+    start_time: time
+    end_time: time
+
+
+class ScheduleOptimizationCreateRequest(BaseModel):
+    student_profile_id: UUID
+    term_id: UUID
+    academic_plan_run_id: UUID | None = None
+    planning_mode: SchedulePlanningModeValue
+    section_data_mode: SectionDataModeValue = "DEMO_MOCK"
+    source_age_max_minutes: int | None = Field(default=None, ge=0)
+    candidate_course_ids: list[UUID] = Field(default_factory=list)
+    minimum_credits: Decimal = Field(ge=0)
+    maximum_credits: Decimal = Field(ge=0)
+    preferred_credits: Decimal = Field(ge=0)
+    requested_option_count: int = Field(default=3, gt=0, le=20)
+    max_options: int | None = Field(default=None, gt=0, le=20)
+    excluded_days: list[DayOfWeekValue] = Field(default_factory=list)
+    unavailable_time_blocks: list[ScheduleUnavailableTimeBlockRequest] = Field(default_factory=list)
+    earliest_start_time: time | None = None
+    latest_end_time: time | None = None
+    allowed_modalities: list[SectionModalityValue] = Field(default_factory=list)
+    excluded_modalities: list[SectionModalityValue] = Field(default_factory=list)
+    required_course_ids: list[UUID] = Field(default_factory=list)
+    excluded_course_ids: list[UUID] = Field(default_factory=list)
+    required_section_ids: list[UUID] = Field(default_factory=list)
+    excluded_section_ids: list[UUID] = Field(default_factory=list)
+    prefer_online: bool = False
+    prefer_compact_schedule: bool = False
+    prefer_fewer_days: bool = False
+    prefer_in_person: bool = False
+    avoid_early_start: bool = False
+    avoid_late_end: bool = False
+    allow_permission_required: bool = False
+    minimum_gap_minutes: int | None = Field(default=None, ge=0)
+    maximum_gap_minutes: int | None = Field(default=None, ge=0)
+    preference_weights: dict[str, Decimal] = Field(default_factory=dict)
+    course_priority_weights: dict[UUID, Decimal] = Field(default_factory=dict)
+    section_priority_weights: dict[UUID, Decimal] = Field(default_factory=dict)
+    prefer_no_gaps: bool = False
+    prefer_morning: bool = False
+    prefer_afternoon: bool = False
+    diversity_mode: ScheduleDiversityModeValue = "STANDARD"
+    allow_partial_options: bool = True
+    max_combinations: int = Field(default=500, gt=0, le=5000)
+
+
+class ScheduleOptimizationCompareRequest(BaseModel):
+    schedule_optimization_run_ids: list[UUID] = Field(min_length=2)
+
+
+class ScheduleOptimizationRunResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    term_id: UUID
+    academic_plan_run_id: UUID | None = None
+    planning_mode: SchedulePlanningModeValue
+    section_data_mode: SectionDataModeValue
+    source_age_max_minutes: int | None = None
+    input_snapshot_hash: str | None = None
+    source_readiness: dict[str, Any]
+    status: ScheduleRunStatusValue
+    engine_version: str
+    minimum_credits: Decimal
+    maximum_credits: Decimal
+    preferred_credits: Decimal
+    requested_option_count: int
+    completed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ScheduleConstraintSetResponse(BaseModel):
+    id: UUID
+    schedule_optimization_run_id: UUID
+    excluded_days: list[str]
+    unavailable_time_blocks: list[dict[str, str]]
+    earliest_start_time: str | None = None
+    latest_end_time: str | None = None
+    minimum_gap_minutes: int | None = None
+    maximum_gap_minutes: int | None = None
+    candidate_course_ids: list[str]
+    allowed_modalities: list[str]
+    excluded_modalities: list[str]
+    required_course_ids: list[str]
+    excluded_course_ids: list[str]
+    required_section_ids: list[str]
+    excluded_section_ids: list[str]
+    prefer_online: bool
+    prefer_compact_schedule: bool
+    prefer_fewer_days: bool
+    prefer_in_person: bool
+    avoid_early_start: bool
+    avoid_late_end: bool
+    allow_permission_required: bool
+    preference_weights: dict[str, str]
+    course_priority_weights: dict[str, str]
+    section_priority_weights: dict[str, str]
+    prefer_no_gaps: bool
+    prefer_morning: bool
+    prefer_afternoon: bool
+    diversity_mode: str
+    allow_partial_options: bool
+    max_combinations: int
+    source_age_max_minutes: int | None = None
+    created_at: datetime
+
+
+class ScheduleOptionSectionResponse(BaseModel):
+    id: UUID
+    schedule_option_id: UUID
+    section_id: UUID
+    course_id: UUID
+    course_code: str
+    course_title: str
+    section_code: str
+    section_status: str
+    modality: str
+    credits: Decimal
+    eligibility_result: EligibilityOverallResultValue
+    selection_reason: str
+    source_provenance: dict[str, Any] | None = None
+    source_age_minutes: int | None = None
+    section_snapshot_hash: str | None = None
+    drift_status: Literal["NOT_CAPTURED", "UNCHANGED", "CHANGED"] = "NOT_CAPTURED"
+    meetings: list[SectionMeetingResponse]
+    created_at: datetime
+
+
+class ScheduleScoreBreakdownResponse(BaseModel):
+    total_score: Decimal
+    credit_score: Decimal
+    compactness_score: Decimal
+    days_score: Decimal
+    gap_score: Decimal
+    modality_score: Decimal
+    time_preference_score: Decimal
+    priority_score: Decimal
+    penalty_score: Decimal
+    score_explanation: list[dict[str, Any]]
+
+
+class ScheduleOptionResponse(BaseModel):
+    id: UUID
+    schedule_optimization_run_id: UUID
+    option_rank: int
+    status: ScheduleOptionStatusValue
+    total_credits: Decimal
+    class_days_count: int
+    earliest_start_time: str | None = None
+    latest_end_time: str | None = None
+    total_gap_minutes: int
+    score: Decimal
+    total_score: Decimal
+    credit_score: Decimal
+    compactness_score: Decimal
+    days_score: Decimal
+    gap_score: Decimal
+    modality_score: Decimal
+    time_preference_score: Decimal
+    priority_score: Decimal
+    penalty_score: Decimal
+    score_explanation: list[dict[str, Any]]
+    score_breakdown: ScheduleScoreBreakdownResponse
+    diversity_rank: int
+    difference_summary: str
+    shared_section_count_with_previous_option: int
+    explanation: str
+    selected_sections: list[ScheduleOptionSectionResponse]
+    created_at: datetime
+
+
+class ScheduleConflictResponse(BaseModel):
+    id: UUID
+    schedule_optimization_run_id: UUID
+    schedule_option_id: UUID | None = None
+    conflict_type: ScheduleConflictTypeValue
+    section_id: UUID | None = None
+    other_section_id: UUID | None = None
+    day_of_week: DayOfWeekValue | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+    message: str
+    created_at: datetime
+
+
+class ScheduleWarningResponse(BaseModel):
+    id: UUID
+    schedule_optimization_run_id: UUID
+    schedule_option_id: UUID | None = None
+    warning_code: str
+    severity: AuditWarningSeverityValue
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class ScheduleRepairSuggestionResponse(BaseModel):
+    id: UUID
+    schedule_optimization_run_id: UUID
+    suggestion_type: str
+    affected_constraint: str | None = None
+    affected_course_id: UUID | None = None
+    affected_section_id: UUID | None = None
+    estimated_impact: str
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class ScheduleOptimizationDetailResponse(ScheduleOptimizationRunResponse):
+    constraint_set: ScheduleConstraintSetResponse | None = None
+    options: list[ScheduleOptionResponse]
+    conflicts: list[ScheduleConflictResponse]
+    warnings: list[ScheduleWarningResponse]
+    repair_suggestions: list[ScheduleRepairSuggestionResponse]
+    hard_constraint_results: list[dict[str, Any]]
+    soft_preference_results: list[dict[str, Any]]
+
+
+class ScheduleOptimizationComparisonResponse(BaseModel):
+    schedule_optimization_run_id: UUID
+    status: ScheduleRunStatusValue
+    option_count: int
+    warning_count: int
+    best_score: Decimal | None = None
+    best_total_credits: Decimal | None = None
+    completed_at: datetime | None = None
+
+
+DataImportTypeValue = Literal[
+    "UNOFFICIAL_TRANSCRIPT",
+    "DEGREE_AUDIT_EXPORT",
+    "COURSE_CATALOG",
+    "SECTION_SCHEDULE",
+    "GENERIC_CSV",
+    "GENERIC_JSON",
+    "UNKNOWN",
+]
+DataImportStatusValue = Literal[
+    "PENDING",
+    "PARSING",
+    "PARSED",
+    "PARSED_WITH_WARNINGS",
+    "FAILED",
+    "REVIEW_REQUIRED",
+    "ARCHIVED",
+]
+DataImportStorageStrategyValue = Literal[
+    "METADATA_ONLY",
+    "LOCAL_DEV_FIXTURE",
+    "EXTERNAL_OBJECT_REFERENCE",
+    "NOT_STORED",
+]
+ImportedRecordTypeValue = Literal[
+    "COURSE_ATTEMPT",
+    "TRANSFER_CREDIT",
+    "REQUIREMENT",
+    "COURSE",
+    "SECTION",
+    "SECTION_MEETING",
+    "PROGRAM",
+    "UNKNOWN",
+]
+ImportedRecordStatusValue = Literal[
+    "VALID",
+    "VALID_WITH_WARNINGS",
+    "AMBIGUOUS",
+    "DUPLICATE",
+    "INVALID",
+    "UNSUPPORTED",
+]
+ImportTargetEntityTypeValue = Literal[
+    "COURSE",
+    "SECTION",
+    "ACADEMIC_TERM",
+    "REQUIREMENT_NODE",
+    "PROGRAM_VERSION",
+    "STUDENT_COURSE_ATTEMPT",
+    "UNKNOWN",
+]
+ImportMatchTypeValue = Literal[
+    "EXACT_CODE",
+    "NORMALIZED_CODE",
+    "TITLE_SIMILARITY",
+    "TERM_MATCH",
+    "MANUAL_REQUIRED",
+    "NO_MATCH",
+]
+DataImportSourceTypeValue = Literal[
+    "MOCK",
+    "IMPORTED",
+    "BROWSER_EXTENSION",
+    "STUDENT_PROVIDED",
+    "INFERRED",
+    "OFFICIAL",
+]
+SectionMonitorAlertTypeValue = Literal[
+    "STATUS_CHANGED",
+    "SEATS_CHANGED",
+    "SECTION_OPENED",
+    "SECTION_CLOSED",
+    "WAITLIST_CHANGED",
+    "MEETING_TIME_CHANGED",
+    "INSTRUCTOR_CHANGED",
+    "LOCATION_CHANGED",
+    "UNKNOWN_CHANGE",
+]
+SectionMonitoringSourceTypeValue = Literal["BROWSER_EXTENSION"]
+
+
+class SectionMonitorTargetCreateRequest(BaseModel):
+    student_profile_id: UUID
+    course_code: str = Field(min_length=1, max_length=40)
+    section_code: str = Field(min_length=1, max_length=40)
+    term: str = Field(min_length=1, max_length=40)
+    title: str | None = Field(default=None, max_length=255)
+    instructor: str | None = Field(default=None, max_length=255)
+    status: str | None = Field(default=None, max_length=80)
+
+
+class SectionMonitorTargetUpdateRequest(BaseModel):
+    is_active: bool | None = None
+    title: str | None = Field(default=None, max_length=255)
+    instructor: str | None = Field(default=None, max_length=255)
+    status: str | None = Field(default=None, max_length=80)
+
+
+class SectionMonitorTargetResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    course_code: str
+    section_code: str
+    term: str
+    title: str | None = None
+    instructor: str | None = None
+    status: str | None = None
+    is_active: bool
+    is_advisory: bool
+    is_official: bool
+    latest_snapshot_created_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class SectionMonitorSnapshotInput(BaseModel):
+    target_id: UUID | None = None
+    data_import_id: UUID | None = None
+    course_code: str = Field(min_length=1, max_length=40)
+    section_code: str = Field(min_length=1, max_length=40)
+    term: str = Field(min_length=1, max_length=40)
+    status: str | None = Field(default=None, max_length=80)
+    seats_available: int | None = Field(default=None, ge=0)
+    seats_capacity: int | None = Field(default=None, ge=0)
+    waitlist_available: int | None = Field(default=None, ge=0)
+    waitlist_capacity: int | None = Field(default=None, ge=0)
+    meeting_days: str | None = Field(default=None, max_length=80)
+    meeting_time: str | None = Field(default=None, max_length=120)
+    location: str | None = Field(default=None, max_length=255)
+    instructor: str | None = Field(default=None, max_length=255)
+    raw_payload: dict[str, Any] = Field(default_factory=dict)
+    source_reference: str | None = Field(default=None, max_length=500)
+
+    @field_validator("raw_payload")
+    @classmethod
+    def raw_payload_is_bounded(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return _validate_section_monitor_raw_payload(value)
+
+
+class SectionMonitorSnapshotCompareRequest(BaseModel):
+    student_profile_id: UUID
+    source_type: SectionMonitoringSourceTypeValue = "BROWSER_EXTENSION"
+    snapshots: list[SectionMonitorSnapshotInput] = Field(
+        min_length=1,
+        max_length=MAX_SECTION_MONITOR_SNAPSHOT_COUNT,
+    )
+
+
+class SectionMonitorSnapshotResponse(BaseModel):
+    id: UUID
+    target_id: UUID | None = None
+    data_import_id: UUID | None = None
+    course_code: str
+    section_code: str
+    term: str
+    status: str | None = None
+    seats_available: int | None = None
+    seats_capacity: int | None = None
+    waitlist_available: int | None = None
+    waitlist_capacity: int | None = None
+    meeting_days: str | None = None
+    meeting_time: str | None = None
+    location: str | None = None
+    instructor: str | None = None
+    raw_payload: dict[str, Any]
+    source_type: str
+    is_official: bool
+    source_reference: str | None = None
+    source_confidence: str | None = None
+    created_at: datetime
+
+
+class SectionMonitorAlertUpdateRequest(BaseModel):
+    is_acknowledged: bool
+
+
+class SectionMonitorAlertResponse(BaseModel):
+    id: UUID
+    target_id: UUID
+    previous_snapshot_id: UUID
+    current_snapshot_id: UUID
+    alert_type: SectionMonitorAlertTypeValue
+    severity: AuditWarningSeverityValue
+    field_name: str
+    previous_value: str | None = None
+    current_value: str | None = None
+    message: str
+    is_acknowledged: bool
+    acknowledged_at: datetime | None = None
+    is_advisory: bool
+    requires_manual_review: bool
+    created_at: datetime
+
+
+class SectionMonitorSnapshotCompareResponse(BaseModel):
+    snapshots: list[SectionMonitorSnapshotResponse]
+    alerts: list[SectionMonitorAlertResponse]
+    disclaimers: list[str]
+
+
+class DataImportCreateRequest(BaseModel):
+    student_profile_id: UUID
+    import_type: DataImportTypeValue
+    file_name: str = Field(min_length=1, max_length=255)
+    file_mime_type: str = Field(min_length=1, max_length=120)
+    content: str = Field(min_length=1, max_length=524288)
+    source_type: DataImportSourceTypeValue = "STUDENT_PROVIDED"
+    source_reference: str | None = Field(default=None, max_length=500)
+    page_type: str | None = Field(default=None, max_length=120)
+    extracted_record_count: int | None = Field(default=None, ge=0)
+    visible_row_count: int | None = Field(default=None, ge=0)
+    academic_field_count: int | None = Field(default=None, ge=0)
+    warnings: list[dict[str, Any]] = Field(default_factory=list)
+    diagnostics: dict[str, Any] = Field(default_factory=dict)
+    bounded: bool | None = None
+    truncated: bool | None = None
+
+
+class DataImportRunResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    import_type: DataImportTypeValue
+    status: DataImportStatusValue
+    storage_strategy: DataImportStorageStrategyValue
+    file_name: str
+    file_mime_type: str
+    file_size_bytes: int
+    file_sha256: str
+    parser_version: str
+    record_count: int
+    valid_record_count: int
+    warning_count: int
+    error_count: int
+    official_application_ready: bool
+    started_at: datetime
+    completed_at: datetime | None = None
+    source: SourceMetadataResponse
+    created_at: datetime
+    updated_at: datetime
+
+
+class ImportedRecordResponse(BaseModel):
+    id: UUID
+    data_import_run_id: UUID
+    record_type: ImportedRecordTypeValue
+    row_number: int
+    status: ImportedRecordStatusValue
+    external_identifier: str | None = None
+    raw_label: str
+    normalized_payload: dict[str, Any]
+    confidence_score: Decimal
+    created_at: datetime
+
+
+class ImportMappingCandidateResponse(BaseModel):
+    id: UUID
+    imported_record_id: UUID
+    target_entity_type: ImportTargetEntityTypeValue
+    target_entity_id: UUID | None = None
+    match_type: ImportMatchTypeValue
+    confidence_score: Decimal
+    is_selected: bool
+    reason_code: str
+    explanation: str
+    created_at: datetime
+
+
+class ImportValidationWarningResponse(BaseModel):
+    id: UUID
+    data_import_run_id: UUID
+    imported_record_id: UUID | None = None
+    warning_code: str
+    severity: AuditWarningSeverityValue
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class ImportPreviewSummaryResponse(BaseModel):
+    id: UUID
+    data_import_run_id: UUID
+    record_count: int
+    valid_record_count: int
+    warning_count: int
+    error_count: int
+    official_application_ready: bool
+    disclaimers: list[str]
+    summary_payload: dict[str, Any]
+    created_at: datetime
+
+
+DataImportReviewStatusValue = Literal[
+    "DRAFT",
+    "IN_REVIEW",
+    "READY_TO_APPLY",
+    "APPLYING",
+    "APPLIED",
+    "APPLIED_WITH_WARNINGS",
+    "FAILED",
+    "ARCHIVED",
+]
+ImportedRecordReviewDecisionValue = Literal[
+    "UNREVIEWED",
+    "CONFIRMED",
+    "REJECTED",
+    "NEEDS_ADVISOR_REVIEW",
+    "EDITED_AND_CONFIRMED",
+    "DEFERRED",
+]
+DataApplicationStatusValue = Literal[
+    "PENDING",
+    "APPLYING",
+    "APPLIED",
+    "APPLIED_WITH_WARNINGS",
+    "FAILED",
+    "ROLLED_BACK",
+]
+AppliedImportTargetEntityTypeValue = Literal[
+    "STUDENT_COURSE_ATTEMPT",
+    "TRANSFER_CREDIT",
+    "COURSE",
+    "SECTION",
+    "SECTION_MEETING",
+    "COURSE_OFFERING_PATTERN",
+    "COURSE_STATE",
+    "UNKNOWN",
+]
+AppliedImportActionValue = Literal[
+    "CREATED",
+    "UPDATED",
+    "SKIPPED_DUPLICATE",
+    "SKIPPED_REJECTED",
+    "SKIPPED_DEFERRED",
+    "SKIPPED_ADVISOR_REVIEW",
+    "SKIPPED_UNSUPPORTED",
+]
+AppliedImportStatusValue = Literal["SUCCESS", "WARNING", "FAILED", "SKIPPED"]
+
+
+class DataImportReviewCreateRequest(BaseModel):
+    data_import_run_id: UUID
+    reviewer_label: str = Field(min_length=1, max_length=255)
+
+
+class ImportedRecordReviewUpdateRequest(BaseModel):
+    decision: ImportedRecordReviewDecisionValue
+    selected_mapping_candidate_id: UUID | None = None
+    edited_normalized_payload: dict[str, Any] | None = None
+    review_note: str | None = Field(default=None, max_length=2000)
+    requires_advisor_confirmation: bool | None = None
+
+
+class DataImportReviewApplyRequest(BaseModel):
+    allow_advisor_review_records: bool = False
+    dry_run: bool = False
+
+
+class DataImportReviewSessionResponse(BaseModel):
+    id: UUID
+    data_import_run_id: UUID
+    student_profile_id: UUID
+    status: DataImportReviewStatusValue
+    reviewer_label: str
+    started_at: datetime
+    completed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ImportedRecordReviewResponse(BaseModel):
+    id: UUID
+    review_session_id: UUID
+    imported_record_id: UUID
+    selected_mapping_candidate_id: UUID | None = None
+    decision: ImportedRecordReviewDecisionValue
+    edited_normalized_payload: dict[str, Any] | None = None
+    review_note: str | None = None
+    requires_advisor_confirmation: bool
+    imported_record: ImportedRecordResponse
+    selected_mapping_candidate: ImportMappingCandidateResponse | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class DataApplicationRunResponse(BaseModel):
+    id: UUID
+    review_session_id: UUID
+    status: DataApplicationStatusValue
+    applied_count: int
+    skipped_count: int
+    warning_count: int
+    error_count: int
+    started_at: datetime
+    completed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+CourseStateStatusValue = Literal[
+    "COMPLETED",
+    "IN_PROGRESS",
+    "PLANNED",
+    "NOT_STARTED",
+    "UNKNOWN",
+]
+CourseStateValidationStateValue = Literal[
+    "RELIABLE",
+    "RELIABLE_WITH_WARNINGS",
+    "EXTERNAL_EVIDENCE",
+    "EXCEPTION",
+]
+
+
+class CourseStateReadinessItemResponse(BaseModel):
+    status: str
+    reason_codes: list[str]
+    blocking_reasons: list[str]
+    warnings: list[str]
+    source_import_id: UUID
+    source_validation_state: str
+    source_bounded: bool
+    source_truncated: bool
+    last_applied_at: datetime
+
+
+class CourseStateSnapshotResponse(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    data_import_run_id: UUID
+    review_session_id: UUID
+    data_application_run_id: UUID
+    source_page_type: str
+    source_validation_state: str
+    program_mapping_state: str
+    is_active: bool
+    is_advisory: bool
+    official_application_ready: bool
+    extraction_bounded: bool
+    extraction_truncated: bool
+    completed_count: int
+    in_progress_count: int
+    planned_count: int
+    not_started_count: int
+    matched_count: int
+    unmatched_count: int
+    exception_count: int
+    program_summary: dict[str, Any]
+    credit_summary: dict[str, Any]
+    requirement_summary: list[Any]
+    readiness: dict[str, CourseStateReadinessItemResponse]
+    applied_at: datetime
+    source: SourceMetadataResponse
+    created_at: datetime
+    updated_at: datetime
+
+
+class CourseStateRecordResponse(BaseModel):
+    id: UUID
+    snapshot_id: UUID
+    imported_record_id: UUID
+    imported_record_review_id: UUID
+    matched_course_id: UUID | None = None
+    student_course_attempt_id: UUID | None = None
+    normalized_course_code: str
+    source_course_code: str
+    source_course_title: str
+    status: CourseStateStatusValue
+    term: str | None = None
+    credits: Decimal | None = None
+    grade: str | None = None
+    requirement_context: str | None = None
+    source_page_type: str
+    source_table_index: str | None = None
+    source_row_index: str | None = None
+    provenance: dict[str, Any]
+    confidence_score: Decimal
+    validation_state: CourseStateValidationStateValue
+    review_decision: ImportedRecordReviewDecisionValue
+    application_reason_code: str
+    reason_codes: list[str]
+    warnings: list[str]
+    created_at: datetime
+
+
+class CourseStateSnapshotDetailResponse(BaseModel):
+    snapshot: CourseStateSnapshotResponse
+    course_states: list[CourseStateRecordResponse]
+
+
+class AppliedImportedRecordResponse(BaseModel):
+    id: UUID | None = None
+    data_application_run_id: UUID | None = None
+    imported_record_review_id: UUID
+    imported_record_id: UUID
+    target_entity_type: AppliedImportTargetEntityTypeValue
+    target_entity_id: UUID | None = None
+    action: AppliedImportActionValue
+    status: AppliedImportStatusValue
+    reason_code: str
+    message: str
+    created_at: datetime | None = None
+
+
+class DataReviewWarningResponse(BaseModel):
+    id: UUID
+    review_session_id: UUID
+    imported_record_review_id: UUID | None = None
+    data_application_run_id: UUID | None = None
+    warning_code: str
+    severity: AuditWarningSeverityValue
+    message: str
+    requires_advisor_confirmation: bool
+    created_at: datetime
+
+
+class DataReviewApplicationSummaryResponse(BaseModel):
+    source_import_id: UUID
+    snapshot_id: UUID | None = None
+    applied_count: int
+    warning_count: int
+    exception_count: int
+    rejected_count: int
+    deferred_count: int
+    duplicate_count: int
+
+
+class DataReviewApplicationResultResponse(BaseModel):
+    review_session: DataImportReviewSessionResponse
+    dry_run: bool
+    application: DataApplicationRunResponse | None = None
+    applied_records: list[AppliedImportedRecordResponse]
+    warnings: list[DataReviewWarningResponse]
+    course_state_snapshot: CourseStateSnapshotResponse | None = None
+    summary: DataReviewApplicationSummaryResponse
+
+
+class CatalogBatchProcessResponse(BaseModel):
+    status: Literal["APPLIED", "BLOCKED"]
+    review_session: DataImportReviewSessionResponse
+    dry_run_result: DataReviewApplicationResultResponse | None = None
+    application_result: DataReviewApplicationResultResponse | None = None
+    confirmed_record_count: int
+    blocked_record_count: int
+    reason_codes: list[str]
+    myprogress_run_id: UUID | None = None
+    myprogress_mapped_count: int
+    myprogress_unmatched_count: int
+    processing_stages_completed: list[
+        Literal[
+            "LOCAL_STAGING",
+            "LOCAL_VALIDATION",
+            "LOCAL_REVIEW",
+            "LOCAL_DRY_RUN",
+            "LOCAL_APPLY",
+            "MYPROGRESS_REMAP",
+        ]
+    ]
+    staged_record_count: int
+    review_valid_count: int
+    review_warning_count: int
+    applied_record_count: int
+    myprogress_total_count: int
+    myprogress_mapped_before_count: int
+    myprogress_remap_executed: bool
+    already_processed: bool
+    provider_actions_written: Literal["NO"]
+
+
+class ErrorDetailResponse(BaseModel):
+    code: str
+    message: str
+
+
+class ErrorResponse(BaseModel):
+    detail: ErrorDetailResponse

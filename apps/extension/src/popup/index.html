@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>SAPSOS Import</title>
+    <style>
+      body {
+        color: #111827;
+        font:
+          14px system-ui,
+          sans-serif;
+        margin: 0;
+        min-width: 420px;
+        padding: 14px;
+      }
+
+      button,
+      input {
+        box-sizing: border-box;
+        font: inherit;
+        min-height: 36px;
+        width: 100%;
+      }
+
+      button {
+        background: #1f2937;
+        border: 0;
+        color: white;
+        cursor: pointer;
+        font-weight: 700;
+        margin-top: 8px;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      label,
+      section {
+        display: grid;
+        gap: 6px;
+        margin-top: 12px;
+      }
+
+      ul {
+        margin: 8px 0 0;
+        padding-left: 18px;
+      }
+
+      pre {
+        background: #f3f4f6;
+        max-height: 160px;
+        overflow: auto;
+        padding: 8px;
+        white-space: pre-wrap;
+      }
+
+      table {
+        border-collapse: collapse;
+        font-size: 12px;
+        margin-top: 8px;
+        width: 100%;
+      }
+
+      th,
+      td {
+        border: 1px solid #d1d5db;
+        padding: 5px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #f3f4f6;
+      }
+
+      .status-grid {
+        display: grid;
+        gap: 6px;
+        grid-template-columns: 1fr;
+      }
+
+      .label {
+        background: #eef2ff;
+        color: #312e81;
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 3px 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Kean Student Portal Academic Import</h1>
+    <ul>
+      <li>The extension does not log in for you.</li>
+      <li>The extension does not collect your password.</li>
+      <li>
+        The extension only reads academic-planning data from Kean Student Portal
+        pages you authorize.
+      </li>
+      <li>Imported data is non-official and requires manual review.</li>
+      <li>
+        The system does not register, drop, swap, waitlist, reserve seats, or
+        grab seats.
+      </li>
+    </ul>
+    <p>
+      Open https://kean-ss.colleague.elluciancloud.com/Student, log in manually,
+      and keep using the official portal directly.
+    </p>
+    <section>
+      <strong>Supported page types</strong>
+      <span>
+        Transcript, Degree Audit, MyProgress, Course Catalog, Section Search,
+        Student Planning, Schedule.
+      </span>
+    </section>
+    <label>
+      API base URL
+      <input id="apiBaseUrlInput" value="http://localhost:8000" />
+    </label>
+    <section>
+      <strong>Local app pairing</strong>
+      <span
+        >The pairing credential is only for local app communication and is never
+        sent to the school portal.</span
+      >
+      <input
+        id="pairingCodeInput"
+        placeholder="Enter the code shown in the local app"
+        autocomplete="off"
+      />
+      <button id="pairExtensionButton" type="button">
+        Pair with local app
+      </button>
+      <span id="pairingStatusText">Pairing state is unknown.</span>
+    </section>
+    <label>
+      Student profile (filled automatically after local pairing)
+      <input id="studentProfileIdInput" />
+    </label>
+    <button id="extractCurrentPageButton" type="button">
+      Extract current page
+    </button>
+    <button id="startKeanImportButton" type="button">
+      Start Kean Academic Import
+    </button>
+    <button id="captureGuidedPageButton" type="button" disabled>
+      Capture current guided page
+    </button>
+    <section>
+      <strong>Read-only Course Catalog batch</strong>
+      <span>
+        User-initiated, non-official, and read-only. This performs no
+        registration actions. The first run is limited to two subjects and stops
+        safely on school errors, timeouts, or rate limits.
+      </span>
+      <button id="startCatalogBatchButton" type="button">
+        Run bounded Catalog acceptance (2 subjects)
+      </button>
+      <button id="pauseCatalogBatchButton" type="button" disabled>Pause</button>
+      <button id="resumeCatalogBatchButton" type="button" disabled>
+        Resume
+      </button>
+      <button id="cancelCatalogBatchButton" type="button" disabled>
+        Cancel
+      </button>
+      <span id="catalogBatchStartReasonText">
+        READY — A fresh run may be started from the Catalog landing page.
+      </span>
+      <span id="catalogBatchResumeReasonText">
+        NO_PAUSED_RUN — Resume is unavailable at this checkpoint.
+      </span>
+      <span id="catalogBatchCancelReasonText">
+        NO_ACTIVE_RUN — Cancel requires a running or paused batch.
+      </span>
+      <button id="openCatalogBatchMonitorButton" type="button">
+        Open batch monitor
+      </button>
+      <p id="catalogBatchMonitorStatusText" role="status"></p>
+      <strong id="catalogBatchStatusText">Not started.</strong>
+      <span id="catalogBatchProgressText">
+        Subjects discovered: 0 | Subjects completed: 0 / 0 | Courses captured: 0
+        | Unique courses: 0 | Duplicates ignored: 0 | Warnings: 0
+      </span>
+    </section>
+    <section class="status-grid" aria-live="polite">
+      <strong id="statusText">Waiting for user action.</strong>
+      <span id="apiStatusText">Local app/API not contacted.</span>
+      <span>Detected page type: <strong id="detectedPageText"></strong></span>
+      <span>Extracted row counts: <strong id="countsText"></strong></span>
+      <span class="label">Non-official data</span>
+      <span class="label">Manual review required</span>
+    </section>
+    <section>
+      <strong>Diagnostic mode</strong>
+      <ul>
+        <li>Current URL: <span id="diagnosticUrlText"></span></li>
+        <li>Matched marker: <span id="diagnosticMarkerText"></span></li>
+        <li>Visible tables: <span id="diagnosticTablesText"></span></li>
+        <li>Visible rows: <span id="diagnosticRowsText"></span></li>
+        <li>
+          Visible text length:
+          <span id="diagnosticVisibleTextLengthText"></span>
+        </li>
+        <li>
+          Visible row-like blocks:
+          <span id="diagnosticRowLikeBlocksText"></span>
+        </li>
+        <li>
+          Academic fields:
+          <span id="diagnosticAcademicFieldsText"></span>
+        </li>
+        <li>
+          Ignored sensitive fields:
+          <span id="diagnosticSensitiveFieldsText"></span>
+        </li>
+        <li>
+          Direct snapshot ran:
+          <span id="diagnosticDirectSnapshotText"></span>
+        </li>
+        <li>
+          Bounded or truncated:
+          <span id="diagnosticBoundedText"></span>
+        </li>
+      </ul>
+    </section>
+    <section>
+      <strong>Warnings</strong>
+      <ul id="warningsList"></ul>
+    </section>
+    <section>
+      <strong>Preview</strong>
+      <table
+        id="previewTable"
+        aria-label="Extracted academic data preview"
+      ></table>
+    </section>
+    <button id="confirmImportButton" type="button" disabled>
+      Confirm staging import
+    </button>
+    <p>Open the local app after import to complete Phase 7B review.</p>
+    <script type="module" src="../../dist/popup/popup.js"></script>
+  </body>
+</html>

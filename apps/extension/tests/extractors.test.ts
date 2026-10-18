@@ -1,0 +1,1088 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+import {
+  createDataImportRequestsFromExtractions,
+  createDataImportRequestFromExtraction,
+  extractAcademicPageFromTables,
+  hasStagedImportContent,
+} from "../src/content/extractors.js";
+import {
+  KEAN_SOURCE_LABEL,
+  KEAN_STUDENT_PORTAL_PREFIX,
+} from "../src/shared/kean.js";
+import type { TableSnapshot } from "../src/shared/types.js";
+
+const fixturesDir = join(process.cwd(), "tests", "fixtures");
+
+function fixture(name: string): string {
+  return readFileSync(join(fixturesDir, name), "utf8");
+}
+
+function textOnly(value: string): string {
+  return value
+    .replace(/<input\b[^>]*type=["']password["'][^>]*>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cells(rowHtml: string, tagName: "td" | "th"): string[] {
+  const pattern = new RegExp(
+    `<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`,
+    "gi",
+  );
+  return [...rowHtml.matchAll(pattern)].map((match) =>
+    textOnly(match[1] ?? ""),
+  );
+}
+
+function tablesFromFixture(name: string): TableSnapshot[] {
+  const html = fixture(name);
+  const tableMatches = html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi);
+  return [...tableMatches].map((match, index) => {
+    const tableHtml = match[1] ?? "";
+    const captionMatch = tableHtml.match(
+      /<caption\b[^>]*>([\s\S]*?)<\/caption>/i,
+    );
+    const rowMatches = [...tableHtml.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
+    const headerRow = rowMatches.find((rowMatch) =>
+      /<th\b/i.test(rowMatch[1] ?? ""),
+    );
+    const headers = headerRow ? cells(headerRow[1] ?? "", "th") : [];
+    const rows = rowMatches
+      .filter((rowMatch) => /<td\b/i.test(rowMatch[1] ?? ""))
+      .map((rowMatch) => cells(rowMatch[1] ?? "", "td"));
+    return {
+      caption: captionMatch ? textOnly(captionMatch[1] ?? "") : "",
+      index,
+      headers,
+      rows,
+    };
+  });
+}
+
+function extractFixture(
+  name: string,
+  options: { title?: string; url?: string } = {},
+) {
+  return extractAcademicPageFromTables({
+    title: options.title ?? `Fixture ${name}`,
+    url: options.url ?? `https://portal.example.edu/${name}`,
+    tables: tablesFromFixture(name),
+  });
+}
+
+function rowLikeBlocksFromFixture(name: string) {
+  const html = fixture(name);
+  return textOnly(html)
+    .split(
+      /(Status Course Grade Term Credits|Completed |Registered |Planned |Not Started )/,
+    )
+    .reduce<string[]>((blocks, segment, index, parts) => {
+      if (
+        segment === "Completed " ||
+        segment === "Registered " ||
+        segment === "Planned " ||
+        segment === "Not Started "
+      ) {
+        blocks.push(`${segment}${parts[index + 1] ?? ""}`.trim());
+        return blocks;
+      }
+      if (segment === "Status Course Grade Term Credits") {
+        blocks.push(segment);
+      }
+      return blocks;
+    }, [])
+    .map((text, index) => ({ index, text }));
+}
+
+describe("browser extension academic table extractors", () => {
+  it("extracts transcript tables into Phase 7A-compatible unofficial transcript content", () => {
+    const extraction = extractFixture("transcript-table.html");
+
+    expect(extraction.pageType).toBe("TRANSCRIPT_TABLE");
+    expect(extraction.importType).toBe("UNOFFICIAL_TRANSCRIPT");
+    expect(extraction.sourceType).toBe("BROWSER_EXTENSION");
+    expect(extraction.isOfficial).toBe(false);
+    expect(extraction.records).toHaveLength(2);
+    expect(extraction.records[0]).toMatchObject({
+      term_code: "2024FA",
+      course_code: "FIN 300",
+      course_title: "Mock Managerial Finance",
+      credits: "3.0",
+      grade: "B",
+      attempt_status: "COMPLETED",
+      source_label: "Visible transcript table",
+    });
+    expect(extraction.content).toContain(
+      "term_code,course_code,course_title,credits,grade,attempt_status,source_label",
+    );
+  });
+
+  it("extracts degree audit tables with requirements and manual-review warnings", () => {
+    const extraction = extractFixture("degree-audit-table.html");
+
+    expect(extraction.pageType).toBe("DEGREE_AUDIT_TABLE");
+    expect(extraction.importType).toBe("DEGREE_AUDIT_EXPORT");
+    expect(extraction.records[0]).toMatchObject({
+      program_code: "BSFIN",
+      catalog_year: "2024",
+      requirements: "Major Core",
+      completed_courses: "FIN 300",
+      remaining_requirements: "FIN 403",
+    });
+    expect(extraction.warnings.map((warning) => warning.code)).toContain(
+      "DEGREE_AUDIT_REQUIRES_MANUAL_REVIEW",
+    );
+  });
+
+  it("extracts course catalog tables", () => {
+    const extraction = extractFixture("course-catalog-table.html");
+
+    expect(extraction.pageType).toBe("COURSE_CATALOG_TABLE");
+    expect(extraction.importType).toBe("COURSE_CATALOG");
+    expect(extraction.records[0]).toMatchObject({
+      course_code: "FIN 403",
+      course_title: "Mock Investments",
+      credits: "3",
+      course_level: "400",
+      department: "Finance",
+      description: "Mock catalog description.",
+    });
+  });
+
+  it("extracts section search tables", () => {
+    const extraction = extractFixture("section-search-table.html");
+
+    expect(extraction.pageType).toBe("SECTION_SEARCH_TABLE");
+    expect(extraction.importType).toBe("SECTION_SCHEDULE");
+    expect(extraction.records[0]).toMatchObject({
+      term_code: "2025FA",
+      course_code: "FIN 403",
+      section_code: "001",
+      modality: "IN_PERSON",
+      status: "OPEN",
+      seats_available: "4",
+      seats_capacity: "30",
+      waitlist_available: "2",
+      waitlist_capacity: "10",
+      credits: "3",
+      day_of_week: "MONDAY",
+      start_time: "09:00",
+      end_time: "10:15",
+      meeting_days: "MONDAY",
+      meeting_time: "09:00-10:15",
+      location: "Mock Hall 101",
+      instructor_display: "Mock Instructor",
+    });
+    expect(extraction.records[0]).not.toHaveProperty("registration_action");
+    expect(extraction.content).toContain("seats_available");
+    expect(extraction.content).toContain("waitlist_available");
+    expect(extraction.content).toContain("meeting_time");
+    expect(extraction.content).toContain("location");
+  });
+
+  it("groups repeated section rows into multiple meetings with provenance", () => {
+    const extraction = extractAcademicPageFromTables({
+      title: "Visible Section Results",
+      url: "https://portal.example.edu/sections",
+      tables: [
+        {
+          index: 0,
+          caption: "Visible sections",
+          headers: [
+            "Term",
+            "Course",
+            "Title",
+            "Section",
+            "Component",
+            "Days",
+            "Time",
+            "Location",
+          ],
+          rows: [
+            [
+              "2025FA",
+              "FIN 403",
+              "Mock Investments",
+              "001",
+              "Lecture",
+              "M W",
+              "9:00 AM-10:15 AM",
+              "Mock Hall 101",
+            ],
+            [
+              "2025FA",
+              "FIN 403",
+              "Mock Investments",
+              "001",
+              "Lab",
+              "F",
+              "10:30-11:20",
+              "Mock Hall 202",
+            ],
+          ],
+        },
+      ],
+    });
+    expect(extraction.records).toHaveLength(1);
+    expect(extraction.records[0]).toMatchObject({
+      course_code: "FIN 403",
+      section_code: "001",
+      meeting_days: "MONDAY,WEDNESDAY",
+      start_time: "09:00",
+      end_time: "10:15",
+    });
+    const meetings = JSON.parse(
+      extraction.records[0]?.meetings_json ?? "[]",
+    ) as unknown[];
+    expect(meetings).toHaveLength(2);
+    expect(extraction.records[0]?.field_provenance_json).toContain(
+      "course_code",
+    );
+  });
+
+  it("returns a no-data result for unknown pages and empty tables", () => {
+    const unknown = extractFixture("unknown-page.html");
+    const empty = extractFixture("empty-table.html");
+
+    expect(unknown.pageType).toBe("UNKNOWN_PAGE");
+    expect(unknown.records).toHaveLength(0);
+    expect(unknown.warnings.map((warning) => warning.code)).toContain(
+      "NO_ACADEMIC_TABLE_FOUND",
+    );
+    expect(empty.records).toHaveLength(0);
+    expect(empty.warnings.map((warning) => warning.code)).toContain(
+      "NO_IMPORTABLE_ROWS",
+    );
+  });
+
+  it("warns instead of crashing on malformed rows and unknown columns", () => {
+    const malformed = extractFixture("malformed-row.html");
+    const extraColumns = extractFixture("extra-columns.html");
+
+    expect(malformed.records).toHaveLength(0);
+    expect(malformed.warnings.map((warning) => warning.code)).toContain(
+      "MALFORMED_ROW",
+    );
+    expect(extraColumns.records).toHaveLength(1);
+    expect(extraColumns.warnings.map((warning) => warning.code)).toContain(
+      "UNKNOWN_COLUMNS",
+    );
+  });
+
+  it("produces deterministic output for the same visible page", () => {
+    const first = extractFixture("section-search-table.html");
+    const second = extractFixture("section-search-table.html");
+
+    expect(second).toEqual(first);
+  });
+
+  it("does not extract password field values", () => {
+    const extraction = extractFixture("transcript-table.html");
+
+    expect(JSON.stringify(extraction)).not.toContain("do-not-read");
+  });
+
+  it("builds a confirmed browser-extension handoff request for the existing import API", () => {
+    const extraction = extractFixture("section-search-table.html");
+    const request = createDataImportRequestFromExtraction(
+      "00000000-0000-4000-8000-000000000702",
+      extraction,
+    );
+
+    expect(request).toMatchObject({
+      student_profile_id: "00000000-0000-4000-8000-000000000702",
+      import_type: "SECTION_SCHEDULE",
+      file_name: "browser-extension-section-schedule.csv",
+      file_mime_type: "text/csv",
+      source_type: "BROWSER_EXTENSION",
+    });
+    expect(request.content).toBe(extraction.content);
+    expect(request.source_reference).toContain(
+      "https://portal.example.edu/section-search-table.html",
+    );
+  });
+
+  it("detects Kean transcript pages under the Student portal prefix", () => {
+    const extraction = extractFixture("kean-transcript-page.html", {
+      title: "Kean Student Planning - Unofficial Transcript",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory`,
+    });
+
+    expect(extraction.pageType).toBe("KEAN_TRANSCRIPT_PAGE");
+    expect(extraction.importType).toBe("UNOFFICIAL_TRANSCRIPT");
+    expect(extraction.sourceType).toBe("BROWSER_EXTENSION");
+    expect(extraction.isOfficial).toBe(false);
+    expect(extraction.requiresReview).toBe(true);
+    expect(extraction.records).toHaveLength(2);
+    expect(extraction.records[0]).toMatchObject({
+      term_code: "2024FA",
+      course_code: "CPS 2231",
+      course_title: "Mock Computer Organization",
+      credits: "3",
+      grade: "B+",
+      attempt_status: "COMPLETED",
+    });
+    expect(extraction.warnings.map((warning) => warning.code)).toContain(
+      "KEAN_IMPORT_NON_OFFICIAL_REVIEW_REQUIRED",
+    );
+    expect(extraction.diagnostics).toMatchObject({
+      currentUrl: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory`,
+      detectedPageType: "KEAN_TRANSCRIPT_PAGE",
+      matchedPageMarker: "AcademicHistory",
+      tablesFound: 1,
+      rowsFound: 2,
+      extractedAcademicFieldCount: 12,
+      ignoredSensitiveFieldCount: 0,
+    });
+  });
+
+  it("detects Kean MyProgress, catalog, section search, planning, and schedule pages", () => {
+    const myProgress = extractFixture("kean-my-progress-page.html", {
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/MyProgress`,
+    });
+    const catalog = extractFixture("kean-course-catalog-page.html", {
+      title: "Course Catalog",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/CourseCatalog`,
+    });
+    const sections = extractFixture("kean-section-search-page.html", {
+      title: "Section Search",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/SectionSearch`,
+    });
+    const planning = extractFixture("kean-student-planning-page.html", {
+      title: "Student Planning",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/StudentPlanning`,
+    });
+    const schedule = extractFixture("kean-schedule-page.html", {
+      title: "Student Schedule",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Schedule`,
+    });
+
+    expect(myProgress.pageType).toBe("KEAN_MY_PROGRESS_PAGE");
+    expect(myProgress.importType).toBe("DEGREE_AUDIT_EXPORT");
+    expect(catalog.pageType).toBe("KEAN_COURSE_CATALOG_PAGE");
+    expect(catalog.importType).toBe("COURSE_CATALOG");
+    expect(sections.pageType).toBe("KEAN_SECTION_SEARCH_PAGE");
+    expect(sections.importType).toBe("SECTION_SCHEDULE");
+    expect(planning.pageType).toBe("KEAN_STUDENT_PLANNING_PAGE");
+    expect(planning.importType).toBe("SECTION_SCHEDULE");
+    expect(schedule.pageType).toBe("KEAN_SCHEDULE_PAGE");
+    expect(schedule.importType).toBe("SECTION_SCHEDULE");
+  });
+
+  it("prefers the MyProgress route over unrelated navigation text", () => {
+    const extraction = extractAcademicPageFromTables({
+      title: "My Progress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#MOCK.PROGRAM.24`,
+      tables: [],
+      visibleText:
+        "Unofficial Transcript Course Catalog Student Planning My Progress",
+    });
+
+    expect(extraction.pageType).toBe("KEAN_MY_PROGRESS_PAGE");
+    expect(extraction.importType).toBe("DEGREE_AUDIT_EXPORT");
+    expect(extraction.diagnostics.matchedPageMarker).toBe("MyProgress");
+  });
+
+  it("parses sanitized Kean MyProgress row-like blocks without real tables", () => {
+    const extraction = extractAcademicPageFromTables({
+      title: "My Progress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      tables: [],
+      visibleText: textOnly(fixture("kean-my-progress-row-blocks.html")),
+      rowLikeBlocks: rowLikeBlocksFromFixture(
+        "kean-my-progress-row-blocks.html",
+      ),
+      snapshotMetadata: {
+        directSnapshotRan: true,
+        visibleTextLength: textOnly(fixture("kean-my-progress-row-blocks.html"))
+          .length,
+        rowLikeBlocksFound: 5,
+      },
+    });
+
+    expect(extraction.pageType).toBe("KEAN_MY_PROGRESS_PAGE");
+    expect(extraction.importType).toBe("DEGREE_AUDIT_EXPORT");
+    expect(extraction.records).toHaveLength(4);
+    expect(extraction.records[0]).toMatchObject({
+      status: "COMPLETED",
+      course_code: "ACCT 2200",
+      course_title: "Principles of Accounting I",
+      grade: "A-",
+      term_code: "2025FAW",
+      credits: "3",
+    });
+    expect(extraction.records[1]).toMatchObject({
+      status: "REGISTERED",
+      course_code: "FIN 3311",
+      course_title: "Corporate Finance II",
+      term_code: "2026FAW",
+      credits: "3",
+    });
+    expect(extraction.records[3]).toMatchObject({
+      status: "NOT_STARTED",
+      course_code: "MGS 3040",
+      course_title: "Management Information Systems",
+    });
+    expect(extraction.diagnostics).toMatchObject({
+      currentUrl: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress`,
+      detectedPageType: "KEAN_MY_PROGRESS_PAGE",
+      matchedPageMarker: "MyProgress",
+      tablesFound: 0,
+      rowsFound: 5,
+      visibleTextLength: textOnly(fixture("kean-my-progress-row-blocks.html"))
+        .length,
+      rowLikeBlocksFound: 5,
+      directSnapshotRan: true,
+      bounded: false,
+    });
+  });
+
+  it("extracts the sanitized Kean Finance MyProgress summary, progress bar, and provenance", () => {
+    const visibleText = textOnly(
+      fixture("kean-my-progress-finance-summary.html"),
+    );
+    const extraction = extractAcademicPageFromTables({
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      tables: tablesFromFixture("kean-my-progress-finance-summary.html"),
+      headings: [
+        "My Progress",
+        "Finance, BS",
+        "GE Foundation Requirements 13 S.H.",
+      ],
+      visibleText,
+      snapshotMetadata: {
+        directSnapshotRan: true,
+        visibleTextLength: visibleText.length,
+        rowLikeBlocksFound: 0,
+        bounded: false,
+      },
+    });
+    const content = JSON.parse(extraction.content);
+
+    expect(extraction.pageType).toBe("KEAN_MY_PROGRESS_PAGE");
+    expect(extraction.importType).toBe("DEGREE_AUDIT_EXPORT");
+    expect(extraction.requiresReview).toBe(true);
+    expect(content.programSummary).toMatchObject({
+      programName: "Finance, BS",
+      degree: "Bachelor of Science",
+      major: "Finance",
+      department: "Accounting & Finance",
+      catalogYear: 2024,
+      cumulativeGpa: 3.916,
+      institutionGpa: 3.916,
+      anticipatedCompletionDate: "12/20/2028",
+    });
+    expect(content.creditSummary).toMatchObject({
+      totalAppliedCredits: 104,
+      totalRequiredCredits: 120,
+      completedCredits: 67,
+      inProgressCredits: 24,
+      plannedCredits: 13,
+      remainingCredits: 16,
+    });
+    expect(content.creditSummary.completionPercent).toBeCloseTo(86.67, 2);
+    expect(content.progressBarSegments).toEqual([
+      expect.objectContaining({
+        value: 67,
+        classification: "COMPLETED",
+        requiresReview: false,
+      }),
+      expect.objectContaining({
+        value: 24,
+        classification: "IN_PROGRESS",
+        requiresReview: false,
+      }),
+      expect.objectContaining({
+        value: 13,
+        classification: "PLANNED",
+        requiresReview: false,
+      }),
+    ]);
+    expect(content.fieldProvenance.completedCredits).toMatchObject({
+      value: 67,
+      rawText: "67",
+      confidence: "high",
+      requiresReview: false,
+    });
+    expect(content.requirementGroups[0]).toMatchObject({
+      name: "GE Foundation Requirements 13 S.H.",
+      statusText: "GE*1000/3000 4 of 5 Completed 13",
+    });
+    expect(content.validation).toMatchObject({
+      status: "AUTO_VERIFIED",
+      exceptionCount: 0,
+      downstreamAnalysisAllowed: true,
+    });
+    expect(content.rawSnapshot).toMatchObject({
+      pageTitle: "MyProgress",
+      pageUrl: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress`,
+      diagnostics: expect.objectContaining({
+        tableCount: 1,
+        rowCount: 1,
+        requirementGroupCount: 1,
+        courseLikeRowCount: 1,
+        truncated: false,
+      }),
+    });
+    expect(content.rawSnapshot.visibleTextSample).toContain("Finance, BS");
+    expect(content.rawSnapshot.progressBarText).toBe("67 24 13");
+  });
+
+  it("rejects page-wide navigation and requirement prose as authoritative program fields", () => {
+    const visibleText = [
+      "Degree | Transfer Summary | View Academic Calendars | My Progress Search for Courses by Keyword Mock Finance, BS (1 of 1 programs) At a Glance Print Print my progress",
+      "Notes Show Program Notes Program Completion must be verified by the Registrar. Progress",
+      "Catalog 2024 Cumulative GPA 3.5 Institution GPA 3.4 Anticipated Completion Date 12/20/2028 Alternate",
+      "Total Credits 104 of 120 67 24 13",
+      "Major Requirements 55 S.H. Complete all requirements. Status Course Grade Term Credits Completed FIN*3000 Mock Course A 2025FA 3",
+    ].join(" ");
+    const extraction = extractAcademicPageFromTables({
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.MOCK.24`,
+      tables: tablesFromFixture("kean-my-progress-finance-summary.html"),
+      headings: ["My Progress", "General Education Requirements"],
+      visibleText,
+      snapshotMetadata: {
+        directSnapshotRan: true,
+        visibleTextLength: visibleText.length,
+        rowLikeBlocksFound: 0,
+        bounded: false,
+      },
+    });
+    const content = JSON.parse(extraction.content);
+
+    expect(content.programSummary).not.toHaveProperty("programName");
+    expect(content.programSummary).not.toHaveProperty("degree");
+    expect(content.programSummary).not.toHaveProperty("major");
+    expect(content.programSummary).not.toHaveProperty(
+      "anticipatedCompletionDate",
+    );
+    expect(content.fieldProvenance).not.toHaveProperty("programName");
+    expect(content.fieldProvenance).not.toHaveProperty("degree");
+    expect(content.fieldProvenance).not.toHaveProperty("major");
+    expect(content.validation).toMatchObject({
+      status: "FAILED",
+      downstreamAnalysisAllowed: false,
+    });
+    expect(content.validation.exceptions).toContainEqual(
+      expect.objectContaining({ code: "MY_PROGRESS_PROGRAM_MISSING" }),
+    );
+  });
+
+  it("parses colon-delimited GPA fields without guessing a missing catalog year", () => {
+    const visibleText =
+      "My Progress Catalog Year: Not provided Cumulative GPA: 3.5 Institution GPA: 3.4 Total Credits 104 of 120 67 24 13 Requirements";
+    const extraction = extractAcademicPageFromTables({
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#MOCK.PROGRAM.24`,
+      tables: tablesFromFixture("kean-my-progress-finance-summary.html"),
+      headings: ["My Progress", "Mock Finance, BS"],
+      visibleText,
+      snapshotMetadata: {
+        directSnapshotRan: true,
+        visibleTextLength: visibleText.length,
+        rowLikeBlocksFound: 0,
+        bounded: false,
+      },
+    });
+    const content = JSON.parse(extraction.content);
+
+    expect(content.programSummary).toMatchObject({
+      programName: "Mock Finance, BS",
+      cumulativeGpa: 3.5,
+      institutionGpa: 3.4,
+    });
+    expect(content.programSummary).not.toHaveProperty("catalogYear");
+    expect(content.validation).toMatchObject({
+      status: "REQUIRES_EXCEPTION_REVIEW",
+      downstreamAnalysisAllowed: false,
+    });
+    expect(content.validation.exceptions).toContainEqual(
+      expect.objectContaining({
+        code: "MY_PROGRESS_CATALOG_YEAR_MISSING",
+        severity: "WARNING",
+      }),
+    );
+    expect(content.validation.exceptions).not.toContainEqual(
+      expect.objectContaining({ code: "MY_PROGRESS_CUMULATIVE_GPA_INVALID" }),
+    );
+    expect(content.validation.exceptions).not.toContainEqual(
+      expect.objectContaining({ code: "MY_PROGRESS_INSTITUTION_GPA_INVALID" }),
+    );
+  });
+
+  it("keeps a summary-only MyProgress extraction eligible for staging", () => {
+    const visibleText = textOnly(
+      fixture("kean-my-progress-finance-summary.html"),
+    );
+    const extraction = extractAcademicPageFromTables({
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      tables: tablesFromFixture("kean-my-progress-finance-summary.html"),
+      visibleText,
+      headings: ["My Progress", "Finance, BS"],
+    });
+
+    expect(hasStagedImportContent(extraction)).toBe(true);
+    const [request] = createDataImportRequestsFromExtractions("student", [
+      extraction,
+    ]);
+    expect(request).toMatchObject({
+      page_type: "KEAN_MY_PROGRESS_PAGE",
+      extracted_record_count: extraction.records.length,
+    });
+  });
+
+  it("retains bounded evidence for malformed MyProgress rows", () => {
+    const extraction = extractAcademicPageFromTables({
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress`,
+      tables: [
+        {
+          index: 0,
+          caption: "Major Requirements",
+          headers: ["Status", "Course", "Title", "Grade", "Term", "Credits"],
+          rows: [["Completed", "", "Unparseable visible row", "", "", ""]],
+        },
+      ],
+    });
+    const content = JSON.parse(extraction.content) as {
+      rawSnapshot: { diagnostics: { malformedRows: string[] } };
+    };
+
+    expect(extraction.warnings.map((warning) => warning.code)).toContain(
+      "MY_PROGRESS_MALFORMED_ROWS",
+    );
+    expect(content.rawSnapshot.diagnostics.malformedRows).toContain(
+      "Completed Unparseable visible row",
+    );
+  });
+
+  it("retains duplicate rows and requires exception review", () => {
+    const snapshot = {
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress`,
+      tables: [
+        {
+          index: 0,
+          caption: "Major Requirements",
+          headers: ["Status", "Course", "Title", "Grade", "Term", "Credits"],
+          rows: [
+            ["Completed", "FIN*300", "Managerial Finance", "A", "2024FA", "3"],
+            ["Completed", "FIN*300", "Managerial Finance", "A", "2024FA", "3"],
+          ],
+        },
+      ],
+      visibleText:
+        "Program Finance, BS Catalog 2024 Cumulative GPA 3.2 Institution GPA 3.2 Total Credits 6 of 120 3 0 3",
+    };
+    const extraction = extractAcademicPageFromTables(snapshot);
+    const content = JSON.parse(extraction.content) as {
+      rawSnapshot: {
+        diagnostics: {
+          duplicateRowCount: number;
+          duplicateRows: string[];
+        };
+      };
+      fieldProvenance: Record<string, { valueType: string }>;
+      validation: { status: string };
+    };
+
+    expect(extraction.records).toHaveLength(2);
+    expect(content.rawSnapshot.diagnostics.duplicateRowCount).toBe(1);
+    expect(content.rawSnapshot.diagnostics.duplicateRows).toHaveLength(1);
+    expect(content.fieldProvenance.remainingCredits?.valueType).toBe("DERIVED");
+    expect(content.validation.status).toBe("REQUIRES_EXCEPTION_REVIEW");
+  });
+
+  it("extracts sanitized Kean MyProgress course rows across visible requirement tables", () => {
+    const extraction = extractFixture(
+      "kean-my-progress-multi-table-page.html",
+      {
+        title: "MyProgress",
+        url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.MOCK.24`,
+      },
+    );
+
+    expect(extraction.pageType).toBe("KEAN_MY_PROGRESS_PAGE");
+    expect(extraction.importType).toBe("DEGREE_AUDIT_EXPORT");
+    expect(extraction.records).toHaveLength(7);
+    expect(extraction.records.map((record) => record.status)).toEqual([
+      "COMPLETED",
+      "REGISTERED",
+      "PLANNED",
+      "IN_PROGRESS",
+      "NOT_STARTED",
+      "ATTEMPTED",
+      "FULLY_PLANNED",
+    ]);
+    expect(extraction.records[1]).toMatchObject({
+      requirements: "Business Core Requirements",
+      requirement_section: "Business Core Requirements",
+      status: "REGISTERED",
+      raw_course_code: "FIN*3311",
+      course_code: "FIN 3311",
+      course_title: "Mock Corporate Finance II",
+      grade: "",
+      term_code: "2026FAW",
+      credits: "3",
+      source_page_type: "KEAN_MY_PROGRESS_PAGE",
+      type: "DEGREE_AUDIT_EXPORT",
+    });
+    const math1044 = extraction.records.find(
+      (record) => record.raw_course_code === "MATH*1044",
+    );
+    expect(math1044).toMatchObject({
+      requirements: "Economics Requirements",
+      requirement_section: "Economics Requirements",
+      status: "NOT_STARTED",
+      raw_course_code: "MATH*1044",
+      course_code: "MATH 1044",
+      course_title: "Precalculus for Business",
+      grade: "",
+      term_code: "",
+      credits: "",
+    });
+    const eng2403 = extraction.records.find(
+      (record) => record.raw_course_code === "ENG*2403",
+    );
+    expect(eng2403).toMatchObject({
+      requirements: "Open Electives Requirements",
+      requirement_section: "Open Electives Requirements",
+      status: "FULLY_PLANNED",
+      raw_course_code: "ENG*2403",
+      course_code: "ENG 2403",
+      course_title: "World Literature",
+      term_code: "2026FAW",
+      credits: "3",
+    });
+    expect(extraction.diagnostics).toMatchObject({
+      academicTablesDetected: 3,
+      academicTablesParsed: 3,
+      academicRowsParsed: 7,
+      academicRowsSkipped: 0,
+      academicRowsCapped: 0,
+      parserWarningCodes: [],
+    });
+    const content = JSON.parse(extraction.content);
+    expect(content.courseRows).toHaveLength(7);
+    expect(content.courseRows[4]).toMatchObject({
+      course_code: "MATH 1044",
+      source_table_index: "2",
+      source_row_index: "3",
+      raw_row_text: expect.stringContaining("MATH*1044"),
+      field_provenance: expect.objectContaining({
+        course_code: expect.objectContaining({
+          value: "MATH*1044",
+          rawText: expect.stringContaining("MATH*1044"),
+          source: "visible table 2 row 3",
+          confidence: "high",
+          requiresReview: false,
+        }),
+      }),
+    });
+    expect(content.diagnostics).toMatchObject({
+      detectedPageType: "KEAN_MY_PROGRESS_PAGE",
+      academicRowsParsed: 7,
+    });
+    expect(content.warnings).toEqual(extraction.warnings);
+
+    const request = createDataImportRequestFromExtraction(
+      "00000000-0000-4000-8000-000000000702",
+      extraction,
+    );
+    expect(request).toMatchObject({
+      source_type: "BROWSER_EXTENSION",
+      page_type: "KEAN_MY_PROGRESS_PAGE",
+      extracted_record_count: 7,
+      visible_row_count: 7,
+      academic_field_count: extraction.diagnostics.extractedAcademicFieldCount,
+      bounded: false,
+      truncated: false,
+    });
+    expect(request.warnings).toEqual(extraction.warnings);
+    expect(request.diagnostics).toEqual(extraction.diagnostics);
+  });
+
+  it("warns when MyProgress table parsing is partial while preserving bounded diagnostics", () => {
+    const extraction = extractAcademicPageFromTables({
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.MOCK.24`,
+      tables: [
+        {
+          index: 0,
+          caption: "Mock Requirement",
+          headers: ["Status", "Course", "Title", "Grade", "Term", "Credits"],
+          rows: [
+            [
+              "Completed",
+              "ACCT*2200",
+              "Mock Accounting Foundations",
+              "A-",
+              "2025FAW",
+              "3",
+            ],
+            ["Planned", "", "Missing mock course code", "", "2026FAW", "3"],
+          ],
+        },
+      ],
+      warnings: [
+        {
+          code: "EXTRACTION_LIMIT_REACHED",
+          severity: "WARNING",
+          message:
+            "Extraction stopped early because the page is large. Try expanding only the relevant section or use a more specific supported page.",
+        },
+      ],
+      snapshotMetadata: {
+        directSnapshotRan: true,
+        bounded: true,
+      },
+    });
+
+    expect(extraction.records).toHaveLength(1);
+    expect(extraction.warnings.map((warning) => warning.code)).toEqual(
+      expect.arrayContaining([
+        "EXTRACTION_LIMIT_REACHED",
+        "MY_PROGRESS_ROWS_SKIPPED",
+        "MY_PROGRESS_PARTIAL_TABLE_PARSE",
+      ]),
+    );
+    expect(extraction.warnings).toContainEqual(
+      expect.objectContaining({
+        code: "MY_PROGRESS_PARTIAL_TABLE_PARSE",
+        message:
+          "Only a subset of visible MyProgress rows was parsed. Some requirement tables may need parser support.",
+      }),
+    );
+    expect(extraction.diagnostics).toMatchObject({
+      academicTablesDetected: 1,
+      academicTablesParsed: 1,
+      academicRowsParsed: 1,
+      academicRowsSkipped: 1,
+      academicRowsCapped: 0,
+      parserWarningCodes: expect.arrayContaining([
+        "MY_PROGRESS_ROWS_SKIPPED",
+        "MY_PROGRESS_PARTIAL_TABLE_PARSE",
+      ]),
+      bounded: true,
+      directSnapshotRan: true,
+    });
+  });
+
+  it("blocks a MyProgress handoff if preview rows are missing from submitted content", () => {
+    const extraction = extractAcademicPageFromTables({
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.MOCK.24`,
+      tables: [
+        {
+          index: 0,
+          caption: "Mock Requirement",
+          headers: ["Status", "Course", "Title", "Grade", "Term", "Credits"],
+          rows: [
+            [
+              "Not Started",
+              "MATH*1044",
+              "Precalculus for Business",
+              "",
+              "",
+              "3",
+            ],
+          ],
+        },
+      ],
+    });
+
+    expect(() =>
+      createDataImportRequestFromExtraction(
+        "00000000-0000-4000-8000-000000000702",
+        {
+          ...extraction,
+          content: JSON.stringify({
+            source_type: "BROWSER_EXTENSION",
+            staging_only: true,
+            page_type: "KEAN_MY_PROGRESS_PAGE",
+            courseRows: [],
+          }),
+        },
+      ),
+    ).toThrow(
+      "Preview data was lost before submission. Please re-extract the page.",
+    );
+  });
+
+  it("preserves direct snapshot diagnostics when MyProgress parsing finds no course rows", () => {
+    const visibleText = "My Progress Requirements Cumulative GPA Total Credits";
+    const extraction = extractAcademicPageFromTables({
+      title: "My Progress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      tables: [],
+      visibleText,
+      rowLikeBlocks: [{ index: 0, text: "Requirements" }],
+      snapshotMetadata: {
+        directSnapshotRan: true,
+        visibleTextLength: visibleText.length,
+        rowLikeBlocksFound: 1,
+      },
+    });
+
+    expect(extraction.pageType).toBe("KEAN_MY_PROGRESS_PAGE");
+    expect(extraction.importType).toBe("DEGREE_AUDIT_EXPORT");
+    expect(extraction.records).toHaveLength(0);
+    expect(extraction.requiresReview).toBe(true);
+    expect(extraction.diagnostics).toMatchObject({
+      currentUrl: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress`,
+      detectedPageType: "KEAN_MY_PROGRESS_PAGE",
+      tablesFound: 0,
+      rowsFound: 1,
+      visibleTextLength: visibleText.length,
+      rowLikeBlocksFound: 1,
+      directSnapshotRan: true,
+    });
+    expect(JSON.parse(extraction.content).validation).toMatchObject({
+      status: "FAILED",
+      downstreamAnalysisAllowed: false,
+    });
+    expect(extraction.warnings.map((warning) => warning.code)).toContain(
+      "MY_PROGRESS_PROGRAM_MISSING",
+    );
+  });
+
+  it("creates confirmed guided Kean import requests without cookies or session data", () => {
+    const extractions = [
+      extractFixture("kean-transcript-page.html", {
+        title: "Unofficial Transcript",
+        url: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory`,
+      }),
+      extractFixture("kean-my-progress-page.html", {
+        title: "MyProgress",
+        url: `${KEAN_STUDENT_PORTAL_PREFIX}/MyProgress`,
+      }),
+      extractFixture("kean-section-search-page.html", {
+        title: "Section Search",
+        url: `${KEAN_STUDENT_PORTAL_PREFIX}/SectionSearch`,
+      }),
+    ];
+
+    const requests = createDataImportRequestsFromExtractions(
+      "00000000-0000-4000-8000-000000000702",
+      extractions,
+    );
+
+    expect(requests).toHaveLength(3);
+    expect(requests.map((request) => request.import_type)).toEqual([
+      "UNOFFICIAL_TRANSCRIPT",
+      "DEGREE_AUDIT_EXPORT",
+      "SECTION_SCHEDULE",
+    ]);
+    expect(
+      requests.every((request) => request.source_type === "BROWSER_EXTENSION"),
+    ).toBe(true);
+    expect(
+      requests.every((request) =>
+        request.source_reference.includes(KEAN_SOURCE_LABEL),
+      ),
+    ).toBe(true);
+    expect(JSON.stringify(requests).toLowerCase()).not.toMatch(
+      /cookie|session|token|secret|hidden-field-value/,
+    );
+  });
+
+  it("does not scan Kean host pages outside the Student portal prefix", () => {
+    const extraction = extractFixture("kean-transcript-page.html", {
+      title: "Kean Billing",
+      url: "https://kean-ss.colleague.elluciancloud.com/Finance/Billing",
+    });
+
+    expect(extraction.pageType).toBe("UNKNOWN_PAGE");
+    expect(extraction.records).toHaveLength(0);
+    expect(extraction.warnings.map((warning) => warning.code)).toContain(
+      "OUTSIDE_KEAN_STUDENT_PORTAL",
+    );
+  });
+
+  it("ignores Kean login, hidden, personal, financial, and action-only data", () => {
+    const login = extractFixture("kean-login-page.html", {
+      title: "Kean Login",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Account/Login`,
+    });
+    const hidden = extractFixture("kean-hidden-credential-fields.html", {
+      title: "Unofficial Transcript",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory`,
+    });
+    const personal = extractFixture("kean-personal-financial-columns.html", {
+      title: "Unofficial Transcript",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory`,
+    });
+    const actions = extractFixture("kean-registration-actions-page.html", {
+      title: "Section Search",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/SectionSearch`,
+    });
+
+    expect(login.pageType).toBe("UNKNOWN_PAGE");
+    expect(login.records).toHaveLength(0);
+    expect(hidden.records[0]).toMatchObject({
+      course_code: "MATH 1054",
+      course_title: "Mock Precalculus",
+    });
+    const serialized = JSON.stringify([login, hidden, personal, actions]);
+    expect(serialized).not.toContain("do-not-read-password");
+    expect(serialized).not.toContain("hidden-field-value");
+    expect(serialized).not.toContain("mock.student@example.edu");
+    expect(serialized).not.toContain("$500.00");
+    expect(serialized).not.toContain("Add Section");
+    expect(serialized).not.toContain("Drop Section");
+    expect(actions.records[0]).not.toHaveProperty("registration_action");
+    expect(actions.records[0]).not.toHaveProperty("form_action");
+  });
+
+  it("keeps diagnostic metadata free of credentials, cookies, tokens, and row payloads", () => {
+    const extraction = extractFixture("kean-hidden-credential-fields.html", {
+      title: "Unofficial Transcript",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory?session=do-not-copy`,
+    });
+
+    expect(extraction.diagnostics).toMatchObject({
+      currentUrl: `${KEAN_STUDENT_PORTAL_PREFIX}/AcademicHistory`,
+      detectedPageType: "KEAN_TRANSCRIPT_PAGE",
+      matchedPageMarker: "AcademicHistory",
+      tablesFound: 1,
+      rowsFound: 1,
+      ignoredSensitiveFieldCount: 0,
+    });
+    expect(JSON.stringify(extraction.diagnostics).toLowerCase()).not.toMatch(
+      /password|cookie|token|session|hidden-field-value|do-not-read-password/,
+    );
+  });
+
+  it("preserves bounded extraction warnings in diagnostics", () => {
+    const extraction = extractAcademicPageFromTables({
+      title: "MyProgress",
+      url: `${KEAN_STUDENT_PORTAL_PREFIX}/Planning/Programs/MyProgress#BS.FINANCE.24`,
+      tables: tablesFromFixture("kean-my-progress-page.html"),
+      warnings: [
+        {
+          code: "EXTRACTION_LIMIT_REACHED",
+          severity: "WARNING",
+          message:
+            "Extraction stopped early because the page is large. Try expanding only the relevant section or use a more specific supported page.",
+        },
+      ],
+    });
+
+    expect(extraction.warnings.map((warning) => warning.code)).toContain(
+      "EXTRACTION_LIMIT_REACHED",
+    );
+    expect(extraction.diagnostics.warningCodes).toContain(
+      "EXTRACTION_LIMIT_REACHED",
+    );
+    expect(extraction.diagnostics.bounded).toBe(true);
+  });
+});

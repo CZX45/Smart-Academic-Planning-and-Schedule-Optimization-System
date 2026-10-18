@@ -1,0 +1,215 @@
+# Security and Privacy
+
+## 1. Guiding Principles
+
+- Collect the least student data needed to provide planning guidance.
+- Do not store school account passwords, SAML tokens, MFA secrets, or session cookies.
+- Do not bypass authentication or school access controls.
+- Keep student records private by default.
+- Mark every recommendation with confidence and source context.
+
+## 2. Sensitive Data
+
+Potentially sensitive data includes:
+
+- Student identity and contact information.
+- Student ID or school identifier.
+- Course history, grades, GPA, transfer credits, waivers, and academic standing.
+- Declared majors, minors, certificates, and expected graduation term.
+- Advisor notes and review comments.
+- Browser-extension extracted page content.
+- Data import preview content, normalized imported payload snippets, mapping candidates, and validation warnings.
+
+## 3. Credential Policy
+
+The system must never ask users to provide school passwords. Browser extension functionality, when implemented, must operate only on pages the user has already opened after authenticating directly with the school.
+
+## 4. Browser Extension Constraints
+
+The extension must:
+
+- Use Chrome Extension Manifest V3.
+- Require explicit user action before reading page content.
+- Read only the currently user-authorized tab. A user-started full-Catalog run
+  may navigate that tab only through reviewed visible GET search and explicit
+  pagination controls on the whitelisted Kean Catalog paths.
+- For Phase 11B Kean import, restrict extraction to
+  `https://kean-ss.colleague.elluciancloud.com/Student/*` and configured
+  academic-planning page definitions.
+- Show a preview before sending extracted data to the backend.
+- Send confirmed data only as non-official staging import data.
+- Send academic staging data only to the paired local app at an explicit
+  `http://localhost[:port]` or `http://127.0.0.1[:port]` root. The Extension
+  must not accept bearer tokens or provide a direct LAN/cloud import path.
+- Avoid secret, unbounded, or scheduled background scraping. A full-Catalog run
+  must start with one explicit user click, persist every transition, expose
+  Pause/Resume/Cancel in an extension-owned monitor, and stop fail-closed on
+  school errors or rate limits. Popup closure and switching to another tab do
+  not transfer authorization or cancel the run; only the original tab ID may
+  be used. Closing or navigating that tab away pauses the run, and the
+  Extension never opens an authenticated school page on the user's behalf.
+- Avoid high-frequency polling.
+- Avoid credential storage, password-field reading, SAML/MFA/CAPTCHA bypass,
+  registration, drop, swap, waitlist, seat-state automation, or mutating form
+  automation. The sole Catalog exception is the reviewed visible GET search and
+  pagination flow; it writes no provider state.
+
+## 5. Data Accuracy Risk
+
+Academic requirements are high-impact. Incorrect results may delay graduation, affect tuition, or cause registration mistakes. Mitigations:
+
+- Store source metadata for every official rule.
+- Display confidence levels.
+- Separate mock, student-entered, inferred, advisor-confirmed, and official data.
+- Require advisor confirmation messaging for high-risk results.
+- Treat academic plans as advisory course-level snapshots; never convert them into add/drop/swap, waitlist, seat-state automation, or registration actions.
+- Treat Phase 7A data imports as staging-only previews. Do not mark imported data official, and do not apply it to transcript, catalog, section, requirement, seat, waitlist, or registration tables.
+- Treat Phase 7B review applications as explicit, audited, non-official internal planning writes. Confirmed unofficial transcript course attempts may create `student_course_attempts` with `is_official = false`, source metadata, duplicate checks, and applied-record logs. Do not use Phase 7B to create official transcript, catalog, section, seat, waitlist, advisor-approval, or registration state.
+- Treat Phase 8A browser-extension imports as visible-page staging extracts with `source_type = BROWSER_EXTENSION`, `is_official = false`, and required Phase 7B review. Do not store raw HTML by default, do not read password fields, and do not claim extracted rows are official school policy.
+- Treat Phase 8B section monitoring as advisory comparison of user-triggered non-official snapshots. Do not run background polling, refresh school pages automatically, alter seat or waitlist state, submit forms, or claim alerts are official portal status.
+- Treat Phase 9A product-hardening UI as clarity-only work. Status cards, empty states, labels, and manual checklists must not add credential capture, portal submission, polling, background scraping, registration automation, waitlist automation, or seat-state changes.
+- Treat Phase 9B as hardening-only work. Environment validation, safe HTTP headers, CORS tightening, audit logging, data-retention documentation, and safety regression tests must not add new academic authority, official imports, account systems, telemetry, registration automation, polling, portal submission, or deployment.
+- Treat Phase 10A as release-readiness QA and final product review only. Release docs, demo scenarios, checklist review, and safety audit must not add new academic authority, official imports, account systems, telemetry, registration automation, polling, portal submission, credential handling, or deployment.
+- Treat Phase 11B Kean Student Portal imports as user-authorized,
+  browser-extension staging imports. Kean rows must keep
+  `source_type = BROWSER_EXTENSION`, `is_official = false`,
+  `official_application_ready = false`, `source_label = KEAN_STUDENT_PORTAL`
+  in preview metadata, and Phase 7B review required before planning use.
+- Treat Phase 15B full-Catalog capture as a user-initiated bounded read. The
+  first real run is limited to two subjects; full traversal remains locked
+  until that bounded run completes. Require concurrency 1, maximum
+  subject/page/record and runtime limits, event-driven page-ready checkpoints,
+  persisted progress, explicit cancellation, exact course-code deduplication,
+  raw requisite preservation, and `provider_actions_written = NO`. A bounded
+  content-page observer may signal page readiness or timeout, but it must not
+  poll the school. Apply only inside the isolated local app after deterministic
+  confirmation and dry-run; never infer ProgramVersion, catalog year, or
+  verified policy.
+- Treat Phase 12A authentication as an application-access foundation, not a
+  school-login workflow. The backend stores only API token hashes and explicit
+  student-profile access grants. It must not collect school passwords, portal
+  cookies, SAML tokens, MFA secrets, or browser-storage authentication material.
+- Maintain regression fixtures for every catalog/program version.
+
+## 6. Privacy Controls
+
+Recommended controls:
+
+- User-owned planning sessions.
+- Role-based access for student, advisor, and administrator roles.
+- Tenant and object-level authorization for every student-owned API object.
+- Hashed, revocable, expirable bearer API tokens for production API access.
+- Encrypted transport.
+- Encryption at rest for sensitive fields where appropriate.
+- Audit logs for advisor/admin access.
+- Data export and deletion workflows.
+- Short retention for raw imported page snapshots.
+- Prefer metadata-only storage for Phase 7A uploads. If a future workflow stores raw imported files or browser-extracted snapshots, enforce short retention, encryption, explicit user review, and source labels.
+- Keep imported academic data user-triggered, non-official, and review-gated until a future reviewed official-source workflow exists.
+- Plan future user-facing deletion/export controls for import runs, review decisions, generated planning snapshots, and browser-extension staging records before handling real institutional data.
+
+## 7. Threats and Mitigations
+
+| Threat                                            | Mitigation                                                                                                                                                                                                                             |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Credential theft                                  | Never collect credentials; avoid storing cookies/tokens.                                                                                                                                                                               |
+| Overbroad extension access                        | Use narrow permissions and user-triggered extraction. For Kean, request only the optional Kean host permission and enforce the `/Student/` prefix and page whitelist in code.                                                          |
+| Incorrect academic advice                         | Source versioning, confidence levels, advisor-confirmation warnings, tests.                                                                                                                                                            |
+| Unauthorized advisor access                       | Role-based access control and audit logging.                                                                                                                                                                                           |
+| Cross-student object access                       | Resolve student-owned object IDs back to `student_profile_id` and require an explicit grant, tenant-admin institution scope, or system-admin role before returning or mutating data.                                                   |
+| Data leakage in logs                              | Structured logging with redaction.                                                                                                                                                                                                     |
+| Prompt or fixture confusion                       | Clearly label mock data and never call it official.                                                                                                                                                                                    |
+| Excessive school-system requests                  | No high-frequency polling; backoff and user-controlled refresh.                                                                                                                                                                        |
+| Imported data mistaken for official policy        | Keep Phase 7A imports in staging tables, force `official_application_ready = false`, emit preview disclaimers, require Phase 7B review decisions, keep applied planning records non-official, and require advisor/school confirmation. |
+| Review application creates unsafe records         | Allow application only through explicit POST, support dry-run with no domain writes, skip unsupported/duplicate/advisor-review records with reason codes, and audit every applied or skipped record.                                   |
+| Browser extension overreach                       | Keep permissions minimal, avoid host permissions, require user action and confirmation, extract visible table text only, do not store credentials or raw HTML by default, and keep all data in staging import until review.            |
+| Section monitoring mistaken for live registration | Store only non-official advisory snapshots, require manual verification messaging, deduplicate imported snapshots, avoid background polling, and provide no portal-action endpoints or extension code.                                 |
+| Misconfigured production environment              | Validate environment, database URL scheme, production database defaults, CORS origins, public API URL, and safe HTTP headers before serving traffic.                                                                                   |
+| Sensitive data leakage through logs               | Log low-sensitivity event metadata only: IDs, source type, import type, counts, statuses, and reason codes. Do not log raw import content, HTML, credentials, tokens, passwords, or full academic records.                             |
+| API token disclosure                              | Store only token hashes server-side, reject short tokens, and support revocation/expiration metadata. The browser Extension has no bearer-token entry or non-local API handoff path.                                                   |
+| LOCAL_DESKTOP request forgery/replay              | Enforce the active loopback Host/port, explicit desktop or paired Extension Origin, pairing-only Extension credential, bounded nonce/timestamp replay checks, and failed-request rate limits.                                          |
+
+## 8. Compliance Considerations
+
+Future deployment may need FERPA-aware handling, institutional data agreements, retention policies, and advisor access controls. The MVP should be designed so these controls can be added without reworking core data boundaries.
+
+## 9. Phase 9B Production Readiness Checklist
+
+Before production-like deployment, confirm:
+
+- `ENVIRONMENT` is explicit and is not accidentally left as `development`.
+- `DATABASE_URL` is a PostgreSQL psycopg URL and does not use local development credentials in production.
+- `CORS_ORIGINS` contains only explicit origins; production origins use HTTPS and are not localhost.
+- `NEXT_PUBLIC_API_BASE_URL` is an `http` or `https` URL without embedded credentials.
+- `PRODUCT_MODE=SERVER` requires `AUTH_MODE=bearer`; `PRODUCT_MODE=LOCAL_DESKTOP`
+  is a valid loopback-only runtime even when `ENVIRONMENT=production`.
+- `LOCAL_DESKTOP` uses an explicit `LocalRuntimeContext` and does not query
+  tenant, user, token, or student-access authorization tables.
+- `API_HOST` is loopback-only in `LOCAL_DESKTOP`; Docker explicitly selects
+  `SERVER` and publishes its default host port on `127.0.0.1`.
+- Production API tokens are provisioned outside the app, stored only as hashes,
+  and scoped through `student_profile_access_grants`, tenant-admin institution
+  scope, or system-admin authority.
+- Database migrations and Alembic drift checks pass.
+- OpenAPI generation and OpenAPI drift checks pass.
+- Unit, integration, e2e, lint, typecheck, format, build, and Docker Compose checks pass.
+- Browser extension permissions are manually reviewed for no broad host access,
+  no alarms or periodic school polling, and only the extension-owned Side Panel
+  permission used for the persistent batch monitor.
+- Kean import permission review confirms no `<all_urls>`, no broad host
+  permissions, and only the optional Kean host permission needed for guided
+  import.
+- No `.env`, credential, portal secret, production database secret, real student record dump, or school password is committed.
+- Security/privacy review confirms no registration automation, add/drop, swap, waitlist automation, seat reservation, seat grabbing, portal submission, scraping, polling, credential capture, hidden automation, or external telemetry was added.
+
+## 10. Phase 10A Final Safety Boundary Audit
+
+Before demo or handoff review, confirm:
+
+- Release QA docs cover user journeys without treating mock, imported, inferred, or ambiguous data as official school policy.
+- Demo scenarios use imported snapshot, advisory alert, manual review required, read-only imported data, non-official data, and verify in the official portal language.
+- No portal credentials are stored.
+- No password fields are extracted.
+- No SAML/MFA/CAPTCHA bypass exists.
+- No portal form submission exists.
+- No background scraping exists.
+- No polling exists.
+- No automatic registration exists.
+- No add/drop/swap automation exists.
+- No waitlist automation exists.
+- No seat reservation exists.
+- No seat grabbing exists.
+- No browser-store publishing exists.
+- No hidden automation exists.
+- No external telemetry exists without explicit approval.
+- No real production deployment exists without explicit approval.
+
+## 11. Applied Course-State Privacy Boundary
+
+Course-state application persists only normalized academic fields and the
+already-sanitized provenance supplied by the staging import. It does not add
+credential, cookie, token, authentication-header, browser-storage, or portal
+request capture. API responses label snapshots non-official and advisory.
+
+Application is confined to the internal database. It must not submit school
+forms, register, add/drop/swap, join a waitlist, reserve a seat, poll the portal,
+or modify an official academic record. Raw personal portal pages and screenshots
+must not be committed to the repository or CI artifacts.
+
+## 12. Local Onboarding and Extension Profile Discovery
+
+The first-profile endpoint is available only in `LOCAL_DESKTOP`, behind the
+loopback Host/Origin request boundary. `SERVER` returns 404 and continues to use
+bearer, tenant, user, and student-grant authorization. The onboarding request
+cannot set official status, source type, confidence, program, catalog, rule, or
+external student identifiers. User-entered school labels are explicitly
+unverified and must not be treated as school policy.
+
+After pairing, only the Extension background worker can attach the local pairing
+credential, nonce, and timestamp to profile discovery. The popup receives the
+sanitized profile response but not the credential. The request is sent only to
+an explicit localhost API base URL, never to the active school page. A missing
+pairing record fails closed without contacting the API. Zero or multiple
+profiles clear any stale profile selection and leave import disabled; exactly
+one profile may be selected automatically. A callback-scoped local network
+failure returns only the sanitized `local_api_unavailable` reason code.
